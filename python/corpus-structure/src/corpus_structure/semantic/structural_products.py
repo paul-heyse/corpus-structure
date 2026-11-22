@@ -915,13 +915,7 @@ class DeclaredDossierReport(DeclaredStructuralProductReport):
     dossier: DeclaredDossierProduct
     comparison: None = None
     condition_qualification: None = None
-    sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
     components_input: SemanticWholeReference
-    definitions_input: tuple[DeclaredStructuralInputPin, ...] = ()
-    comparisons_input: tuple[DeclaredStructuralInputPin, ...] = ()
-    candidates_input: tuple[DeclaredStructuralInputPin, ...] = ()
-    relationships_input: tuple[DeclaredStructuralInputPin, ...] = ()
-    admissions_input: tuple[DeclaredStructuralInputPin, ...]
 
 
 class DeclaredConditionReport(DeclaredStructuralProductReport):
@@ -995,8 +989,7 @@ class DeclaredDefinitionApplicabilityReport(DeclaredStructuralProductReport):
 
     kind: Literal["definition_applicability"] = "definition_applicability"
     definition: DeclaredDefinitionProduct
-    sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
-    components_input: DeclaredStructuralInputPin
+    components_input: SemanticWholeReference
     relationship_input: SemanticWholeReference
 
 

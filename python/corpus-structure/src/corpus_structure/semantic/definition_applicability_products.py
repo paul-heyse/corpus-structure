@@ -462,8 +462,7 @@ def execute_definition_applicability(
             candidate_targets=(reading.target_id,),
             readings=(reading,),
         ),
-        sources_input=(exact.reference("source"),),
-        components_input=exact.reference("components"),
+        components_input=SemanticReference.whole("components").whole_value(),
         relationship_input=SemanticReference.whole("relationship").whole_value(),
     )
     profile.check_active()

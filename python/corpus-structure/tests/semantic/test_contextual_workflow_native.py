@@ -406,6 +406,8 @@ def test_current_component_applicability_preserves_independent_transfer_unknowns
     assert reading["component_ref"]["product_id"] == case.components.row["product_id"]
     assert reading["link_ref"]["product_id"] == case.relationship.row["product_id"]
     assert report.body["relationship_input"] == {"variant": "product", "role": "relationship"}
+    assert report.body["components_input"] == {"variant": "product", "role": "components"}
+    assert "sources_input" not in report.body
     from corpus_structure.serve.structural_products import (
         SelectedStructuralRequest,
         inspect_selected_structures,

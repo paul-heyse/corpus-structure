@@ -402,15 +402,10 @@ def test_actual_dossier_contract_binds_ordinary_admission_and_exact_output_pins(
     assert admissions.support is not None and admissions.support.identity_requirements == (
         "episode",
     )
-    witness = next(
-        witness for witness in operation.output_witnesses if witness.input_role == "admissions"
-    )
-    assert witness.records == "/admissions_input/*"
-    assert {comparison.output_field for comparison in witness.comparisons} >= {
-        "product_id",
-        "kind_contract",
-        "subject_definition",
-        "analyzed_scope_meaning",
+    witnesses = {witness.input_role: witness.records for witness in operation.output_witnesses}
+    assert witnesses == {
+        "components": "/dossier/root_component",
+        "sources": "/inputs/sources/*",
     }
     assert python_port_identity(model, sources, operation.semantic_id, schema=bundle).recipe
 

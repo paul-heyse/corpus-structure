@@ -52,6 +52,7 @@ def test_controlled_structural_fixture_has_complete_checked_source_and_independe
         DeclaredContributionRef,
         DeclaredStructuralSource,
     )
+    from corpus_structure.semantic.native_source_view import thaw_native
     from corpus_structure.semantic.source_products import FrozenNativeSource
     from corpus_structure.semantic.structural_admission import structural_statement
     from corpus_structure.semantic.structural_products import (
@@ -78,7 +79,9 @@ def test_controlled_structural_fixture_has_complete_checked_source_and_independe
             ],
             items=[dict(self_ref="#/texts/0", label="text", text=TEXT, orig=TEXT, prov=[])],
         )
-        analyzed_scope = dict(source=value.value["source"], selectors=value.value["selectors"])
+        analyzed_scope = thaw_native(
+            dict(source=value.value["source"], selectors=value.value["selectors"])
+        )
         context = dict(
             project_id=PROJECT,
             subject="pure:" + side,
@@ -98,9 +101,7 @@ def test_controlled_structural_fixture_has_complete_checked_source_and_independe
             subject_definition=context["subject_definition"],
             support_references=(),
         )
-        frame = DeclaredNativeFrameSource.acquire(
-            prepared.prepared, value.value, member, project=PROJECT
-        )
+        frame = DeclaredNativeFrameSource.acquire(prepared.prepared, value, member, project=PROJECT)
         values = source_values(
             prepared.prepared,
             prepared.model,
@@ -383,7 +384,7 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
         == canonical_bytes(semantic_value(case["expected"])).decode()
     )
     from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
-    from corpus_structure.semantic.demand_results import read_demand_result
+    from corpus_structure.semantic.demand_results import read_demand_result, stream_selected_support
     from corpus_structure.serve.structural_products import (
         SelectedStructuralAdmissionBinding,
         inspect_selected_structures,
@@ -593,7 +594,24 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
     )
     assert actual_comparison.row["product_id"] == comparison.row["product_id"]
     assert dossier.row["product_id"] == ordinary_dossier.row["product_id"]
-    assert dossier.body["admissions_input"][0]["product_id"] == actual_admission.row["product_id"]
+
+    with kernel.purpose("read").begin() as connection:
+        dossier_page = read_demand_result(
+            connection,
+            complete["demand_id"],
+            project_id=PROJECT,
+            scope={"product_ids": [dossier.row["product_id"]]},
+        )
+        (admission_input,) = (
+            edge["record"]
+            for edge in stream_selected_support(connection, dossier_page, whole_read=True)
+            if edge["relation"] == "ops.data_derivation_input"
+            and edge["record"]["derivation_id"] == dossier.row["derivation_id"]
+            and edge["record"]["role"] == "admissions"
+        )
+    assert admission_input["product_id"] == actual_admission.row["product_id"]
+    assert admission_input["member_id"] is None and admission_input["multiplicity"] == 1
+    assert "admissions_input" not in dossier.body
     assert dossier.body["dossier"]["members"]
     assert all(value["qualification"] == "proposed" for value in dossier.body["dossier"]["members"])
     gap = SelectedGapRequest(

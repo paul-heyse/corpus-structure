@@ -224,8 +224,7 @@ def applicability():
         reports.append(
             DeclaredDefinitionApplicabilityReport(
                 inputs=value,
-                sources_input=tuple(source_pin(source) for source in value.sources),
-                components_input=component_pin,
+                components_input={"variant": "product", "role": "components"},
                 relationship_input={"variant": "product", "role": "relationship"},
                 definition=DeclaredDefinitionProduct(
                     usage_id="usage",

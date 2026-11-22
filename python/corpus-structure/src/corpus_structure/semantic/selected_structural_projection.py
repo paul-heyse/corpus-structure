@@ -88,6 +88,13 @@ def structural_report(scope, selected):
                     )
     if isinstance(root.structural, DeclaredDefinitionApplicabilityReport):
         applicability = root.structural
+        components = require_selected_output_reference(
+            scope,
+            selected,
+            read_semantic_reference(applicability.components_input),
+            path="/components_input",
+            metadata_only=True,
+        )
         relationship = require_selected_output_reference(
             scope,
             selected,
@@ -96,15 +103,16 @@ def structural_report(scope, selected):
             metadata_only=True,
         )
         for reading in applicability.definition.readings:
-            link = reading.link_ref
-            if (link.product_id, link.kind_contract, link.member_id) != (
-                relationship.product_id,
-                relationship.kind_contract,
-                relationship.member_id,
+            for link, original in (
+                (reading.component_ref, components),
+                (reading.link_ref, relationship),
             ):
-                raise ValueError(
-                    "selected applicability link differs from its original relationship input"
-                )
+                if (link.product_id, link.kind_contract, link.member_id) != (
+                    original.product_id,
+                    original.kind_contract,
+                    original.member_id,
+                ):
+                    raise ValueError("selected applicability link differs from its original input")
     if isinstance(root.structural, DeclaredDossierReport):
         dossier = root.structural
         components = require_selected_output_reference(

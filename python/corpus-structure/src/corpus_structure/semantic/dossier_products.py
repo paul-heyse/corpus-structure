@@ -290,8 +290,11 @@ class PreparedDossierInputs:
             # A derived report and its original inputs have distinct declared
             # subjects. Authenticate each complete source pin against the bound
             # dossier sources; keep the output reference in its own native context.
-            if not report.sources_input or any(
-                source_pins.get(pin.reference) != pin for pin in report.sources_input
+            if isinstance(
+                report, (DeclaredDefinitionComponentsReport, DeclaredComparisonReport)
+            ) and (
+                not report.sources_input
+                or any(source_pins.get(pin.reference) != pin for pin in report.sources_input)
             ):
                 raise ValueError(
                     "dossier predecessor differs from its exact bound native source inputs"
@@ -511,22 +514,10 @@ class PreparedDossierInputs:
             check_active=self.check_active,
         )
 
-        def pins(role):
-            return tuple(
-                DeclaredStructuralInputPin.from_bound(member, project=self.context.project_id)
-                for member in self.members(role)
-            )
-
         result = DeclaredDossierReport.model_validate(
             {
                 **value.model_dump(mode="python"),
-                "sources_input": pins("sources"),
                 "components_input": SemanticReference.whole("components").whole_value(),
-                "definitions_input": pins("definitions"),
-                "comparisons_input": pins("comparisons"),
-                "candidates_input": pins("candidates"),
-                "relationships_input": pins("relationships"),
-                "admissions_input": pins("admissions"),
             }
         )
         self.check_active()

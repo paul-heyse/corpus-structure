@@ -144,6 +144,12 @@ class DefinitionApplicabilityOperation:
         "reference_targets": [
             {
                 "output_role": "result",
+                "path": "/components_input",
+                "input_role": "components",
+                "variant": "product",
+            },
+            {
+                "output_role": "result",
                 "path": "/relationship_input",
                 "input_role": "relationship",
                 "variant": "product",
@@ -152,86 +158,7 @@ class DefinitionApplicabilityOperation:
         "output_witnesses": [
             {
                 "output_role": "result",
-                "records": "/sources_input/*",
-                "input_role": "source",
-                "comparisons": [
-                    {
-                        "output_field": "product_id",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "product",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "reference",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "reference",
-                        },
-                        "encoding": "json",
-                    },
-                    {
-                        "output_field": "kind_contract",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "kind_contract",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "project_id",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "project_id",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "subject",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject_definition",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "subject_definition",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "original_source",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "original_source",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "analyzed_scope_meaning",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "analyzed_scope",
-                        },
-                        "encoding": "context-meaning-json",
-                    },
-                ],
-            },
-            {
-                "output_role": "result",
-                "records": "/components_input",
+                "records": "/definition/readings/*/component_ref",
                 "input_role": "components",
                 "comparisons": [
                     {
@@ -244,13 +171,13 @@ class DefinitionApplicabilityOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": "reference",
+                        "output_field": "member_id",
                         "input": {
                             "role": "components",
                             "projection": "selected-input",
-                            "field": "reference",
+                            "field": "member",
                         },
-                        "encoding": "json",
+                        "encoding": "value",
                     },
                     {
                         "output_field": "kind_contract",

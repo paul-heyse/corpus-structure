@@ -331,7 +331,15 @@ def test_dossier_authenticates_source_pins_without_relabelling_derived_output_co
 
     raw, source_pin, output = _run_bound_dossier(monkeypatch)
     report = DeclaredDossierReport.model_validate(raw)
-    assert report.sources_input == (source_pin,)
+    (source,) = report.inputs.sources
+    assert source.source == source_pin.reference
+    assert source.source_product == source_pin.product_id
+    assert source.source_member == source_pin.member_id
+    assert source.kind_contract == source_pin.kind_contract
+    assert source.analyzed_scope_meaning == source_pin.analyzed_scope_meaning
+    assert "sources_input" not in raw
+    with pytest.raises(ValidationError, match="sources_input"):
+        DeclaredDossierReport.model_validate({**raw, "sources_input": [source_pin.model_dump()]})
     assert report.components_input == {"variant": "product", "role": "components"}
     assert report.dossier.root_component.product_id == output.product
     assert report.dossier.root_component.member_id is None

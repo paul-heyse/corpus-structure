@@ -31,19 +31,17 @@ def test_current_definition_workflow_has_actual_source_and_consumer_contracts(pr
         "components",
         "relationship",
     }
-    (target,) = applicability.reference_targets
-    assert (target.output_role, target.path, target.input_role, target.variant) == (
-        "result",
-        "/relationship_input",
-        "relationship",
-        "product",
-    )
-    (link_witness,) = (
-        witness
-        for witness in applicability.output_witnesses
-        if witness.input_role == "relationship"
-    )
-    assert link_witness.records == "/definition/readings/*/link_ref"
+    assert {
+        (target.output_role, target.path, target.input_role, target.variant)
+        for target in applicability.reference_targets
+    } == {
+        ("result", "/components_input", "components", "product"),
+        ("result", "/relationship_input", "relationship", "product"),
+    }
+    assert {item.input_role: item.records for item in applicability.output_witnesses} == {
+        "components": "/definition/readings/*/component_ref",
+        "relationship": "/definition/readings/*/link_ref",
+    }
     for operation in (
         "retrieve.contextual_query/declared",
         "retrieve.contextual_query/selected-context",
@@ -70,7 +68,7 @@ def test_current_definition_workflow_has_actual_source_and_consumer_contracts(pr
         assert model.subject_definition(subject).scope == "project"
 
 
-def test_selected_applicability_resolves_original_whole_relationship(prepared_workflow):
+def test_selected_applicability_resolves_original_whole_inputs(prepared_workflow):
     from dataclasses import asdict
     from types import SimpleNamespace
 
@@ -87,50 +85,63 @@ def test_selected_applicability_resolves_original_whole_relationship(prepared_wo
     contract = next(
         item.key for item in model.identities if item.owner == nominal and item.domain == "kind"
     )
-    (target,) = model.operation(operation).reference_targets
+    targets = model.operation(operation).reference_targets
     _, reports = applicability()
     report = reports[0]
     body = report.model_dump(mode="json", exclude_none=True)
-    link = report.definition.readings[0].link_ref
-    original = {
-        "role": "relationship",
-        "product_id": link.product_id,
-        "position": 0,
-        "multiplicity": 1,
+    (reading,) = report.definition.readings
+    references = {"components": reading.component_ref, "relationship": reading.link_ref}
+    originals = {
+        role: {"role": role, "product_id": ref.product_id, "position": 0, "multiplicity": 1}
+        for role, ref in references.items()
     }
-    use = {"fate": "fulfilled", "derivation_id": "episode", "selection": {"inputs": [original]}}
+    use = {
+        "fate": "fulfilled",
+        "derivation_id": "episode",
+        "selection": {"inputs": list(originals.values())},
+    }
     maps = {
         "ops.demand_use": {"use": use},
         "ops.data_derivation": {"episode": {"release_id": "release"}},
         "sem.data_operation_definition": {
             ("release", operation): {
-                "support_contract": {"reference_targets": [asdict(target)]},
+                "support_contract": {"reference_targets": [asdict(target) for target in targets]},
                 "input_roles": [
                     {
-                        "name": "relationship",
+                        "name": target.input_role,
                         "kind": target.input_kind,
-                        "accepted_kind_contracts": [link.kind_contract],
+                        "accepted_kind_contracts": [references[target.input_role].kind_contract],
                     }
+                    for target in targets
                 ],
             },
         },
-        # Metadata-only authentication should never read the relationship bodies.
+        # Authorizing these whole inputs for metadata must not open their bodies.
         "kb.data_product": {
-            link.product_id: {"project_id": link.project_id, "kind_contract": link.kind_contract},
+            item.product_id: {"project_id": item.project_id, "kind_contract": item.kind_contract}
+            for item in references.values()
         },
         "kb.data_product_member": {},
         "kb.data_product_partition": {},
-        "sem.data_kind_contract": {link.kind_contract: {"kind": target.input_kind}},
+        "sem.data_kind_contract": {
+            reading.component_ref.kind_contract: {
+                "kind": "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport"
+            },
+            reading.link_ref.kind_contract: {
+                "kind": next(
+                    target.input_kind for target in targets if target.input_role == "relationship"
+                )
+            },
+        },
     }
 
-    def original_edges(relation, **fields):
-        assert relation == "ops.data_derivation_input"
-        assert fields == {"derivation_id": "episode", "role": "relationship"}
-        return (original,)
+    def original_edges(relation, *, derivation_id, role):
+        assert (relation, derivation_id) == ("ops.data_derivation_input", "episode")
+        return (originals[role],)
 
     scope = SimpleNamespace(
         model=model,
-        cut=SimpleNamespace(record={"project_id": link.project_id}),
+        cut=SimpleNamespace(record={"project_id": reading.link_ref.project_id}),
         index=SimpleNamespace(mapping=lambda relation, _: maps[relation], rows_for=original_edges),
     )
     selected = SimpleNamespace(
@@ -143,17 +154,22 @@ def test_selected_applicability_resolves_original_whole_relationship(prepared_wo
         body=body,
     )
     assert structural_report(scope, selected) == report
-    use["selection"]["inputs"] = [{**original, "product_id": "equal-content-replacement"}]
-    with pytest.raises(ValueError, match="unavailable in the exact selected use"):
-        structural_report(scope, selected)
+    for role in originals:
+        use["selection"]["inputs"] = [
+            {**edge, "product_id": "equal-content-replacement"} if name == role else edge
+            for name, edge in originals.items()
+        ]
+        with pytest.raises(ValueError, match="unavailable in the exact selected use"):
+            structural_report(scope, selected)
+
     from corpus_structure.semantic.identity import canonical_bytes
 
-    absolute = link.model_dump(mode="json", exclude={"edge_id"})
-    absolute["reference"] = canonical_bytes([link.product_id, None]).decode()
-    with pytest.raises(ValidationError, match="relationship_input"):
-        DeclaredDefinitionApplicabilityReport.model_validate(
-            {**body, "relationship_input": absolute}
-        )
+    for role, ref in references.items():
+        absolute = ref.model_dump(mode="json", exclude={"edge_id", "component_id", "structural_id"})
+        absolute["reference"] = canonical_bytes([ref.product_id, None]).decode()
+        field = role + "_input"
+        with pytest.raises(ValidationError, match=field):
+            DeclaredDefinitionApplicabilityReport.model_validate({**body, field: absolute})
 
 
 def unadmitted_frame(text):
