@@ -1,19 +1,29 @@
 """A receipt is pending for the exact selection before any consumer is queued."""
 
+import json
 from pathlib import Path
 from typing import cast
 
-from sqlalchemy import func, select
+from sqlalchemy import func, literal, select
+from sqlalchemy.dialects.postgresql import JSONB
 
 from corpus_structure.schema.model_change import native_model_inputs
 from corpus_structure.semantic import migrations
 from corpus_structure.semantic._data_operation_wire import WirePublishDataDerivationRequest
+from corpus_structure.semantic.canonical_sentences import canonical_sentence_operation_sources
+from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_demands import DemandPlanner
 from corpus_structure.semantic.data_operation_service import advance_demand_selection
-from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_storage import (
+    DataOperationStorage,
+    data_operation_definition_projection,
+)
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.metadata import get_metadata
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.sentence_products import sentence_product_inputs
 from corpus_structure.semantic.target_installation import capture_target_installation
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from semantic.data_operation_demand_support import attach, claim, publish, retain
 from semantic.data_operation_kernel_support import STORAGE, admit_kernel, prepare_kernel
 from semantic.test_target_installation_native import install_target_root
@@ -32,6 +42,48 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
     epoch = capture_target_installation(physical, logical_sources=native_model_inputs(ROOT))
     *_, revision_path = install_target_root(admin, epoch, tmp_path)
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
+
+    # Lower the real declaration without running its parser provider. Check its
+    # role against the same native source-address routine used for delivery.
+    core = ROOT / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
+    bundle = sentence_product_inputs(
+        SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
+    )
+    prepared = prepare_release(bundle)
+    sources = canonical_sentence_operation_sources()
+    model = compile_data_operations(
+        schema=bundle,
+        python_sources=sources,
+        definitions=prepared.definitions,
+        vocabularies=prepared.vocabularies,
+    )
+    lowered = json.loads(
+        data_operation_definition_projection(
+            prepared,
+            model,
+            native_digest="native:test",
+            captured_contracts=sources.boundary_contracts,
+        )
+    )
+    (canonical,) = [
+        operation
+        for operation in lowered["operations"]
+        if operation["operation_id"] == "segment.sentences/canonical-projection"
+    ]
+    (inventory,) = canonical["input_roles"]
+    assert inventory["name"] == "inventory"
+    assert inventory["support"]["source"] == "original-source"
+    header = literal({"original_source": "source:one"}, type_=JSONB())
+    role = literal(inventory, type_=JSONB())
+    source_sets = literal({}, type_=JSONB())
+    with admin.begin() as connection:
+        assert connection.execute(
+            select(
+                func.ops.ddo_binding_source_address(role, header, "source:one", source_sets),
+                func.ops.ddo_binding_source_address(role, header, "source:two", source_sets),
+            )
+        ).one() == (True, False)
+
     preparation = prepare_kernel(STORAGE, directory=tmp_path / "delivery-contract")
     with admin.begin() as connection:
         kernel = admit_kernel(connection, STORAGE, engine=admin, preparation=preparation)
