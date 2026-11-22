@@ -197,9 +197,9 @@ def test_reconverted_split_and_merged_blocks_use_their_current_addresses():
         _annotation(12, key="#/texts/2", ordinal=1),
     )
     first, second = blocks_from_packets(split)
-    rows = [row | {"extent": 8} for row in first.rows]
+    rows = [dict(row) | {"extent": 8} for row in first.rows]
     for row in second.rows:
-        shifted = row | {
+        shifted = dict(row) | {
             "ordinal": 1,
             "start": row["start"] + 4,
             "end": row["end"] + 4,

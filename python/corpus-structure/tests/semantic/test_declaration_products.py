@@ -684,6 +684,7 @@ def test_current_declaration_syntax_failure_preserves_healthy_siblings(corruptio
     (block,) = blocks_from_packets(tuple(json.loads(packet) for packet in hanlp.partitions))
     if corruption == "missing_column":
         token = next(row for row in block.rows if row["record_type"] == "token")
+        assert isinstance(token, dict)
         del token["lemma"]
     else:
         group = next(row for row in block.rows if row["record_type"] == "srl_group")
@@ -717,6 +718,7 @@ def test_current_healthy_chain_survives_unselected_malformed_sentence(monkeypatc
     token = next(
         row for row in block.rows if row["record_type"] == "token" and row["sentence_ordinal"] == 3
     )
+    assert isinstance(token, dict)
     del token["lemma"]
     changed = partitioned_snapshot(
         hanlp.product_id, json.loads(hanlp.content), block.key, block.end, block.rows

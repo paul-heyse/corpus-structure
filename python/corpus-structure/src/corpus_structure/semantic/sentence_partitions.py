@@ -3,6 +3,7 @@
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from hashlib import sha256
+from types import MappingProxyType
 from typing import Any
 
 from corpus_structure.caches import declare
@@ -48,14 +49,9 @@ def blocks_from_packets(packets: Sequence[WireProductPartition]) -> tuple[Senten
 
 
 @dataclass(frozen=True)
-class SentenceProductPayload:
-    """Immutable nominal data and collection correspondence, without occurrence authority."""
-
+class _SentenceProductHeader:
     content: bytes
-    partitions: tuple[bytes, ...]
     value: Mapping[str, Any]
-    packets: tuple[Mapping[str, Any], ...]
-    blocks: tuple[SentenceBlock, ...]
     meaning: bytes
     tagged: tuple
     members: tuple[bytes, ...]
@@ -63,31 +59,108 @@ class SentenceProductPayload:
     body_identity: str
 
 
-def sentence_product_payload(content, partitions, prepared, nominal_type):
-    from .data_operation_version import MODEL_VERSION
-    from .value_codec import decimal_digit_limit
+@dataclass(frozen=True)
+class SentenceProductPayload(_SentenceProductHeader):
+    """Invocation-owned assembly of immutable data, without occurrence authority."""
 
-    if (
-        type(content) is not bytes or type(partitions) is not tuple
-        or any(type(packet) is not bytes for packet in partitions)
-    ):
-        raise TypeError("sentence products require owned immutable header and partition bytes")
-    return _sentence_product_payload(content, partitions, prepared, nominal_type,
-                                     (MODEL_VERSION, decimal_digit_limit()))
+    partitions: tuple[bytes, ...]
+    packets: tuple[Mapping[str, Any], ...]
+    blocks: tuple[SentenceBlock, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _SentencePartitionBody:
+    digest: str
+    tagged: tuple
+    rows: tuple[Mapping[str, Any], ...]
+    weight: int
 
 
 @declare(
-    "sentence-product-payloads", "runtime_bytes",
-    key=lambda content, partitions, prepared, nominal_type, decoder: (
-        sha256(content).digest(), tuple(sha256(packet).digest() for packet in partitions),
-        prepared.release_id, nominal_type, decoder,
-    ),
-    weight=lambda payload: len(payload.content) + len(payload.meaning)
-    + sum(map(len, payload.partitions)) + sum(map(len, payload.members)),
+    "sentence-partition-bodies",
+    "runtime_bytes",
+    key=lambda meaning, tagged, decoder: (sha256(tagged).digest(), decoder),
+    weight=lambda body: body.weight,
 )
-def _sentence_product_payload(content, partitions, prepared, nominal_type, decoder):
+def _sentence_partition_body(meaning, tagged: bytes, decoder) -> _SentencePartitionBody:
     from .data_operation_consumers import _freeze_consumer
-    from .data_operation_identity import body_identity, canonical_identity
+    from .data_operation_identity import canonical_identity
+    from .native_source_view import freeze_native
+
+    rows = decode_semantic_value(meaning)
+    identity = canonical_identity("partition", rows)
+    return _SentencePartitionBody(
+        identity.key,
+        freeze_native(meaning),
+        tuple(_freeze_consumer(row) for row in rows),
+        len(tagged) + len(identity.canonical_input),
+    )
+
+
+def sentence_product_payload(content, partitions, prepared, nominal_type):
+    from .data_operation_json import native_json_loads
+    from .data_operation_version import MODEL_VERSION
+    from .native_source_view import freeze_native
+    from .value_codec import decimal_digit_limit
+
+    if (
+        type(content) is not bytes
+        or type(partitions) is not tuple
+        or any(type(packet) is not bytes for packet in partitions)
+    ):
+        raise TypeError("sentence products require owned immutable header and partition bytes")
+    decoder = (MODEL_VERSION, decimal_digit_limit())
+    header = _sentence_product_header(content, prepared, nominal_type, decoder)
+    packets = tuple(native_json_loads(packet) for packet in partitions)
+    if partition_header(packets) != header.value[COLLECTION]:
+        raise ValueError("sentence rows differ from their selected collection commitment")
+    blocks = []
+    frozen_packets = []
+    for packet in packets:
+        if packet["collection"] != COLLECTION:
+            raise ValueError("sentence populations require their declared rows collection")
+        meaning = packet["body"]
+        body = _sentence_partition_body(meaning, canonical_bytes(meaning), decoder)
+        if body.digest != packet["partition_digest"]:
+            raise ValueError("sentence partition digest differs from its actual rows")
+        blocks.append(
+            SentenceBlock(
+                packet["partition_key"],
+                packet["ordinal"],
+                packet["placement"]["start"],
+                packet["placement"]["end"],
+                body.rows,
+            )
+        )
+        metadata = {key: freeze_native(value) for key, value in packet.items() if key != "body"}
+        frozen_packets.append(MappingProxyType({**metadata, "body": body.tagged}))
+    return SentenceProductPayload(
+        header.content,
+        header.value,
+        header.meaning,
+        header.tagged,
+        header.members,
+        header.member_packets,
+        header.body_identity,
+        partitions,
+        tuple(frozen_packets),
+        tuple(sorted(blocks, key=lambda item: item.ordinal)),
+    )
+
+
+@declare(
+    "sentence-product-headers",
+    "runtime_bytes",
+    key=lambda content, prepared, nominal_type, decoder: (
+        sha256(content).digest(),
+        prepared.release_id,
+        nominal_type,
+        decoder,
+    ),
+    weight=lambda header: len(header.content) + len(header.meaning) + sum(map(len, header.members)),
+)
+def _sentence_product_header(content, prepared, nominal_type, decoder):
+    from .data_operation_identity import body_identity
     from .data_operation_json import native_json_loads
     from .native_source_view import freeze_native
 
@@ -104,24 +177,21 @@ def _sentence_product_payload(content, partitions, prepared, nominal_type, decod
             return tuple(fields(item) for item in value)
         return value
 
-    checked = prepared.validate_python(nominal_type, fields(body)).model_dump(mode="json", exclude_unset=True)
-    packets = tuple(native_json_loads(packet) for packet in partitions)
-    if partition_header(packets) != commitment:
-        raise ValueError("sentence rows differ from their selected collection commitment")
-    blocks = blocks_from_packets(packets)
-    for block, packet in zip(blocks, sorted(packets, key=lambda packet: packet["ordinal"]), strict=True):
-        if canonical_identity("partition", block.rows).key != packet["partition_digest"]:
-            raise ValueError("sentence partition digest differs from its actual rows")
+    checked = prepared.validate_python(nominal_type, fields(body)).model_dump(
+        mode="json", exclude_unset=True
+    )
     checked[COLLECTION] = commitment
     tagged = semantic_value(checked)
-    members = tuple(dict(member, body=semantic_value(member["body"])) for member in checked["members"])
-    return SentenceProductPayload(
-        canonical_bytes(checked), partitions, freeze_native(checked),
-        tuple(freeze_native(packet) for packet in packets),
-        tuple(SentenceBlock(block.key, block.ordinal, block.start, block.end,
-                            tuple(_freeze_consumer(row) for row in block.rows)) for block in blocks),
-        canonical_bytes(tagged), freeze_native(tagged),
-        tuple(canonical_bytes(member) for member in members), tuple(freeze_native(member) for member in members),
+    members = tuple(
+        dict(member, body=semantic_value(member["body"])) for member in checked["members"]
+    )
+    return _SentenceProductHeader(
+        canonical_bytes(checked),
+        freeze_native(checked),
+        canonical_bytes(tagged),
+        freeze_native(tagged),
+        tuple(canonical_bytes(member) for member in members),
+        tuple(freeze_native(member) for member in members),
         body_identity(checked).key,
     )
 
@@ -130,8 +200,9 @@ def partitioned_role(role, kind_contract, payload: SentenceProductPayload):
     """Publish the exact already acquired nominal header and partition data."""
     from .data_operation_ports import RoleValue
 
-    return RoleValue(role, kind_contract, payload.content, payload.meaning,
-                     payload.members, payload.partitions)
+    return RoleValue(
+        role, kind_contract, payload.content, payload.meaning, payload.members, payload.partitions
+    )
 
 
 def annotation_blocks(value: Mapping) -> tuple[SentenceBlock, ...]:

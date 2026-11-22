@@ -42,9 +42,11 @@ def test_annotation_payload_is_immutable_and_context_changes_retain_decoded_cust
 
     prepared, model, configuration, _ = acquired
     source, value = detached
-    product = partition_controlled_annotations(prepared, model, value, source, configuration=configuration)
+    product = partition_controlled_annotations(
+        prepared, model, value, source, configuration=configuration
+    )
     with pytest.raises(TypeError, match="immutable receipt bytes"):
-        replace(product, execution_receipts=cast(Any, [b"unadmitted"] ))
+        replace(product, execution_receipts=cast(Any, [b"unadmitted"]))
     blocks = source_annotation_blocks(product)
     configured = product.configuration
 
@@ -130,6 +132,42 @@ def test_one_annotation_population_preserves_existing_payload_and_compact_manife
         validate_output_witnesses(operation, {"result": [foreign]}, selected)
 
 
+def test_annotation_payload_shares_rows_across_distinct_placements(acquired, detached):
+    from corpus_structure.semantic.data_operation_partitions import partition_header
+    from corpus_structure.semantic.sentence_partitions import (
+        _sentence_partition_body,
+        sentence_product_payload,
+    )
+
+    prepared, model, configuration, _ = acquired
+    source, value = detached
+    product = partition_controlled_annotations(
+        prepared, model, value, source, configuration=configuration
+    )
+    nominal = "DdoSourceAnnotations"
+    first = sentence_product_payload(product.content, product.partitions, prepared, nominal)
+    packet = json.loads(product.partitions[0])
+    packet["placement"] = {key: offset + 17 for key, offset in packet["placement"].items()}
+    header = json.loads(product.content)
+    header["rows"] = partition_header((packet,))
+    moved = canonical_bytes(header)
+    relocated = sentence_product_payload(moved, (canonical_bytes(packet),), prepared, nominal)
+    assert first.blocks[0].rows is relocated.blocks[0].rows
+    assert first.packets[0]["body"] is relocated.packets[0]["body"]
+    assert relocated.blocks[0].start == first.blocks[0].start + 17
+    assert first.partitions != relocated.partitions
+
+    # A populated cache cannot legitimize unrelated tagged rows under a valid commitment.
+    packet["body"][1].reverse()
+    with pytest.raises(ValueError, match="digest differs from its actual rows"):
+        sentence_product_payload(moved, (canonical_bytes(packet),), prepared, nominal)
+
+    _sentence_partition_body.cache_clear()
+    reacquired = sentence_product_payload(product.content, product.partitions, prepared, nominal)
+    assert reacquired.blocks[0].rows == first.blocks[0].rows
+    assert reacquired.blocks[0].rows is not first.blocks[0].rows
+
+
 def test_annotation_producer_refuses_missing_family_even_with_matching_manifest(acquired, detached):
     prepared, model, configuration, _ = acquired
     source, value = detached
@@ -160,20 +198,21 @@ def test_canonical_projection_uses_annotations_without_native_label_determinants
     header, packets = partition_source_annotations(value)
     operation = model.operation("segment.sentences/canonical-projection")
     input_role = next(role for role in operation.roles if role.direction == "input")
-    layout = json.loads(next(kind.facts for kind in model.kinds if kind.semantic_id == input_role.kind))["collections"]
+    layout = json.loads(
+        next(kind.facts for kind in model.kinds if kind.semantic_id == input_role.kind)
+    )["collections"]
 
     def project(header, packets):
-        return materialize_whole_input_projection(input_role.read_projection, layout, header, packets)
+        return materialize_whole_input_projection(
+            input_role.read_projection, layout, header, packets
+        )
 
     canonical = canonical_partition_values(project(header, packets), projection)
     changed = copy.deepcopy(value)
     changed["blocks"][0]["lexemes"][0]["lemma"] = "another-native-label"
     relabeled, labeled_packets = partition_source_annotations(changed)
     assert labeled_packets[0]["partition_digest"] != packets[0]["partition_digest"]
-    assert (
-        canonical_partition_values(project(relabeled, labeled_packets), projection)
-        == canonical
-    )
+    assert canonical_partition_values(project(relabeled, labeled_packets), projection) == canonical
     (block,) = blocks_from_packets(canonical["partitions"])
     assert [
         (row["record_type"], row["ordinal"], row["start"], row["end"]) for row in block.rows
