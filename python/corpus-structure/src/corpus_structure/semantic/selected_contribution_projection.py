@@ -88,8 +88,8 @@ def contribution_rows(
             and nonrich_family(scope.model, selected.nominal) is not None
         ):
             rows = nonrich_facets(
+                scope,
                 selected,
-                scope.model,
                 interpretation=request.include_interpretation,
                 assessment=request.include_assessment,
                 member_id=request.member_id,

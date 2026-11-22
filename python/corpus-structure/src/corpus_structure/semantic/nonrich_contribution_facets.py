@@ -42,10 +42,7 @@ _STRUCTURAL = {
 @dataclass(frozen=True)
 class CurrentNonRichRoot:
     nominal: str
-    name: str
-    family: str
-    body: dict
-    structural: DeclaredStructuralProductReport | None = None
+    structural: DeclaredStructuralProductReport
 
 
 def nonrich_family(model, nominal):
@@ -73,34 +70,28 @@ def read_nonrich_root(model, selected) -> CurrentNonRichRoot:
         raise RichQueryRefused("structural interpretation lacks its captured nominal schema")
     validate_wire_schema(schema, json_loads(json_bytes(selected.body)))
     structural = _STRUCTURAL[selected.nominal].model_validate_json(json_bytes(selected.body))
-    return CurrentNonRichRoot(
-        kind.semantic_id,
-        kind.name,
-        family,
-        structural.model_dump(mode="python", exclude_none=True),
-        structural,
-    )
+    return CurrentNonRichRoot(kind.semantic_id, structural)
 
 
 def _row(population, **meaning):
     return RichQueryRow(dict(population=population, row=meaning))
 
 
-def _base(selected, root):
+def _base(selected, body):
     reference = selected.reference
     context = selected.context.identity_record
     return dict(
         reference=reference.model_dump(mode="python"),
         context=context,
-        nominal=root.nominal,
-        standing=root.body.get("standing"),
+        nominal=selected.nominal,
+        standing=body.get("standing"),
         scientific_truth="not-established",
     )
 
 
 def nonrich_facets(
+    scope,
     selected,
-    model,
     *,
     interpretation,
     assessment,
@@ -108,13 +99,21 @@ def nonrich_facets(
     max_members=100000,
     max_nested_members=1000,
 ) -> Iterator[RichQueryRow]:
-    root = read_nonrich_root(model, selected)
     if member_id is not None:
         return
+    from .selected_structural_projection import structural_report
+
+    try:
+        report = structural_report(scope, selected)
+    except RichQueryRefused:
+        raise
+    except (PermissionError, ValueError) as error:
+        raise RichQueryRefused(str(error)) from error
+    body = report.model_dump(mode="python", exclude_none=True)
     # A report-local display facet is not a nominal product member. Its reference
     # stays the actual whole output, and broad dossier membership is not paged by
     # inventing member addresses. Larger complete facets refuse explicitly.
-    pending = [root.body]
+    pending = [body]
     collections = 0
     while pending:
         item = pending.pop()
@@ -125,14 +124,14 @@ def nonrich_facets(
             if collections > min(max_members, max_nested_members):
                 raise RichQueryRefused("structural facet exceeds its complete nested-member bound")
             pending.extend(item)
-    base = _base(selected, root)
+    base = _base(selected, body)
     yield _row("contribution", **base)
     if interpretation:
         yield _row(
             "interpretation",
             **base,
             availability="observed",
-            meaning=root.body,
+            meaning=body,
             scope="typed-private-structural-reading",
         )
     if assessment:
@@ -141,6 +140,6 @@ def nonrich_facets(
             **base,
             availability="observed",
             scope="captured-private-producer-judgments",
-            judgments=root.body,
+            judgments=body,
             public_admission="not-established",
         )
