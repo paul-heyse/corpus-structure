@@ -89,11 +89,9 @@ def test_native_original_readiness_tracks_exact_committed_admission_without_wate
     demand = register("late-selected-original")
     first = read(demand)
     waiting = obligation(first)
-    assert waiting["original_readiness"] == {
+    assert waiting["native_readiness"] == {
         "ready": False,
-        "state": "missing",
-        "input_role": "source",
-        "identity": None,
+        "roles": [{"input_role": "source", "state": "missing", "identity": None}],
     }
     assert waiting["fate"] == "awaiting-inputs"
     assert "inputs_watermark" not in waiting
@@ -109,17 +107,17 @@ def test_native_original_readiness_tracks_exact_committed_admission_without_wate
     other = register("another-exact-demand")
     with admin.begin() as connection:
         other_admission = admit(DataOperationStorage(connection), other)
-    assert obligation(read(other))["original_readiness"]["ready"] is True
+    assert obligation(read(other))["native_readiness"]["ready"] is True
     # An equal, physically present product with another admission cannot wake
     # this waiter's exact frozen source. No eligibility is inferred from value.
-    assert obligation(read(demand))["original_readiness"] == waiting["original_readiness"]
+    assert obligation(read(demand))["native_readiness"] == waiting["native_readiness"]
 
     with admin.connect() as connection:
         transaction = connection.begin()
         rolled_back = admit(DataOperationStorage(connection), demand)
         assert rolled_back["product_id"] == other_admission["product_id"]
         transaction.rollback()
-    assert obligation(read(demand))["original_readiness"] == waiting["original_readiness"]
+    assert obligation(read(demand))["native_readiness"] == waiting["native_readiness"]
 
     with admin.begin() as connection:
         admitted = admit(DataOperationStorage(connection), demand)
@@ -134,18 +132,20 @@ def test_native_original_readiness_tracks_exact_committed_admission_without_wate
         selection=first["selection"],
         trust_snapshot=first["trust_snapshot"],
     )
-    assert obligation(historical)["original_readiness"] == waiting["original_readiness"]
+    assert obligation(historical)["native_readiness"] == waiting["native_readiness"]
     current = read(demand)
     ready = obligation(current)
-    assert ready["original_readiness"] == {
-        "ready": True,
-        "state": "ready",
-        "input_role": "source",
-        "identity": {
-            "product_id": admitted["product_id"],
-            "admission_ids": [admitted["admission_id"]],
-        },
+    assert ready["native_readiness"]["ready"] is True
+    (ready_role,) = ready["native_readiness"]["roles"]
+    assert ready_role["input_role"] == "source"
+    assert ready_role["state"] == "ready"
+    assert ready_role["identity"]["input"] == {
+        "role": "source", "position": 0, "multiplicity": 1,
+        "product_id": admitted["product_id"], "member_id": None,
+        "producer_output": None, "support_derivation_ids": [],
     }
+    (ready_support,) = ready_role["identity"]["support"]
+    assert ready_support["admission_id"] == admitted["admission_id"]
     assert "inputs_watermark" not in ready
     with admin.begin() as connection:
         planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
@@ -170,7 +170,7 @@ def test_native_original_readiness_tracks_exact_committed_admission_without_wate
             )
         )
     revoked = read(demand)
-    assert obligation(revoked)["original_readiness"] == waiting["original_readiness"]
+    assert obligation(revoked)["native_readiness"] == waiting["native_readiness"]
     with admin.begin() as connection:
         assert (
             DemandPlanner(kernel.model, DataOperationStorage(connection)).ready(

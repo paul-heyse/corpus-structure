@@ -45,7 +45,7 @@ from .native_program import (
     pg_type,
 )
 from .native_program_registry import ProgramDeclaration
-from .original_readiness_native import original_obligation_readiness
+from .obligation_readiness_native import obligation_readiness
 from .publication_delivery_native import (
     fulfilled_use_recipients,
     reconcile_publication_delivery,
@@ -1258,7 +1258,7 @@ def demand_intent_programs(model: MetaData, *, protocol: bytes) -> tuple[Program
         _record_fate(model, protocol_value_sets(protocol)["RecordableFate"]),
         _close_population(model),
         unreconciled_publication_origins(model),
-        original_obligation_readiness(model),
+        obligation_readiness(model),
     )
     commands = tuple(
         ProgramDeclaration(

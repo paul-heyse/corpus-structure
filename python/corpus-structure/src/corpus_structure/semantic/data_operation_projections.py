@@ -2018,7 +2018,7 @@ def _inputs_watermarks(metadata, bounded):
     """Retain the fingerprint only for readiness origins without a native owner."""
     owner = bounded
     bounded = (
-        select(bounded).where(bounded.c.original_readiness.is_(None)).cte("watermark_obligations")
+        select(bounded).where(bounded.c.native_readiness.is_(None)).cte("watermark_obligations")
     )
     uses = metadata.tables["ops.demand_use"]
     obligations = metadata.tables["ops.data_obligation"].alias("prerequisite_obligation")
@@ -2180,9 +2180,9 @@ def read_page(metadata):
     bounded = (
         select(
             bounded,
-            func.ops.ddo_original_obligation_readiness(
+            func.ops.ddo_obligation_readiness(
                 bounded.c.id, _var("boundary.id", Text), type_=JSONB()
-            ).label("original_readiness"),
+            ).label("native_readiness"),
         )
         .cte("bounded")
         .prefix_with("MATERIALIZED")
@@ -2454,8 +2454,17 @@ def read_page(metadata):
                     (
                         and_(
                             latest.c.id.is_(None),
-                            bounded.c.original_readiness.is_not(None),
-                            bounded.c.original_readiness["ready"].astext == "false",
+                            bounded.c.native_readiness.contains(
+                                _json({"roles": [{"state": "invalid"}]})
+                            ),
+                        ),
+                        literal("invalid"),
+                    ),
+                    (
+                        and_(
+                            latest.c.id.is_(None),
+                            bounded.c.native_readiness.is_not(None),
+                            bounded.c.native_readiness["ready"].astext == "false",
                         ),
                         literal("awaiting-inputs"),
                     ),
@@ -2468,7 +2477,7 @@ def read_page(metadata):
         )
         .op("||")(
             case(
-                (bounded.c.original_readiness.is_not(None), _json({})),
+                (bounded.c.native_readiness.is_not(None), _json({})),
                 else_=_obj(inputs_watermark=inputs_watermark),
             )
         )

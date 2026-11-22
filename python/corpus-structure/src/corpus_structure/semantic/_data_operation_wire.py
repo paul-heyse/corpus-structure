@@ -1165,6 +1165,22 @@ class WireInspectExternalDataResultResult(TypedDict):
     ]
 
 
+class WireReadinessIdentity(TypedDict):
+    input: Required[WireInputMember]
+    support: Required[list[WireSupportMember]]
+
+
+class WireReadinessRole(TypedDict):
+    identity: Required[WireReadinessIdentity | None]
+    input_role: Required[WireIdentifier]
+    state: Required[Literal["ready", "missing", "ambiguous", "invalid"]]
+
+
+class WireObligationReadiness(TypedDict):
+    ready: Required[bool]
+    roles: Required[list[WireReadinessRole]]
+
+
 class WireOperationEventFrameDeclaredProductRef(TypedDict):
     analyzed_scope_meaning: Required[str]
     kind_contract: Required[str]
@@ -1267,18 +1283,6 @@ class WireOperationEventFrameSelectedOperationEventFrame(TypedDict):
     question: Required[WireOperationEventFrameDdoOperationEventQuestion]
     question_reference: Required[WireOperationEventFrameDeclaredProductRef]
     version: NotRequired[Literal["selected-operation-event-frame-1"]]
-
-
-class WireOriginalObligationReadinessIdentityVariant2(TypedDict):
-    admission_ids: Required[list[WireIdentifier]]
-    product_id: Required[WireIdentifier]
-
-
-class WireOriginalObligationReadiness(TypedDict):
-    identity: Required[WireOriginalObligationReadinessIdentityVariant2 | None]
-    input_role: Required[WireIdentifier]
-    ready: Required[bool]
-    state: Required[Literal["ready", "missing", "ambiguous"]]
 
 
 class WireOriginalSourceAdmissionResult(TypedDict):
@@ -1399,9 +1403,9 @@ class WireResultObligation(TypedDict):
     id: Required[WireIdentifier]
     inputs_watermark: NotRequired[str]
     intent_id: Required[WireCompletionIntentId | None]
+    native_readiness: Required[WireObligationReadiness | None]
     obligation_id: Required[WireObligationId]
     operation_id: Required[WireOperationId]
-    original_readiness: NotRequired[WireOriginalObligationReadiness | None]
     original_source: Required[WireOriginalSourceId | None]
     parameters: Required[WireParameterMap]
     request_id: Required[WireRequestId | None]

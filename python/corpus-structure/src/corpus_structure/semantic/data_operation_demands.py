@@ -789,11 +789,11 @@ class DemandPlanner:
             if obligation["fate"] in {"fulfilled", "closed", "cancelled", "failed"}:
                 continue
             previous = latest_uses.get(obligation["obligation_id"])
-            original_readiness = obligation.get("original_readiness")
-            if not retained and original_readiness is not None and not original_readiness["ready"]:
+            native_readiness = obligation.get("native_readiness")
+            if not retained and native_readiness is not None and not native_readiness["ready"]:
                 continue
             if (
-                original_readiness is None
+                native_readiness is None
                 and not retained
                 and obligation["obligation_id"] not in woken_obligations
                 and not obligation.get("binding_authority_changed")
