@@ -102,10 +102,13 @@ def ambient_support_contract(relation: str) -> bytes:
     contracts = declaration.get("json_contracts", {})
     if contracts:
         schema_properties = cast(dict[str, Any], schema["properties"])
-        schema["definitions"] = {}
+        definitions = schema.setdefault("definitions", {})
         for field, target in contracts.items():
             selected = wire_record_schema(target["record"])
-            schema["definitions"].update(selected["definitions"])
+            for name, definition in selected["definitions"].items():
+                if name in definitions and definitions[name] != definition:
+                    raise ValueError("conflicting captured support schema definition: " + name)
+                definitions[name] = definition
             reference = {"$ref": "#/definitions/" + target["record"]}
             schema_properties[field] = (
                 {"type": "array", "items": reference} if target["many"] else reference
