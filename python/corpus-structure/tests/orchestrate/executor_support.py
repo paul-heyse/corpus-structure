@@ -2,7 +2,10 @@
 
 import json
 from contextlib import contextmanager, nullcontext
+from functools import cache
 from hashlib import sha256
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from threading import RLock
 from types import SimpleNamespace
 from typing import Any, cast
@@ -21,15 +24,16 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
 
 
-def executor_preparation():
+@cache
+def executor_prepared_release():
+    """Retain the prepared value after its synthetic source files are retired."""
     operations = [operation(name) for name in ("prepared", "scalar", "batch")]
     for declaration in operations:
         declaration["capabilities"]["preparation"] = "controlled"
     operations[2]["capabilities"]["forms"] = ["batch"]
-    return prepare_kernel(
-        KernelRecipe(
-            "executor-controls",
-            """id: urn:admission
+    recipe = KernelRecipe(
+        "executor-controls",
+        """id: urn:admission
 name: admission
 prefixes: {a: 'urn:admission:'}
 default_prefix: a
@@ -41,14 +45,15 @@ classes:
     attributes:
       id: {range: string, required: true}
 """,
-            canonical_bytes({"version": MODEL_VERSION, "operations": operations}),
-            """version: data-operation-inputs-v1
+        canonical_bytes({"version": MODEL_VERSION, "operations": operations}),
+        """version: data-operation-inputs-v1
 root: admission
 schemas: [{name: admission, path: schema.yaml}]
 declarations: [{name: controls, path: operations.yaml}]
 """,
-        )
     )
+    with TemporaryDirectory(prefix="ddo-executor-controls-") as scratch:
+        return prepare_kernel(recipe, directory=Path(scratch)).prepared
 
 
 class ForbiddenEngine:
@@ -114,8 +119,7 @@ class ControlledNativeIO:
 def executor_case(
     *, prepared=None, native_io=None, policy=None, capability_factories=None, **options
 ):
-    preparation = executor_preparation()
-    prepared = preparation.prepared if prepared is None else prepared
+    prepared = executor_prepared_release() if prepared is None else prepared
     return NativeDemandExecutor(
         cast(Engine, ForbiddenEngine()),
         prepared,
@@ -131,7 +135,7 @@ def executor_case(
 
 @pytest.fixture(scope="module")
 def prepared():
-    return executor_preparation().prepared
+    return executor_prepared_release()
 
 
 def policy_for(prepared, *, max_claims=2, credits=2):

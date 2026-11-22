@@ -5,7 +5,12 @@ from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
-from orchestrate.executor_support import Active, execution_case, executor_preparation, policy_for
+from orchestrate.executor_support import (
+    Active,
+    execution_case,
+    executor_prepared_release,
+    policy_for,
+)
 from semantic.data_operation_kernel_support import prepare_kernel
 from semantic.external_scenarios import EXTERNAL
 
@@ -55,7 +60,7 @@ def test_external_packet_custody_precedes_python_resolution(monkeypatch):
 def test_uncertain_publication_reconciles_exact_intent_without_recomputation(
     monkeypatch, retained_at_claim
 ):
-    preparation = executor_preparation()
+    prepared = executor_prepared_release()
     computations, durable = [], {}
 
     def scalar(value, **options):
@@ -66,8 +71,8 @@ def test_uncertain_publication_reconciles_exact_intent_without_recomputation(
 
     executor, observed = execution_case(
         monkeypatch,
-        preparation.prepared,
-        policy_for(preparation.prepared),
+        prepared,
+        policy_for(prepared),
         ("scalar",),
         {"scalar": SimpleNamespace(native_selections=(), plan_python=scalar)},
     )
@@ -157,11 +162,11 @@ def test_uncertain_publication_reconciles_exact_intent_without_recomputation(
 
 
 def test_authored_claim_reply_missing_lease_is_rejected_at_wire_boundary(monkeypatch):
-    preparation = executor_preparation()
+    prepared = executor_prepared_release()
     executor, _ = execution_case(
         monkeypatch,
-        preparation.prepared,
-        policy_for(preparation.prepared),
+        prepared,
+        policy_for(prepared),
         ("scalar",),
         {"scalar": SimpleNamespace(native_selections=())},
     )
@@ -194,7 +199,7 @@ def test_named_fulfilled_use_advances_only_its_routed_hydrated_request(monkeypat
     from corpus_structure.orchestrate.data_operations import NamedFulfilledUse
     from corpus_structure.semantic.data_operation_service import NamedDemandSelection
 
-    preparation = executor_preparation()
+    prepared = executor_prepared_release()
     computations, hydration, routed = [], [], []
 
     def scalar(value, **options):
@@ -205,8 +210,8 @@ def test_named_fulfilled_use_advances_only_its_routed_hydrated_request(monkeypat
 
     executor, observed = execution_case(
         monkeypatch,
-        preparation.prepared,
-        policy_for(preparation.prepared),
+        prepared,
+        policy_for(prepared),
         ("scalar", "scalar"),
         {"scalar": SimpleNamespace(native_selections=(), plan_python=scalar)},
     )
