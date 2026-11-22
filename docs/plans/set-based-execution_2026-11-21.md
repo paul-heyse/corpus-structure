@@ -1,7 +1,7 @@
 # Set-based execution
 
-**Status:** In implementation. SBX-00 through SBX-02 have package evidence. SBX-03 through SBX-05
-have partial implementation and scoped verification. This series owns the pivot to
+**Status:** In implementation through SBX-09. SBX-00 through SBX-02 have package evidence.
+SBX-03 through SBX-09 have partial implementation and scoped verification. This series owns the pivot to
 partition-unit storage, declared rules and proofs, projection-keyed reuse, native change
 propagation, owner-resolved reads and the single-derivation PDF path. **Created:** 2026-11-21.
 
@@ -16,7 +16,8 @@ carry their own evidence and dates. `cs/` means `python/corpus-structure/src/cor
 **Framing (operator, 2026-11-21).** This is a hard pivot in the design phase. The series goes
 directly to the target design with one active representation and execution path. Through SBX-09,
 discard the old development data and install the cutover in an empty database. Qualify with
-fresh fixtures. Migration and regeneration of discarded data are outside this cutover. Stage
+fresh fixtures. Originals, selections and derived results all go. No development data needs a
+backup, conversion, backfill, restoration or regeneration. Stage
 installation remains with SBX-20. [Development reset](set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09)
 
 ## Outcome
@@ -194,8 +195,9 @@ capability consumed.
    contracts for SBX-02/05/06, and make the minimum SBX-02 and SBX-05 paths runnable. Use them
    in the [early SBX-03 chain](set-based-execution/cutover-and-qualification.md#early-revision-a-integration)
    and prove SBX-06's native publication cutoff and readiness wake there before broad
-   propagation adoption. Close SBX-02 through SBX-06 against rollback candidates and register
-   one identity revision in SBX-20.
+   propagation adoption. Close SBX-02 through SBX-06 against rollback candidates. The
+   SBX-09 development reset installs its sole cold root. SBX-20 owns stage registration
+   and installation.
 2. *No-identity strand:* SBX-08 and SBX-09 first, since they change no published value and every
    later package is simpler on carried values; then SBX-10. Prepare SBX-11 to SBX-13 alongside
    revision A and integrate the proof and reference readers when those contracts are runnable.
@@ -206,6 +208,28 @@ capability consumed.
 
 SBX-07 follows the runnable identity and population contracts. The kernel trial follows its
 own input, carrier and reference dependencies. SBX-20 to SBX-22 close the series.
+
+### Remaining execution through SBX-09
+
+**Proposed execution sequence · 2026-11-22.** Start from `701b9af53` and incorporate the
+in-progress construction proof changes. The final registered root and fresh qualification
+targets establish the integrated baseline before development is discarded.
+
+1. Close construction and contextual cross-input claims together with their role-relative
+   addressing, then migrate the remaining reference families and their ordinary, native and
+   detached consumers. Finish population occurrence correspondence in the actual canonical
+   journey. [Proofs and populations](set-based-execution/populations-rules-and-proofs.md#sbx-04) ·
+   [References](set-based-execution/references-and-projection-keys.md#sbx-05)
+2. Extend native settlement from the direct scalar case to all governed origins. Integrate
+   actual canonical whole-result adoption, both computational cutoffs and the worker-local
+   memo. Replace the scheduling watermark and discovery sweeps after their last consumers
+   move. [Delivery and memo](set-based-execution/references-and-projection-keys.md#sbx-06)
+3. Finish carrier construction, partition retention and the remaining verification brackets.
+   Implementation can proceed alongside delivery after agreeing the proof and reference
+   boundaries. The coordinator integrates shared declarations, generated outputs and the
+   actual canonical journey. [Carriers and verification](set-based-execution/validated-values-and-handoff.md#sbx-08)
+4. Author and register the sole cold root, qualify it on newly admitted data, then replace
+   development with an empty installation. [Reset and acceptance](set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09)
 
 **No interim forms.** The review's incremental items are not built where a package here deletes
 their subject: memoising the derivation of token rows from annotations (the derivation goes in

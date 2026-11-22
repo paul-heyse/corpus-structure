@@ -358,6 +358,14 @@ authoring. SBX-20 owns registration of the integrated Revision A, including subs
 <a id="sbx-03"></a>
 ## SBX-03 — The first populations
 
+**Declaration ingress · Tested by selected identity · 2026-11-22.** The declaration
+kernel acquires its canonical and HanLP rows through the same immutable partition
+decoder and verifies their commitments. It resolves frozen keys through the shared
+reference parser and compares the exact source frame bytes. Fifteen declaration
+controls passed in the selected ordinary result `55bcda07dd68490fa772ac8f1b2dcad0`
+(`uv run ci test`). Native move, split and reconversion coverage remains with the
+ordinary canonical adoption journey.
+
 The annotation-to-canonical chain supplies the runnable occurrence addresses and population
 observations for [SBX-06's early propagation slice](cutover-and-qualification.md#early-revision-a-integration).
 Keep the declared membership and closure observations usable for first matches, removals and
@@ -547,6 +555,25 @@ A constructions result on the fixture equals today's after mapping token ids to 
 
 <a id="sbx-04"></a>
 ## SBX-04 — One stance on validity
+
+**Remaining execution · Proposed · 2026-11-22.** Use the selected construction and contextual
+dependency-member rules and released attachment-policy witness already declared. Migrate external
+premises and choices to exact producing roles and addressed members before freezing their target
+fingerprints. Bind each rule on the actual roles that read it. Establish the selected annotation
+layout and navigation premises before deleting the last duplicate acquired checks. Keep standalone
+ingress and producer validation. Use the actual canonical successor journey for moves and
+reconversion, with repeated text and split or merged blocks as ambiguity controls. Recheck
+selective establishment, fingerprint isolation, alternative admissible establishments and the
+body-only binding on the final root.
+
+**Construction rule uptake · Tested by selected identity · 2026-11-22.** Contextual
+interpretation requires the construction selected-primary-members establishment. Predicate and
+scoped-relation construction inputs require the declared geometry, topology and coverage their
+consumers read. The retained construction check no longer replays the established selected
+dependency membership. The focused declaration selection passed (`uv run ci test`,
+`e62817278eb546bf9cc36f0c4de8db83`). The independent navigation proof attempt failed to close
+its captured determinant (`6ebce29ae5ef47f3bc2595daf0528106`). Navigation and the full
+role-addressed dependency conversion remain open.
 
 Supply the applicable establishment and support facts at the native binding boundary for
 [SBX-06 readiness delivery](references-and-projection-keys.md#readiness-delivery). An additional

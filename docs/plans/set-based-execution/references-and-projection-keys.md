@@ -186,6 +186,42 @@ made batch-independent.
 <a id="sbx-05"></a>
 ## SBX-05 — One reference model
 
+**Remaining family order · Proposed · 2026-11-22.** Complete construction and contextual
+premises with SBX-04, then characterization and declaration nodes, artifact and contextual witness
+reports, and contribution, facet and rich records. Each move includes the nominal declaration,
+actual addressed target, native closure and ordinary, evaluation and detached readers. Resolve
+original producing bindings separately from exact current support and retire the replaced
+reference types and resolver at their last caller. Preserve genuine source pins and deliberate
+composition and rich-support variants.
+
+**Contextual witness references · Tested · 2026-11-22.** Witness bindings declare whole-role
+references to the producing query and inventory. Retrieval requires exact original-to-current
+support for those roles and publishes its witness input through the producing role. The
+duplicate source, hypothesis and cue rosters are removed from the witness header. The
+twenty-two targeted contextual and declaration controls passed (`uv run ci test`,
+`78a69d5fc2ea458ca72d91d3d23849de`). Final installed native and detached acceptance is
+tracked separately from the compiled and in-process controls.
+
+The two fresh native witness and detached-workflow cases booted the current model and
+reached actual publication. The result failed on the witness producer gate and downstream
+selection (`uv run ci test --native-host private`, `28c74bb5e5d94b82b5865832c1d5c0de`).
+The witness path now uses the scoring owner's producer check for exact frozen query and
+inventory support. The corrected native run is still required for qualification.
+
+The real witnessed-retrieval identity passed after that repair in
+`e0b50b52c4d04f7aa4b6591bb1396ab3` (`uv run ci test --native-host private`). The
+same-span detached workflow in that result still failed before export because it
+obtained no witnessed report.
+
+**Artifact sources · Tested by selected identity · 2026-11-22.** Artifacts verify their
+exact source pins through the original binding and reference witness. The redundant
+source and report rosters are gone. The nineteen passing identities in
+`964cbda823c848449920eed08ac40adc` and the exact compiled profile retry
+`22576b9e004c4f2e855c3402f819b521` cover this slice (`uv run ci test`). Nomination
+references still need multivalued addressing. Learned observation dependencies are still
+consumed by enriched composition to establish complete ownership. Their retirement requires
+the composer to obtain that closure from the authenticated producing bindings.
+
 **Named-definition cutover · 2026-11-21.** The named producer publishes a nominal refinement
 of definition components. Each witness belongs to the producing report and is keyed by the
 component ID. Annotation and construction addresses resolve through the actual bound roles.
@@ -340,6 +376,34 @@ exercises this interface before the remaining families migrate.
 
 <a id="sbx-06"></a>
 ## SBX-06 — Projection-keyed request identity
+
+**Remaining delivery sequence · Proposed · 2026-11-22.** Start from the direct scalar
+settlement and pinned-read controls in `285ce76aa`. Use authoritative publication, attachment,
+selection, activation, original admission, membership, closure, proof and trust writes. Match
+selected and prospective roles and use the existing executor to settle bounded immediate
+recipients. Retain a transactional transition fact only where authoritative replay loses a
+required change. Finish exact-pin and first-match wake, same-generation joins, in-flight
+coverage, supersession and lost-acknowledgement recovery before deleting their last recursive
+watermark and sweep consumers. Preserve record-grade and pinned read authority. Exercise both
+computation cutoffs on the actual canonical chain, including compatible release contexts and
+current occurrence publication. SBX-07 retains the canonical worker-local memo and verifies
+current placement, scoped proof and authority on that same journey.
+
+**Exact waiter · Tested · 2026-11-22.** Exact source-set pins now compare keyed native
+fulfilled uses with the retained waiting read. The ordinary planner rechecks binding once
+when a matching use becomes visible. This origin no longer contributes to the recursive
+scheduling watermark. In the installed private control, an unrelated product left the waiter
+asleep, a new exact episode triggered one insufficient recheck without changing the watermark,
+and the following exact episode allowed binding to all required uses
+(`uv run ci test --native-host private`, `b7ae512c07654fbda060d649e43d17e1`,
+isolated current-source installation). The other watermark origins remain open.
+
+**Actual canonical adoption · Partial · 2026-11-22.** Two genuine annotation captures
+with different batch sizes prepare distinct releases and annotation recipes with the same
+canonical recipe. A private real-provider run passed the initial chain and failed on the
+successor's discovery attachment before adoption (`uv run ci test --native-host private
+--providers-only`, `ac9812c001f94d349cd52164f2ae6de6`). Exact support for a current use
+of an earlier discovery episode is a prerequisite of this ordinary successor route.
 
 **Compiler checkpoint · 2026-11-21.** Input roles can declare whole, partition or bounded
 halo reads. The compiler emits versioned projection identities and typed edges to the

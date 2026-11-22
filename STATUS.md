@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-21. The SBX hard cutover is in progress through SBX-09. ADR-0150 authorizes an empty development installation. An isolated checkout registered and installed the sole cold root on an empty rehearsal database. Development still runs native N29 and main still registers N47. Stage installation belongs to SBX-20._ [SBX queue](docs/plans/set-based-execution_2026-11-21.md#execution-queue) · [ADR-0150](docs/adr/0150-sbx-empty-development-cutover.md)
+_Updated 2026-11-22. The SBX hard cutover is in progress through SBX-09. All development data, including originals, is disposable. The isolated cold-root rehearsal predates the remaining integration. Development runs native N29 and the checkout registers N47. Stage installation belongs to SBX-20._ [SBX execution sequence](docs/plans/set-based-execution_2026-11-21.md#remaining-execution-through-sbx-09) · [ADR-0150](docs/adr/0150-sbx-empty-development-cutover.md)
 
 ## Current owners
 
@@ -9,7 +9,15 @@ _Updated 2026-11-21. The SBX hard cutover is in progress through SBX-09. ADR-015
 - [Validated values and hand-off](docs/plans/set-based-execution/validated-values-and-handoff.md#sbx-08) owns remaining family carriers, execution brackets and mutable-premise verification. [ADR-0149](docs/adr/0149-contextual-requests-and-projected-computation.md) separates projected computation and exact current custody.
 - [Domain Model Operability](docs/plans/domain-model-operability_2026-11-20.md#completion-and-handoff) retains earlier provider and acceptance evidence. [Test-domain coordinator](docs/plans/test-domain-model-and-execution_2026-11-17.md#implementation-evidence) owns the test fixture and TDM-18 findings. [Library-discovery tooling](tooling/docs/plans/library-discovery-tooling_2026-11-17.md#current-state) retains its verified current and conditional work.
 
-## Last verified · 2026-11-21
+## Last verified · 2026-11-22
+
+- **Passed.** The 20 selected `uv run ci test` annotation and partition controls exercised immutable body sharing between differently placed uses, rejection of altered content under a retained digest, and reacquisition after cache clear (`3db106fc6ad84c29889413846a39f95f`). [Carrier owner](docs/plans/set-based-execution/validated-values-and-handoff.md#sbx-08)
+- **Passed.** The isolated current-root `uv run ci test --native-host private` exact-pin control verified one ordinary binding wake for a new matching use with stable computational inputs (`b7ae512c07654fbda060d649e43d17e1`). [Readiness owner](docs/plans/set-based-execution/references-and-projection-keys.md#sbx-06)
+- **Passed by selected identity.** `uv run ci test` covered immutable formal and composed products and the retained PDF verification bracket, including a captured file changed at a function-local import. [Carrier and bracket evidence](docs/plans/set-based-execution/validated-values-and-handoff.md#sbx-08)
+- **Passed.** `uv run ci check --only types` (`169fcd4b5d864284b8a2916bd4c20f72`), `just model check`, and `uv run ci docs check` (`579a4e5fb76c4c4ca0c9414a828e6e3b`).
+- **Passed by selected identity.** A fresh current-root `uv run ci test --native-host private` verified real contextual witness publication and retrieval after the native producer check was shared. The same-span detached workflow failed before export (`e0b50b52c4d04f7aa4b6591bb1396ab3`). [Reference evidence](docs/plans/set-based-execution/references-and-projection-keys.md#sbx-05)
+
+## Retained scoped evidence · 2026-11-21
 
 - **Passed.** `uv run ci test --native-host private` exercised exact named publication, project and occurrence isolation, and indexed adoption after a lexical-only input change. The retained result attached under fresh support with no new task. The actual spawned construction control observed two verification checks and zero post-admission compilations (`c2355bad832e4219b38a13f0a5c15fd9`). [Scope and remaining native acceptance](docs/plans/set-based-execution/references-and-projection-keys.md#sbx-06)
 - **Passed by selected identity.** `uv run ci test --native-host private` exercised current original admission and an exact required scalar join with an unchanged reused arm and a different-demand control (`4290f9f41f354ea0b5c0e8df35a188f2`). The corrected planner selection passed all 26 cases (`9de533795136429598f16cbe56b5fadb`). The installed scalar cases and the aggregate retain distinct outcomes. [Native readiness](docs/plans/set-based-execution/references-and-projection-keys.md#sbx-06)
@@ -22,6 +30,6 @@ _Updated 2026-11-21. The SBX hard cutover is in progress through SBX-09. ADR-015
 
 ## Remaining acceptance
 
-- Verify whole-result adoption on a real canonical publication and qualify the remaining native waiter origins and scoped join coverage. SBX-06 owns removal of the remaining stored watermark. [Readiness and settlement](docs/plans/set-based-execution/references-and-projection-keys.md#readiness-delivery)
+- Verify whole-result adoption on a real canonical successor, qualify remaining native waiter origins and scoped joins, and remove the remaining stored scheduling watermark. The initial real chain ran, but the cross-release successor reached a discovery custody refusal before adoption. [Readiness and settlement](docs/plans/set-based-execution/references-and-projection-keys.md#sbx-06)
 - Finish proof, reference, immutable family carrier and verification migrations. The current packages identify their live consumers and their current evidence. The old textbook MCP closure watchdog remains a read-path obligation with SBX-11/12. [SBX queue](docs/plans/set-based-execution_2026-11-21.md#execution-queue) · [Read evidence](docs/plans/set-based-execution/references-and-projection-keys.md#sbx-05)
 - **Not run.** Complete-scope `uv run ci test` and `uv run ci check`, cold registration and replacement of development await the integrated acceptance above. The registered chain still contains the superseded revisions. [Development reset](docs/plans/set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09)

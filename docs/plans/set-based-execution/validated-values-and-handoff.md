@@ -106,6 +106,52 @@ it does not detect a file changed during the run.
 <a id="sbx-08"></a>
 ## SBX-08 — Validated carriers
 
+**Remaining carrier order · Proposed · 2026-11-22.** Finish formal evidence, construction
+and contextual products, then retained characterization and enriched composition. Migrate
+ordinary and spawned consumers together. Adopt acquired source and exact pin in the secondary
+native frame carrier and preserve sealed packet fields. Keep scope and authority on each use.
+Retain sentence-family bodies separately by partition and decoder and assemble placed views
+under the invocation. Keep the request fence and independent retained-reply verification.
+
+**Partition retention · Tested · 2026-11-22.** The sentence-family carrier retains nominal
+headers and decoded partition bodies separately in the runtime byte budget. Each acquired
+assembly checks its own population and placement commitments. A body cache hit still
+compares the actual decoded digest to the committed digest. Twenty selected annotation and
+partition controls passed with `uv run ci test` (`3db106fc6ad84c29889413846a39f95f`),
+including relocated shared bodies, altered-row refusal and reacquisition after cache clear.
+
+**Retained characterization and composition · Tested · 2026-11-22.** Retained
+characterization and enriched document constructors acquire immutable decoded payloads and
+retain their publication meaning and member bytes. Context rebinding carries the same
+payload. Five composition controls passed (`uv run ci test`,
+`cd3ab7165fb84013893653fe48166998`). Final installed coverage remains open.
+
+**Formal carrier · Tested by selected identity · 2026-11-22.** The carrier holds immutable
+formal meaning, publication members and its exact source. Construction retains the formal
+product's examined scope and checks current source and nominal correspondence without
+replaying producer validation. The retained mathematical readers consume the same
+interpretation. The selected formal controls and retained-syntax and declared-analysis retries
+passed by identity (`uv run ci test`, `7ab26424ff5e48cabc555e225315fdb5`,
+`3ad3d6d2eba34674a0da6016353f40af`, `3301fd706aff40e59d95125ffe5c3654`).
+These mixed results do not establish aggregate qualification.
+
+**Interpreted carriers · Tested · 2026-11-22.** Construction, contextual meaning,
+contextual native, and declaration syntax acquire frozen payloads at their respective
+boundaries. Direct consumption and context rebinding use the carried value. A sealed
+characterization worker decodes each existing packet once and detaches its reply at
+egress. Forty-three selected construction, contextual and composition controls passed
+(`uv run ci test`, `384fb6f0a09441b0a3e16aa0a1ef8f58`, stable source snapshot).
+Selected operation events now reuse an acquired source frame, with seven event controls
+passed (`ad60ca01fd9c4aa3baadee973c51d986`).
+
+**Native frame ingress · Tested · 2026-11-22.** Parent, retained-read and sealed worker
+routes now construct one acquired frame. Detached proposal records validate their source
+projection, while selected proposal composition reuses the acquired source. Raw frame
+construction and its alternate view are retired. The 67 frame cases passed (`uv run ci
+test`, `76adb046d16044b089d50ec9a4a2aa46`, isolated implementation worktree). The
+receiving-consumer controls passed by identity across `cc5010ae49514ae4a93ac63a83404cf8`
+and `1f0d5e3266b040f7874f9bbccbc51713`. Final registered-root provider qualification remains open.
+
 **Implementation checkpoint · 2026-11-21.** The closed source constructor, same-decoder
 acceptance and sealed CPU worker ingress share the selected validation contract. The immutable
 decoded source payload is bounded by the process runtime-byte owner. Invocation-owned indexes
@@ -159,6 +205,18 @@ declared lifetime.
 
 <a id="sbx-09"></a>
 ## SBX-09 — One verification bracket
+
+**Remaining execution · Proposed · 2026-11-22.** Migrate both PDF region modes and visual
+mapping to a retained authenticated slice. Acquire it with exact model, implementation and
+assets, then check it inside actual work admission and after reply collection. Exercise a
+captured function-local import changed during the call, keeping the two-check construction
+control and actual learned provider verification on the final root.
+
+**PDF regions and visual mapping · Tested · 2026-11-22.** Both region modes and visual
+mapping retain their acquired verification and check inside actual work. Seventeen selected
+profile and region controls passed (`uv run ci test`, `8e56875d62354c949fdbc820ba8d31cf`).
+The threaded visual control detected a captured file modified at a function-local import and
+refused the reply (`2c3342248b9749bb81903157f94d6fb4`, stable source snapshot).
 
 **Implementation checkpoint · 2026-11-21.** The shared CPU plan verifies inside a successful
 admission and after collection. The descriptor retains its immutable source and asset mapping in

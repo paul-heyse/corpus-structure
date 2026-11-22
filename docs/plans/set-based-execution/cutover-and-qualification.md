@@ -16,7 +16,9 @@ owns current package state and review dispositions.
 The operator authorized an empty development database for the hard cutover through SBX-09
 on 2026-11-21. Discard the old development data, including source and derived rows. Work on
 clean native targets with new fixtures and delete superseded runtime paths as their replacements
-land. Development acceptance requires no data migration, restore, backfill or regeneration.
+land. Development acceptance requires no backup, migration, restore, backfill or regeneration.
+All originals, selections and derived rows in development are disposable. Managed evidence
+keeps its recorded standing.
 Stage installation belongs to [SBX-20](#sbx-20).
 
 **Testing during development** follows the repository's rule: compile checks and targeted
@@ -25,17 +27,33 @@ the integrated source against an empty authoring target on the dedicated Postgre
 
 ### Development reset through SBX-09
 
-1. Complete the packages through SBX-09 and run the ordinary executor against newly created
-   native fixtures. Verify committed propagation, current binding and recovery through the
-   acceptance scenarios owned by [SBX-06](references-and-projection-keys.md#sbx-06), then verify
-   the canonical partition memo, validated carriers and execution brackets on the same source.
-2. Preview, author and inspect `semantic_sbx_current_root` with no native predecessor. Register
-   the new root and retire the superseded active development migration chain. Install the
-   registered root cold on a fresh target and verify descriptor, roles and ordinary execution.
-3. Confirm the dedicated cluster and exact `corpus_structure_dev` database identity, drain its
-   writers, and drop and recreate that database at the registered root. Verify the new database
-   identity, native revision, roles and empty application relations. Stage stays on its installed
-   revision until SBX-20.
+1. Complete the packages through SBX-09. Retire the active legacy Alembic chain and its
+   predecessor-specific data-step code. Preserve generic successor authoring. Record the old
+   stage predecessor and its Git baseline for SBX-20. Create an empty authoring database on
+   `18/corpus` with `uv run ci db init --creation-only`. Bind the reader and maintenance
+   settings to it. Run `uv run ci model change preview`, `candidate` and `inspect-candidate` for
+   `semantic_sbx_current_root` with a null predecessor and zero data steps. Confirm captured source,
+   descriptor, objects, grants and rollback. Register the inspected candidate with
+   `uv run ci model change register` and install it with `uv run ci db init` on a separate fresh
+   qualification target. Confirm the sole head, exact descriptor and purpose-role behavior.
+2. Run `just turn-end` before final-source qualification. Run `uv run ci test` and
+   `uv run ci check` for the applicable ordinary and shared fault scope. Use
+   `uv run ci test --providers-only` for changed real annotation and canonical, HanLP
+   declaration, construction, learned definition, contextual, protected reference and PDF
+   provider paths. Use private native runs for isolated journeys, and the dedicated shared
+   host for shared authentication and durability. Run the ordinary executor against fresh
+   fixtures through the committed propagation, binding, recovery, memo and hand-off scenarios.
+   Keep one authentic finite and rich publication-to-export replay. Record managed IDs,
+   selected identities, exact source, revision and context. Preserve failed and interrupted
+   results and reconcile retries by identity. Complete required acceptance before resetting.
+3. Recheck the dedicated cluster and the exact `corpus_structure_dev` maintenance identity
+   with `ci host status` and `ci db status --maintenance`. Drain its writers and sessions.
+   Drop only that database from the verified cluster's maintenance database without force.
+   Recreate with `uv run ci db init`. After interruption, reread acquired state and resume
+   initialization on the same target. Verify the new database identity, installed native
+   revision, descriptor, roles, and empty project, source, demand and product relations.
+   Keep qualification fixture data on qualification targets. Stage installation belongs to
+   SBX-20. Record the acceptance and reset in the coordinator and status checkpoint.
 
 **Cold authoring checkpoint · 2026-11-21.** `uv run ci db init --creation-only` created
 `corpus_structure_sbx09_author` on the dedicated cluster. Managed preview
