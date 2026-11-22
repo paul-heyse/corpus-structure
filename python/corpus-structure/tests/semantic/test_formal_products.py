@@ -8,6 +8,7 @@ from corpus_structure.semantic.data_operation_compilation import compile_data_op
 from corpus_structure.semantic.formal_products import (
     FormalEvidenceOptions,
     FrozenFormalSource,
+    formal_member_contracts,
     formal_product_inputs,
 )
 from corpus_structure.semantic.native_source_view import thaw_native
@@ -23,6 +24,14 @@ from semantic.formal_products_support import (
 from semantic.formal_products_support import (
     selected as selected,
 )
+
+
+def _member_ids(product):
+    return {
+        member["member_id"]
+        for member in product.value["members"]
+        if member["body"]["record_type"] != "manifest"
+    }
 
 
 def test_actual_formal_product_retains_positioned_rules_symbols_terms_and_witnesses(profile):
@@ -45,11 +54,14 @@ def test_actual_formal_product_retains_positioned_rules_symbols_terms_and_witnes
     assert all(
         "source_view_id" not in extent for row in body["occurrences"] for extent in row["extents"]
     )
+    contracts = formal_member_contracts(profile.prepared, profile.model)
     assert all(
-        member.member_id and member.kind.startswith("https://") for member in product.members
+        member["member_id"] and member["kind_contract"] in contracts.values()
+        for member in product.value["members"]
+        if member["body"]["record_type"] != "manifest"
     )
-    assert product.value.source.document == "document:original-content"
-    assert [row.family for row in product.value.coverage] == [
+    assert product.value["source"]["document"] == "document:original-content"
+    assert [row["family"] for row in product.value["coverage"]] == [
         "formal.lexical",
         "formal.number",
         "formal.threshold",
@@ -89,7 +101,7 @@ def test_formal_source_identity_and_exact_scope_change_meaning(profile):
     second = profile.run(
         other, FormalEvidenceOptions(), subject_context=_publication_context(other)
     )
-    assert {m.member_id for m in first.members}.isdisjoint({m.member_id for m in second.members})
+    assert _member_ids(first).isdisjoint(_member_ids(second))
     scoped = thaw_native(full.value)
     scoped["selectors"][0]["end"] = 8
     result = profile.run(
@@ -102,7 +114,7 @@ def test_formal_source_identity_and_exact_scope_change_meaning(profile):
         for row in result.inventory()["occurrences"]
         for extent in row["extents"]
     )
-    assert result.value.selectors[0].end == 8
+    assert result.value["selectors"][0]["end"] == 8
 
 
 def test_selected_source_is_detached_and_refuses_forged_coordinates(profile):
@@ -147,7 +159,7 @@ def test_unprojected_recognized_formula_preserves_atom_and_unknown_correspondenc
     ]
     assert inputs[0]["representation"] == "recognized_latex"
     assert inputs[0]["correspondence"][0]["relation"] == "contained_in_atom"
-    assert product.value.outcome == "partial"
+    assert product.value["outcome"] == "partial"
     assert all(
         "start" not in extent
         for row in product.inventory()["occurrences"]
@@ -191,7 +203,7 @@ def test_source_native_math_readings_restore_retained_syntax_without_parser(
     assert syntax.tree is not None
     inventory = readings.inventory("#/texts/0", latex)
     assert inventory["input"]["product_id"] == product.semantic_id
-    assert inventory["input"]["member_id"] in {member.member_id for member in product.members}
+    assert inventory["input"]["member_id"] in _member_ids(product)
     assert all(
         set(row["primary_node"]) == {"product_id", "member_id"} for row in inventory["nodes"]
     )
@@ -727,7 +739,7 @@ def test_target_formal_source_kind_rejects_generic_private_or_contextual_authori
         FormalEvidenceOptions(),
         subject_context=_publication_context(selected(profile, "Quantity: 2 kg")),
     )
-    original = product.inventory()["annotations"][0]
+    original = thaw_native(product.inventory()["annotations"][0])
     candidate = {**original, **changed}
     # These fields/states are legal in the shared broader released record. The
     # target source-native subtype must enforce its narrower authority itself.
@@ -824,7 +836,7 @@ def test_primary_lexicon_protects_fields_and_rejects_forged_slices(profile):
     assert all(
         not (atom.start < row.end and row.start < atom.end) for atom in atoms for row in terminals
     )
-    body = product.value.model_dump(mode="json", exclude_unset=True)
+    body = thaw_native(product.value)
     body["lexicon"][0]["terminals"][0]["text"] = "forged"
     with pytest.raises(ValueError, match="original unprotected slice"):
         validate_formal_product(profile.prepared, body, source, model=profile.model)
@@ -850,7 +862,7 @@ def test_each_retained_formal_choice_has_an_addressable_exact_member_packet(prof
     product = profile.run(
         source, FormalEvidenceOptions(), subject_context=_publication_context(source)
     )
-    body = product.value.model_dump(mode="json", exclude_unset=True)
+    body = thaw_native(product.value)
     groups = [
         packet["body"] for packet in body["members"] if packet["body"]["record_type"] == "choice"
     ]
@@ -893,11 +905,11 @@ def test_publication_identity_requires_context_and_distinguishes_authority_scope
     source = selected(profile, "All samples are finite.")
     context = _publication_context(source)
     product = profile.run(source, FormalEvidenceOptions(), subject_context=context)
-    other = replace(product, subject_context=replace(context, project_id="another-project"))
+    other = product.with_context(replace(context, project_id="another-project"))
     assert other.content == product.content
     assert other.semantic_id != product.semantic_id
     with pytest.raises(ValueError, match="explicit acquired subject context"):
-        _ = replace(product, subject_context=None).semantic_id
+        _ = product.with_context(None).semantic_id
 
 
 def test_prepared_family_completion_preserves_declared_success_outcome(profile):
@@ -1217,7 +1229,7 @@ def test_target_distinct_original_projections_keep_disjoint_formal_members(profi
         )
         for source in (left, right)
     )
-    members = [{member.member_id for member in product.members} for product in results]
+    members = [_member_ids(product) for product in results]
     assert members[0] and members[1] and members[0].isdisjoint(members[1])
     assert all(
         any(row["kind"] == "formal.symbol" for row in product.inventory()["annotations"])

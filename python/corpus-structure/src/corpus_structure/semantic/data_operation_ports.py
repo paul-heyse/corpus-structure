@@ -1092,8 +1092,14 @@ class ResolvedPythonPort:
 
 
 def _validated_python_input(annotation: Any, value: Any, *, adapters=None) -> Any:
+    from .formal_products import FormalEvidenceProduct
     from .source_products import FrozenNativeSource
 
+    if annotation is FormalEvidenceProduct:
+        if type(value) is not FormalEvidenceProduct:
+            raise PortRefusal("formal evidence ingress requires its exact acquired carrier")
+        FormalEvidenceProduct._require_acquired(value)
+        return value
     if annotation is FrozenNativeSource:
         if type(value) is not FrozenNativeSource:
             raise PortRefusal("native source ingress requires its exact acquired carrier")

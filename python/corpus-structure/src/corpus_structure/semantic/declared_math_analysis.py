@@ -275,7 +275,7 @@ def analyze_declared_math(
     source = arguments["source"]
     selected = FrozenNativeSource.acquire(prepared, source)
     frame = DeclaredNativeFrameSource.acquire(
-        prepared, source, member("source"), project=context.project_id
+        prepared, selected, member("source"), project=context.project_id
     )
     demand, pointer = arguments["demand"], arguments["pointer"] or None
     question, predicate, seconds = (

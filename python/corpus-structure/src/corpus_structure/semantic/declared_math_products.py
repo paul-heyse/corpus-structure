@@ -11,7 +11,7 @@ import inspect
 import json
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
@@ -189,25 +189,17 @@ class _RetainedCharacterization:
     prepared: PreparedRelease
     kind_name: str = "DdoFormalProduct"
 
-    @property
+    @cached_property
     def value(self):
-        return self.prepared.validate_json(self.kind_name, self.content)
+        from .native_source_view import freeze_native
+
+        typed = self.prepared.validate_json(self.kind_name, self.content)
+        return freeze_native(typed.model_dump(mode="json", exclude_unset=True))
 
     def inventory(self):
-        names = {
-            "occurrence": "occurrences",
-            "annotation": "annotations",
-            "membership": "memberships",
-            "term": "terms",
-            "choice": "choices",
-        }
-        result = {name: [] for name in names.values()}
-        body = json.loads(self.content)
-        for packet in body["members"]:
-            tag = packet["body"]["record_type"]
-            if tag in names:
-                result[names[tag]].append(packet["body"])
-        return {**result, "roles": [], "coverage": body["coverage"]}
+        from .formal_products import formal_product_inventory
+
+        return formal_product_inventory(self.value)
 
 
 @dataclass(frozen=True)

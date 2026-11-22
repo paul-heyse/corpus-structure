@@ -629,6 +629,11 @@ class PreparedCharacterizationPort(ABC):
     def _formal(self, source, values, binding):
         result = []
         for value in values:
+            if binding is None and type(value) is FormalEvidenceProduct:
+                value.require_readable_from(source, prepared=self.prepared, model=self.model)
+                value._publication_context()
+                result.append(value)
+                continue
             body = _body(value)
             original = FrozenNativeSource.acquire(
                 self.prepared, {**source.value, "selectors": body["selectors"]}

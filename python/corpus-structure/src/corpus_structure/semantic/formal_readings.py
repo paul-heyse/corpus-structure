@@ -181,30 +181,16 @@ class FormalSourceReadings:
     @classmethod
     def from_products(cls, products, source, *, prepared=None, model=None):
         """Immediate construction input: retain exact typed facts, never parse again."""
-        from .formal_products import FrozenFormalSource, validate_formal_product
+        from .formal_products import FrozenFormalSource
 
+        FrozenFormalSource._require_acquired(source)
         selected = source.value
-        coordinate = selected["source"]
         retained = []
         lexical = []
         for product in products:
-            # The product's retained examined scope is validated under the same original
-            # source, rather than relabelling it as the consumer's requested scope.
-            body = product.value.model_dump(mode="json", exclude_unset=True)
-            if body["source"] != coordinate:
-                raise ValueError("formal construction input belongs to another original source")
-            original = FrozenFormalSource.acquire(
-                prepared or product.prepared, {**selected, "selectors": body["selectors"]}
-            )
-            checked = validate_formal_product(
-                prepared or product.prepared,
-                body,
-                original,
-                model=model or product.model,
-                subject_context=product.subject_context,
-            )
-            retained.append((DataProductReference(checked.semantic_id), checked.inventory()))
-            lexical.extend(body["lexicon"])
+            product.require_readable_from(source, prepared=prepared, model=model)
+            retained.append((DataProductReference(product.semantic_id), product.inventory()))
+            lexical.extend(product.value["lexicon"])
         return cls._from_retained(selected, retained, lexical)
 
     @classmethod

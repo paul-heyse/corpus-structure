@@ -1,5 +1,7 @@
 """Independent positions/domain outcomes through current nominal formal products."""
 
+import json
+
 import pytest
 from lark.exceptions import VisitError
 
@@ -9,6 +11,7 @@ from corpus_structure.semantic.formal_evidence import (
     nominate_fields,
 )
 from corpus_structure.semantic.formal_products import FormalEvidenceOptions, FormalEvidenceProduct
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.source_types import ParseOutcome
 from corpus_structure.semantic.structural_parsing import parse_comparison_literal, parse_threshold
 from semantic.formal_products_support import profile as profile
@@ -80,18 +83,16 @@ def test_examined_nomination_is_independent_of_zero_recognized_fields(profile):
     assert nomination.candidates == ()
     layer = report(profile, "α\t prose\n")  # noqa: RUF001 - deliberate Greek source text
     for coverage in layer.inventory()["coverage"]:
-        assert (
-            coverage["eligible"]
-            == coverage["examined"]
-            == [
-                dict(
-                    projection=layer.value.source.projection,
-                    native_pointer="#/texts/0",
-                    start=0,
-                    end=9,
-                )
-            ]
-        )
+        assert coverage["eligible"] == coverage["examined"] and thaw_native(
+            coverage["examined"]
+        ) == [
+            dict(
+                projection=layer.value["source"]["projection"],
+                native_pointer="#/texts/0",
+                start=0,
+                end=9,
+            )
+        ]
         if coverage["family"] != "formal.lexical":
             assert coverage["outcome"] == "empty"
 
@@ -150,7 +151,7 @@ def test_decimal_comparators_units_and_domain_invalid_fields_survive(profile):
     assert any(value["value"] == "A-1" for value in normalized(layer, "formal.identifier"))
     assert roots(layer, "formal.date")[0]["formal_input"]["syntax_outcome"] == "complete"
     assert roots(layer, "formal.date")[0]["formal_input"]["interpretation_outcome"] == "invalid"
-    assert layer.value.outcome == "complete"
+    assert layer.value["outcome"] == "complete"
     # Existing domain adapters keep their stronger validation promise.
     assert parse_comparison_literal("Date: 2026-02-30") is None
     assert parse_comparison_literal("Range: (2,2] kg") is None
@@ -226,7 +227,7 @@ def test_recognized_formula_interior_never_claims_original_pdf_characters(profil
         assert formal_input["text"] == "x+x"
         assert formal_input["original_text"] == "x plus x"
         assert formal_input["interpretation_outcome"] in {"resolved", "unresolved"}
-        assert formal_input["correspondence"] == [
+        assert thaw_native(formal_input["correspondence"]) == [
             dict(
                 input_start=0,
                 input_end=3,
@@ -252,7 +253,12 @@ def test_recognized_formula_interior_never_claims_original_pdf_characters(profil
             == [(f"#/texts/{index}", index * 9, index * 9 + 8)]
             for item in symbols
         )
-    replay = FormalEvidenceProduct(layer.content, profile.prepared, profile.model)
+    from corpus_structure.semantic.formal_products import formal_product_inventory
+
+    with pytest.raises(TypeError, match="requires validated production"):
+        FormalEvidenceProduct(layer.content, profile.prepared, profile.model)
+    assert formal_product_inventory(json.loads(layer.content)) == layer.inventory()
+    replay = layer.with_context(None)
     assert (
         roots(replay, "formal.math", "recognized_latex")[1]["formal_input"]["original_text"]
         == "x plus x"
@@ -274,7 +280,7 @@ def test_ordinary_retained_annotation_read_preserves_formal_fields_without_parsi
     monkeypatch.setattr(
         math_grammar, "syntax", lambda *args: pytest.fail("retained read reran parsing")
     )
-    retained = FormalEvidenceProduct(layer.content, profile.prepared, profile.model).inventory()
+    retained = layer.inventory()
     row = next(
         annotation
         for annotation in retained["annotations"]
@@ -366,7 +372,7 @@ def test_formal_ambiguity_uses_direct_shared_dag_and_bounded_callbacks(profile, 
         roots(bounded, "formal.math", "recognized_latex")[0]["formal_input"]["syntax_outcome"]
         == "complete"
     )
-    assert bounded.value.outcome == "partial"
+    assert bounded.value["outcome"] == "partial"
 
 
 def test_unsupported_formal_callback_retains_native_syntax_as_unknown(profile):
@@ -419,12 +425,7 @@ def test_canonical_symbols_retain_qualified_subscript_parent_and_derivation(prof
         (r"\mu_i", 15, 20, None),
         ("i", 19, 20, r"\mu_i"),
     ]
-    assert (
-        FormalEvidenceProduct(layer.content, profile.prepared, profile.model).inventory()[
-            "annotations"
-        ]
-        == layer.inventory()["annotations"]
-    )
+    assert layer.inventory()["annotations"] == layer.inventory()["annotations"]
 
 
 @pytest.mark.parametrize(

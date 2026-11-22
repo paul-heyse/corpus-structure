@@ -75,9 +75,7 @@ def test_occurrence_and_normalization_consume_exact_retained_syntax(math_profile
 
     monkeypatch.setattr(grammar, "syntax", refuse_parse)
     monkeypatch.setattr(grammar, "syntax_forest", refuse_parse)
-    actual = DeclaredMathOccurrences(profile).run(
-        source.value, formal.value.model_dump(mode="json", exclude_unset=True)
-    )
+    actual = DeclaredMathOccurrences(profile).run(source.value, thaw_native(formal.value))
     product = DeclaredMathProduct.model_validate(actual)
     assert product.phase == "occurrences" and product.outcome == "complete"
     assert product.source.source_product == "product:source"
@@ -152,9 +150,7 @@ def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
         acquire_analysis_context_profile(),
         lambda: None,
     )
-    original = DeclaredMathOccurrences(profile).run(
-        source.value, formal.value.model_dump(mode="json", exclude_unset=True)
-    )
+    original = DeclaredMathOccurrences(profile).run(source.value, thaw_native(formal.value))
     occurrence_member = replace(
         formal_member, product="product:occurrences", kind_contract="kind:math"
     )
@@ -184,7 +180,7 @@ def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
             source.value,
             original,
             symbolic,
-            construction.value.model_dump(mode="json", exclude_unset=True),
+            thaw_native(construction.value),
         )
     )
     assert result.phase == "scope" and result.outcome == "partial"
@@ -208,7 +204,7 @@ def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
             source.value,
             original,
             symbolic,
-            construction.value.model_dump(mode="json", exclude_unset=True),
+            thaw_native(construction.value),
         )
 
 
@@ -290,9 +286,7 @@ def test_symbol_scope_uses_retained_cues_forward_and_preserves_original_formula_
         acquire_analysis_context_profile(),
         lambda: None,
     )
-    original = DeclaredMathOccurrences(profile).run(
-        source.value, formal.value.model_dump(mode="json", exclude_unset=True)
-    )
+    original = DeclaredMathOccurrences(profile).run(source.value, thaw_native(formal.value))
     occurrence_pin = replace(formal_pin, product="product:occurrences", kind_contract="kind:math")
     symbolic = DeclaredMathNormalization(
         replace(profile, roles=(_role("source", (pin,)), _role("occurrences", (occurrence_pin,))))

@@ -8,6 +8,7 @@ from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.declared_math_analysis import analyze_declared_math
 from corpus_structure.semantic.declared_math_products import DeclaredMathOptions
 from corpus_structure.semantic.math_context import acquire_analysis_context_profile
+from corpus_structure.semantic.native_source_view import thaw_native
 from semantic.declared_math_support import _inputs, _role
 from semantic.declared_math_support import math_profile as math_profile
 
@@ -15,7 +16,7 @@ from semantic.declared_math_support import math_profile as math_profile
 def arguments(source, formal, demand="lexical"):
     return dict(
         source=source.value,
-        formal=formal.value.model_dump(mode="json", exclude_unset=True),
+        formal=thaw_native(formal.value),
         demand=demand,
         pointer="",
         question="",

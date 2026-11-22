@@ -13,7 +13,7 @@ from dataclasses import dataclass, field, replace
 from functools import cached_property, lru_cache
 from hashlib import sha256
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
@@ -46,6 +46,7 @@ from .formal_evidence import (
     grammar_identity,
 )
 from .identity import canonical_bytes
+from .native_source_view import freeze_native
 from .python_operation_sources import PythonSourceCollection
 from .source_products import (
     FrozenNativeSource as FrozenFormalSource,
@@ -126,23 +127,80 @@ class FormalEvidenceOptions(BaseModel):
 
 
 @dataclass(frozen=True)
-class FormalMember:
-    member_id: str
-    subject_id: str
-    role: str
-    ordinal: int
-    kind: str
-    body: BaseModel
-
-
-@dataclass(frozen=True)
-class FormalEvidenceProduct:
-    """Typed nominal product. Fresh models prevent mutable caller aliases escaping."""
-
+class _FormalPayload:
     content: bytes
+    value: Mapping[str, Any]
+    meaning: bytes
+    members: tuple[bytes, ...]
+    body_digest: str
+    kind_contract: str
+
+
+@dataclass(frozen=True, init=False)
+class FormalEvidenceProduct:
+    """Acquired formal evidence and its exact source, with separately bound placement."""
+
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
-    subject_context: SubjectContext | None = None
+    subject_context: SubjectContext | None
+    _payload: ClassVar[_FormalPayload]
+    _source: ClassVar[FrozenFormalSource]
+
+    def __init__(self, *args, **kwargs):
+        raise TypeError("formal evidence requires validated production or exact native acquisition")
+
+    @classmethod
+    def _from_payload(cls, payload, source, prepared, model, subject_context):
+        product = object.__new__(cls)
+        object.__setattr__(product, "_payload", payload)
+        object.__setattr__(product, "_source", source)
+        object.__setattr__(product, "prepared", prepared)
+        object.__setattr__(product, "model", model)
+        object.__setattr__(product, "subject_context", subject_context)
+        return product
+
+    @classmethod
+    def _accept_checked(cls, typed, checked, source, prepared, model, subject_context):
+        from .data_operation_identity import body_identity
+        from .data_operation_ports import project_product_members
+        from .data_operation_values import semantic_value
+
+        kind = prepared.index.definitions["DdoFormalProduct"].iri
+        contract = next(
+            identity.key
+            for identity in model.identities
+            if (identity.owner, identity.domain) == (kind, "kind")
+        )
+        meaning = typed.model_dump(mode="python", exclude_unset=True)
+        payload = _FormalPayload(
+            canonical_bytes(checked),
+            freeze_native(checked),
+            canonical_bytes(semantic_value(meaning)),
+            project_product_members(model, kind, meaning),
+            body_identity(meaning).key,
+            contract,
+        )
+        return cls._from_payload(payload, source, prepared, model, subject_context)
+
+    def _require_acquired(self):
+        if type(self) is not FormalEvidenceProduct or "_payload" not in vars(self):
+            raise TypeError("formal evidence lacks its acquired payload")
+
+    def __deepcopy__(self, memo):
+        self._require_acquired()
+        return self
+
+    def with_context(self, context: SubjectContext | None) -> FormalEvidenceProduct:
+        self._require_acquired()
+        return self._from_payload(self._payload, self._source, self.prepared, self.model, context)
+
+    @property
+    def content(self) -> bytes:
+        return self._payload.content
+
+    @property
+    def value(self) -> Mapping[str, Any]:
+        return self._payload.value
 
     def _publication_context(self):
         if self.subject_context is None:
@@ -151,53 +209,56 @@ class FormalEvidenceProduct:
             )
         return self.subject_context
 
-    @property
-    def value(self) -> BaseModel:
-        return self.prepared.validate_json("DdoFormalProduct", self.content)
+    def require_readable_from(self, source, *, prepared=None, model=None):
+        self._require_acquired()
+        FrozenFormalSource._require_acquired(source)
+        selected = source.value
+        if self.value["source"] != selected["source"]:
+            raise ValueError("formal construction input belongs to another original source")
+        # The formal product owns its original selectors. Consumers can use different
+        # selectors over the same captured source facts without relabelling that coverage.
+        original = self._source.value
+        if any(
+            original.get(field) != selected.get(field)
+            for field in ("text", "pieces", "items", "ancestors")
+        ):
+            raise ValueError("formal construction input differs from its acquired source facts")
+        if model is not None:
+            kind = (prepared or self.prepared).index.definitions["DdoFormalProduct"].iri
+            if not any(
+                (identity.owner, identity.domain, identity.key)
+                == (kind, "kind", self._payload.kind_contract)
+                for identity in model.identities
+            ):
+                raise ValueError("formal construction input has another nominal contract")
 
     @cached_property
     def semantic_id(self) -> str:
-        """Use the same body/kind/subject identity as native publication."""
-        from .data_operation_identity import body_identity, contextual_product_identity
+        from .data_operation_identity import contextual_product_identity
 
-        definition = self.prepared.index.definitions["DdoFormalProduct"]
-        contract = next(
-            identity.key
-            for identity in self.model.identities
-            if (identity.owner, identity.domain) == (definition.iri, "kind")
-        )
-        value = self.value.model_dump(mode="python", exclude_unset=True)
         return contextual_product_identity(
-            kind=contract,
+            kind=self._payload.kind_contract,
             context=self._publication_context(),
-            body=body_identity(value).key,
+            body=self._payload.body_digest,
         ).key
 
-    @property
-    def members(self) -> tuple[FormalMember, ...]:
-        inventory = {kind: name for name, kind in _MEMBER_VARIANTS}
-        return tuple(
-            FormalMember(
-                row.member_id,
-                row.context.subject,
-                inventory[row.body.record_type],
-                ordinal,
-                self.prepared.index.definitions[type(row.body).__name__].iri,
-                row.body,
-            )
-            for ordinal, row in enumerate(cast(Any, self.value).members)
-            if row.body.record_type != "manifest"
-        )
+    @cached_property
+    def _inventory(self) -> Mapping[str, Any]:
+        return formal_product_inventory(self.value)
 
-    def inventory(self) -> dict[str, Any]:
-        """Shared read-only algorithm view; it has no legacy layer/task identity."""
-        body = json.loads(self.content)
-        result = {name: [] for name, _ in _INVENTORIES}
-        by_kind = {kind: name for name, kind in _INVENTORIES}
-        for packet in body["members"]:
-            if packet["body"]["record_type"] not in {"choice_member", "manifest"}:
-                result[by_kind[packet["body"]["record_type"]]].append(packet["body"])
-        return {**result, "roles": [], "coverage": body["coverage"]}
+    def inventory(self) -> Mapping[str, Any]:
+        return self._inventory
+
+
+def formal_product_inventory(body: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Project a formal body for analysis without granting publication authority."""
+    result = {name: [] for name, _ in _INVENTORIES}
+    by_kind = {kind: name for name, kind in _INVENTORIES}
+    for packet in body["members"]:
+        kind = packet["body"]["record_type"]
+        if kind in by_kind:
+            result[by_kind[kind]].append(packet["body"])
+    return freeze_native({**result, "roles": [], "coverage": body["coverage"]})
 
 
 def verify_formal_literal_geometry(text, pieces, members, lexicon):
@@ -417,7 +478,9 @@ def validate_formal_product(
     verify_inventory_literal_extents(data["occurrences"])
     verify_inventory_native_scores(packets)
     verify_formal_family_roster(checked["coverage"])
-    return FormalEvidenceProduct(canonical_bytes(checked), prepared, model, subject_context)
+    return FormalEvidenceProduct._accept_checked(
+        typed, checked, source, prepared, model, subject_context
+    )
 
 
 def acquired_formal_product(
@@ -431,7 +494,9 @@ def acquired_formal_product(
     typed = prepared.validate_json("DdoFormalProduct", canonical_bytes(value))
     checked = _values(typed)
     selected = source.value
-    product = FormalEvidenceProduct(canonical_bytes(checked), prepared, model, subject_context)
+    product = FormalEvidenceProduct._accept_checked(
+        typed, checked, source, prepared, model, subject_context
+    )
     if (
         product.semantic_id != member.product
         or checked["source"] != selected["source"]
@@ -1044,21 +1109,19 @@ class PreparedFormalEvidencePort:
 
     def _completion(self, product, source, binding=None):
         if binding is not None:
-            product = replace(product, subject_context=binding.subject_context)
+            product = product.with_context(binding.subject_context)
         from ._data_operation_wire import WireKindContract, WireOutputMember
-        from .data_operation_ports import PortCompletion, RoleValue, project_product_members
-        from .data_operation_values import semantic_value
+        from .data_operation_ports import PortCompletion, RoleValue
         from .established_validity import (
             RuleObservedInput,
             successful_rule_attestation,
         )
 
-        model_value = product.value.model_dump(mode="python", exclude_unset=True)
         output = next(role for role in self.operation.roles if role.direction == "output")
         contracts = {(item.owner, item.domain): item.key for item in self.profile.model.identities}
         kind_contract = contracts[output.kind, "kind"]
-        meaning = semantic_value(model_value)
-        members = project_product_members(self.profile.model, output.kind, model_value)
+        meaning = product._payload.meaning
+        members = product._payload.members
         attestations = ()
         if product.subject_context is not None:
             kind = next(
@@ -1070,7 +1133,7 @@ class PreparedFormalEvidencePort:
                 "multiplicity": 1,
                 "product": {
                     "kind_contract": WireKindContract(kind_contract),
-                    "body": meaning,
+                    "body": json.loads(meaning),
                     "members": [json.loads(member) for member in members],
                 },
             }
@@ -1110,7 +1173,7 @@ class PreparedFormalEvidencePort:
                     output.name,
                     kind_contract,
                     product.content,
-                    canonical_bytes(meaning),
+                    meaning,
                     members,
                 ),
             ),

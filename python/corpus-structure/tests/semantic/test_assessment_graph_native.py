@@ -77,7 +77,9 @@ def test_native_selected_formal_members_supply_assessment_graph(ddo_kernel):
         subject_definition="original-occurrence",
     )
     formal = profile.run(source, FormalEvidenceOptions(), subject_context=context)
-    payload = formal.value.model_dump(mode="python", exclude_unset=True)
+    payload = formal.prepared.validate_json("DdoFormalProduct", formal.content).model_dump(
+        mode="python", exclude_unset=True
+    )
     kind = kernel.identities[kernel.prepared.index.definitions["DdoFormalProduct"].iri, "kind"]
     demand, _, _, attached = attach(
         kernel, subject=context.subject, original_source=document, analyzed_scope={}
@@ -205,7 +207,9 @@ def test_formal_fixture_members_match_native_wire_before_publication():
     profile = released_profile()
     source = selected(profile)
     formal = profile.run(source, FormalEvidenceOptions())
-    packets = formal.value.model_dump(mode="python", exclude_unset=True)["members"]
+    packets = formal.prepared.validate_json("DdoFormalProduct", formal.content).model_dump(
+        mode="python", exclude_unset=True
+    )["members"]
     assert packets
     adapter = TypeAdapter(WireProductMember)
     for packet in packets:
@@ -246,7 +250,9 @@ def test_formal_fixture_members_match_native_wire_before_publication():
                             product=dict(
                                 kind_contract="kind:test",
                                 body=semantic_value(
-                                    formal.value.model_dump(mode="python", exclude_unset=True)
+                                    formal.prepared.validate_json(
+                                        "DdoFormalProduct", formal.content
+                                    ).model_dump(mode="python", exclude_unset=True)
                                 ),
                                 members=[
                                     dict(

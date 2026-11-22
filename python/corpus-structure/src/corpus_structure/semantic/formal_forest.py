@@ -548,7 +548,8 @@ def _restore_math_syntax(
     readings = [
         row
         for row in terms.values()
-        if row.get("value") == "formal-reading" and row.get("premises") == [root["local_id"]]
+        if row.get("value") == "formal-reading"
+        and tuple(row.get("premises", ())) == (root["local_id"],)
     ]
     if len(readings) != 1 or len(readings[0].get("children", ())) != 1:
         return replace(
@@ -709,7 +710,7 @@ class SourceNativeMathReadings:
         self._inputs = {}
         self._coordinate = coordinate
         for product in products:
-            value = product.value.model_dump(mode="json", exclude_unset=True)
+            value = product.value
             if value["source"] != coordinate:
                 raise ValueError("retained mathematical product belongs to another source")
             body = product.inventory()
