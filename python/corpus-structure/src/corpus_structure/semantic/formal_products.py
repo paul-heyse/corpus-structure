@@ -736,21 +736,21 @@ def _formal_asset_paths():
     )
 
 
+def _formal_asset_entries():
+    return (
+        execute_formal_profile,
+        PreparedFormalEvidence.run,
+        extract_formal_facts,
+        validate_formal_product,
+    )
+
+
 @lru_cache(maxsize=1)
 def formal_profile_assets() -> SourceArtifact:
     """Capture formal production and the effective grammar assets it reads."""
     from .operation_code_assets import code_asset
 
-    return code_asset(
-        "formal/profile-assets",
-        (
-            execute_formal_profile,
-            PreparedFormalEvidence.run,
-            extract_formal_facts,
-            validate_formal_product,
-        ),
-        _formal_asset_paths(),
-    )
+    return code_asset("formal/profile-assets", _formal_asset_entries(), _formal_asset_paths())
 
 
 def _formal_decimal_runtime() -> SourceArtifact:
@@ -850,6 +850,7 @@ class PreparedFormalEvidencePort:
             verify_prepared_product,
         )
         from .file_custody import verified_file
+        from .operation_code_assets import code_asset_sources
 
         if endpoint.execute_formal_profile is not execute_formal_profile:
             raise PortRefusal("loaded formal resource bridge differs from acquired implementation")
@@ -954,8 +955,17 @@ class PreparedFormalEvidencePort:
             for name, encoded in json.loads(captured["formal/execution-custody"].content)["files"]
         )
         files = {record.path.resolve(): record for record in verification.files}
+        content += tuple(
+            (Path(source.filename), source.content)
+            for source in code_asset_sources(_formal_asset_entries()).sources
+        )
         for path, encoded in content:
             record = verified_file(path, sha256(encoded).hexdigest())
+            if (
+                record.path.resolve() in files
+                and files[record.path.resolve()].digest != record.digest
+            ):
+                raise PortRefusal("formal asset disagrees with captured source")
             files[record.path.resolve()] = record
         verification.files = tuple(files.values())
         object.__setattr__(self, "_occurrence_runtime", occurrence_identity_runtime())
