@@ -11,6 +11,7 @@ from corpus_structure.semantic.formal_products import (
     acquired_formal_product,
     validate_formal_product,
 )
+from corpus_structure.semantic.native_source_view import thaw_native
 from semantic.formal_products_support import profile as profile
 from semantic.formal_products_support import publication_context, selected
 
@@ -19,7 +20,7 @@ def test_retained_product_cannot_change_selected_identity(profile, monkeypatch):
     source = selected(profile, "Quantity: 2 kg")
     context = publication_context(source)
     product = profile.run(source, FormalEvidenceOptions(), subject_context=context)
-    body = product.value.model_dump(mode="json", exclude_unset=True)
+    body = thaw_native(product.value)
     member = BoundRoleMember(
         product=product.semantic_id,
         kind_contract=next(
@@ -69,7 +70,7 @@ def test_standalone_formal_product_checks_member_identity(profile):
     source = selected(profile, "Quantity: 2 kg")
     context = publication_context(source)
     product = profile.run(source, FormalEvidenceOptions(), subject_context=context)
-    body = product.value.model_dump(mode="json", exclude_unset=True)
+    body = thaw_native(product.value)
     body["members"][0]["member_id"] = "changed-member-identity"
 
     with pytest.raises(ValueError):
