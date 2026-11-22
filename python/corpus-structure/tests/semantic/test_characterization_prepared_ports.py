@@ -504,7 +504,32 @@ def _publication_context(source, *, document=False):
     )
 
 
-def test_interpreted_completions_attest_literal_geometry_for_the_exact_source(acquired):
+def test_interpreted_body_coverage_refuses_empty_family_with_analytical_members():
+    from corpus_structure.semantic.construction_products import verify_interpreted_body_coverage
+
+    coverage = [
+        {
+            "family": "sample.choice",
+            "outcome": "complete",
+            "availability": "available",
+            "eligible": [{"start": 0, "end": 6}],
+            "examined": [{"start": 0, "end": 6}],
+        }
+    ]
+    inventory = {
+        "annotations": [],
+        "memberships": [],
+        "roles": [],
+        "terms": [],
+        "choices": [{"family": "sample.choice"}],
+    }
+    verify_interpreted_body_coverage(coverage, "complete", inventory)
+    coverage[0]["outcome"] = "empty"
+    with pytest.raises(ValueError, match="successful empty family contains analytical output"):
+        verify_interpreted_body_coverage(coverage, "complete", inventory)
+
+
+def test_interpreted_completions_attest_body_coverage_and_exact_literal_source(acquired):
     from corpus_structure.semantic.construction_products import (
         PreparedConstructionProfile,
         PreparedContextualProfile,
@@ -537,14 +562,27 @@ def test_interpreted_completions_attest_literal_geometry_for_the_exact_source(ac
     ):
         port = admitted(acquired, operation, resolver)
         result = port._completion(product, SimpleNamespace(subject_context=context), source=source)
-        (proof,) = result.rule_attestations
-        assert proof.rule_id == required
-        assert proof.output_role == "result"
-        assert proof.output_position == 0
+        proofs = {proof.rule_id: proof for proof in result.rule_attestations}
+        coverage_rule = operation.partition("/")[0] + "/body-coverage"
+        assert set(proofs) == {required, coverage_rule}
+        assert all(proof.output_role == "result" for proof in proofs.values())
+        assert all(proof.output_position == 0 for proof in proofs.values())
+
+        changed = port._completion(
+            product,
+            SimpleNamespace(subject_context=context),
+            source=selected(formal, "No sample is finite."),
+        )
+        changed_proofs = {proof.rule_id: proof for proof in changed.rule_attestations}
+        assert changed_proofs[coverage_rule].premise == proofs[coverage_rule].premise
+        assert changed_proofs[required].premise != proofs[required].premise
 
     consumer = model.operation("text.contextual_evaluation/source-native")
     (role,) = (role for role in consumer.roles if role.name == "constructions")
-    assert role.required_rules == ("text.constructions/literal-source",)
+    assert role.required_rules == (
+        "text.constructions/body-coverage",
+        "text.constructions/literal-source",
+    )
     (reference_target,) = model.operation("text.constructions/source-native").reference_targets
     assert (reference_target.path, reference_target.input_role, reference_target.collection) == (
         "/annotation_support/*/target",

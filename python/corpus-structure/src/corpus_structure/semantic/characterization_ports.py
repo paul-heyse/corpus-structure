@@ -393,7 +393,10 @@ class PreparedCharacterizationPort(ABC):
             ("corpus_structure.semantic.characterization_ports." + bridge_name, self.bridge),
         )
         if self.family != "view":
-            from .construction_products import verify_interpreted_literal_source
+            from .construction_products import (
+                verify_interpreted_body_coverage,
+                verify_interpreted_literal_source,
+            )
 
             functions = (
                 *functions,
@@ -406,6 +409,10 @@ class PreparedCharacterizationPort(ABC):
                 (
                     "corpus_structure.semantic.construction_products.verify_interpreted_literal_source",
                     verify_interpreted_literal_source,
+                ),
+                (
+                    "corpus_structure.semantic.construction_products.verify_interpreted_body_coverage",
+                    verify_interpreted_body_coverage,
                 ),
             )
         verify_prepared_product(
@@ -751,13 +758,12 @@ class PreparedCharacterizationPort(ABC):
         ):
             if source is None or product.subject_context is None:
                 raise ValueError("interpreted attestation requires its selected source and subject")
-            rule = next(
-                rule
-                for rule in self.model.rules
-                if rule.checker_operation == self.operation.semantic_id
-                and rule.checker_callable
-                == "corpus_structure.semantic.construction_products.verify_interpreted_literal_source"
-            )
+            checked = {
+                "corpus_structure.semantic.construction_products.verify_interpreted_literal_source": {
+                    "source": (RuleObservedInput(source.value),)
+                },
+                "corpus_structure.semantic.construction_products.verify_interpreted_body_coverage": None,
+            }
             owner_kind = next(item for item in self.model.kinds if item.semantic_id == output.kind)
             packet: WireOutputMember = {
                 "role": output.name,
@@ -769,15 +775,18 @@ class PreparedCharacterizationPort(ABC):
                     "members": [json.loads(member) for member in members],
                 },
             }
-            attestations = (
+            attestations = tuple(
                 successful_rule_attestation(
                     rule,
                     owner_kind,
                     self.operation.semantic_id,
                     packet,
                     product.subject_context,
-                    selected_inputs={"source": (RuleObservedInput(source.value),)},
-                ),
+                    selected_inputs=checked[rule.checker_callable],
+                )
+                for rule in self.model.rules
+                if rule.checker_operation == self.operation.semantic_id
+                and rule.checker_callable in checked
             )
         return PortCompletion(
             self.operation.semantic_id,

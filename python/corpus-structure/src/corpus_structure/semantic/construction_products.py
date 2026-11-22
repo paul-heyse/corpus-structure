@@ -840,6 +840,33 @@ def verify_interpreted_literal_source(product, source):
                 raise ValueError("construction occurrence changes original positioned source")
 
 
+def verify_interpreted_body_coverage(coverage, outcome, inventory):
+    """Check the agreement between analytical families and their reported standing."""
+    covered_families = {row["family"] for row in coverage}
+    if len(covered_families) != len(coverage):
+        raise ValueError("construction repeats family coverage")
+    analytical_families = {
+        item["family"]
+        for name in ("annotations", "memberships", "roles", "terms", "choices")
+        for item in inventory[name]
+    }
+    if not analytical_families <= covered_families:
+        raise ValueError("construction analytical family lacks declared coverage")
+    for row in coverage:
+        if row["outcome"] in {"complete", "empty"}:
+            has_gap = row["availability"] != "available"
+            if "unexamined" in row:
+                has_gap = has_gap or bool(row["unexamined"])
+            if has_gap or (row["eligible"] and not row["examined"]):
+                raise ValueError("complete or empty family requires available examined coverage")
+        if row["outcome"] == "empty" and row["family"] in analytical_families:
+            raise ValueError("successful empty family contains analytical output")
+    if outcome == "complete" and any(
+        row["outcome"] not in {"complete", "empty"} for row in coverage
+    ):
+        raise ValueError("complete product contains incomplete family coverage")
+
+
 def validate_interpreted_product(
     prepared,
     model,
@@ -933,23 +960,8 @@ def validate_interpreted_product(
 
     validate_navigation_evidence({**indexes, "annotations": indexes["annotations"] | navigation})
     validate_inventory_graph(inventory, indexes, all_nodes, choices, validate_basis)
-    covered_families = {row["family"] for row in checked["coverage"]}
-    if len(covered_families) != len(checked["coverage"]):
-        raise ValueError("construction repeats family coverage")
-    analytical_families = {
-        item["family"]
-        for name in ("annotations", "memberships", "roles", "terms", "choices")
-        for item in inventory[name]
-    }
-    if not analytical_families <= covered_families:
-        raise ValueError("construction analytical family lacks declared coverage")
+    verify_interpreted_body_coverage(checked["coverage"], checked["outcome"], inventory)
     for row in checked["coverage"]:
-        if row["outcome"] in {"complete", "empty"} and (
-            row["availability"] != "available"
-            or row.get("unexamined")
-            or (row["eligible"] and not row["examined"])
-        ):
-            raise ValueError("complete or empty family requires available examined coverage")
         if row["outcome"] in {"complete", "empty"}:
             eligible = selected_source_ranges(
                 selected, row["eligible"], selector_index=selector_index, include_unknown=True
@@ -967,16 +979,6 @@ def validate_interpreted_product(
                 not any(c <= a and b <= d for c, d in examined) for a, b in eligible
             ):
                 raise ValueError("complete or empty family leaves eligible source scope unexamined")
-        if row["outcome"] == "empty" and any(
-            item["family"] == row["family"]
-            for name in ("annotations", "memberships", "roles", "terms", "choices")
-            for item in inventory[name]
-        ):
-            raise ValueError("successful empty family contains analytical output")
-    if checked["outcome"] == "complete" and any(
-        row["outcome"] not in {"complete", "empty"} for row in checked["coverage"]
-    ):
-        raise ValueError("complete product contains incomplete family coverage")
     proof = None
     if product_type in (ConstructionProduct, ContextualMeaningProduct):
         from .characterization_ports import _semantic_assets

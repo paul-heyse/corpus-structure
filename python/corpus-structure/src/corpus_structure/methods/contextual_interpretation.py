@@ -20,6 +20,16 @@ class ContextualEvaluationOperation:
         "id": "text.contextual_evaluation/source-native",
         "rules": [
             {
+                "id": "text.contextual_evaluation/body-coverage",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualMeaningProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.contextual_evaluation/source-native",
+                "checker_callable": "corpus_structure.semantic.construction_products.verify_interpreted_body_coverage",
+                "parameters": {"paths": ["coverage", "members", "outcome"]},
+            },
+            {
                 "id": "text.contextual_evaluation/literal-source",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualMeaningProduct",
                 "scope": "product",
@@ -89,7 +99,10 @@ class ContextualEvaluationOperation:
                 "name": "constructions",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
                 "direction": "input",
-                "required_rules": ["text.constructions/literal-source"],
+                "required_rules": [
+                    "text.constructions/body-coverage",
+                    "text.constructions/literal-source",
+                ],
                 "minimum": 1,
                 "maximum": None,
                 "collection": "sequence",
