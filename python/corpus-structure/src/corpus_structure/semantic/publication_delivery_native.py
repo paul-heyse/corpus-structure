@@ -186,6 +186,7 @@ def fulfilled_use_recipients(model):
     page = core_variable("p_page", ARRAY(Text()))
     boundary = core_variable("boundary", JSONB())
     demand_id = core_variable("boundary", reads.c.demand_id.type, "demand_id")
+    access_universes = core_variable("boundary", reads.c.access_universes.type, "access_universes")
 
     def occurrence(values, name):
         return (
@@ -264,7 +265,8 @@ def fulfilled_use_recipients(model):
             producer.c.operation_id == requests.c.operation_id,
             selected["dependencies"].contains(func.jsonb_build_array(producer.c.operation_id)),
             product.c.project_id == project,
-            kind.c.universe == "ordinary",
+            kind.c.universe.in_(("ordinary", "source")),
+            func.coalesce(access_universes.bool_op("?")(kind.c.universe), False),
             ~func.ops.ddo_policy_authority_leaf(derivations.c.id),
             _custody_body_eligible(model, product.c.kind_contract, product.c.canonical_body),
             producer.c.subject == recipient.c.subject,
