@@ -797,6 +797,7 @@ class DemandPlanner:
                 and not retained
                 and obligation["obligation_id"] not in woken_obligations
                 and not obligation.get("binding_authority_changed")
+                and not obligation.get("binding_original_changed")
                 and not obligation.get("binding_pin_changed")
                 and previous is not None
                 and previous["fate"]

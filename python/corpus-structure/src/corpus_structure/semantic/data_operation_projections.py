@@ -528,6 +528,13 @@ def member_columns():
     )
 
 
+def _fact_origin(admissions):
+    return case(
+        (admissions.c.reference["kind"].astext == "authored-fact", literal("authored")),
+        else_=literal("original-source"),
+    )
+
+
 def binding_branches(metadata):
     demand, project, release = (
         _var("d.id", Text),
@@ -890,10 +897,6 @@ def binding_branches(metadata):
         func.ops.ddo_body_access(candidates.c.projected_kind, candidates.c.projected_body),
     )
     admissions = metadata.tables["ops.original_source_admission"].alias("admission")
-    fact_origin = case(
-        (admissions.c.reference["kind"].astext == "authored-fact", literal("authored")),
-        else_=literal("original-source"),
-    )
     factual_header = _obj(
         product=admissions.c.product_id,
         member=cast(null(), Text),
@@ -915,7 +918,7 @@ def binding_branches(metadata):
                         roles.c.value["accepted_kind_contracts"].op("?")(products.c.kind_contract),
                         func.coalesce(
                             roles.c.value["support"]["origins"], _json(["computation"])
-                        ).op("?")(fact_origin),
+                        ).op("?")(_fact_origin(admissions)),
                         or_(
                             scope.is_(None),
                             roles.c.value["subject_field"].astext.is_not(None),
@@ -1733,14 +1736,24 @@ def record_grade_selected_outputs(metadata):
     return _selected_support_output_rows(metadata, one_use=False)
 
 
-def _origin_role_matches(role, header, projected_kind, projected_scope, bounded):
+def _origin_role_matches(
+    role, header, projected_kind, projected_scope, origin, bounded, *, allow_body_predicate=True
+):
     """Use binding's immutable role, source and qualified-context association."""
+    subject_matches = func.ops.ddo_binding_subject(
+        role, header, bounded.c.subject, bounded.c.original_source
+    )
+    if not allow_body_predicate:
+        subject_matches = case(
+            (role["subject_field"].astext.is_not(None), literal(True)),
+            else_=subject_matches,
+        )
     return case(
         (
             and_(
                 role["accepted_kind_contracts"].bool_op("?")(projected_kind),
                 func.coalesce(role["support"]["origins"], _json(["computation"])).bool_op("?")(
-                    literal("computation")
+                    origin
                 ),
                 or_(
                     role["subject_field"].astext.is_not(None),
@@ -1749,9 +1762,7 @@ def _origin_role_matches(role, header, projected_kind, projected_scope, bounded)
                 ),
             ),
             and_(
-                func.ops.ddo_binding_subject(
-                    role, header, bounded.c.subject, bounded.c.original_source
-                ),
+                subject_matches,
                 func.ops.ddo_binding_source(
                     role,
                     header,
@@ -1761,6 +1772,55 @@ def _origin_role_matches(role, header, projected_kind, projected_scope, bounded)
             ),
         ),
         else_=literal(False),
+    )
+
+
+def _original_admission_changed(metadata, bounded, latest, wait_read):
+    """Use native original receipts to wake matching roles, including their first fact."""
+    definitions = metadata.tables["sem.data_operation_definition"].alias("original_definition")
+    roles = _items(definitions.c.input_roles, "original_role")
+    admissions = metadata.tables["ops.original_source_admission"].alias("original_fact")
+    products = metadata.tables["kb.data_product"].alias("original_product")
+    kinds = metadata.tables["sem.data_kind_contract"].alias("original_kind")
+    header = _obj(
+        product=admissions.c.product_id,
+        member=cast(null(), Text),
+        subject=admissions.c.subject,
+        subject_definition=products.c.subject_definition,
+        original_source=admissions.c.original_source,
+        analyzed_scope=admissions.c.analyzed_scope,
+    )
+    return (
+        select(1)
+        .select_from(
+            definitions.join(wait_read, wait_read.c.id == latest.c.selection["read_id"].astext)
+            .join(roles, literal(True))
+            .join(admissions, admissions.c.demand_id == wait_read.c.demand_id)
+            .join(products, products.c.id == admissions.c.product_id)
+            .join(kinds, kinds.c.kind_contract == products.c.kind_contract)
+        )
+        .where(
+            definitions.c.release_id == _var("d.release_id", Text),
+            definitions.c.operation_id == bounded.c.operation_id,
+            wait_read.c.demand_id == _var("d.id", Text),
+            admissions.c.project_id == _var("d.project_id", Text),
+            _var("boundary.access_universes", JSONB).bool_op("?")(kinds.c.universe),
+            _visible(admissions),
+            ~func.ops.ddo_read_visible(
+                admissions.c.created_at, admissions.c.created_xid, wait_read.table_valued()
+            ),
+            _origin_role_matches(
+                roles.c.value,
+                header,
+                products.c.kind_contract,
+                admissions.c.analyzed_scope,
+                _fact_origin(admissions),
+                bounded,
+                allow_body_predicate=False,
+            ),
+        )
+        .correlate(bounded, latest)
+        .exists()
     )
 
 
@@ -1814,7 +1874,7 @@ def _exact_pin_changed(metadata, bounded, latest, wait_read):
     )
     # A matching event prompts binding, which checks live validity and authority.
     role_matches = _origin_role_matches(
-        roles.c.value, header, projected_kind, projected_scope, bounded
+        roles.c.value, header, projected_kind, projected_scope, literal("computation"), bounded
     )
     return (
         select(1)
@@ -1991,6 +2051,7 @@ def _unconstrained_watermark_uses(metadata, bounded):
                         header,
                         projected.c.kind_contract,
                         projected.c.analyzed_scope,
+                        literal("computation"),
                         bounded,
                     ),
                     case(
@@ -2024,7 +2085,6 @@ def _inputs_watermarks(metadata, bounded):
     uses = metadata.tables["ops.demand_use"]
     obligations = metadata.tables["ops.data_obligation"].alias("prerequisite_obligation")
     populations = metadata.tables["ops.data_population"]
-    originals = metadata.tables["ops.original_source_admission"]
     selected = _items(_var("d.selection", JSONB)["operations"], "watermark_selected")
     dependencies = (
         func.jsonb_array_elements_text(selected.c.value["dependencies"])
@@ -2100,25 +2160,12 @@ def _inputs_watermarks(metadata, bounded):
         .select_from(bounded.join(populations, populations.c.demand_id == _var("d.id", Text)))
         .where(relevant_population, _visible(populations))
     )
-    # Original selections are exact frozen pins. Admission can occur after the
-    # waiting fate, including an explicitly selected source from another context.
-    original_rows = (
-        select(
-            bounded.c.id.label("obligation_id"),
-            literal("original").label("kind"),
-            originals.c.id.label("identity"),
-            originals.c.created_at,
-        )
-        .select_from(bounded.join(originals, originals.c.demand_id == _var("d.id", Text)))
-        .where(_visible(originals))
-    )
     # A use can be visible through several local prerequisites or outputs.
     # Hash its actual identity once, independent of output multiplicity.
     visible = union(
         fulfilled,
         _unconstrained_watermark_uses(metadata, bounded),
         population_rows,
-        original_rows,
     ).cte("watermark_visible")
     identities = (
         select(
@@ -2143,7 +2190,6 @@ def _inputs_watermarks(metadata, bounded):
         _obj(
             visible=func.coalesce(facts, _json([])),
             source_sets=_var("d.selection", JSONB)["source_sets"],
-            original_sources=_var("d.selection", JSONB)["original_sources"],
         )
     )
 
@@ -2190,7 +2236,9 @@ def read_page(metadata):
         select(
             bounded,
             func.ops.ddo_obligation_settlement(
-                bounded.c.id, _var("boundary.id", Text), bounded.c.native_readiness,
+                bounded.c.id,
+                _var("boundary.id", Text),
+                bounded.c.native_readiness,
                 type_=JSONB(),
             ).label("native_settlement"),
         )
@@ -2502,6 +2550,9 @@ def read_page(metadata):
                     ),
                     _obj(
                         binding_authority_changed=func.coalesce(authority_changed, True),
+                        binding_original_changed=_original_admission_changed(
+                            metadata, bounded, latest, wait_read
+                        ),
                         binding_pin_changed=_exact_pin_changed(
                             metadata, bounded, latest, wait_read
                         ),
