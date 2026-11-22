@@ -1081,19 +1081,31 @@ class PreparedSentencePort:
             != sentence_provider_attestation(self.profile.selection)["identity"]
         ):
             raise PortRefusal("acquired sentence provider differs from captured semantic profile")
+        from .data_operation_prepared_products import (
+            PreparedProductDiagnostic,
+            PreparedProductRefusal,
+        )
+
         retained = {artifact.name: artifact for artifact in self.custody}
-        if len(retained) != len(self.custody) or any(
-            retained.get(actual.name) != actual
-            for actual in (
-                sentence_profile_assets(
-                    self.profile.configuration, selection=self.profile.selection
-                ),
-                sentence_execution_custody(
-                    self.profile.configuration, selection=self.profile.selection
-                ),
-            )
+        if len(retained) != len(self.custody):
+            raise PortRefusal("sentence acquired custody repeats a boundary asset")
+        for actual in (
+            sentence_profile_assets(self.profile.configuration, selection=self.profile.selection),
+            sentence_execution_custody(
+                self.profile.configuration, selection=self.profile.selection
+            ),
         ):
-            raise PortRefusal("sentence runtime/parser assets differ from acquired custody")
+            captured = retained.get(actual.name)
+            if captured != actual:
+                raise PreparedProductRefusal(
+                    "sentence runtime/parser assets differ from acquired custody: " + actual.name,
+                    PreparedProductDiagnostic(
+                        actual.name,
+                        captured.digest if captured is not None else None,
+                        actual.digest,
+                        "prepared_operation_custody",
+                    ),
+                )
         expected["source_digest"] = sha256(
             canonical_bytes(
                 tuple(
