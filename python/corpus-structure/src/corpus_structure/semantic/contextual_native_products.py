@@ -42,6 +42,7 @@ def contextual_native_values(
         ContextPart,
         ContextualLayer,
     )
+    from .contextual_proxy_references import contextual_proxy_roles, stage_contextual_proxy_support
     from .data_product_reference import DataProductReference
     from .model_characterization import declared_model_dependencies
     from .observations import source_python
@@ -51,6 +52,7 @@ def contextual_native_values(
     if frame.value != selected:
         raise ValueError("contextual kernel changes the selected original source")
     dependencies = declared_model_dependencies(products, frame)
+    proxy_roles = contextual_proxy_roles(product.semantic_id for product in products)
     population = {}
     native_complete, native_unexamined = {}, []
     for provider, snapshot in (("maverick", maverick), ("dipo", dipo)):
@@ -98,6 +100,7 @@ def contextual_native_values(
             {"selectors": list(context.focal)},
             {"key": "text.contextual_native/source-native", "assets": assets},
             context,
+            proxy_roles=proxy_roles,
         )
         builder.depend(dependencies)
         builder.structural()
@@ -234,7 +237,7 @@ def contextual_native_values(
             DataProductReference(product.semantic_id).values()
             for product in (*products, maverick, dipo)
         ],
-        "members": members,
+        **stage_contextual_proxy_support(members, proxy_roles),
     }
     return append_manifest(value, contracts["contextual_manifest"])
 
@@ -471,6 +474,7 @@ class PreparedContextualNativePort:
             source,
             (*args["products"], args["maverick"], args["dipo"]),
             product_type=ContextualNativeProduct,
+            contextual_proxy_inputs={name: snapshots[name] for name in ("formal", "constructions")},
             subject_context=binding.subject_context,
         )
         output = next(role for role in self.operation.roles if role.direction == "output")

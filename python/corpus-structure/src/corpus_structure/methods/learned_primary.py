@@ -3354,6 +3354,20 @@ class ContextualNativePrimaryOperation:
             },
         ],
         "parameters": {},
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/formal_proxy_support/*/target",
+                "input_role": "formal",
+                "variant": "member",
+            },
+            {
+                "output_role": "result",
+                "path": "/construction_proxy_support/*/target",
+                "input_role": "constructions",
+                "variant": "member",
+            },
+        ],
         "dependencies": [
             "text.formal_evidence/source-native",
             "text.constructions/source-native",

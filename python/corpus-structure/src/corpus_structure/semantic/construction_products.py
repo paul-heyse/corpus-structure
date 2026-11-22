@@ -1089,6 +1089,7 @@ def validate_interpreted_product(
     *,
     product_type=ConstructionProduct,
     subject_context=None,
+    contextual_proxy_inputs=None,
 ):
     return _checked_interpreted_product(
         prepared,
@@ -1098,6 +1099,7 @@ def validate_interpreted_product(
         formal,
         product_type=product_type,
         subject_context=subject_context,
+        contextual_proxy_inputs=contextual_proxy_inputs,
     )
 
 
@@ -1110,6 +1112,7 @@ def _checked_interpreted_product(
     *,
     product_type=ConstructionProduct,
     subject_context=None,
+    contextual_proxy_inputs=None,
     bound_member=None,
 ):
     from .data_operation_ports import project_product_members
@@ -1123,8 +1126,13 @@ def _checked_interpreted_product(
         item.key for item in model.identities if (item.owner, item.domain) == (kind, "kind")
     )
     body_digest = body_identity(typed_value).key
+    graph_value = checked
+    if contextual_proxy_inputs is not None:
+        from .contextual_proxy_references import project_contextual_proxy_graph
+
+        graph_value = project_contextual_proxy_graph(checked, contextual_proxy_inputs)
     packets = analytical_packets(
-        checked, manifest_contract(prepared, model, product_type.manifest_name)
+        graph_value, manifest_contract(prepared, model, product_type.manifest_name)
     )
     selected = source.value
     if bound_member is None:

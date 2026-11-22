@@ -698,7 +698,9 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
                         "output-first assessment differs from its frozen prediction population"
                     )
             products = predictions.mapping("kb.data_product", ("id",))
-            inventories = SelectedCharacterizationInventories(products)
+            inventories = SelectedCharacterizationInventories(
+                products, index=predictions, cut=prediction_cut
+            )
             projection = LayerProjection(
                 lambda pin: inventories[DataProductReference(pin["product_id"])].payload,
                 SelectedAnnotationTargets(predictions, prediction_cut),

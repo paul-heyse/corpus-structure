@@ -116,6 +116,13 @@ def test_learned_profile_captures_actual_provider_factories_and_private_outputs(
             ("contextual", "/members/*/body/contextual_input"),
         ),
     }
+    assert [
+        (target.input_role, target.path, target.variant)
+        for target in model.operation("text.contextual_native/source-native").reference_targets
+    ] == [
+        ("formal", "/formal_proxy_support/*/target", "member"),
+        ("constructions", "/construction_proxy_support/*/target", "member"),
+    ]
     assert model.operation("text.maverick/source-native").dependencies == (
         "segment.sentences/source-native",
     )

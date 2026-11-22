@@ -1,7 +1,10 @@
 """Independently authored symbolic endpoints and structural inheritance boundaries."""
 
+from hashlib import sha256
+from types import SimpleNamespace
 from typing import Any
 
+import pytest
 from methods.contextual_characterization_support import context_builder, context_product, dipo_reply
 from methods.declared_primary_fixture import selected_source
 from methods.native_evidence_support import native_source as native_source
@@ -118,6 +121,8 @@ def symbolic_layer(case, *, conflicting=False):
 
 
 def test_distinct_binders_host_and_attribution_keep_exact_original_term_endpoints(native_source):
+    from corpus_structure.semantic.identity import canonical_bytes
+
     symbolic = symbolic_layer(native_source)
     product = context_product(native_source, dipo=dipo_reply(), products=(symbolic,))
     body = {**product.inventory(), "coverage": product.value["coverage"]}
@@ -147,6 +152,22 @@ def test_distinct_binders_host_and_attribution_keep_exact_original_term_endpoint
     assert all(r["basis"]["status"] == "private_proposal" for r in body["roles"])
     assert symbolic.inventory()["terms"][0]["local_id"] == "variable-a"
     assert not body["terms"]  # No second environment evaluator or rewritten symbolic result.
+    assert not product.value["formal_proxy_support"]
+    targets = {
+        slot["owner"]: slot["target"] for slot in product.value["construction_proxy_support"]
+    }
+    assert targets
+    for packet in product.value["members"]:
+        if packet["member_id"] in targets:
+            assert "external_premises" not in packet["body"]
+            assert targets[packet["member_id"]] == {
+                "variant": "member",
+                "role": "constructions",
+                "member_id": original(packet["member_id"]),
+            }
+            assert packet["member_id"] == (
+                "context-proxy:" + sha256(canonical_bytes(targets[packet["member_id"]])).hexdigest()
+            )
 
 
 def test_incompatible_external_choices_do_not_erase_completed_native_evidence(native_source):
@@ -248,3 +269,163 @@ def test_heading_qualifies_actual_list_group_and_quotation_blocks_outside_inheri
         next(c for c in body["coverage"] if c["family"] == "context.inheritance")["outcome"]
         == "partial"
     )
+
+
+def test_selected_native_contextual_proxy_graph_keeps_role_and_exact_original():
+    from corpus_structure.semantic.data_operation_values import semantic_value
+    from corpus_structure.semantic.data_product_reference import (
+        DataProductReference,
+        SemanticReference,
+    )
+    from corpus_structure.semantic.declared_formal_readings import (
+        SelectedCharacterizationInventories,
+    )
+
+    operation = "text.contextual_native/source-native"
+    variants = (
+        ("formal", "formal_proxy_support", "context.evidence_site"),
+        ("constructions", "construction_proxy_support", "context.symbolic_site"),
+    )
+    value = {"source": {}, "selectors": [], "members": []}
+    parents, targets, inputs, members = {}, [], [], {}
+    for position, (role, field, kind) in enumerate(variants):
+        parent = role + ":original"
+        parents[parent] = {"project_id": "project", "kind_contract": role}
+        members[(parent, "overlapping-local-id")] = {
+            "body": semantic_value(
+                {"record_type": "term", "local_id": "overlapping-local-id", "kind": kind}
+            )
+        }
+        inputs.append({"role": role, "product_id": parent, "position": position, "multiplicity": 1})
+        targets.append(
+            dict(
+                output_role="result",
+                path=f"/{field}/*/target",
+                input_role=role,
+                input_kind=role,
+                variant="member",
+            )
+        )
+        value[field] = [
+            {
+                "owner": role,
+                "target": SemanticReference.member(role, "overlapping-local-id").values(),
+            }
+        ]
+        value["members"].append(
+            {
+                "member_id": role,
+                "body": {"record_type": "annotation", "local_id": role, "kind": kind},
+            }
+        )
+    use = dict(id="use", derivation_id="episode", fate="fulfilled", selection={"inputs": inputs})
+    output = dict(derivation_id="episode", product_id="contextual", role="result")
+    definition = {
+        "support_contract": {"reference_targets": targets},
+        "input_roles": [
+            {"name": role, "kind": role, "accepted_kind_contracts": [role]}
+            for role, _, _ in variants
+        ],
+    }
+    parents["contextual"] = {"canonical_body": semantic_value(value)}
+    maps = {
+        "ops.data_derivation_output": {"output": output},
+        "ops.data_derivation_input": {
+            pin["role"]: {"derivation_id": "episode", **pin} for pin in inputs
+        },
+        "ops.data_derivation": {"episode": {"release_id": "release", "request_id": "request"}},
+        "ops.data_request": {"request": {"operation_id": operation}},
+        "ops.demand_use": {"use": use},
+        "sem.data_operation_definition": {("release", operation): definition},
+        "kb.data_product": parents,
+        "kb.data_product_member": members,
+        "kb.data_product_partition": {},
+        "sem.data_kind_contract": {role: {} for role, _, _ in variants},
+    }
+
+    def rows_for(relation, **criteria):
+        return tuple(
+            row
+            for row in maps[relation].values()
+            if all(row.get(field) == expected for field, expected in criteria.items())
+        )
+
+    inventories = SelectedCharacterizationInventories(
+        parents,
+        index=SimpleNamespace(mapping=lambda relation, _: maps[relation], rows_for=rows_for),
+        cut=SimpleNamespace(record={"project_id": "project"}),
+    )
+    contextual = DataProductReference("contextual")
+    expected = [
+        {"product_id": role + ":original", "member_id": "overlapping-local-id"}
+        for role, _, _ in variants
+    ]
+
+    def endpoints():
+        return [
+            row["external_premises"][0] for row in inventories[contextual].payload["annotations"]
+        ]
+
+    assert endpoints() == expected
+    reused = {
+        **use,
+        "id": "reused-use",
+        "selection": {
+            "inputs": [{**inputs[0], "product_id": "formal:equal-meaning-replacement"}, inputs[1]]
+        },
+    }
+    uses = maps["ops.demand_use"]
+    uses["reused-use"] = reused
+    assert endpoints() == expected
+    uses["second-exact-use"] = {**use, "id": "second-exact-use"}
+    assert endpoints() == expected
+    del uses["use"], uses["second-exact-use"]
+    with pytest.raises(ValueError, match="unavailable in any exact selected use"):
+        endpoints()
+    uses["other-reused-use"] = {
+        **use,
+        "id": "other-reused-use",
+        "selection": {
+            "inputs": [inputs[0], {**inputs[1], "product_id": "constructions:replacement"}]
+        },
+    }
+    with pytest.raises(ValueError, match="unavailable in any exact selected use"):
+        endpoints()
+
+    # A historical receipt for the same output and parents cannot authorize
+    # a path its own release never declared.
+    old_derivation = "older-episode"
+    maps["ops.data_derivation_output"] = {
+        "older-output": {**output, "derivation_id": old_derivation},
+        "output": output,
+    }
+    maps["ops.data_derivation"][old_derivation] = {
+        "release_id": "older-release",
+        "request_id": "request",
+    }
+    maps["sem.data_operation_definition"]["older-release", operation] = {
+        **definition,
+        "support_contract": {"reference_targets": []},
+    }
+    maps["ops.data_derivation_input"].update(
+        {"older-" + pin["role"]: {"derivation_id": old_derivation, **pin} for pin in inputs}
+    )
+    uses["older-use"] = {**use, "id": "older-use", "derivation_id": old_derivation}
+    with pytest.raises(ValueError, match="requires its one declared output target"):
+        endpoints()
+    uses["use"] = use
+    assert endpoints() == expected
+    del maps["ops.data_derivation_input"]["older-constructions"]
+    assert endpoints() == expected
+
+    parents["empty-contextual"] = {
+        "canonical_body": semantic_value(
+            {
+                **value,
+                "formal_proxy_support": [],
+                "construction_proxy_support": [],
+                "members": [],
+            }
+        )
+    }
+    assert inventories[DataProductReference("empty-contextual")].payload["annotations"] == []

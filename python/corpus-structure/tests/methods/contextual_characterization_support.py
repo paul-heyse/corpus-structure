@@ -70,9 +70,21 @@ def context_product(case, *, maverick=None, dipo=None, products=()):
     prepared, model = profiles()
     frame, source = case.primary.frame, case.primary.source
     tokens = canonical_tokens(case, context_builder(case))
-    dependencies = tuple(
-        CharacterizationSnapshot(product.semantic_id, product.content) for product in products
+    empty = canonical_bytes(
+        {
+            "source": source.value["source"],
+            "selectors": source.value["selectors"],
+            "members": [],
+            "coverage": [],
+        }
     )
+    formal = CharacterizationSnapshot("literal-fixture:formal", empty)
+    if products:
+        (construction,) = products
+        construction = CharacterizationSnapshot(construction.semantic_id, construction.content)
+    else:
+        construction = CharacterizationSnapshot("literal-fixture:construction", empty)
+    dependencies = (formal, construction)
     observed = []
     for provider, reply, families in (
         ("maverick", maverick, ("maverick.mentions", "maverick.clusters")),
@@ -117,7 +129,6 @@ def context_product(case, *, maverick=None, dipo=None, products=()):
             profile_digest="0" * 64,
             source_pin=frame.pin.values(),
             standing="native_provider_observation",
-            dependencies=[],
             outcome="complete" if reply is not None else "partial",
             coverage=[
                 dict(
@@ -134,6 +145,9 @@ def context_product(case, *, maverick=None, dipo=None, products=()):
         )
         name = "DdoMaverick" if provider == "maverick" else "DdoDipo"
         value = append_manifest(value, manifest_contract(prepared, model, name + "Manifest"))
+        if provider == "maverick":
+            (manifest,) = value["members"]
+            manifest["body"]["annotations_input"] = {"variant": "product", "role": "annotations"}
         content = canonical_bytes(value)
         checked = prepared.validate_json(name + "Observations", content)
         product_id = contextual_product_identity(
@@ -160,5 +174,6 @@ def context_product(case, *, maverick=None, dipo=None, products=()):
         (*dependencies, *observed),
         product_type=ContextualNativeProduct,
         subject_context=case.primary.context,
+        contextual_proxy_inputs={"formal": formal, "constructions": construction},
     )
     return product

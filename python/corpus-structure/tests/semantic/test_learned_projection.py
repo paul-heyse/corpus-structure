@@ -78,6 +78,12 @@ def test_declared_maverick_mapping_retains_original_contributions_and_context_hy
         "selectors": source.value["selectors"],
         "coverage": [],
     }
+    formal = CharacterizationSnapshot(
+        "selected-native-formal", canonical_bytes({**common, "members": []})
+    )
+    constructions = CharacterizationSnapshot(
+        "selected-native-constructions", canonical_bytes({**common, "members": []})
+    )
     maverick = CharacterizationSnapshot(
         "selected-native-maverick",
         canonical_bytes({**common, "observations": [source_value(fact)]}),
@@ -98,11 +104,20 @@ def test_declared_maverick_mapping_retains_original_contributions_and_context_hy
         )
     }
     result = contextual_native_values(
-        source, frame, (), maverick, dipo, contracts, "controlled-assets", lambda: None
+        source,
+        frame,
+        (formal, constructions),
+        maverick,
+        dipo,
+        contracts,
+        "controlled-assets",
+        lambda: None,
     )
     assert TypeAdapter(dict[str, Any]).dump_json(result)
     assert result["outcome"] == "partial"
     assert result["dependencies"] == [
+        {"product_id": formal.semantic_id},
+        {"product_id": constructions.semantic_id},
         {"product_id": "selected-native-maverick"},
         {"product_id": "selected-native-dipo"},
     ]

@@ -67,8 +67,10 @@ def formal_member_reference(product: DataProductReference, identifier):
 class SelectedCharacterizationInventories(Mapping):
     """Lazy pinned native product inventories; disk owns the full required closure."""
 
-    def __init__(self, products):
+    def __init__(self, products, *, index=None, cut=None):
         self.products = products
+        self.index = index
+        self.cut = cut
 
     def __getitem__(self, reference):
         if not isinstance(reference, DataProductReference):
@@ -77,6 +79,12 @@ class SelectedCharacterizationInventories(Mapping):
         body = decode_semantic_value(record["canonical_body"])
         if not isinstance(body, dict) or not {"source", "selectors", "members"} <= body.keys():
             raise ValueError("selected primary dependency is not a declared characterization")
+        if self.index is not None:
+            from .contextual_proxy_references import expand_selected_contextual_proxies
+
+            body = expand_selected_contextual_proxies(
+                body, self.index, self.cut, reference.product_id
+            )
         names = dict(
             occurrence="occurrences",
             annotation="annotations",

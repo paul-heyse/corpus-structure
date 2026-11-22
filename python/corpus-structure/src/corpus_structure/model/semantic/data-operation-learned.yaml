@@ -208,9 +208,26 @@ classes:
         required: true
         minimum_cardinality: 1
         maximum_cardinality: 1
+  DdoContextualProxySupport:
+    is_a: SourceRecordProduct
+    attributes:
+      owner: {required: true}
+      target: {range: DdoSemanticReference, required: true, inlined: true}
   DdoContextualNativeProduct:
     is_a: DdoInterpretedProduct
     attributes:
+      formal_proxy_support:
+        range: DdoContextualProxySupport
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      construction_proxy_support:
+        range: DdoContextualProxySupport
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
       members:
         range: DdoContextualPacket
         inlined_as_list: true

@@ -165,6 +165,17 @@ class LiveReferenceAccess:
         )
 
 
+def reference_input_address(pin, *, occurrence_binding=False):
+    """The use address an original producing input must still match."""
+    return (
+        None if occurrence_binding else pin["position"],
+        pin["product_id"],
+        pin.get("member_id"),
+        pin["multiplicity"],
+        pin.get("occurrence_label"),
+    )
+
+
 @overload
 def require_selected_output_reference(
     scope, selected, reference, *, path, metadata_only: Literal[True]
@@ -214,13 +225,7 @@ def require_selected_output_reference(scope, selected, reference, *, path, metad
     occurrence_binding = target.get("occurrence_binding", False)
     uses_occurrence = occurrence_field is not None or occurrence_binding
     current_support = {
-        (
-            None if occurrence_binding else pin["position"],
-            pin["product_id"],
-            pin.get("member_id"),
-            pin["multiplicity"],
-            pin.get("occurrence_label"),
-        )
+        reference_input_address(pin, occurrence_binding=occurrence_binding)
         for pin in selection["inputs"]
         if pin["role"] == role
     }
@@ -243,13 +248,7 @@ def require_selected_output_reference(scope, selected, reference, *, path, metad
     for original in originals:
         product_id, member_id = original["product_id"], original.get("member_id")
         label = original.get("occurrence_label")
-        address = (
-            None if occurrence_binding else original["position"],
-            product_id,
-            member_id,
-            original["multiplicity"],
-            label,
-        )
+        address = reference_input_address(original, occurrence_binding=occurrence_binding)
         if address not in current_support:
             continue
         parent = access.products.get(product_id)

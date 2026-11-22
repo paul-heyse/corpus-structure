@@ -31,6 +31,7 @@ _FILES = (
     "semantic/learned_primary.py",
     "semantic/d1_limitation.py",
     "semantic/contextual_native_products.py",
+    "semantic/contextual_proxy_references.py",
     "semantic/contextual_characterization.py",
     "methods/native_evidence_layers.py",
     "semantic/construction_products.py",
@@ -1017,9 +1018,9 @@ class PreparedLearnedPrimary:
         for role in learned_manifest_input_roles(self.prepared, kind_uri):
             manifest["body"][role + "_input"] = SemanticReference.whole(role).whole_value()
         value["members"] = [manifest]
-        observation = self.prepared.validate_json(
-            kind, canonical_bytes(value)
-        ).model_dump(mode="python", exclude_unset=True)
+        observation = self.prepared.validate_json(kind, canonical_bytes(value)).model_dump(
+            mode="python", exclude_unset=True
+        )
         report = candidate_inspection_report(
             self.prepared,
             self.model,
@@ -1312,6 +1313,31 @@ class PreparedLearnedPrimaryPort:
                 inputs[name] = CharacterizationSnapshot(
                     selected.product, canonical_bytes(inputs[name])
                 )
+        if self.profile.family == "d1_candidates":
+            from .contextual_proxy_references import PROXY_SUPPORT, project_contextual_proxy_graph
+            from .data_product_reference import SemanticReference
+            from .reference_resolution import require_selected_whole_reference
+
+            members = {item.role: item.members for item in binding.roles}
+            (producing,) = members["contextual"]
+            contextual = inputs["contextual"]
+            contextual_value = contextual.value
+            for role, field in PROXY_SUPPORT:
+                if not contextual_value.get(field):
+                    continue
+                (current,) = members[role]
+                require_selected_whole_reference(
+                    SemanticReference.whole(role),
+                    role=role,
+                    producing=producing,
+                    selected=current,
+                )
+            inventory = project_contextual_proxy_graph(
+                contextual_value, {role: inputs[role] for role, _ in PROXY_SUPPORT}
+            )
+            inputs["contextual"] = CharacterizationSnapshot(
+                contextual.semantic_id, canonical_bytes(inventory)
+            )
         from .data_operation_bindings import effective_binding_parameters
         from .data_operation_values import decode_semantic_value
 

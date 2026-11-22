@@ -114,7 +114,7 @@ def inspect_demand_context(connection, request: DemandContextRequest):
         )
         contexts = resolve_query_contexts(
             selection,
-            SelectedCharacterizationInventories(products),
+            SelectedCharacterizationInventories(products, index=index, cut=cut),
             (focal_body,),
             source,
             preparation=PreparedNativeSources((source,)),

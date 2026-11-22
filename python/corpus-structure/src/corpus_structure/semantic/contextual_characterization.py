@@ -23,6 +23,7 @@ from corpus_structure.semantic.characterization import occurrence_id
 from corpus_structure.semantic.data_product_reference import (
     DataProductMemberReference,
     DataProductReference,
+    SemanticReference,
     member_reference,
     read_member_reference,
 )
@@ -141,7 +142,7 @@ class ContextInput:
 
 
 class ContextualLayer:
-    def __init__(self, base, scope, operation, context: ContextInput):
+    def __init__(self, base, scope, operation, context: ContextInput, *, proxy_roles=None):
         self.base, self.scope, self.operation = dict(base), dict(scope), dict(operation)
         self.profile, self.families = REVISION, CONTEXT_FAMILIES
         self.occurrences: dict[str, dict[str, Any]] = {}
@@ -169,6 +170,7 @@ class ContextualLayer:
             "examined",
             context=context.declaration(),
         )
+        self._proxy_roles = proxy_roles
         self._proxies: dict[tuple[DataProductReference, str], str] = {}
         self._dependencies: dict[DataProductReference, Any] = {}
         self._semantic_dependencies: dict[DataProductReference, Any] = {}
@@ -429,7 +431,11 @@ class ContextualLayer:
                 raise ValueError("context endpoint lies outside actual examined source")
             self.occurrences.setdefault(oid, occurrence)
             selected.append(oid)
-        key = "context-proxy:" + digest(external)
+        address = external
+        if self._proxy_roles is not None:
+            role = self._proxy_roles[pin.product_id]
+            address = SemanticReference.member(role, local_id).values()
+        key = "context-proxy:" + digest(address)
         self.node(
             key,
             "context.symbolic_site"

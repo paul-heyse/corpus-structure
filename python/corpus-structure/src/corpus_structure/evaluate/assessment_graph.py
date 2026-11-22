@@ -114,7 +114,9 @@ def assessment_graph_snapshot(prepared, cut, index, *, members, max_bytes=838860
             return unavailable(
                 "explicit assessed member kind has no characterization witness projection"
             )
-    inventories = SelectedCharacterizationInventories(ChainMap(product_records, products))
+    inventories = SelectedCharacterizationInventories(
+        ChainMap(product_records, products), index=index, cut=cut
+    )
     projection = LayerProjection(
         lambda pin: inventories[DataProductReference(pin["product_id"])].payload,
         SelectedAnnotationTargets(index, cut),

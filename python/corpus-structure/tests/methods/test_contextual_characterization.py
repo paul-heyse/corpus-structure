@@ -299,7 +299,7 @@ def test_contextual_evaluation_retains_one_group_candidate_per_mention(native_so
         (premise,) = relation["basis"]["external_premises"]
         assert premise["product_id"] == native.semantic_id
         assert source_roles[premise["member_id"]]["owner"] in {row["local_id"] for row in mentions}
-        assert relation["occurrences"] == support[relation["owner"]]
+        assert tuple(relation["occurrences"]) == support[relation["owner"]]
         assert len(relation["occurrences"]) < len(cluster["occurrences"])
         assert relation["basis"]["status"] == "private_proposal"
     first_role = next(row for row in data["roles"] if row["owner"] == mentions[0]["local_id"])
