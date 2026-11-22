@@ -369,6 +369,22 @@ identity and rule tests and `uv run ci check` passed
 The actual M1 GLiNER candidate inspection and cohort custody case passed at the normal
 120-second statement limit (`7c1659f02d00483a83953d1b9b5b24bd`).
 
+**Bounded proof codec · Tested by selected identity · 2026-11-22.** The native tokenizer
+uses one stored JSON rendering for object-free arrays of up to 32 MiB. Larger arrays continue
+through the exact recursive codec. The limit selects an execution path and accepts the same
+input domain. Focused controls passed at and above the rendered-byte boundary with multibyte
+and escaped strings, and matched the prior typed and 4,096-member proof checks
+(`e09bdb1a003d44fca1b773681e2b5d93`). Managed preview `d9bf16bb174e4631bc56a70c53f77343`,
+candidate `ea88a122693c4800a3048959b62c61a6` and registration
+`40883fd5f5974869918110ccaf5635d2` passed in the isolated assembly. The installed empty
+`corpus_structure_sbx09_bounded_qualification` (OID `136550030`) reports the sole root. Its
+native descriptor matches the registered bytes. Reader disclosure, writer and evaluator
+resume, reader resume refusal and writer direct-publication refusal match the declared grants.
+All five project, document, original, demand and product relations are empty. On this source,
+all 17 native identity and rule controls passed (`e7b639a211174f3b99f4a1e6ba0a4a89`),
+along with `uv run ci check` (`13508dc2ef1b4d72bbcb3699aebda485`) and `uv run ci test --lane fault`
+(`c309c66fa38b4428976223ab9a2c6992`).
+
 The refreshed event suite (`c1bc745541c246ee8184a53541707d2f`) passed 85 independent worker,
 source and migration controls. Its native journey published the corrected event frame and
 reached fitter and issuer execution before the 40-minute test watchdog stopped the worker.
@@ -388,10 +404,14 @@ Main integrates the registered codec root (`dd9971966`) and regenerated report s
 `just turn-end` and `uv run ci check` passed, including types, docs, dependency pins and
 Clippy (`6b1970f98ed0481e8489afb6acc12406`). The ordinary retry runs against that source
 (`f02c6b33e0d14cd4b77b97c5a3394854`), along with actual annotation and canonical cases
-(`267e776231a74518b001f5d387fbb0dd`), finite and rich replay and both dossier cases
-(`1a1f7a3b8abc4d989d0d77f6b678cead`), and the affected characterization controls
-(`9a40ecca090e424ba4bb0f52a238975f`). The codec-root event fixture remains in qualification.
-Development readback still identifies the original N29 database.
+(`267e776231a74518b001f5d387fbb0dd`) and the affected characterization controls
+(`9a40ecca090e424ba4bb0f52a238975f`). Real two-language composition and the real construction
+that binds two independently produced formal reports both passed in `ecb00e443c4d4e68a867d9f5dafb0352`.
+The structural dossier and detached export passed by selected identity in
+`1a1f7a3b8abc4d989d0d77f6b678cead`. Its finite and rich replay worker crashed during Python
+model preparation; the exact private retry passed (`93e9997f5d61466e9201c87390e15671`).
+The second dossier and the full event journey remain in qualification. Development readback
+still identifies the original N29 database.
 
 Keep one authentic cross-boundary producer, publication and export journey. Reader-only checks
 can consume its authenticated artifacts while their producer, prepared release, wire and authority
@@ -402,15 +422,15 @@ establishes that attempt's journey and artifact reuse. It supplies neither final
 nor a general timing claim. This test allocation applies in SBX-11/12 and SBX-20/22.
 [Review I09](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I09)
 
-**Current finite and rich replay · Tested by selected identity · 2026-11-22.** The current-source
+**Former finite replay refusal · Tested by selected identity · 2026-11-22.** The earlier
 private fixture fulfilled the candidate producer and left `interpret.finite_candidates` awaiting
 inputs before export (`uv run ci test --native-host private`, `20cb15b07fd9491cb263a742723d1871`
 and `29ea050ed99640ed8a7bfaa2d29b8824`). Ordinary resume produced zero further receipts. The
 diagnostic current native binding projection returned both the computed candidate report and
 the authored finite policy while the waiter retained the same binding read and its earlier
-candidate-cardinality refusal (`0d4efd2171c64d8ca8e08da153278db3`). SBX-06 owns delivery of
-the late computed candidate to that dependency-free operation. Joined finite and rich coverage
-requires that ordinary wake and successful publication.
+candidate-cardinality refusal (`0d4efd2171c64d8ca8e08da153278db3`). The current SBX-06
+implementation delivers the late computed candidate to the dependency-free operation. The
+successful finite and rich replay above exercises ordinary wake, publication and detached readback.
 [Readiness](references-and-projection-keys.md#readiness-delivery)
 
 <a id="early-revision-a-integration"></a>
