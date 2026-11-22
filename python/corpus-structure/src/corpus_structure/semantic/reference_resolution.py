@@ -20,7 +20,7 @@ class ReferenceTarget:
     variant: ReferenceVariant
     kind_contract: str
     collection: str | None = None
-    requires_occurrence: bool = False
+    occurrence_field: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +31,7 @@ class ProducingReferenceInput:
     member_id: str | None = None
     occurrence: str | None = None
     multiplicity: int = 1
+    occurrence_field: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,13 +39,17 @@ class ProducingReferenceBindings:
     derivation_id: str
     inputs: tuple[ProducingReferenceInput, ...]
 
-    def resolve(self, reference: SemanticReference) -> ProducingReferenceInput:
-        matches = tuple(
+    def resolve(
+        self, reference: SemanticReference, *, occurrence_field: str | None = None
+    ) -> ProducingReferenceInput:
+        candidates = tuple(
             item
             for item in self.inputs
-            if item.role == reference.role
-            and (reference.occurrence is None or item.occurrence == reference.occurrence)
+            if (item.role, item.occurrence_field) == (reference.role, occurrence_field)
         )
+        if any(item.occurrence_field is not None and not item.occurrence for item in candidates):
+            raise ValueError("producing input lacks its declared reference occurrence")
+        matches = tuple(item for item in candidates if item.occurrence == reference.occurrence)
         if len(matches) != 1 or matches[0].multiplicity != 1:
             raise ValueError("reference needs exactly one producing input occurrence")
         return matches[0]
@@ -137,9 +142,9 @@ class ReferenceResolver:
             target.role,
             target.variant,
             target.collection,
-        ) or (reference.occurrence is not None) != target.requires_occurrence:
+        ) or (reference.occurrence is not None) != (target.occurrence_field is not None):
             raise ValueError("reference differs from its declared slot target")
-        binding = self.producing.resolve(reference)
+        binding = self.producing.resolve(reference, occurrence_field=target.occurrence_field)
         if binding.kind_contract != target.kind_contract:
             raise ValueError("reference has the wrong producing input kind")
         # Always establish access to the actual original parent before using a cached body.

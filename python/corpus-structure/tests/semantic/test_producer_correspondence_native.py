@@ -138,15 +138,30 @@ def test_updated_binding_producer_projection_compiles_in_native_rollback(native_
 
 
 def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(native_rollback):
+    from corpus_structure.semantic.data_operation_values import semantic_value
+    from corpus_structure.semantic.data_product_reference import SemanticReference
     from corpus_structure.semantic.producer_correspondence_native import _selected_reference_inputs
+    from corpus_structure.semantic.producer_requirements import SelectedProducerContract
+    from corpus_structure.semantic.reference_resolution import ProducingReferenceBindings
 
     def relation(name, fields, rows):
         return values(*(column(field, kind) for field, kind in fields)).data(rows).cte(name)
 
-    def pin(role, product):
-        return {"role": role, "position": 0, "product_id": product, "member_id": None}
+    def pin(role, product, *, position=0, member=None, multiplicity=1):
+        return {
+            "role": role,
+            "position": position,
+            "product_id": product,
+            "member_id": member,
+            "multiplicity": multiplicity,
+        }
 
     hidden_and_unrelated = [pin("protected", "protected-parent"), pin("other", "unrelated-parent")]
+    left = pin("reports", "left-report")
+    right = pin("reports", "right-report", position=1, member="right-member")
+    hidden = pin("reports", "hidden-report", position=2)
+    unmatched = pin("reports", "unmatched-report", position=3, multiplicity=2)
+    repeated = pin("reports", "repeated-report", position=4)
     uses = relation(
         "actual_uses",
         (("id", Text), ("derivation_id", Text), ("fate", Text), ("selection", JSONB)),
@@ -156,7 +171,14 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
                 "historical-derivation",
                 "fulfilled",
                 {
-                    "inputs": [pin("source", "original-parent"), *hidden_and_unrelated],
+                    "inputs": [
+                        pin("source", "original-parent"),
+                        *hidden_and_unrelated,
+                        left,
+                        right,
+                        hidden,
+                        unmatched,
+                    ],
                 },
             ),
             (
@@ -166,6 +188,12 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
                 {
                     "inputs": [pin("source", "equal-content-replacement"), *hidden_and_unrelated],
                 },
+            ),
+            (
+                "duplicate-use",
+                "historical-derivation",
+                "fulfilled",
+                {"inputs": [left, repeated]},
             ),
         ],
     )
@@ -183,6 +211,11 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
             ("historical-derivation", "source", 0, 1, "original-parent", None),
             ("historical-derivation", "protected", 0, 1, "protected-parent", None),
             ("historical-derivation", "other", 0, 1, "unrelated-parent", None),
+            ("historical-derivation", "reports", 0, 1, "left-report", None),
+            ("historical-derivation", "reports", 1, 1, "right-report", "right-member"),
+            ("historical-derivation", "reports", 2, 1, "hidden-report", None),
+            ("historical-derivation", "reports", 3, 1, "unmatched-report", None),
+            ("historical-derivation", "reports", 4, 1, "repeated-report", None),
         ],
     )
     products = relation(
@@ -193,17 +226,36 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
             ("equal-content-replacement", "project", "source-kind", {"private": "original body"}),
             ("protected-parent", "project", "evaluator-kind", {"private": "concealed body"}),
             ("unrelated-parent", "project", "source-kind", {"private": "unrelated body"}),
+            (
+                "left-report",
+                "project",
+                "source-kind",
+                semantic_value({"local": "left", "source": {"key": "L"}}),
+            ),
+            ("right-report", "project", "source-kind", semantic_value({"local": "wrong parent"})),
+            # These values are deliberately untagged. Reading their fields
+            # before exact support and disclosure would fail native decoding.
+            ("hidden-report", "project", "evaluator-kind", {"private": "hidden"}),
+            ("unmatched-report", "project", "source-kind", {"private": "unmatched"}),
+            ("repeated-report", "project", "source-kind", semantic_value({"local": "left"})),
         ],
     )
     members = relation(
         "actual_members",
         (("product_id", Text), ("member_id", Text), ("kind_contract", Text), ("body", JSONB)),
-        [("other-product", "other-member", "other-kind", {})],
+        [
+            (
+                "right-report",
+                "right-member",
+                "source-kind",
+                semantic_value({"local": "right", "source": {"key": "R"}}),
+            )
+        ],
     )
     selected = relation(
         "selected_producer_use",
         (("use_id", Text), ("output_role", Text)),
-        [("authentic-use", "result"), ("substituted-use", "result")],
+        [("authentic-use", "result"), ("substituted-use", "result"), ("duplicate-use", "result")],
     )
     episodes = relation("actual_episode", (("id", Text),), [("historical-derivation",)])
     requests = relation("actual_request", (("project_id", Text),), [("project",)])
@@ -216,6 +268,27 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
                     "reference_targets": [
                         {"output_role": "result", "input_role": "source"},
                         {"output_role": "result", "input_role": "protected"},
+                        {
+                            "output_role": "result",
+                            "input_role": "reports",
+                            "occurrence_field": "/local",
+                        },
+                        {
+                            "output_role": "result",
+                            "input_role": "reports",
+                            "occurrence_field": "/source/key",
+                        },
+                        {
+                            "output_role": "result",
+                            "input_role": "reports",
+                            "occurrence_field": "/local",
+                            "path": "/other",
+                        },
+                        {
+                            "output_role": "different",
+                            "input_role": "reports",
+                            "occurrence_field": "/hidden",
+                        },
                     ]
                 },
             )
@@ -236,6 +309,7 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
         requests,
         definitions,
         body_eligible=lambda kind, _body: kind == "source-kind",
+        body_access=lambda _kind, _body: literal(True),
     )
     rows = native_rollback.connection.execute(
         select(selected.c.use_id, projection).select_from(
@@ -247,15 +321,56 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
             )
         )
     ).all()
-    assert dict(tuple(row) for row in rows) == {
-        "authentic-use": [
-            {
-                "role": "source",
-                "product_id": "original-parent",
-                "kind_contract": "source-kind",
-                "member_id": None,
-                "multiplicity": 1,
-            }
-        ],
-        "substituted-use": [],
+    observations = dict(rows)
+    authentic = observations["authentic-use"]
+    assert len(authentic) == 5
+    assert authentic[-1] == {
+        "role": "source",
+        "product_id": "original-parent",
+        "kind_contract": "source-kind",
+        "member_id": None,
+        "multiplicity": 1,
     }
+    assert observations["substituted-use"] == []
+    assert [
+        (row["product_id"], row["member_id"], row["occurrence_field"], row["occurrence"])
+        for row in authentic[:-1]
+    ] == [
+        ("left-report", None, "/local", "left"),
+        ("left-report", None, "/source/key", "L"),
+        ("right-report", "right-member", "/local", "right"),
+        ("right-report", "right-member", "/source/key", "R"),
+    ]
+
+    def producing(use):
+        contract = SelectedProducerContract.model_validate_json(
+            json_bytes(
+                {
+                    "version": "selected-producer-contract-v1",
+                    "derivation_id": "historical-derivation",
+                    "release_id": "release",
+                    "runtime_id": "runtime",
+                    "publication_receipt": True,
+                    "cpu_receipt": False,
+                    "admitted_effects": [],
+                    "validity_families": [],
+                    "reference_inputs": observations[use],
+                }
+            )
+        )
+        return ProducingReferenceBindings(contract.derivation_id, contract.reference_inputs)
+
+    assert (
+        producing("authentic-use")
+        .resolve(SemanticReference.whole("reports", occurrence="L"), occurrence_field="/source/key")
+        .product_id
+        == "left-report"
+    )
+    with pytest.raises(ValueError, match="exactly one producing input occurrence"):
+        producing("duplicate-use").resolve(
+            SemanticReference.whole("reports", occurrence="left"), occurrence_field="/local"
+        )
+    with pytest.raises(ValueError, match="lacks its declared reference occurrence"):
+        producing("duplicate-use").resolve(
+            SemanticReference.whole("reports", occurrence="L"), occurrence_field="/source/key"
+        )

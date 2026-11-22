@@ -67,11 +67,11 @@ def test_reference_item_key_requires_nominal_atoms_and_exact_python_scalar_types
 def test_resolve_exact_producing_occurrence_and_authorize_even_on_cache_hit(monkeypatch):
     from corpus_structure.semantic import reference_resolution
 
-    admitted = ProducingReferenceInput("inventory", "producing-parent", "kind", occurrence="origin")
-    sibling = replace(admitted, product_id="same-content", occurrence="sibling")
-    target = ReferenceTarget(
-        "inventory", "partition-item", "kind", "rows", requires_occurrence=True
+    admitted = ProducingReferenceInput(
+        "inventory", "producing-parent", "kind", occurrence="origin", occurrence_field="/key"
     )
+    sibling = replace(admitted, product_id="same-content", occurrence="sibling")
+    target = ReferenceTarget("inventory", "partition-item", "kind", "rows", occurrence_field="/key")
     ref = SemanticReference.item("inventory", "rows", "block", ("sentence", 2), occurrence="origin")
     packet = partition_packet("rows", "block", 0, 0, 3, [{"kind": "sentence", "index": 2}])
     decoder = reference_resolution.decode_semantic_value

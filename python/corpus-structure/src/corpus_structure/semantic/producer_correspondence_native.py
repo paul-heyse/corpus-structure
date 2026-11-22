@@ -1,6 +1,6 @@
 """Scoped producer facts for admitted binding rows, with no protected input bodies."""
 
-from sqlalchemy import Text, and_, case, column, func, literal, select
+from sqlalchemy import Text, and_, case, column, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
 
 
@@ -15,7 +15,7 @@ def producer_cpu_witness(profile, effects, payload):
     )
 
 
-def selected_producer_contract(metadata, selected, *, body_eligible):
+def selected_producer_contract(metadata, selected, *, body_eligible, body_access):
     """Observe only the producer of a row already bounded by native read authority.
 
     Return identifiers and correspondence facts. Protected bodies, receipt payloads,
@@ -75,7 +75,7 @@ def selected_producer_contract(metadata, selected, *, body_eligible):
         func.to_jsonb(definitions.c.validity_families),
         "reference_inputs",
         _selected_reference_inputs(
-            metadata, selected, episodes, requests, definitions, body_eligible
+            metadata, selected, episodes, requests, definitions, body_eligible, body_access
         ),
     )
     return (
@@ -97,8 +97,10 @@ def selected_producer_contract(metadata, selected, *, body_eligible):
     )
 
 
-def _selected_reference_inputs(metadata, selected, episodes, requests, definitions, body_eligible):
-    """Expose only scalar original addresses selected by this exact current use."""
+def _selected_reference_inputs(
+    metadata, selected, episodes, requests, definitions, body_eligible, body_access
+):
+    """Expose declared original addresses selected and disclosed by this exact current use."""
     inputs = metadata.tables["ops.data_derivation_input"].alias("reference_producer_input")
     uses = metadata.tables["ops.demand_use"].alias("reference_producer_use")
     products = metadata.tables["kb.data_product"].alias("reference_input_product")
@@ -118,15 +120,15 @@ def _selected_reference_inputs(metadata, selected, episodes, requests, definitio
     )
     target = targets.c.value
     declared = (
-        select(1)
+        select(target["occurrence_field"].astext.label("occurrence_field"))
         .select_from(targets)
         .where(
             target["output_role"].astext == selected.c.output_role,
             target["input_role"].astext == inputs.c.role,
-            target["occurrence_field"].astext.is_(None),
         )
+        .distinct()
         .correlate(selected, definitions, inputs)
-        .exists()
+        .lateral("declared_reference_fields")
     )
     pin = currently_selected.c.value
     exact = (
@@ -137,12 +139,34 @@ def _selected_reference_inputs(metadata, selected, episodes, requests, definitio
             pin["position"].astext == inputs.c.position.cast(Text()),
             pin["product_id"].astext == inputs.c.product_id,
             pin["member_id"].astext.is_not_distinct_from(inputs.c.member_id),
+            pin["multiplicity"].astext == inputs.c.multiplicity.cast(Text()),
         )
         .correlate(uses, inputs)
         .exists()
     )
     kind = func.coalesce(members.c.kind_contract, products.c.kind_contract)
     body = func.coalesce(members.c.body, products.c.canonical_body)
+    field = declared.c.occurrence_field
+    disclosed = case(
+        (
+            and_(exact, or_(inputs.c.member_id.is_(None), members.c.member_id.is_not(None))),
+            body_eligible(kind, body),
+        ),
+        else_=literal(False),
+    )
+    occurrence = case(
+        (
+            and_(field.is_not(None), disclosed),
+            case(
+                (
+                    body_access(kind, body),
+                    func.data.ddo_json(func.data.ddo_normalize(body), type_=JSONB()).op(
+                        "#>", return_type=JSONB()
+                    )(func.data.ddo_witness_path(field)),
+                )
+            ),
+        )
+    )
     record = func.jsonb_build_object(
         "role",
         inputs.c.role,
@@ -154,11 +178,17 @@ def _selected_reference_inputs(metadata, selected, episodes, requests, definitio
         kind,
         "multiplicity",
         inputs.c.multiplicity,
+    ).op("||")(
+        case(
+            (field.is_(None), literal("{}").cast(JSONB)),
+            else_=func.jsonb_build_object("occurrence_field", field, "occurrence", occurrence),
+        )
     )
     return (
         select(
             func.coalesce(
-                func.jsonb_agg(aggregate_order_by(record, inputs.c.role, inputs.c.position)), empty
+                func.jsonb_agg(aggregate_order_by(record, inputs.c.role, inputs.c.position, field)),
+                empty,
             )
         )
         .select_from(
@@ -176,12 +206,13 @@ def _selected_reference_inputs(metadata, selected, episodes, requests, definitio
                     members.c.member_id == inputs.c.member_id,
                 ),
             )
+            .join(declared, literal(True))
         )
         .where(
             inputs.c.derivation_id == episodes.c.id,
             uses.c.fate == "fulfilled",
             products.c.project_id == requests.c.project_id,
-            case((and_(declared, exact), body_eligible(kind, body)), else_=literal(False)),
+            disclosed,
         )
         .correlate(selected, episodes, requests, definitions)
         .scalar_subquery()

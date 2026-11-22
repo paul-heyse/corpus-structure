@@ -1,5 +1,7 @@
 """Acquire one reference parent through an exact live selection before opening its body."""
 
+from dataclasses import replace
+
 from sqlalchemy import Text, column, func, select
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -163,8 +165,8 @@ class LiveReferenceAccess:
 
 
 def require_selected_output_reference(scope, selected, reference, *, path):
-    """Resolve one scalar output reference from its acquired selected-use closure."""
-    from .detached_reference_resolution import IndexedReferenceAccess
+    """Resolve one declared output reference from its acquired selected-use closure."""
+    from .detached_reference_resolution import IndexedReferenceAccess, reference_input_occurrence
 
     def row_map(relation, *fields):
         return scope.index.mapping(relation, fields)
@@ -186,8 +188,8 @@ def require_selected_output_reference(scope, selected, reference, *, path):
         and target.get("output_collection") is None
         and target["path"] == path
     )
-    if len(targets) != 1 or targets[0].get("occurrence_field") is not None:
-        raise ValueError("selected reference requires its one scalar declared output target")
+    if len(targets) != 1:
+        raise ValueError("selected reference requires its one declared output target")
     (target,) = targets
     role = target["input_role"]
     current_support = {
@@ -200,37 +202,57 @@ def require_selected_output_reference(scope, selected, reference, *, path):
             "ops.data_derivation_input", derivation_id=selected.derivation_id, role=role
         )
     )
-    if len(originals) != 1:
+    occurrence_field = target.get("occurrence_field")
+    if occurrence_field is None and len(originals) != 1:
         raise ValueError("selected reference lacks its scalar original input")
-    (original,) = originals
-    product_id, member_id = original["product_id"], original.get("member_id")
-    if (
-        original["position"],
-        product_id,
-        member_id,
-        original["multiplicity"],
-    ) not in current_support:
-        raise ValueError("original reference parent is unavailable in the exact selected use")
+    if (reference.role, reference.variant, reference.collection) != (
+        role,
+        target["variant"],
+        target.get("collection"),
+    ) or (reference.occurrence is not None) != (occurrence_field is not None):
+        raise ValueError("reference differs from its declared slot target")
 
     access = IndexedReferenceAccess(row_map, cut["project_id"])
-    parent = access.products.get(product_id)
-    if parent is None or parent["project_id"] != cut["project_id"]:
-        raise ValueError("selected reference parent is unavailable in the acquired closure")
-    bound_packet = parent if member_id is None else access.members.get((product_id, member_id))
-    if bound_packet is None:
-        raise ValueError("selected reference member is unavailable in the acquired closure")
-    kind_contract = bound_packet["kind_contract"]
-    if access.kinds[kind_contract]["kind"] != target["input_kind"]:
-        raise ValueError("selected reference differs from its declared producing input kind")
-    binding = ProducingReferenceInput(
-        original["role"],
-        product_id,
-        kind_contract,
-        member_id,
-        multiplicity=original["multiplicity"],
-    )
-    return ReferenceResolver(
-        ProducingReferenceBindings(selected.derivation_id, (binding,)), access
-    ).resolve(
-        reference, ReferenceTarget(role, target["variant"], kind_contract, target.get("collection"))
+    bindings = []
+    for original in originals:
+        product_id, member_id = original["product_id"], original.get("member_id")
+        address = (original["position"], product_id, member_id, original["multiplicity"])
+        if address not in current_support:
+            continue
+        parent = access.products.get(product_id)
+        if parent is None or parent["project_id"] != cut["project_id"]:
+            continue
+        bound_packet = parent if member_id is None else access.members.get((product_id, member_id))
+        if bound_packet is None:
+            continue
+        kind_contract = bound_packet["kind_contract"]
+        if access.kinds[kind_contract]["kind"] != target["input_kind"]:
+            raise ValueError("selected reference differs from its declared producing input kind")
+        binding = ProducingReferenceInput(
+            role, product_id, kind_contract, member_id, multiplicity=original["multiplicity"]
+        )
+        if occurrence_field is not None:
+            body_field = "canonical_body" if member_id is None else "body"
+            if bound_packet.get(body_field) is None:
+                continue
+            binding = replace(
+                binding,
+                occurrence=reference_input_occurrence(access, binding, occurrence_field),
+                occurrence_field=occurrence_field,
+            )
+        bindings.append(binding)
+
+    if not bindings:
+        raise ValueError("original reference parent is unavailable in the exact selected use")
+    producing = ProducingReferenceBindings(selected.derivation_id, tuple(bindings))
+    binding = producing.resolve(reference, occurrence_field=occurrence_field)
+    return ReferenceResolver(producing, access).resolve(
+        reference,
+        ReferenceTarget(
+            role,
+            target["variant"],
+            binding.kind_contract,
+            target.get("collection"),
+            occurrence_field,
+        ),
     )

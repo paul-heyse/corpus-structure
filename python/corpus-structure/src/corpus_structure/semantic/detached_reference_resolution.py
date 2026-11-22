@@ -49,7 +49,7 @@ class IndexedReferenceAccess:
         )
 
 
-def _occurrence(access, bound, pointer):
+def reference_input_occurrence(access, bound, pointer):
     if pointer is None:
         return None
     access.authorize(bound)
@@ -60,10 +60,10 @@ def _occurrence(access, bound, pointer):
     )
     for part in subject_field_path(pointer):
         if not isinstance(value, dict) or part not in value:
-            raise ValueError("captured producing input lacks its declared occurrence")
+            raise ValueError("producing input lacks its declared occurrence")
         value = value[part]
     if not isinstance(value, str) or not value:
-        raise ValueError("captured producing input occurrence must be a nonempty string")
+        raise ValueError("producing input occurrence must be a nonempty string")
     return value
 
 
@@ -111,6 +111,7 @@ def require_detached_output_references(
     captured = tuple(rows_for("ops.data_derivation_input", derivation_id=derivation_id))
     for target in targets:
         bindings = []
+        occurrence_field = target.get("occurrence_field")
         for row in captured:
             if row["role"] != target["input_role"]:
                 continue
@@ -134,8 +135,9 @@ def require_detached_output_references(
                     row["product_id"],
                     kind,
                     member_id,
-                    _occurrence(access, provisional, target.get("occurrence_field")),
+                    reference_input_occurrence(access, provisional, occurrence_field),
                     row["multiplicity"],
+                    occurrence_field,
                 )
             )
         original = ProducingReferenceBindings(derivation_id, tuple(bindings))
@@ -146,7 +148,7 @@ def require_detached_output_references(
             for body in _output_bodies(output, target.get("output_collection")):
                 for value in _reference_values(body, target["path"]):
                     reference = read_semantic_reference(value)
-                    binding = original.resolve(reference)
+                    binding = original.resolve(reference, occurrence_field=occurrence_field)
                     resolver.resolve(
                         reference,
                         ReferenceTarget(
@@ -154,6 +156,6 @@ def require_detached_output_references(
                             target["variant"],
                             binding.kind_contract,
                             target.get("collection"),
-                            target.get("occurrence_field") is not None,
+                            occurrence_field,
                         ),
                     )

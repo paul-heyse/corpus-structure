@@ -131,6 +131,90 @@ def test_selected_condition_attachment_keeps_original_binding_separate_from_curr
         require_selected_output_reference(scope, selected, reference, path=path)
 
 
+def test_selected_reference_resolves_only_one_exact_declared_occurrence():
+    from corpus_structure.semantic.data_operation_values import semantic_value
+    from corpus_structure.semantic.data_product_reference import SemanticReference
+    from corpus_structure.semantic.live_reference_resolution import (
+        require_selected_output_reference,
+    )
+
+    def pin(product, member, position):
+        return {
+            "role": "reports",
+            "product_id": product,
+            "member_id": member,
+            "position": position,
+            "multiplicity": 1,
+        }
+
+    left = pin("left", "left-member", 0)
+    right = pin("right", "right-member", 1)
+    body = {"location": {"key": "selected"}, "content": "original right member"}
+    products = {row["product_id"]: {"project_id": "project"} for row in (left, right)}
+    members = {
+        ("left", "left-member"): {"kind_contract": "member-kind", "body": {"invalid": "hidden"}},
+        ("right", "right-member"): {"kind_contract": "member-kind", "body": semantic_value(body)},
+    }
+    path = "/report"
+    target = {
+        "output_role": "result",
+        "path": path,
+        "input_role": "reports",
+        "variant": "member",
+        "input_kind": "report-member",
+        "occurrence_field": "/location/key",
+    }
+    inputs = [right, {**left, "multiplicity": 2}]
+    maps = {
+        "ops.demand_use": {
+            "use": {
+                "fate": "fulfilled",
+                "derivation_id": "episode",
+                "selection": {"inputs": inputs},
+            },
+        },
+        "ops.data_derivation": {"episode": {"release_id": "release"}},
+        "sem.data_operation_definition": {
+            ("release", "report"): {"support_contract": {"reference_targets": [target]}},
+        },
+        "kb.data_product": products,
+        "kb.data_product_member": members,
+        "kb.data_product_partition": {},
+        "sem.data_kind_contract": {"member-kind": {"kind": target["input_kind"]}},
+    }
+
+    def original_edges(relation, **fields):
+        assert relation == "ops.data_derivation_input"
+        assert fields == {"derivation_id": "episode", "role": "reports"}
+        return right, left
+
+    scope = SimpleNamespace(
+        cut=SimpleNamespace(record={"project_id": "project"}),
+        index=SimpleNamespace(
+            mapping=lambda relation, _: maps[relation],
+            rows_for=original_edges,
+        ),
+    )
+    selected = SimpleNamespace(
+        operation_id="report", derivation_id="episode", use_id="use", output={"role": "result"}
+    )
+    reference = SemanticReference.member("reports", "right-member", occurrence="selected")
+    assert require_selected_output_reference(scope, selected, reference, path=path) == body
+
+    inputs[0] = {**right, "product_id": "equal-content-substitute"}
+    with pytest.raises(ValueError, match="unavailable in the exact selected use"):
+        require_selected_output_reference(scope, selected, reference, path=path)
+
+    inputs[:] = [right, left]
+    members["left", "left-member"]["body"] = semantic_value({"location": {"key": "selected"}})
+    with pytest.raises(ValueError, match="exactly one producing input occurrence"):
+        require_selected_output_reference(scope, selected, reference, path=path)
+
+    members["left", "left-member"]["body"] = semantic_value({"location": {}})
+    with pytest.raises(ValueError, match="lacks its declared occurrence"):
+        require_selected_output_reference(scope, selected, reference, path=path)
+
+
 def test_native_condition_target_requires_the_actual_bound_report_member(product_connection):
     from sqlalchemy import bindparam, text
     from sqlalchemy.dialects.postgresql import JSONB

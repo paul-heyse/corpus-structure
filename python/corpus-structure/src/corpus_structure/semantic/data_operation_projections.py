@@ -847,6 +847,7 @@ def binding_branches(metadata):
             metadata,
             candidates,
             body_eligible=lambda kind, body: _custody_body_eligible(metadata, kind, body),
+            body_access=lambda kind, body: _disclosed_body_access(metadata, kind, body),
         ),
         demand_id=demand,
         use_id=candidates.c.use_id,
