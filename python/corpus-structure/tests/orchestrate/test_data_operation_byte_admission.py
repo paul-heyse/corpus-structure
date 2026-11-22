@@ -639,28 +639,49 @@ def test_recovery_precedes_fresh_port_and_hydration(monkeypatch, prepared, form,
 
 def test_frozen_binding_comparison_distinguishes_decimal_from_literal_json(monkeypatch, prepared):
     from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_values import (
+        decode_semantic_value,
+        semantic_value,
+    )
 
     def verify_original(ready, request, native, context, authorization):
         assert ready.obligation == "one" and request == "request:one"
-        assert native["binding"]["analyzed_scope"]["value"] == Decimal("1.23")
+        assert decode_semantic_value(native["binding"]["parameters"]) == {"value": Decimal("1.23")}
         return "verified original", ()
 
     executor, _ = execution_case(monkeypatch, prepared, policy_for(prepared), ("scalar",), {})
-    monkeypatch.setattr(executor, "_ready_context", lambda _: None)
     monkeypatch.setattr(executor, "_generation_ready", verify_original)
+    binding = {
+        "inference": "controlled-inference",
+        "inputs": [],
+        "parameters": semantic_value({"value": Decimal("1.23")}),
+        "populations": [],
+        "read_id": "controlled-read",
+        "request_inputs": ["mapping", []],
+        "support": [],
+    }
     ready = SimpleNamespace(
         obligation="one",
+        operation="scalar",
         native=json_bytes(
             {
                 "action": "compute",
-                "release_id": executor.prepared.release_id,
-                "runtime_id": executor.runtime.runtime_id,
-                "request_id": "request:one",
+                "binding": binding,
+                "binding_demand_id": "demand",
                 "binding_obligation_id": "one",
-                "binding": {"analyzed_scope": {"value": Decimal("1.23")}},
+                "derivation_id": None,
+                "fate": "attached",
+                "generation": 1,
+                "release_id": executor.prepared.release_id,
+                "request_id": "request:one",
+                "retained_intent_id": None,
+                "runtime_id": executor.runtime.runtime_id,
+                "task_id": None,
             }
         ),
-        binding=b'{"analyzed_scope":{"value":{"decimal":"1.23"}}}',
+        binding=json_bytes(
+            {**binding, "parameters": semantic_value({"value": {"decimal": "1.23"}})}
+        ),
     )
     assert executor._prepare_ready(ready, None) == "verified original"
 

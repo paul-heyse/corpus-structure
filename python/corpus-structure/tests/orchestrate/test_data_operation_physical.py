@@ -116,15 +116,31 @@ def test_nlp_drain_cannot_release_an_unproven_pdf_borrower(native):
         assert work.retire() and budget.used_bytes == 0
 
 
-def test_provider_residents_follow_frozen_demand_not_all_available_factories():
+def test_provider_residents_follow_frozen_demand_not_all_available_factories(monkeypatch, tmp_path):
+    from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+    from corpus_structure.methods.pm2_worker import preflight_pm2_residents
+
     acquired = []
     declared = []
+    preflight_calls = []
+    selection = NativeSelection(
+        NativeProfile(
+            "spacy", {"distributions_sha256": "selected"}, {"files": {}}, {}, "float32", "cupy"
+        ),
+        tmp_path,
+    )
+
+    def preflight(**request):
+        preflight_calls.append(request["providers"])
+        return {"distributions_sha256": "selected"}
+
+    monkeypatch.setattr(f"{preflight_pm2_residents.__module__}.preflight_pm2_residents", preflight)
 
     def acquire(operation, _context=None):
         if operation != "selected-provider":
             raise AssertionError("unrequested model assets were acquired")
         acquired.append(operation)
-        return SimpleNamespace(native_selections=("selected-profile",))
+        return SimpleNamespace(native_selections=(selection,))
 
     scope = _RunExecution.__new__(_RunExecution)
     scope.executor = SimpleNamespace(
@@ -141,11 +157,15 @@ def test_provider_residents_follow_frozen_demand_not_all_available_factories():
     )
     scope.host = SimpleNamespace(ensure_request_room=lambda _: None)
     scope.cpu = cast(CPUExecutionScope, SimpleNamespace(prepare=lambda: None, preparation_bytes=0))
-    scope.native_hosts = cast(NativeHostResidency, SimpleNamespace(declare=declared.append))
+    scope.native_hosts = cast(
+        NativeHostResidency, SimpleNamespace(declare=lambda values: declared.append(tuple(values)))
+    )
     scope._selected_operations = None
     scope._target_ports = None
+    scope._prepared_residents = set()
     scope.select_operations(("pure-cpu", "selected-provider"))
     scope.select_operations(("selected-provider", "pure-cpu"))
-    assert acquired == ["selected-provider"] and declared == [("selected-profile",)]
+    assert acquired == ["selected-provider"] and declared == [(selection,)]
+    assert preflight_calls == [("spacy",)]
     with pytest.raises(ValueError, match="frozen operation closure"):
         scope.select_operations(("unrequested-provider",))

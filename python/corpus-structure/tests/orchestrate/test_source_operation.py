@@ -168,11 +168,15 @@ def test_fresh_source_profile_freezes_only_optional_sets_in_the_selected_closure
         read_source_sets,
     )
 
-    def role(name, minimum=0):
-        return SimpleNamespace(support=SimpleNamespace(source_set=name), minimum=minimum)
+    def role(name, minimum=0, source="frozen-source-set"):
+        return SimpleNamespace(
+            support=SimpleNamespace(source=source, source_set=name), minimum=minimum
+        )
 
     operations = {
-        "occs": SimpleNamespace(roles=(role("ancestors"), role("shared"))),
+        "occs": SimpleNamespace(
+            roles=(role("ancestors"), role("shared"), role("local", source="original-source"))
+        ),
         "scope": SimpleNamespace(roles=(role("sources"), role("shared", minimum=1))),
         "other": SimpleNamespace(roles=(role("unselected"),)),
     }

@@ -1,8 +1,9 @@
 """Independent source expectations and existing file-publication custody."""
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from hashlib import sha256
 from pathlib import Path
+from typing import cast
 
 import pytest
 from model_change_support import model_checkout as model_checkout
@@ -646,28 +647,27 @@ def test_actual_family_source_and_caller_move_preserves_dispatch(
     # not provider inference or publication qualification.
     def run_body(source, name):
         tree = ast.parse(source)
-        cls = next(
-            node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == name
-        )
-        methods = [
-            node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == "run"
-        ]
-        if not methods:
-            # Current captured document operations genuinely inherit this method.
-            assert len(cls.bases) == 1 and isinstance(cls.bases[0], ast.Name)
-            supplier = next(
-                node
-                for node in tree.body
-                if isinstance(node, ast.ClassDef) and node.name == cls.bases[0].id
+        classes = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
+        if filename == "captured_document_composition.py":
+            shared = ast.parse(actual.with_name("full_document_composition.py").read_bytes())
+            classes.update(
+                (node.name, node) for node in shared.body if isinstance(node, ast.ClassDef)
             )
+
+        cls = classes[name]
+        while True:
             methods = [
                 node
-                for node in supplier.body
+                for node in cls.body
                 if isinstance(node, ast.FunctionDef) and node.name == "run"
             ]
-        assert len(methods) == 1
-        run = methods[0]
-        calls = []
+            if methods:
+                (run,) = methods
+                break
+            assert len(cls.bases) == 1 and isinstance(cls.bases[0], ast.Name)
+            cls = classes[cls.bases[0].id]
+
+        calls, orderings = [], []
 
         def kernel(*args):
             calls.append(args)
@@ -678,17 +678,22 @@ def test_actual_family_source_and_caller_move_preserves_dispatch(
             yield "physical-step"
             return {"selected": "independent"}
 
+        def order_composition(sources, products):
+            orderings.append((sources, products))
+            return sources, tuple(reversed(products))
+
         namespace = dict(
             execute_declared_m1=streaming,
             execute_retrieval_profile=kernel,
             execute_view_profile=kernel,
+            ordered_composition_inputs=order_composition,
         )
         executable = ast.Module(body=[run], type_ignores=[])
         exec(
             compile(executable, filename, "exec", flags=__future__.annotations.compiler_flag),
             namespace,
         )
-        function = namespace["run"]
+        function = cast(Callable[..., object], namespace["run"])
         receiver = SimpleNamespace(marker="authentic receiver")
         if filename == "m1_declared.py":
             args = ({"primary": 1}, {"annotations": 2}, {"construction": 3}, ({"source": 4},))
@@ -707,7 +712,9 @@ def test_actual_family_source_and_caller_move_preserves_dispatch(
             groups = tuple(({"group": i},) for i in range(8))
             assert function(receiver, *groups) == {"selected": "independent"}
             expected = tuple({"group": i} for i in range(1, 8))
-            assert calls == [(receiver, groups[0], expected, expected, "full_characterization")]
+            assert orderings == [(groups[0], expected)]
+            ordered = tuple(reversed(expected))
+            assert calls == [(receiver, groups[0], ordered, ordered, "full_characterization")]
         return calls[0][1:]
 
     assert run_body(raw, classname) == run_body(preview.after["src/" + filename], renamed)

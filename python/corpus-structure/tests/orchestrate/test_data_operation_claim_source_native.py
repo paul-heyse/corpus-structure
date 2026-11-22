@@ -16,13 +16,13 @@ from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
 from corpus_structure.semantic._data_operation_wire import (
     WireReadDemandResultRequest,
 )
+from corpus_structure.semantic.composed import read_data_operation_inputs
 from corpus_structure.semantic.data_operation_demands import (
     DemandPlanner,
     RootSubject,
     freeze_demand,
 )
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
 
 
 def _prepare_production_claim():
@@ -58,10 +58,15 @@ def test_production_claim_source_item_prepares_with_authoritative_builtin_kinds(
 
 @pytest.mark.parametrize("ddo_kernel", [CLAIM_SOURCE], indirect=True, ids=["claim-source"])
 def test_production_claim_source_item_publishes_then_resumes_settled(ddo_kernel):
-    bundle, _dependencies, _profile, prepared, model, actual, captured = _prepare_production_claim()
+    bundle, dependencies, _profile, prepared, model, actual, captured = _prepare_production_claim()
     module = "corpus_structure.semantic.identity"
     operation_id = "urn:corpus:operation:claim-source-item"
     runtime = ddo_kernel.preparation.runtime
+    archived = read_data_operation_inputs(dependencies)
+    assert archived is not None
+    declarations, sources = archived
+    assert sources is not None
+    assert next(source.content for source in sources.sources if source.module == module) == captured
 
     intent = freeze_demand(
         model,
@@ -77,8 +82,11 @@ def test_production_claim_source_item_publishes_then_resumes_settled(ddo_kernel)
             release=prepared.release_id,
             runtime=runtime.runtime_id,
         )["demand_id"]
-        planner = DemandPlanner(model, DataOperationStorage(connection))
-        initial = planner.ready(planner.resume(demand), authorization=b"{}")
+        snapshot = DemandPlanner(model, DataOperationStorage(connection)).resume(demand)
+    with ddo_kernel["engine"].begin() as connection:
+        initial = DemandPlanner(model, DataOperationStorage(connection)).ready(
+            snapshot, authorization=b"{}"
+        )
         assert len(initial) == 1 and initial[0].operation == "urn:ddo-test:source"
     # Establish the input in this demand through native claim and publication.
     fence = claim(ddo_kernel, json.loads(initial[0].native))
@@ -87,9 +95,11 @@ def test_production_claim_source_item_publishes_then_resumes_settled(ddo_kernel)
         ddo_kernel["engine"],
         prepared,
         runtime,
-        PythonSourceCollection((PythonSource(module, captured, "identity.py"),)),
+        sources,
         runtime_locations={module: actual},
         schema=bundle,
+        declarations=declarations,
+        captured_contracts=dependencies.artifacts,
         database_capacity=6,
     )
     completed = executor.advance(demand)
