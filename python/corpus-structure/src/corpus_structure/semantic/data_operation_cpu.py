@@ -196,7 +196,7 @@ def plan_cpu_call(descriptor, bound, signature, *, verify, execution_owner, chec
 def _load(call):
     prepared = _load_descriptor(call.model_dump_json(exclude={"arguments"}))
     prepared.verify()
-    return prepared.function, prepared.verify
+    return prepared
 
 
 @dataclass(frozen=True)
@@ -228,10 +228,6 @@ def _load_descriptor(content):
             asset.check()
 
     return _LoadedCall(function, check, signature, adapters)
-
-
-def _prepared_call(call):
-    return _load_descriptor(call.model_dump_json(exclude={"arguments"}))
 
 
 def _load_original(call):
@@ -482,18 +478,17 @@ def execute_python_call(
 ) -> bytes:
     """Child-only: typed original ingress and egress; no native/database access."""
     call = _Call.model_validate_json(content, strict=True)
-    function, verify = _load(call)
-    signature = _prepared_call(call).signature
+    prepared = _load(call)
     bound = _bound_arguments(
-        call, signature, check_active, prepared_releases, adapters=_prepared_call(call).adapters
+        call, prepared.signature, check_active, prepared_releases, adapters=prepared.adapters
     )
     prepare_runtime()
     check_active()
-    result = function(*bound.args, **bound.kwargs)
+    result = prepared.function(*bound.args, **bound.kwargs)
     prepare_runtime()
     check_active()
-    verify()
-    adapter = _prepared_call(call).adapters.get(signature.return_annotation)
+    prepared.verify()
+    adapter = prepared.adapters.get(prepared.signature.return_annotation)
     return adapter.dump_json(adapter.validate_python(result, strict=True))
 
 
@@ -528,12 +523,12 @@ def execute_python_stream(
         )
     if call.invocation_form != "stream":
         raise ValueError("CPU stream requires its admitted stream descriptor")
-    function, verify = _load(call)
-    signature = _prepared_call(call).signature
+    prepared = _load(call)
+    signature = prepared.signature
     annotation = signature.return_annotation
     if get_origin(annotation) not in (Iterator, Generator):
         raise ValueError("stream call requires its typed iterator annotation")
-    adapters = _prepared_call(call).adapters
+    adapters = prepared.adapters
     arguments = {
         name: adapters.get(signature.parameters[name].annotation).validate_json(value, strict=True)
         for name, value in call.arguments.items()
@@ -551,10 +546,10 @@ def execute_python_stream(
         if signature.parameters[name].kind != inspect.Parameter.POSITIONAL_ONLY
     }
     bound = signature.bind(*positional, **keywords)
-    iterator = function(*bound.args, **bound.kwargs)
+    iterator = prepared.function(*bound.args, **bound.kwargs)
     if not isinstance(iterator, Iterator):
         raise ValueError("stream callable did not return an iterator")
-    adapter, ordinal = _prepared_call(call).adapters.get(get_args(annotation)[0]), 0
+    adapter, ordinal = adapters.get(get_args(annotation)[0]), 0
     digest = request_digest if request_digest is not None else sha256(content).hexdigest()
     try:
         while True:
@@ -565,11 +560,11 @@ def execute_python_stream(
                 raise ValueError("stream pull credit differs from next ordinal")
             prepare_runtime()
             check_active()
-            verify()
+            prepared.verify()
             try:
                 value = next(iterator)
             except StopIteration:
-                verify()
+                prepared.verify()
                 connection.send_bytes(
                     canonical_bytes(
                         {"request": digest, "fence": fence, "ordinal": ordinal, "state": "complete"}
@@ -577,7 +572,7 @@ def execute_python_stream(
                 )
                 return canonical_bytes({"items": ordinal, "state": "complete"})
             check_active()
-            verify()
+            prepared.verify()
             encoded = adapter.dump_json(adapter.validate_python(value, strict=True)).decode("utf-8")
             frame = canonical_bytes(
                 {
@@ -636,17 +631,17 @@ def execute_python_coroutine(
     from collections.abc import Generator
     from hashlib import sha256
 
-    function, verify = _load(call)
-    signature = _prepared_call(call).signature
+    prepared = _load(call)
+    signature = prepared.signature
     from typing import get_args
 
     question_adapter, reply_adapter, result_adapter = tuple(
-        _prepared_call(call).adapters.get(item) for item in get_args(signature.return_annotation)
+        prepared.adapters.get(item) for item in get_args(signature.return_annotation)
     )
     bound = _bound_arguments(
-        call, signature, check_active, prepared_releases, adapters=_prepared_call(call).adapters
+        call, signature, check_active, prepared_releases, adapters=prepared.adapters
     )
-    generator = function(*bound.args, **bound.kwargs)
+    generator = prepared.function(*bound.args, **bound.kwargs)
     if not isinstance(generator, Generator):
         raise ValueError("CPU coroutine callable did not return its original generator")
     digest, ordinal = (
@@ -680,7 +675,7 @@ def execute_python_coroutine(
             )
             prepare_runtime()
             check_active()
-            verify()
+            prepared.verify()
             try:
                 question = next(generator) if ordinal == 0 else generator.send(reply)
             except StopIteration as completed:
@@ -688,13 +683,13 @@ def execute_python_coroutine(
                     result_adapter.validate_python(completed.value, strict=True)
                 )
                 check_active()
-                verify()
+                prepared.verify()
                 send("complete", result)
                 return canonical_bytes(
                     dict(turns=ordinal, state="complete", result_digest=sha256(result).hexdigest())
                 )
             check_active()
-            verify()
+            prepared.verify()
             question = question_adapter.dump_json(
                 question_adapter.validate_python(question, strict=True)
             )
