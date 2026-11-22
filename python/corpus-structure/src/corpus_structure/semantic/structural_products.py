@@ -26,6 +26,7 @@ from .artifact_identity import (
 )
 from .data_product_reference import (
     SemanticMemberReference,
+    SemanticOccurrenceMemberReference,
     SemanticPartitionReference,
     SemanticWholeReference,
     read_semantic_reference,
@@ -689,7 +690,10 @@ class DeclaredClauseModelReading(StructuralValue):
     presentation: tuple[ClauseModelLabel, ...] = ()
     disposition: Literal["observed", "withheld", "failed"]
     reason: Nonempty
-    primary_functions: tuple[DeclaredPrimaryReference, ...] = Field(
+    primary_gliner_functions: tuple[SemanticOccurrenceMemberReference, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
+    primary_d1_functions: tuple[SemanticOccurrenceMemberReference, ...] = Field(
         default=(), exclude_if=lambda value: not value
     )
     primary_context: tuple[SemanticPartitionReference, ...] = Field(

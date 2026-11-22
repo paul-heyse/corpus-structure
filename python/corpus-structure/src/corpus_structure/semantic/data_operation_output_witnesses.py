@@ -123,27 +123,36 @@ def _carrier_variant(kind):
     variant = schema.get("x-ddo-role-reference")
     if variant is None:
         return None
-    if not isinstance(variant, str) or json_bytes(schema) != _nominal_reference_schema(variant):
-        raise ValueError("nominal output reference must match the shared scalar reference carrier")
+    occurrence = schema.get("x-ddo-reference-occurrence", False)
+    if (
+        not isinstance(variant, str)
+        or type(occurrence) is not bool
+        or json_bytes(schema) != _nominal_reference_schema(variant, occurrence)
+    ):
+        raise ValueError(
+            "nominal output reference must match the shared semantic reference carrier"
+        )
     return variant
 
 
-@lru_cache(maxsize=3)
-def _nominal_reference_schema(variant: str):
+@lru_cache(maxsize=4)
+def _nominal_reference_schema(variant: str, occurrence: bool = False):
     from pydantic import TypeAdapter
 
     from .data_operation_wire import generated_json_schema
     from .data_product_reference import (
         SemanticMemberReference,
+        SemanticOccurrenceMemberReference,
         SemanticPartitionReference,
         SemanticWholeReference,
     )
 
     carrier = {
-        "product": SemanticWholeReference,
-        "member": SemanticMemberReference,
-        "partition-item": SemanticPartitionReference,
-    }.get(variant)
+        ("product", False): SemanticWholeReference,
+        ("member", False): SemanticMemberReference,
+        ("member", True): SemanticOccurrenceMemberReference,
+        ("partition-item", False): SemanticPartitionReference,
+    }.get((variant, occurrence))
     if carrier is None:
         raise ValueError("unsupported nominal output reference variant")
     return json_bytes(generated_json_schema(TypeAdapter(carrier).json_schema()))
@@ -195,11 +204,24 @@ def compile_reference_targets(raw, roles, kinds, output_paths):
                 raise ValueError("reference output collection must be partitioned")
             slot = kinds[owner + "/property/" + output_collection]
             owner = json.loads(slot.facts)["range"]
-        carrier = _carrier_variant(kinds[_record_kind(kinds, owner, target["path"])])
+        carrier_kind = kinds[_record_kind(kinds, owner, target["path"])]
+        carrier = _carrier_variant(carrier_kind)
         if carrier not in {"any", variant}:
             raise ValueError("reference path must identify the shared semantic reference class")
-        if carrier != "any" and occurrence_field is not None:
-            raise ValueError("scalar nominal reference cannot include an occurrence discriminator")
+        if carrier != "any":
+            occurrence_carrier = (
+                json.loads(carrier_kind.facts)
+                .get("json_schema", {})
+                .get("x-ddo-reference-occurrence", False)
+            )
+            if occurrence_carrier and occurrence_field is None:
+                raise ValueError(
+                    "occurrence member reference requires its declared occurrence field"
+                )
+            if not occurrence_carrier and occurrence_field is not None:
+                raise ValueError(
+                    "scalar nominal reference cannot include an occurrence discriminator"
+                )
         if occurrence_field is None:
             if source.maximum != 1:
                 raise ValueError(
@@ -211,8 +233,13 @@ def compile_reference_targets(raw, roles, kinds, output_paths):
             owner_id = _record_kind(kinds, source.kind, container)
             slot = kinds.get(owner_id + "/property/" + occurrence_path[-1])
             facts = json.loads(slot.facts) if slot else {}
+            occurrence_kind = kinds.get(facts.get("range"))
+            occurrence_facts = json.loads(occurrence_kind.facts) if occurrence_kind else {}
+            primitive = occurrence_facts.get("primitive") or occurrence_facts.get(
+                "effective_primitive"
+            )
             if (
-                facts.get("range") != "primitive:string"
+                primitive not in {"str", "string"}
                 or facts.get("multivalued")
                 or not facts.get("required")
                 or facts.get("nullable")

@@ -182,13 +182,24 @@ def declared_clause_focus(
 def retained_clause_functions(prepared, frame, focus, examined, pairs):
     """Join actual request/reply inventories and preserve every rival exact answer."""
     from .contributions import contribution_identity
+    from .data_product_reference import SemanticReference
+    from .declared_candidate_products import candidate_observation_set_digest
     from .interpretation_questions import declared_families
     from .observations import source_python
-    from .structural_products import ClauseModelLabel, DeclaredPrimaryReference
+    from .structural_products import ClauseModelLabel
 
     families = declared_families(prepared.registry_rows)
     found = []
-    for observation, candidates, candidate_product in pairs:
+    for observation, candidates, candidate_role in pairs:
+        expected_family = {
+            "gliner_candidates": "character_gliner_function_v1",
+            "d1_candidates": "character_function_v1",
+        }.get(candidate_role)
+        if expected_family is None:
+            raise ValueError("clause functions require an actual declared candidate input role")
+        occurrence = candidates["observation_set_digest"]
+        if occurrence != candidate_observation_set_digest(candidates["operations"]):
+            raise ValueError("clause candidate observation set differs from its retained replies")
         if (
             observation["source_pin"] != frame.pin.values()
             or candidates["source_pin"] != frame.pin.values()
@@ -213,6 +224,8 @@ def retained_clause_functions(prepared, frame, focus, examined, pairs):
                 "character_function_v1",
             }:
                 continue
+            if family.family != expected_family:
+                raise ValueError("clause function family differs from its declared candidate role")
             request = report["request"]
             gliner = family.family == "character_gliner_function_v1"
             declaration = (
@@ -305,7 +318,7 @@ def retained_clause_functions(prepared, frame, focus, examined, pairs):
             found.append(
                 (
                     labels,
-                    DeclaredPrimaryReference(product_id=candidate_product, member_id=identifier),
+                    SemanticReference.member(candidate_role, identifier, occurrence=occurrence),
                     request_digest,
                     answer["state"],
                 )
@@ -513,7 +526,7 @@ def execute_clause_classification(
                 )
             identifier, report = matched[0]
             used.add(identifier)
-            pairs.append((value, report, identifier))
+            pairs.append((value, report, prefix + "_candidates"))
         if used != {identifier for identifier, _body, _digests in candidate_values}:
             raise ValueError("clause input includes unpaired native candidate reports")
     chosen_passages = tuple(StructuralPassage.model_validate(value) for value in passages)
@@ -600,7 +613,7 @@ def execute_clause_classification(
                         context_policy,
                         selection.model_dump(mode="json"),
                         examined,
-                        [reference.model_dump(mode="json") for reference in references],
+                        [reference.values() for reference in references],
                     ]
                 )
             ).hexdigest()
@@ -616,7 +629,16 @@ def execute_clause_classification(
                 function=labels,
                 disposition=disposition,
                 reason=reason,
-                primary_functions=references,
+                primary_gliner_functions=tuple(
+                    reference.occurrence_member_value()
+                    for reference in references
+                    if reference.role == "gliner_candidates"
+                ),
+                primary_d1_functions=tuple(
+                    reference.occurrence_member_value()
+                    for reference in references
+                    if reference.role == "d1_candidates"
+                ),
                 primary_context=tuple(
                     reference.partition_value() for reference in canonical_references
                 ),

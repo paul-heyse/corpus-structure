@@ -3,6 +3,7 @@
 from copy import deepcopy
 from hashlib import sha256
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -23,9 +24,7 @@ from corpus_structure.semantic.structural_products import LocatedDefinitionSpan
 from corpus_structure.semantic.types import ResolvedDependencies
 
 
-def paired_answer(
-    *, score=0.9, candidate_product="product:functions", scores=None, selected_keys=("definition",)
-):
+def paired_answer(*, score=0.9, scores=None, selected_keys=("definition",)):
     scores = (("definition", score), ("explanation", 0.4)) if scores is None else scores
     prepared = SimpleNamespace(
         registry_rows=compile_question_families(
@@ -89,7 +88,7 @@ def paired_answer(
     )
     row["contribution_id"] = contribution_identity(row)
     observation = dict(source_pin=pin, observations=[source_value(report)])
-    candidates = dict(
+    candidates: dict[str, Any] = dict(
         source_pin=pin,
         operations=[
             dict(
@@ -106,8 +105,13 @@ def paired_answer(
             )
         ],
     )
+    candidates["observation_set_digest"] = sha256(
+        canonical_bytes(
+            ["retained-function-reply-set-1", [sha256(canonical_bytes(report)).hexdigest()]]
+        )
+    ).hexdigest()
     focus = LocatedDefinitionSpan(passage_id="original-block", start=7, end=13, text="Focus.")
-    return prepared, frame, focus, (observation, candidates, candidate_product)
+    return prepared, frame, focus, (observation, candidates, "gliner_candidates")
 
 
 def test_exact_native_clause_answer_preserves_released_labels_scores_and_member_reference():
@@ -120,22 +124,24 @@ def test_exact_native_clause_answer_preserves_released_labels_scores_and_member_
         ("explanation", 0.4, False),
     ]
     assert disposition == "observed" and digest
-    assert references[0].product_id == "product:functions"
+    assert references[0].role == "gliner_candidates"
+    assert references[0].occurrence == pair[1]["observation_set_digest"]
     assert references[0].member_id == pair[1]["members"][0]["member_id"]
-    assert "task_id" not in references[0].model_dump()
+    assert "product_id" not in references[0].values()
 
 
 def test_rival_exact_answers_preserve_both_origins_without_selecting_a_provider():
     prepared, frame, focus, first = paired_answer()
-    _prepared, _frame, _focus, second = paired_answer(score=0.8, candidate_product="product:rival")
+    _prepared, _frame, _focus, second = paired_answer(score=0.8)
     labels, references, digest, disposition, _reason = retained_clause_functions(
         prepared, frame, focus, (7, 13), (first, second)
     )
     assert labels == () and digest is None and disposition == "failed"
-    assert {reference.product_id for reference in references} == {
-        "product:functions",
-        "product:rival",
+    assert {reference.occurrence for reference in references} == {
+        first[1]["observation_set_digest"],
+        second[1]["observation_set_digest"],
     }
+    assert len({reference.occurrence for reference in references}) == 2
 
 
 def test_context_question_cannot_substitute_for_exact_clause_and_wrong_pair_refuses():
@@ -143,6 +149,9 @@ def test_context_question_cannot_substitute_for_exact_clause_and_wrong_pair_refu
     assert retained_clause_functions(prepared, frame, focus, (0, 19), (pair,))[3] == "failed"
     changed = deepcopy(pair)
     changed[1]["operations"][0]["report_digest"] = "different-observation"
+    changed[1]["observation_set_digest"] = sha256(
+        canonical_bytes(["retained-function-reply-set-1", ["different-observation"]])
+    ).hexdigest()
     with pytest.raises(ValueError, match="exact request/reply pair"):
         retained_clause_functions(prepared, frame, focus, (7, 13), (changed,))
 
@@ -301,7 +310,9 @@ def test_selected_clause_requires_the_original_predicate_member(monkeypatch):
     monkeypatch.setattr(
         selected_structural_projection,
         "read_nonrich_root",
-        lambda _model, _selected: SimpleNamespace(structural=report),
+        lambda _model, _selected: SimpleNamespace(
+            structural=report, nominal="urn:corpus:structural:DeclaredClauseReport"
+        ),
     )
 
     operation = "structure.clause_classification/declared"
@@ -397,3 +408,102 @@ def test_current_clause_answer_preserves_overlaps_raw_scores_and_exact_focal_sco
     assert len(references) == 1 and disposition == "observed" and digest
     assert pair[1]["members"][0]["body"]["anchors"] == ()
     assert retained_clause_functions(prepared, frame, focus, (0, 19), (pair,))[3] == "failed"
+
+
+def test_clause_function_refuses_changed_occurrence_issuer_and_wrong_declared_role():
+    prepared, frame, focus, pair = paired_answer()
+    changed = deepcopy(pair)
+    changed[1]["observation_set_digest"] = "wrong-occurrence"
+    with pytest.raises(ValueError, match="observation set differs"):
+        retained_clause_functions(prepared, frame, focus, (7, 13), (changed,))
+    with pytest.raises(ValueError, match="family differs from its declared candidate role"):
+        retained_clause_functions(prepared, frame, focus, (7, 13), ((*pair[:2], "d1_candidates"),))
+
+
+def test_exact_d1_function_answer_uses_its_actual_candidate_role():
+    from corpus_structure.semantic.observations import source_python
+
+    prepared, frame, focus, (observation, candidates, _) = paired_answer()
+    family = declared_families(prepared.registry_rows)["character_function_v1"]
+    report = source_python(observation["observations"][0])
+    scope = dict(pin=frame.pin.values(), projection_extent=[7, 13], focal_extent=[7, 13])
+    report.update(
+        provider="d1",
+        question=family.family,
+        request={
+            "interpretation": {"declaration_digest": family.digest, "assessed_scope": scope},
+            "state": {"source": "Focus.", "focal": {"start": 0, "end": 6}},
+            "questions": {"functions": {}},
+        },
+    )
+    row = candidates["members"][0]["body"]
+    value = source_python(row["value"])
+    value["assessed_scope"] = scope
+    value["native_answer"] = {"probabilities": {"definition": 0.9, "explanation": 0.4}}
+    row.update(semantic_type="interpretation." + family.family, value=source_value(value))
+    semantic = {
+        key: value for key, value in row.items() if key not in {"candidate_type", "contribution_id"}
+    }
+    row["contribution_id"] = contribution_identity(semantic)
+    candidates["members"][0]["member_id"] = "contribution:" + row["contribution_id"]
+    digest = sha256(canonical_bytes(report)).hexdigest()
+    candidates["operations"][0].update(question=family.family, report_digest=digest)
+    candidates["observation_set_digest"] = sha256(
+        canonical_bytes(["retained-function-reply-set-1", [digest]])
+    ).hexdigest()
+    observation["observations"] = [source_value(report)]
+    labels, references, _, disposition, _ = retained_clause_functions(
+        prepared, frame, focus, (7, 13), ((observation, candidates, "d1_candidates"),)
+    )
+    assert disposition == "observed" and labels[0].label == "definition"
+    assert references[0].role == "d1_candidates"
+    assert references[0].occurrence == candidates["observation_set_digest"]
+
+
+def test_selected_clause_function_reads_its_declared_occurrence_and_refuses_other_answers(
+    monkeypatch,
+):
+    from corpus_structure.semantic import live_reference_resolution, selected_structural_projection
+    from corpus_structure.semantic.data_product_reference import SemanticReference
+
+    reference = SemanticReference.member(
+        "gliner_candidates", "contribution:answer", occurrence="reply-set"
+    )
+    reading = SimpleNamespace(
+        primary_gliner_functions=(reference.values(),), primary_d1_functions=()
+    )
+    report = SimpleNamespace(
+        condition_qualification=None,
+        predicate_input={"variant": "product", "role": "predicates"},
+        clause_classification=SimpleNamespace(readings=(reading,), inspected_frames=()),
+    )
+    monkeypatch.setattr(
+        selected_structural_projection,
+        "read_nonrich_root",
+        lambda *_: SimpleNamespace(
+            nominal="urn:corpus:structural:DeclaredClauseReport", structural=report
+        ),
+    )
+    actual = {
+        "candidate_type": "contribution",
+        "contribution_id": "answer",
+        "semantic_type": "interpretation.character_gliner_function_v1",
+        "value": source_value({"question_key": "functions"}),
+    }
+    observed = []
+
+    def resolve(scope, selected, target, *, path, metadata_only=False):
+        observed.append((target, path, metadata_only))
+        return None if metadata_only else actual
+
+    monkeypatch.setattr(live_reference_resolution, "require_selected_output_reference", resolve)
+    scope = SimpleNamespace(model=object())
+    assert selected_structural_projection.structural_report(scope, object()) is report
+    assert observed[-1] == (
+        reference,
+        "/clause_classification/readings/*/primary_gliner_functions/*",
+        False,
+    )
+    actual["value"] = source_value({"question_key": "other-question"})
+    with pytest.raises(ValueError, match="does not resolve its exact answer"):
+        selected_structural_projection.structural_report(scope, object())

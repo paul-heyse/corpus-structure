@@ -27,6 +27,20 @@ class ClauseClassificationOperation:
         "reference_targets": [
             {
                 "output_role": "result",
+                "path": "/clause_classification/readings/*/primary_gliner_functions/*",
+                "input_role": "gliner_candidates",
+                "variant": "member",
+                "occurrence_field": "/observation_set_digest",
+            },
+            {
+                "output_role": "result",
+                "path": "/clause_classification/readings/*/primary_d1_functions/*",
+                "input_role": "d1_candidates",
+                "variant": "member",
+                "occurrence_field": "/observation_set_digest",
+            },
+            {
+                "output_role": "result",
                 "path": "/predicate_input",
                 "input_role": "predicates",
                 "variant": "product",

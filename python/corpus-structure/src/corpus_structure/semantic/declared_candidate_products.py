@@ -60,6 +60,14 @@ def candidate_member_id(candidate_type, value):
     raise ValueError("unknown candidate member family")
 
 
+def candidate_observation_set_digest(operations):
+    """Identify the exact retained request/reply set issued by a learned candidate producer."""
+    digests = {operation["report_digest"] for operation in operations}
+    if any(type(digest) is not str or not digest for digest in digests):
+        raise ValueError("candidate observations require their actual retained reply digests")
+    return sha256(canonical_bytes(["retained-function-reply-set-1", sorted(digests)])).hexdigest()
+
+
 def candidate_inspection_report(
     prepared,
     model,
@@ -139,6 +147,8 @@ def candidate_inspection_report(
         "coverage": coverage,
         "diagnostics_json": json_bytes(diagnostics or {}).decode(),
     }
+    if report_class in {"DdoGlinerFunctionCandidatesReport", "DdoD1SourceCandidatesReport"}:
+        report["observation_set_digest"] = candidate_observation_set_digest(operations)
     return prepared.validate_json(report_class, json_bytes(report)).model_dump(
         mode="python", exclude_unset=True
     )

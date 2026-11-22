@@ -241,3 +241,66 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
         check(ref, original=related)
         with pytest.raises(DBAPIError, match="does not resolve address"), conn.begin_nested():
             check(bad_ref, original=related)
+
+
+def test_nominal_occurrence_member_compiles_only_with_its_declared_required_input_field():
+    from pydantic import BaseModel, ConfigDict, TypeAdapter
+
+    from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+    from corpus_structure.semantic.data_operation_version import MODEL_VERSION
+    from corpus_structure.semantic.data_product_reference import SemanticOccurrenceMemberReference
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.nominal_schema_kinds import nominal_schema_kinds
+    from corpus_structure.semantic.types import PreparationError, SourceArtifact
+    from semantic.data_operation_declaration_support import contract, declarations
+
+    class CandidateInput(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        observation_set_digest: str
+
+    class FunctionReport(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        functions: tuple[SemanticOccurrenceMemberReference, ...]
+
+    artifact = SourceArtifact(
+        "function-reference-kinds.json",
+        canonical_bytes(
+            {
+                "version": MODEL_VERSION,
+                "kinds": nominal_schema_kinds(
+                    TypeAdapter(CandidateInput | FunctionReport).json_schema(),
+                    namespace="urn:function-reference:",
+                    root_name="FunctionKinds",
+                ),
+            }
+        ),
+    )
+    value = contract()
+    value["roles"][0].update(
+        kind="urn:function-reference:CandidateInput", maximum=None, collection="sequence"
+    )
+    value["roles"][1]["kind"] = "urn:function-reference:FunctionReport"
+    value["reference_targets"] = [
+        {
+            "output_role": "result",
+            "input_role": "source",
+            "path": "/functions/*",
+            "variant": "member",
+            "occurrence_field": "/observation_set_digest",
+        }
+    ]
+    model = compile_data_operations(declarations=(*declarations(value), artifact))
+    (target,) = model.operations[0].reference_targets
+    assert target.occurrence_field == "/observation_set_digest"
+    reference = SemanticReference.member("source", "actual-answer", occurrence="actual-reply-set")
+    assert TypeAdapter(SemanticOccurrenceMemberReference).validate_python(
+        reference.occurrence_member_value()
+    ) == {
+        "variant": "member",
+        "role": "source",
+        "occurrence": "actual-reply-set",
+        "member_id": "actual-answer",
+    }
+    value["reference_targets"][0].pop("occurrence_field")
+    with pytest.raises(PreparationError, match="requires its declared occurrence field"):
+        compile_data_operations(declarations=(*declarations(value), artifact))

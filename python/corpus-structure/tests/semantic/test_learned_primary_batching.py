@@ -39,6 +39,14 @@ def harness(monkeypatch, tmp_path, family, provider):
         classmethod(lambda cls, *args, **kwargs: frame),
     )
     monkeypatch.setattr(sentence_products, "_blocks", lambda source: (blocks, ()))
+    monkeypatch.setattr(
+        sentence_products,
+        "source_annotation_blocks",
+        lambda _inventory: tuple(
+            {"annotation": {"source": frame.pin.values(), "block_id": block.block_id}}
+            for block in blocks
+        ),
+    )
     monkeypatch.setattr(interpretation_questions, "declared_families", lambda rows: {})
     monkeypatch.setattr(pm2_result, "_parser_products", lambda *args: ParserProducts({}, ()))
     monkeypatch.setattr(characterization_manifests, "manifest_contract", lambda *args: None)
@@ -106,12 +114,18 @@ def test_independent_blocks_reduce_source_order_after_reverse_completion(
     monkeypatch.setattr(
         learned_primary,
         "maverick_input",
-        lambda source, annotations, frame, block, mapping: (
+        lambda annotation, frame, block, mapping: (
             mapping,
             {"text": mapping.provider_text},
         ),
     )
-    plan = profile.run(source, binding=binding, execution_owner=owner, check_active=lambda: None)
+    plan = profile.run(
+        source,
+        binding=binding,
+        annotations=object() if family == "maverick" else None,
+        execution_owner=owner,
+        check_active=lambda: None,
+    )
     group = next(plan)
     assert isinstance(group, ReadyGroup) and group.max_active == 2
     assert len(group.plans) == 3

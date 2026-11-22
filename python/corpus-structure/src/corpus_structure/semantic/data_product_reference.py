@@ -51,6 +51,21 @@ class SemanticMemberReference(TypedDict):
 
 
 @with_config(
+    ConfigDict(
+        extra="forbid",
+        json_schema_extra={"x-ddo-role-reference": "member", "x-ddo-reference-occurrence": True},
+    )
+)
+class SemanticOccurrenceMemberReference(TypedDict):
+    """One member in an input occurrence identified by its declared semantic field."""
+
+    variant: Literal["member"]
+    role: _Nonempty
+    occurrence: _Nonempty
+    member_id: _Nonempty
+
+
+@with_config(
     ConfigDict(extra="forbid", json_schema_extra={"x-ddo-role-reference": "partition-item"})
 )
 class SemanticPartitionReference(TypedDict):
@@ -153,6 +168,16 @@ class SemanticReference:
         if self.variant != "member" or self.occurrence is not None or self.member_id is None:
             raise ValueError("scalar member reference required")
         return {"variant": "member", "role": self.role, "member_id": self.member_id}
+
+    def occurrence_member_value(self) -> SemanticOccurrenceMemberReference:
+        if self.variant != "member" or self.occurrence is None or self.member_id is None:
+            raise ValueError("occurrence member reference required")
+        return {
+            "variant": "member",
+            "role": self.role,
+            "occurrence": self.occurrence,
+            "member_id": self.member_id,
+        }
 
     def partition_value(self) -> SemanticPartitionReference:
         if (

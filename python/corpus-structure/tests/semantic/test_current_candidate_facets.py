@@ -259,12 +259,31 @@ def test_candidate_facets_keep_exact_alternatives_source_member_support_and_priv
     assert single[1]["row"]["meaning"]["fields"][0]["state"] == "unresolved"
 
 
-def test_empty_candidate_inspection_retains_coverage_without_inventing_members(source):
-    body = report(source)
-    body.update(members=[], inspection_outcome="empty")
-    actual = rows(
-        source, selected(source, body, CANDIDATE_NAMESPACE + "DdoD1SourceCandidatesReport")
+@pytest.mark.parametrize(
+    "report_class", ["DdoD1SourceCandidatesReport", "DdoGlinerFunctionCandidatesReport"]
+)
+def test_empty_candidate_inspection_retains_coverage_without_inventing_members(
+    source, report_class
+):
+    from hashlib import sha256
+
+    from corpus_structure.semantic.declared_candidate_products import candidate_inspection_report
+
+    original = report(source)
+    body = candidate_inspection_report(
+        source.prepared,
+        source.model,
+        SimpleNamespace(pin=SimpleNamespace(values=pin)),
+        selected(source, original, CANDIDATE_NAMESPACE + report_class).context,
+        inspection_outcome="empty",
+        coverage=original["coverage"],
+        report_class=report_class,
     )
+    assert (
+        body["observation_set_digest"]
+        == sha256(canonical_bytes(["retained-function-reply-set-1", []])).hexdigest()
+    )
+    actual = rows(source, selected(source, body, CANDIDATE_NAMESPACE + report_class))
     assert all(row["row"]["reference"]["member_id"] is None for row in actual)
     whole = next(row["row"] for row in actual if row["population"] == "interpretation")
     assert whole["meaning"]["inspection_outcome"] == "empty"

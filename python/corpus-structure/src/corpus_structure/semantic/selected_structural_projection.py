@@ -91,6 +91,39 @@ def structural_report(scope, selected):
             path="/predicate_input",
             metadata_only=True,
         )
+        from .observations import source_python
+
+        for reading in clause.readings:
+            for field, values, semantic_type in (
+                (
+                    "primary_gliner_functions",
+                    reading.primary_gliner_functions,
+                    "interpretation.character_gliner_function_v1",
+                ),
+                (
+                    "primary_d1_functions",
+                    reading.primary_d1_functions,
+                    "interpretation.character_function_v1",
+                ),
+            ):
+                for value in values:
+                    reference = read_semantic_reference(value)
+                    body = require_selected_output_reference(
+                        scope,
+                        selected,
+                        reference,
+                        path="/clause_classification/readings/*/" + field + "/*",
+                    )
+                    if (
+                        not isinstance(body, dict)
+                        or body.get("candidate_type") != "contribution"
+                        or body.get("semantic_type") != semantic_type
+                        or reference.member_id != "contribution:" + body.get("contribution_id", "")
+                        or source_python(body["value"]).get("question_key") != "functions"
+                    ):
+                        raise ValueError(
+                            "selected clause function does not resolve its exact answer"
+                        )
         # The report constructor ensures that every focus or unprojectable
         # frame is in the inspected inventory.
         for value in clause.inspected_frames:
