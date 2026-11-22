@@ -8,7 +8,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from sqlalchemy import Column, LargeBinary, MetaData, Table, Text, select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from corpus_structure.semantic.data_operation_json import (
     finite_json_loads,
@@ -17,7 +16,7 @@ from corpus_structure.semantic.data_operation_json import (
     wire_json_loads,
 )
 from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
-from corpus_structure.semantic.demand_results import stream_demand_result, stream_selected_support
+from corpus_structure.semantic.demand_results import stream_demand_result, stream_selected_archive
 from corpus_structure.semantic.selected_support_contract import (
     SUPPORT_EXTENSION,
     SelectedSupportReader,
@@ -223,20 +222,12 @@ def export_demand_result(
             pages.append(name)
         if cut is None:
             raise ValueError("native result did not produce its empty frontier page")
-        for record in stream_selected_support(connection, page, whole_read=True):
-            # Current validity explanations belong to live trust inspection.
-            if record["relation"] == "ops.data_support_explanation":
-                continue
+        for record in stream_selected_archive(connection, cut, max_bytes=page_bytes):
             payload = json_bytes(record)
-            previous = spool.execute(
-                select(_RECORDS.c.payload).where(_RECORDS.c.key == record["key"])
-            ).fetchone()
-            if previous is not None and previous[0] != payload:
-                raise ValueError("same selected witness key acquired different exact bytes")
             spool.execute(
-                sqlite_insert(_RECORDS)
-                .values(key=record["key"], relation=record["relation"], payload=payload)
-                .on_conflict_do_nothing(index_elements=[_RECORDS.c.key])
+                _RECORDS.insert().values(
+                    key=record["key"], relation=record["relation"], payload=payload
+                )
             )
             if record["relation"] == "ops.original_source_admission":
                 reference = record["record"]["reference"]

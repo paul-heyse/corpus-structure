@@ -434,8 +434,10 @@ an explicit 240-second completion bound. The combined-source retry passed the se
 HanLP partition and Maverick report checks, then reached D1 export. With separate product-scoped
 reads, 16 rows per archive page and an explicit 32 MiB page bound, the worker reached its
 15-minute watchdog in the native selected-support query (`774993634d3c4393b6f77882f5f1d756`).
-Candidate-conditioned detached acceptance remains open. [SBX-11/12](owner-resolved-reads.md#sbx-11)
-own the bounded support and replay path that this provider journey needs.
+The final private provider journey passed exact candidate-conditioned detached replay under the
+existing watchdog (`4578a734f8e04db69e4918c5687025d9`). The
+[SBX-12 native archive acquisition](owner-resolved-reads.md#sbx-12) owns its phase timings and
+remaining verification improvements.
 
 **Named-definition cutover · 2026-11-21.** The named producer publishes a nominal refinement
 of definition components. Each witness belongs to the producing report and is keyed by the

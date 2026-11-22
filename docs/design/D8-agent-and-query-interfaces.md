@@ -1379,6 +1379,12 @@ bytes under the acquiring read. `ci review verify` operates offline against an e
 trusted manifest digest. Selected structural reading/replay uses `ci structure export|verify`,
 which binds its request and installed interpretation to the authenticated native archive.
 
+**Implemented; scoped installed and provider controls Tested · 2026-11-22.** Detached support acquisition stages relation keys in
+the acquiring PostgreSQL transaction and hydrates bounded batches after selecting their keys.
+The native reader applies current cut authority and protected disclosure. Live validity
+explanations stay with live inspection. The archive continues to seal the exact selected
+products, support and producing custody under its captured cut.
+
 Protected reference snapshots and complete-record assessment use the evaluator/fitter routes above.
 Native purpose and body-access policy govern every exported population. Ordinary review export
 cannot acquire historical assessment sets or grant evaluator exposure. The superseded task/source-view
@@ -1386,7 +1392,7 @@ review bundle, its archive-specific replay adapters and historical format compat
 Scientific kernels and native admission controls retain their current owners; detached selected reads
 authenticate captured products and support without rerunning historical producers.
 
-> Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md)
+> Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md), [ADR-0152](../adr/0152-selected-archive-support-keys.md)
 
 ### Runtime provenance for rendering and retained readers
 

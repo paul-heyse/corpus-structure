@@ -1077,30 +1077,48 @@ def _read_support_seed(metadata, selected_uses, admissions, in_page):
     ).cte("export_support_seed")
 
 
-def selected_support_export(metadata, selected_uses, admissions, in_page):
+def _support_record_body(relation):
+    from .selected_support_contract import omitted_support_fields
+
+    value = func.to_jsonb(relation.table_valued())
+    omitted = omitted_support_fields(relation.fullname)
+    for name in sorted(omitted & set(relation.c.keys())):
+        value = value.op("-")(literal(name))
+    return value
+
+
+def _support_record(name, locator, value):
+    return select(
+        (literal(name + ":") + cast(locator, Text)).label("key"),
+        literal(name).label("relation"),
+        value.label("record"),
+    )
+
+
+def _selected_support_relations(
+    metadata, admissions, selected_uses=None, in_page=None, *, keys=None
+):
     """Export the finite selected witness closure, including nonreturned intermediates.
 
     Selection and current trust stay in the native acquisition owner. This is a
     derived projection over exact retained use/episode/population/original IDs.
     Body access checks apply to every product and member, including intermediates.
     """
-    whole = _var("p", JSONB)["support_scope"].astext == "read"
+    archive = selected_uses is None
     scoped = _scoped_read_obligations(metadata).cte("export_scoped_obligations")
     latest = _latest_read_use(metadata, scoped)
-    seeds = union(
-        select(selected_uses.c.id).where(~func.coalesce(whole, literal(False))),
-        select(latest.c.id).select_from(scoped.join(latest, literal(True))).where(whole),
-    ).cte("export_selected_use_ids")
-    in_scope = exists(
-        select(1)
-        .select_from(scoped)
-        .where(
-            scoped.c.subject == admissions.c.subject,
-            scoped.c.original_source.is_not_distinct_from(admissions.c.original_source),
-            scoped.c.analyzed_scope == admissions.c.analyzed_scope,
-        )
-    )
-    in_page = case((whole, or_(in_scope, ~exists(select(1).select_from(scoped)))), else_=in_page)
+    whole_seeds = select(latest.c.id).select_from(scoped.join(latest, literal(True)))
+    original_context = _original_in_read_context(admissions, scoped)
+    if archive:
+        seeds = whole_seeds.cte("export_selected_use_ids")
+        in_page = original_context
+    else:
+        whole = _var("p", JSONB)["support_scope"].astext == "read"
+        seeds = union(
+            select(selected_uses.c.id).where(~func.coalesce(whole, literal(False))),
+            whole_seeds.where(whole),
+        ).cte("export_selected_use_ids")
+        in_page = case((whole, original_context), else_=in_page)
     seed = _read_support_seed(metadata, seeds, admissions, in_page)
     nodes = _support_walk(metadata, seed, public=True)
     episodes = metadata.tables["ops.data_derivation"]
@@ -1132,23 +1150,47 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
         select(admissions.c.product_id).where(reached("original", admissions.c.id)),
     ).cte("export_products")
 
-    def records(relation, predicate, *order):
-        # Retain row context exactly; transaction visibility markers are not public
-        # semantic addresses and are unnecessary for detached interpretation.
-        value = func.to_jsonb(relation.table_valued())
-        from .selected_support_contract import omitted_support_fields
+    def locator_field(locators, name, index, kind):
+        # A join plan may evaluate index expressions before its relation filter.
+        # Only cast an ordinal or other typed field for its own relation.
+        return cast(case((locators.c.relation == name, locators.c.locator[index].astext)), kind)
 
-        omitted = omitted_support_fields(relation.fullname)
-        for name in sorted(omitted & set(relation.c.keys())):
-            value = value.op("-")(literal(name))
-        key = func.jsonb_build_array(
-            *(relation.c[col.name] for col in relation.primary_key.columns)
-        ).cast(Text)
-        return select(
-            (literal(relation.fullname + ":") + key).label("key"),
-            literal(relation.fullname).label("relation"),
-            value.label("record"),
-        ).where(predicate)
+    def records(relation, predicate, *_order):
+        primary_key = tuple(relation.primary_key.columns)
+        if keys is not None:
+            match = and_(
+                keys.c.relation == relation.fullname,
+                *(
+                    field == locator_field(keys, relation.fullname, index, field.type)
+                    for index, field in enumerate(primary_key)
+                ),
+            )
+            if relation in (products, members):
+                match = and_(
+                    match,
+                    _disclosed_kind_access(metadata, relation.c.kind_contract),
+                )
+            return select(
+                keys.c.key, keys.c.relation, _support_record_body(relation).label("record")
+            ).select_from(keys.join(relation, match))
+        locator = func.jsonb_build_array(*primary_key)
+        value = locator if archive else _support_record_body(relation)
+        return _support_record(relation.fullname, locator, value).where(predicate)
+
+    def virtual(name, location, origins, predicate, render):
+        if keys is not None:
+            args = tuple(
+                locator_field(keys, name, index, field.type) for index, field in enumerate(location)
+            )
+            return select(keys.c.key, keys.c.relation, render(*args).label("record")).where(
+                keys.c.relation == name
+            )
+        locator = func.jsonb_build_array(*location)
+        return (
+            _support_record(name, locator, locator if archive else render(*location))
+            .select_from(origins)
+            .where(predicate)
+        )
 
     fields = dict(
         uses=records(
@@ -1242,27 +1284,20 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     # In particular no issuer use/binding, request, intent, protected input, other
     # output or transitive protected support is exported as a normal episode.
     authority_use = uses.alias("authority_use")
-    fields["authority_leaves"] = (
-        select(
-            (
-                literal("ops.data_authority_leaf:")
-                + func.jsonb_build_array(nodes.c.id, authority_use.c.id).cast(Text)
-            ).label("key"),
-            literal("ops.data_authority_leaf").label("relation"),
-            func.ops.ddo_policy_authority_summary(
-                nodes.c.id, authority_use.c.id, _var("boundary.id", Text)
-            ).label("record"),
-        )
-        .select_from(
-            nodes.outerjoin(
-                authority_use,
-                and_(
-                    authority_use.c.derivation_id == nodes.c.id,
-                    reached("use", authority_use.c.id),
-                ),
-            )
-        )
-        .where(nodes.c.kind == "authority")
+    fields["authority_leaves"] = virtual(
+        "ops.data_authority_leaf",
+        (nodes.c.id, authority_use.c.id),
+        nodes.outerjoin(
+            authority_use,
+            and_(
+                authority_use.c.derivation_id == nodes.c.id,
+                reached("use", authority_use.c.id),
+            ),
+        ),
+        nodes.c.kind == "authority",
+        lambda episode, use: func.ops.ddo_policy_authority_summary(
+            episode, use, _var("boundary.id", Text)
+        ),
     )
     # Revocation witnesses belong to the same authenticated, body-authorized
     # selected closure. Keep selector/epoch provenance; never infer cause merely
@@ -1364,29 +1399,16 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     # Keep the selected operation's complete semantic support. Only the physical
     # cohort reply is private; this is a distinct native assertion, never a
     # rewritten completion-intent row with a misleading original payload digest.
-    fields["execution_evidence_leaves"] = (
-        select(
-            (
-                literal("ops.data_execution_evidence_leaf:")
-                + func.jsonb_build_array(
-                    episodes.c.id, outputs.c.product_id, outputs.c.role, outputs.c.position
-                ).cast(Text)
-            ).label("key"),
-            literal("ops.data_execution_evidence_leaf").label("relation"),
-            func.ops.ddo_cpu_execution_leaf(
-                episodes.c.id,
-                outputs.c.product_id,
-                outputs.c.role,
-                outputs.c.position,
-                null().cast(Text),
-            ).label("record"),
-        )
-        .select_from(
-            episodes.join(batch_episodes, batch_episodes.c.derivation_id == episodes.c.id).join(
-                outputs, outputs.c.derivation_id == episodes.c.id
-            )
-        )
-        .where(outputs.c.member_id.is_(None))
+    fields["execution_evidence_leaves"] = virtual(
+        "ops.data_execution_evidence_leaf",
+        (episodes.c.id, outputs.c.product_id, outputs.c.role, outputs.c.position),
+        episodes.join(batch_episodes, batch_episodes.c.derivation_id == episodes.c.id).join(
+            outputs, outputs.c.derivation_id == episodes.c.id
+        ),
+        outputs.c.member_id.is_(None),
+        lambda episode, product, role, position: func.ops.ddo_cpu_execution_leaf(
+            episode, product, role, position, null().cast(Text)
+        ),
     )
     fields["publication_receipts"] = records(
         receipts, receipts.c.derivation_id.in_(episode_ids), receipts.c.id
@@ -1421,11 +1443,43 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
         fields[name.removeprefix("data_derivation_")] = records(
             relation, visible_edge, *relation.primary_key.columns
         )
-    from .support_edges import support_explanation_rows
+    if not archive:
+        from .support_edges import support_explanation_rows
 
-    fields["validity_explanations"] = support_explanation_rows(
-        metadata, seeds, core_reference("boundary", type_=NullType()), reached
+        fields["validity_explanations"] = support_explanation_rows(
+            metadata, seeds, core_reference("boundary", type_=NullType()), reached
+        )
+    return fields, _support_export_body_access(metadata, products, product_ids)
+
+
+def selected_archive_keys(metadata):
+    """Stage disclosed primary keys, with a refusal marker for denied bodies."""
+    admissions = metadata.tables["ops.original_source_admission"]
+    fields, access = _selected_support_relations(metadata, admissions)
+    rows = union(*fields.values()).cte("selected_archive_locators")
+    guard = (
+        select(access.label("allowed")).cte("selected_archive_access").prefix_with("MATERIALIZED")
     )
+    return union_all(
+        select(rows.c.key, rows.c.relation, rows.c.record.label("locator")).where(
+            select(guard.c.allowed).scalar_subquery()
+        ),
+        select(null().cast(Text), null().cast(Text), null().cast(JSONB)).where(
+            ~select(guard.c.allowed).scalar_subquery()
+        ),
+    )
+
+
+def selected_archive_records(metadata, keys):
+    """Hydrate the already-authorized, bounded locators through their typed keys."""
+    fields, _ = _selected_support_relations(
+        metadata, metadata.tables["ops.original_source_admission"], keys=keys
+    )
+    return union_all(*fields.values())
+
+
+def selected_support_export(metadata, selected_uses, admissions, in_page):
+    fields, body_access = _selected_support_relations(metadata, admissions, selected_uses, in_page)
     rows = union(*fields.values()).cte("support_export_rows")
     bounded_rows = (
         select(rows)
@@ -1457,7 +1511,6 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     body_bytes = select(
         func.coalesce(func.sum(func.octet_length(page.c.record.cast(Text))), 0)
     ).scalar_subquery()
-    body_access = _support_export_body_access(metadata, products, product_ids)
     value = case(
         (
             body_access,

@@ -493,6 +493,8 @@ def _revoke_support(model):
 
 
 def demand_result_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
+    from .selected_archive_native import selected_archive_programs
+
     routines = (
         _revoke_support(model),
         _endpoint(
@@ -519,7 +521,7 @@ def demand_result_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
             else INTERNAL_PROGRAM,
         )
         for routine in routines
-    )
+    ) + selected_archive_programs(model)
 
 
 def demand_result_sql(model: MetaData) -> str:

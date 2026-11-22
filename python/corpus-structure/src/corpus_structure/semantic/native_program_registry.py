@@ -367,7 +367,14 @@ def program_closures(definitions: tuple[NativeDefinition, ...], wire_names) -> P
                 identity
                 for identity in fingerprints
                 if identity.schema == "ops"
-                and identity.name in {"acquire_data_read_context", "data_binding_rows"}
+                and identity.name
+                in {
+                    "acquire_data_read_context",
+                    "data_binding_rows",
+                    "begin_selected_archive",
+                    "fetch_selected_archive",
+                    "close_selected_archive",
+                }
             ),
         ),
         validators={name: closure(*roots) for name, roots in sorted(families.items())},

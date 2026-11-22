@@ -2,6 +2,7 @@
 
 import pglast
 import pytest
+from sqlalchemy import Text, column, table
 from sqlalchemy.dialects.postgresql import JSONB, dialect
 
 from corpus_structure.semantic.data_operation_projections import (
@@ -12,6 +13,8 @@ from corpus_structure.semantic.data_operation_projections import (
     member_columns,
     read_page,
     read_scope_rows,
+    selected_archive_keys,
+    selected_archive_records,
 )
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_protocol_authoring import native_protocol_sources, native_sql
@@ -40,6 +43,21 @@ def test_core_builders_own_return_shape_and_keep_scoped_native_parameters():
     assert "p_operation" in computed
     assert "after_key" in page and "LIMIT lim" in page
     assert "ops.ddo_episode_provider_identity" in computed
+
+
+def test_archive_stages_support_keys_and_hydrates_only_staged_relations():
+    metadata = get_metadata()
+    page = table(
+        "bounded_keys", column("key", Text), column("relation", Text), column("locator", JSONB)
+    )
+    prepare = _compile(selected_archive_keys(metadata))
+    hydrate = _compile(selected_archive_records(metadata, page))
+    assert pglast.parse_sql(prepare) and pglast.parse_sql(hydrate)
+    assert "WITH RECURSIVE" in prepare and "WITH RECURSIVE" not in hydrate
+    assert "ops.ddo_body_access(" in prepare
+    assert "to_jsonb(" not in prepare and "ops.ddo_cpu_execution_leaf(" not in prepare
+    assert "ops.ddo_valid_closure(" not in prepare + hydrate
+    assert "bounded_keys.locator" in hydrate and "ops.ddo_cpu_execution_leaf(" in hydrate
 
 
 def test_dependency_free_wake_filters_local_candidate_changes_by_actual_role():

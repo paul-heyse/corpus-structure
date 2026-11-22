@@ -568,7 +568,7 @@ def target_admission_descriptor(installation: TargetInstallation, native_objects
 
 @contextmanager
 def target_authoring_scratch(connection, installation: TargetInstallation):
-    """Supply the declared empty archive/PDF row layouts for static authoring only."""
+    """Supply declared empty temporary row layouts for static authoring only."""
     from pglast import ast
     from pglast.stream import RawStream
     from sqlalchemy import Text, bindparam, func, select
@@ -576,10 +576,12 @@ def target_authoring_scratch(connection, installation: TargetInstallation):
     from .archive_native import archive_scratch_specs
     from .native_objects import NativeAuthoringError
     from .pdf_shared_streams import pdf_scratch_specs
+    from .selected_archive_native import selected_archive_scratch_specs
 
     specs = (
         *pdf_scratch_specs(installation.metadata),
         *archive_scratch_specs(installation.metadata),
+        *selected_archive_scratch_specs(),
     )
     present = select(func.to_regclass(bindparam("name", type_=Text())))
     savepoint = connection.begin_nested()

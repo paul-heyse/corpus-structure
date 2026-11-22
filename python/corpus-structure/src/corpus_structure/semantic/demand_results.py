@@ -7,7 +7,8 @@ work, copies task identities or changes the producing episode of a reused value.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections import defaultdict
+from collections.abc import Generator, Iterator, Mapping
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from functools import cached_property
@@ -318,6 +319,75 @@ def recheck_selected_frontier(
     return cut, frontier, sha256(content).hexdigest()
 
 
+def stream_selected_archive(
+    connection,
+    cut: CutSelection,
+    *,
+    max_bytes: int = 8 * 1024 * 1024,
+    batch_rows: int = 64,
+) -> Generator[dict[str, Any]]:
+    """Stream one transaction-owned native archive selection in bounded batches.
+
+    The native owner computes the closure once and keeps only identity keys.
+    Successful exhaustion closes it explicitly. An interrupted transaction owns
+    cleanup through rollback or its ON COMMIT DROP temporary relations.
+    """
+    from sqlalchemy import BigInteger, Integer, Text, bindparam, cast, func, select
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    opened = connection.scalar(
+        select(
+            cast(
+                func.ops.begin_selected_archive(
+                    cast(bindparam("archive_cut", type_=Text), JSONB),
+                    bindparam("archive_rows", type_=Integer),
+                    bindparam("archive_bytes", type_=BigInteger),
+                ),
+                Text,
+            )
+        ),
+        {
+            "archive_cut": json_bytes(cut.record).decode(),
+            "archive_rows": batch_rows,
+            "archive_bytes": max_bytes,
+        },
+    )
+    if not isinstance(opened, str):
+        raise ValueError("native archive acquisition returned malformed JSON")
+    acquired = native_json_loads(opened)
+    handle = acquired.get("handle") if isinstance(acquired, dict) else None
+    if not isinstance(handle, str) or not handle:
+        raise ValueError("native archive acquisition omitted its handle")
+    fetch = select(
+        cast(func.ops.fetch_selected_archive(bindparam("archive_handle", type_=Text)), Text)
+    )
+    previous = None
+    while True:
+        content = connection.scalar(fetch, {"archive_handle": handle})
+        if not isinstance(content, str):
+            raise ValueError("native archive batch returned malformed JSON")
+        batch = native_json_loads(content)
+        if (
+            not isinstance(batch, dict)
+            or not isinstance(batch.get("records"), list)
+            or type(batch.get("complete")) is not bool
+            or (not batch["records"] and not batch["complete"])
+        ):
+            raise ValueError("native archive batch has no complete bounded shape")
+        for record in batch["records"]:
+            key = record.get("key") if isinstance(record, dict) else None
+            if not isinstance(key, str) or (previous is not None and key <= previous):
+                raise ValueError("native archive record keys did not advance")
+            previous = key
+            yield dict(record)
+        if batch["complete"]:
+            break
+    connection.scalar(
+        select(func.ops.close_selected_archive(bindparam("archive_handle", type_=Text))),
+        {"archive_handle": handle},
+    )
+
+
 def stream_selected_support(
     connection, page: DemandResult, *, whole_read: bool = False, obligation_id: str | None = None
 ) -> Iterator[dict[str, Any]]:
@@ -589,9 +659,11 @@ def verify_detached_result(
         validate_subject_context(models[release], context, subject_definition=subject_definition)
 
     products = row_map("kb.data_product", "id")
-    members = row_map("kb.data_product_member", "product_id", "member_id")
+    member_relation = "kb.data_product_member"
+    members = row_map(member_relation, "product_id", "member_id")
     partition_relation = "kb.data_product_partition"
     seen_partition_count = 0
+    seen_member_count = 0
     for product in products.values() if validate_closure else ():
         kind = actual_kinds[product["kind_contract"]]
         decoded = decode_semantic_value(product["canonical_body"])
@@ -601,14 +673,52 @@ def verify_detached_result(
             and product["artifact_digest"] not in source_artifacts
         ):
             raise ValueError("detached selected product artifact bytes are missing")
-        if kind.get("member_schema", {"not": {}}) != {"not": {}}:
-            for packet in decoded["members"]:
-                if (product["id"], packet["member_id"]) not in members:
-                    raise ValueError(
-                        "detached canonical container member is missing from its support closure"
-                    )
         captured_kind_validator(kind["meaning_schema"]).validate(product["canonical_body"])
         captured_kind_validator(kind["body_schema"]).validate(decoded)
+        packets_by_member = None
+        seen_members = set()
+        for member in rows_for(member_relation, product_id=product["id"]):
+            if packets_by_member is None:
+                packets_by_member = defaultdict(list)
+                for packet in decoded.get("members", ()) if isinstance(decoded, dict) else ():
+                    packets_by_member[packet["member_id"]].append(packet)
+            member_id = member["member_id"]
+            if member_id in seen_members:
+                raise ValueError("detached records repeat a nominal identity")
+            seen_members.add(member_id)
+            checked_context(
+                SubjectContext(
+                    product["project_id"],
+                    member["subject"],
+                    member["original_source"],
+                    json_bytes(member["analyzed_scope"]),
+                    subject_definition=member["subject_definition"],
+                )
+            )
+            member_kind = actual_kinds[member["kind_contract"]]
+            captured_kind_validator(member_kind["meaning_schema"]).validate(member["body"])
+            member_body = decode_semantic_value(member["body"])
+            captured_kind_validator(member_kind["body_schema"]).validate(member_body)
+            context = dict(
+                subject=member["subject"],
+                subject_definition=member["subject_definition"],
+                original_source=member["original_source"],
+                analyzed_scope=member["analyzed_scope"],
+            )
+            if not any(
+                packet["kind_contract"] == member["kind_contract"]
+                and packet["body"] == member_body
+                and packet["context"] == context
+                for packet in packets_by_member[member_id]
+            ):
+                raise ValueError("detached member differs from its canonical container")
+        seen_member_count += len(seen_members)
+        if kind.get("member_schema", {"not": {}}) != {"not": {}} and any(
+            packet["member_id"] not in seen_members for packet in decoded["members"]
+        ):
+            raise ValueError(
+                "detached canonical container member is missing from its support closure"
+            )
         collections = kind.get("collections", {})
         declarations = {
             name: declaration
@@ -672,36 +782,8 @@ def verify_detached_result(
         row_map(partition_relation, "product_id", "collection", "partition_key")
     ):
         raise ValueError("detached partition has no disclosed parent or repeats an identity")
-    for member in members.values() if validate_closure else ():
-        product = products[member["product_id"]]
-        checked_context(
-            SubjectContext(
-                product["project_id"],
-                member["subject"],
-                member["original_source"],
-                json_bytes(member["analyzed_scope"]),
-                subject_definition=member["subject_definition"],
-            )
-        )
-        kind = actual_kinds[member["kind_contract"]]
-        captured_kind_validator(kind["meaning_schema"]).validate(member["body"])
-        decoded = decode_semantic_value(member["body"])
-        captured_kind_validator(kind["body_schema"]).validate(decoded)
-        packets = decode_semantic_value(product["canonical_body"]).get("members", ())
-        if not any(
-            packet["member_id"] == member["member_id"]
-            and packet["kind_contract"] == member["kind_contract"]
-            and packet["body"] == decoded
-            and packet["context"]
-            == dict(
-                subject=member["subject"],
-                subject_definition=member["subject_definition"],
-                original_source=member["original_source"],
-                analyzed_scope=member["analyzed_scope"],
-            )
-            for packet in packets
-        ):
-            raise ValueError("detached member differs from its canonical container")
+    if validate_closure and seen_member_count != len(members):
+        raise ValueError("detached member has no disclosed parent")
     actual_definitions = row_map("sem.data_operation_definition", "release_id", "operation_id")
     if definitions is not None:
         from .metadata import table

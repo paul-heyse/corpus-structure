@@ -2,7 +2,10 @@
 
 import json
 import sys
+from contextlib import ExitStack
 from hashlib import sha256
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -14,8 +17,50 @@ from corpus_structure.semantic.source_interfaces import (
 )
 from corpus_structure.serve.demand_export import export_demand_result, verify_demand_export
 from semantic.data_operation_kernel_support import EXECUTION
-from semantic.declared_scenarios import declared_serving_case as declared_serving_case
-from semantic.declared_scenarios import declared_serving_seed as declared_serving_seed
+from semantic.declared_scenarios import DeclaredServingRecipe, build_declared_serving_recipe
+
+
+@pytest.fixture(scope="module")
+def declared_serving_case(native_server, native_settings, tmp_path_factory):
+    """Exercise the authored current native root before migration registration."""
+    from corpus_structure.schema.model_change import native_model_inputs
+    from corpus_structure.semantic import migrations
+    from corpus_structure.semantic.metadata import get_metadata
+    from corpus_structure.semantic.target_installation import capture_target_installation
+    from native_test_support import database_name, principal_engine
+    from semantic.test_target_installation_native import install_target_root
+
+    native_server.semantic_ready()
+    directory = tmp_path_factory.mktemp("selected-archive-current-root")
+    epoch = capture_target_installation(
+        get_metadata(), logical_sources=native_model_inputs(Path(__file__).resolve().parents[4])
+    )
+    with (
+        native_server.database(database_name("bare").name, native_server.template) as admin,
+        pytest.MonkeyPatch.context() as patch,
+        ExitStack() as resources,
+    ):
+        *_, revision_path = install_target_root(admin, epoch, directory)
+        patch.setattr(migrations, "ALEMBIC_DIR", revision_path)
+        purposes = {}
+
+        def purpose(name):
+            if name not in purposes:
+                engine = principal_engine(native_settings, name, admin.url.database)
+                resources.callback(engine.dispose)
+                purposes[name] = engine
+            return purposes[name]
+
+        recipe_directory = directory / "recipe"
+        recipe_directory.mkdir()
+        stage = build_declared_serving_recipe(
+            DeclaredServingRecipe(),
+            admin,
+            purpose("write"),
+            recipe_directory,
+            purpose_engine=purpose,
+        )
+        yield SimpleNamespace(admin=admin, reader=purpose("read"), stage=stage)
 
 
 @pytest.mark.parametrize("encoding", ["jsonl", "parquet"])
@@ -28,13 +73,13 @@ def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
     from corpus_structure.serve import demand_export
 
     support_calls = []
-    original_support = demand_export.stream_selected_support
+    original_support = demand_export.stream_selected_archive
 
     def support_once(*args, **kwargs):
         support_calls.append(kwargs)
         return original_support(*args, **kwargs)
 
-    monkeypatch.setattr(demand_export, "stream_selected_support", support_once)
+    monkeypatch.setattr(demand_export, "stream_selected_archive", support_once)
 
     def unexpected_generation(*args, **kwargs):
         raise AssertionError("export must use the acquiring reader's wire contract")
@@ -49,7 +94,7 @@ def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
             format=encoding,
             page_rows=1,
         )
-    assert len(support_calls) == 1 and support_calls[0]["whole_read"] is True
+    assert support_calls == [{"max_bytes": 8388608}]
     expected = sha256((destination / "manifest.json").read_bytes()).hexdigest()
     assert expected == manifest.manifest_digest
     # This authored external recipe has no Python declarations to document.
@@ -129,6 +174,187 @@ def test_selected_product_scope_filters_inside_native_page_and_keeps_support(
     products = {row["record"]["id"] for row in support if row["relation"] == "kb.data_product"}
     assert {row["product_id"] for row in complete.members()} <= products
     assert selected.cut.record["scope"] == {"product_ids": [result["product_id"]]}
+
+
+@pytest.mark.parametrize("batch_rows", [1, 64])
+def test_native_archive_prepares_once_and_keeps_exact_whole_read_support(
+    declared_serving_case, batch_rows
+):
+    from sqlalchemy import event
+
+    from corpus_structure.semantic.demand_results import stream_selected_archive
+
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
+    calls = []
+
+    def observe(connection, cursor, statement, parameters, context, executemany):
+        calls.append(statement)
+
+    with clone.reader.begin() as connection:
+        page = read_demand_result(connection, stage.demand_id, project_id=stage.project_id, limit=1)
+        expected = {
+            record["key"]: json_bytes(record)
+            for record in stream_selected_support(connection, page, whole_read=True)
+            if record["relation"] != "ops.data_support_explanation"
+        }
+        event.listen(connection, "before_cursor_execute", observe)
+        actual = list(stream_selected_archive(connection, page.cut, batch_rows=batch_rows))
+        event.remove(connection, "before_cursor_execute", observe)
+    assert {record["key"]: json_bytes(record) for record in actual} == expected
+    assert len(actual) == len(expected)
+    assert [record["key"] for record in actual] == sorted(expected)
+    assert sum("begin_selected_archive" in statement for statement in calls) == 1
+    assert sum("close_selected_archive" in statement for statement in calls) == 1
+    assert (
+        sum("fetch_selected_archive" in statement for statement in calls)
+        == (len(expected) + batch_rows - 1) // batch_rows
+    )
+
+
+def test_native_archive_byte_batches_keep_every_record(declared_serving_case):
+    from sqlalchemy import Text, bindparam, cast, func, select
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    from corpus_structure.semantic.demand_results import stream_selected_archive
+
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
+    with clone.reader.begin() as connection:
+        page = read_demand_result(connection, stage.demand_id, project_id=stage.project_id, limit=1)
+        expected = list(stream_selected_archive(connection, page.cut))
+        wire_bytes = select(
+            func.octet_length(cast(cast(bindparam("reply", type_=Text), JSONB), Text))
+        )
+
+        def size(records):
+            return connection.scalar(
+                wire_bytes, {"reply": json_bytes({"records": records, "complete": False}).decode()}
+            )
+
+        bound = max(size([record]) for record in expected)
+        assert bound < size(expected)
+        actual = list(stream_selected_archive(connection, page.cut, max_bytes=bound))
+    assert actual == expected
+
+
+def test_native_archive_refuses_one_record_larger_than_byte_bound(declared_serving_case):
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.semantic.demand_results import stream_selected_archive
+
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
+    with pytest.raises(DBAPIError, match=r"max_bytes|byte"), clone.reader.begin() as connection:
+        page = read_demand_result(connection, stage.demand_id, project_id=stage.project_id, limit=1)
+        list(stream_selected_archive(connection, page.cut, max_bytes=64))
+
+
+def test_native_archive_handle_ends_with_its_transaction(declared_serving_case):
+    from sqlalchemy import Text, bindparam, cast, func, select
+    from sqlalchemy.dialects.postgresql import JSONB
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.semantic.data_operation_json import native_json_loads
+
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
+    with clone.reader.connect() as connection:
+        with connection.begin():
+            page = read_demand_result(
+                connection, stage.demand_id, project_id=stage.project_id, limit=1
+            )
+            opened = connection.scalar(
+                select(
+                    cast(
+                        func.ops.begin_selected_archive(
+                            cast(bindparam("cut", type_=Text), JSONB), 64, 8388608
+                        ),
+                        Text,
+                    )
+                ),
+                {"cut": json_bytes(page.cut.record).decode()},
+            )
+            handle = native_json_loads(opened)["handle"]
+        with pytest.raises(DBAPIError), connection.begin():
+            connection.scalar(select(func.ops.fetch_selected_archive(handle)))
+
+
+def test_export_support_byte_refusal_leaves_no_published_destination(
+    declared_serving_case, tmp_path, monkeypatch
+):
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.serve import demand_export
+
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
+    destination = tmp_path / "refused-export"
+    existing_paths = set(tmp_path.iterdir())
+    original_support = demand_export.stream_selected_archive
+
+    def oversized_support(connection, cut, **kwargs):
+        return original_support(connection, cut, max_bytes=64)
+
+    monkeypatch.setattr(demand_export, "stream_selected_archive", oversized_support)
+    with pytest.raises(DBAPIError, match=r"max_bytes|byte"), clone.reader.begin() as connection:
+        export_demand_result(
+            connection,
+            stage.demand_id,
+            project_id=stage.project_id,
+            destination=destination,
+        )
+    assert not destination.exists()
+    assert set(tmp_path.iterdir()) == existing_paths
+
+
+def test_native_archive_empty_product_scope_completes(declared_serving_case):
+    from corpus_structure.semantic.demand_results import stream_selected_archive
+
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
+    with clone.reader.begin() as connection:
+        page = read_demand_result(
+            connection,
+            stage.demand_id,
+            project_id=stage.project_id,
+            scope={"product_ids": ["product:absent-from-declared-serving-fixture"]},
+        )
+        assert list(stream_selected_archive(connection, page.cut)) == []
+
+
+@pytest.mark.parametrize("scratch", ["selected_archive_sessions", "selected_archive_keys"])
+def test_native_archive_refuses_precreated_scratch(declared_serving_case, scratch):
+    from sqlalchemy import Text, bindparam, cast, func, select
+    from sqlalchemy.dialects.postgresql import JSONB
+    from sqlalchemy.exc import DBAPIError
+
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
+    with (
+        pytest.raises(DBAPIError, match="scratch custody or shape differs"),
+        clone.admin.begin() as connection,
+    ):
+        page = read_demand_result(connection, stage.demand_id, project_id=stage.project_id, limit=1)
+        connection.exec_driver_sql(f"CREATE TEMPORARY TABLE {scratch} (spoof text)")
+        connection.scalar(
+            select(
+                func.ops.begin_selected_archive(
+                    cast(bindparam("cut", type_=Text), JSONB), 64, 8388608
+                )
+            ),
+            {"cut": json_bytes(page.cut.record).decode()},
+        )
+
+
+@pytest.mark.parametrize("scratch", ["selected_archive_sessions", "selected_archive_keys"])
+def test_native_archive_reader_cannot_read_private_stage(declared_serving_case, scratch):
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.semantic.demand_results import stream_selected_archive
+
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
+    with pytest.raises(DBAPIError, match="permission denied"), clone.reader.begin() as connection:
+        page = read_demand_result(connection, stage.demand_id, project_id=stage.project_id, limit=1)
+        records = stream_selected_archive(connection, page.cut, batch_rows=1)
+        try:
+            next(records)
+            connection.exec_driver_sql(f"SELECT * FROM pg_temp.{scratch}").all()
+        finally:
+            records.close()
 
 
 @pytest.mark.parametrize("ddo_kernel", [EXECUTION], indirect=True)

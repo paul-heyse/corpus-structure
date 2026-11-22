@@ -270,6 +270,49 @@ and original support.
 <a id="sbx-12"></a>
 ## SBX-12 — Replay, export, cursor and cache
 
+**Native archive acquisition pulled forward · 2026-11-22.** Stage the finite authorized support
+keys once under the pinned export transaction. Use the shared support membership and disclosure
+rules, omit live validity explanations and hydrate bounded key windows. Support row capacity is
+independent of result pagination and the existing byte ceiling applies to each support reply.
+Qualify exact v3 replay on the private installed target and rerun the candidate-conditioned D1
+journey while preserving its watchdog and retaining phase timings. Carry native installation
+through the existing revision sequence. [ADR-0152](../../adr/0152-selected-archive-support-keys.md)
+
+**Native archive acquisition · Tested · 2026-11-22.** The exporter stages support once and
+hydrates up to 64 ordered keys per call. Native controls cover exact support equality, both
+archive encodings, byte-limited advancement, empty cuts, scratch custody, and failed publication.
+The final scoped `uv run ci test --native-host private` coverage is 13 selected cases across
+`a19ca8823e624cbb9d779def25b16fbd` and `d325c030f8f24381b20a2f1c8649559b`. Only the byte-limit
+test changed between these runs to calculate its threshold from the PostgreSQL wire envelope.
+The protected structural export, detached replay and live revocation journey also passed
+(`9d00d2be3d644ff7a57ce2f432ca1e72`). `uv run ci model change candidate` passed rollback-only
+authoring against registered N47 (`fd6adbce6be64948a704e3d3a94f4014`, preview
+`1f4bbad70cf648199e9ffeec1aaa812b`).
+
+The first provider retry (`0c37729f30714ab398a0fbf2799d75b8`) sealed the D1 archive and reached the
+watchdog in detached member verification. Verification now decodes each parent once and checks
+its indexed members together, preserving the captured schemas, context and exact packet equality.
+Standalone `uv run ci review verify` passed on that sealed archive in 89 seconds. The 52 selected
+`uv run ci test` detached result and manifest controls passed (`47bf7dbb2e314643b2c5fc75902ea74b`).
+The final source passed all 14 selected installed archive and whole-read controls
+(`1e92211b89504cd7b39096a3ad974158`).
+
+**Candidate-conditioned D1 · Tested and measured · 2026-11-22.** The private
+`uv run ci test --native-host private --providers-only` journey passed under the existing
+15-minute watchdog (`4578a734f8e04db69e4918c5687025d9`). The test took 830.1 seconds. Setup
+took 319.8 seconds and provider execution took 297.8 seconds. The export took 23.2 seconds,
+including one 10.6-second support preparation and 26 fetches totaling 0.45 seconds. Detached
+verification and exact contextual replay took 163.0 seconds. Timings cover this fixture.
+
+**Residual replay work · Measured · 2026-11-22.** A timed pass on that same sealed archive
+observed 78 seconds of detached verification. Of those, 40 seconds were spent in 360 full-record
+product lookups over a closure containing 13 products. Contextual expansion then took 83
+seconds, with 78 seconds in 358 product lookups for 179 exact references. File checksums took
+0.12 seconds. Prepare exact selected-use reference bindings once and reuse authenticated product
+headers and member relations before considering worker parallelism. Product-local validators can
+consume independent immutable batches. Keep closure completeness and cross-product relationships
+with the shared archive verifier.
+
 **Common analytics amendment · Scheduled · 2026-11-22.** Implement the frozen selected-review
 archive as the first Parquet boundary using the typed relation and sealing contract above. This
 package consumes the projection decision from the early pilot and the scoped authority interface
