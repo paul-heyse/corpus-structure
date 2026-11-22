@@ -292,6 +292,21 @@ def test_actual_components_schema_owns_its_public_variant():
     )
 
 
+def test_components_subtypes_refine_the_single_variant_owner():
+    from corpus_structure.semantic.structural_products import (
+        DeclaredLearnedDefinitionComponentsReport,
+        DeclaredNamedDefinitionComponentsReport,
+        DeclaredSyntaxDefinitionComponentsReport,
+    )
+
+    for subtype in (
+        DeclaredLearnedDefinitionComponentsReport,
+        DeclaredNamedDefinitionComponentsReport,
+        DeclaredSyntaxDefinitionComponentsReport,
+    ):
+        assert "x-ddo-definition-variant" not in subtype.model_json_schema()
+
+
 def test_native_operation_requires_its_exact_checked_subject():
     operation = {
         "operation_id": "inspect",

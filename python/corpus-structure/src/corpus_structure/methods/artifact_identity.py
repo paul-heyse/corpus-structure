@@ -20,7 +20,6 @@ from corpus_structure.semantic.structural_products import (
     DeclaredArtifactNominationEndpoint,
     DeclaredArtifactRecord,
     DeclaredArtifactReferenceDesignator,
-    DeclaredPrimaryReference,
     DeclaredSourceArtifactOccurrence,
 )
 
@@ -31,6 +30,7 @@ def identity_records(
     source_ref,
     rows,
     index,
+    reference_for,
 ) -> tuple[DeclaredArtifactRecord, ...]:
     """Assemble artifacts from the selected declared native source and navigation."""
     from .witnessed_source_links import retained_artifact_fields
@@ -41,7 +41,12 @@ def identity_records(
     for row in rows:
         if row["semantic_type"] != "structural.artifact":
             continue
-        artifact = DeclaredSourceArtifactOccurrence.model_validate(source_python(row["value"]))
+        from corpus_structure.semantic.contribution_input_references import (
+            split_contribution_evidence,
+        )
+
+        meaning, _evidence = split_contribution_evidence(row)
+        artifact = DeclaredSourceArtifactOccurrence.model_validate(source_python(meaning["value"]))
         citations = []
         labels = None
         named_target = None
@@ -75,9 +80,7 @@ def identity_records(
                             )
                         (fact,) = matches
                         _, labels, _ = retained_artifact_fields(fact, piece["start"])
-                        primary_node = DeclaredPrimaryReference.model_validate(
-                            fact.reference.values()
-                        )
+                        primary_node = reference_for(fact.reference)
                         explicit = [
                             fact
                             for fact in index.select("artifact_explicit_reference", pointer)
@@ -101,9 +104,7 @@ def identity_records(
                                         end=hi - piece["start"],
                                         text=target.text("cue"),
                                     ),
-                                    primary_node=DeclaredPrimaryReference.model_validate(
-                                        target.reference.values()
-                                    ),
+                                    primary_node=reference_for(target.reference),
                                 )
                         citations.append(
                             ArtifactCitation(
@@ -122,7 +123,6 @@ def identity_records(
                 contribution_id=row["contribution_id"],
                 occurrence_id=row["occurrence_id"],
                 artifact=artifact,
-                source_contribution=json.loads(canonical_bytes(row)),
                 citations=tuple(citations),
                 numbering=labels[0],
                 revision=labels[1],
@@ -156,6 +156,7 @@ def declared_artifact_relationships(
     records,
     inputs,
     indexes,
+    reference_for,
 ):
     """Resolve retained navigation facts through their declared product reference."""
     passages = {passage.passage_id: passage for passage in inputs.passages}
@@ -184,7 +185,7 @@ def declared_artifact_relationships(
                             citation.model_copy(
                                 update={"start": lo, "end": hi, "text": fact.text("cue")}
                             ),
-                            DeclaredPrimaryReference.model_validate(fact.reference.values()),
+                            reference_for(fact.reference),
                         )
                     )
             for fact in source_facts("artifact_relation"):
@@ -208,7 +209,7 @@ def declared_artifact_relationships(
                             fact.payload["designator"].lower(),
                         ),
                         fact.payload.get("revision"),
-                        DeclaredPrimaryReference.model_validate(fact.reference.values()),
+                        reference_for(fact.reference),
                     )
                 )
         if record.artifact.occurrence_role == "caption":
@@ -266,7 +267,7 @@ def declared_artifact_relationships(
                 else "ambiguous",
             )
         )
-    return tuple(dict.fromkeys(output))
+    return tuple({canonical_bytes(row.model_dump(mode="json")): row for row in output}.values())
 
 
 def artifact_nomination(
@@ -277,6 +278,7 @@ def artifact_nomination(
     *,
     sources,
     indexes,
+    reference_for,
 ) -> DeclaredArtifactNomination:
     """Join independent origin extents through the selected contribution address."""
     contribution_id = reference["member_id"].removeprefix("contribution:")
@@ -357,7 +359,7 @@ def artifact_nomination(
             if len(candidates) != 1 or candidates[0].span("cue") is None:
                 raise ValueError("artifact reference lacks exact retained primary cue support")
             (candidate,) = candidates
-            cue_node = DeclaredPrimaryReference.model_validate(candidate.reference.values())
+            cue_node = reference_for(candidate.reference)
             lo, hi = candidate.span("cue")
             cue = ArtifactAliasSpan(
                 source_pointer=anchor["pointer"],

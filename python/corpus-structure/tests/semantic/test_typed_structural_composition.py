@@ -105,7 +105,8 @@ def test_exact_threshold_difference(left, right, removed, added):
     assert (
         left_field.typed.primary_formal is not None and left_field.typed.primary_basis is not None
     )
-    assert set(left_field.typed.primary_formal.values()) == {"product_id", "member_id"}
+    assert set(left_field.typed.primary_formal) == {"variant", "role", "occurrence", "member_id"}
+    assert left_field.typed.primary_formal["role"] == "formal"
 
 
 def test_missing_unit_and_ambiguous_fields_withhold_typed_conclusion():
@@ -254,7 +255,6 @@ def test_dossier_derives_only_actual_predecessor_roles_and_exact_protected_suppo
     from corpus_structure.semantic.structural_products import (
         DeclaredDefinitionComponentsProduct,
         DeclaredDefinitionComponentsReport,
-        DeclaredStructuralInputPin,
         DeclaredStructuralRef,
         declared_definition_component,
     )
@@ -276,18 +276,6 @@ def test_dossier_derives_only_actual_predecessor_roles_and_exact_protected_suppo
         inputs=value,
         members=unadmitted_component_members((component,)),
         definition_components=DeclaredDefinitionComponentsProduct(stages=()),
-        sources_input=(
-            DeclaredStructuralInputPin(
-                product_id=value.sources[0].source_product,
-                kind_contract=value.sources[0].kind_contract,
-                project_id=value.sources[0].project_id,
-                subject=value.sources[0].subject,
-                subject_definition=value.sources[0].subject_definition,
-                original_source=value.sources[0].original_source,
-                analyzed_scope_meaning=value.sources[0].analyzed_scope_meaning,
-                reference=value.sources[0].source,
-            ),
-        ),
     )
     source = value.sources[0]
     reference = DeclaredStructuralRef(
@@ -418,7 +406,7 @@ def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applic
             grouping="conjunction" if connector == "and" else "disjunction",
             members=tuple(members),
             witnesses=(span(connector, passage.text.index(f" {connector} ") + 1),),
-            primary_witnesses=(cue.reference.values(),),
+            primary_witnesses=(primary.member_target(cue.reference),),
         )
         groups["threshold_unit"] = DeclaredClauseFieldGroup(
             state="present", grouping="singleton", members=(threshold,)

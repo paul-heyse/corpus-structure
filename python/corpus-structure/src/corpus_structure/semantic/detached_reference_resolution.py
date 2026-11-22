@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from functools import partial
 
 from ._data_operation_wire import WireOutputMember
 from .data_operation_subjects import subject_field_path
@@ -138,6 +139,8 @@ def require_detached_output_references(
     """Check output references after authenticating their producing derivation and manifest."""
     access = IndexedReferenceAccess(row_map, project_id, product_headers=product_headers)
     captured = tuple(rows_for("ops.data_derivation_input", derivation_id=derivation_id))
+    decoded_outputs = {}
+    checked_contribution_outputs = set()
     for target in targets:
         contracts = reference_role_contracts(input_roles, target)
         bindings = []
@@ -183,7 +186,38 @@ def require_detached_output_references(
         for output in outputs:
             if output["role"] != target["output_role"]:
                 continue
-            for body in _output_bodies(output, target.get("output_collection")):
+            location = id(output), target.get("output_collection")
+            if location not in decoded_outputs:
+                decoded_outputs[location] = tuple(_output_bodies(output, location[1]))
+            for body in decoded_outputs[location]:
+                choice_references = set()
+                if isinstance(body, dict) and "formal_member_support" in body:
+                    from .contextual_input_references import CONTEXTUAL_MEMBER_FIELDS
+
+                    choice_references = {
+                        read_semantic_reference(slot["target"])
+                        for field in CONTEXTUAL_MEMBER_FIELDS
+                        if target["path"] == "/" + field + "/*/target"
+                        for slot in body[field]
+                        if slot["use"] in {"choice", "basis_choice", "choices"}
+                    }
+                contribution_members = None
+                if isinstance(body, dict) and "construction_support" in body:
+                    from .contribution_input_references import check_contribution_input_support
+
+                    if id(body) not in checked_contribution_outputs:
+                        check_contribution_input_support(body)
+                        checked_contribution_outputs.add(id(body))
+                    contribution_members = {
+                        packet["member_id"]: packet["body"] for packet in body["members"]
+                    }
+                    for field in ("construction_support", "formal_support"):
+                        if target["path"] == "/" + field + "/*/target":
+                            choice_references.update(
+                                read_semantic_reference(slot["target"])
+                                for slot in body[field]
+                                if slot["field"].split("/")[-1] == "primary_choices"
+                            )
                 for value in _reference_values(body, target["path"]):
                     reference = read_semantic_reference(value)
                     binding = original.resolve(
@@ -192,15 +226,40 @@ def require_detached_output_references(
                         occurrence_binding=occurrence_binding,
                         occurrence_position=occurrence_position,
                     )
-                    resolver.resolve(
-                        reference,
-                        ReferenceTarget(
-                            target["input_role"],
-                            target["variant"],
-                            binding.kind_contract,
-                            target.get("collection"),
-                            occurrence_field,
-                            occurrence_binding,
-                            occurrence_position,
-                        ),
+                    declared = ReferenceTarget(
+                        target["input_role"],
+                        target["variant"],
+                        binding.kind_contract,
+                        target.get("collection"),
+                        occurrence_field,
+                        occurrence_binding,
+                        occurrence_position,
                     )
+                    if target["variant"] == reference.variant == "product":
+                        if binding.member_id is not None:
+                            raise ValueError(
+                                "whole reference is outside its producing input member"
+                            )
+                        access.authorize(binding)
+                        continue
+                    resolved = resolver.resolve(reference, declared)
+                    if (
+                        contribution_members is not None
+                        and target["path"] == "/inherited_support/*/target"
+                    ):
+                        for slot in body["inherited_support"]:
+                            if (
+                                read_semantic_reference(slot["target"]) == reference
+                                and contribution_members[slot["member_id"]] != resolved
+                            ):
+                                raise ValueError(
+                                    "inherited contribution differs from its original predicate member"
+                                )
+                    if reference in choice_references:
+                        from .contextual_input_references import (
+                            require_contextual_choice_alternative,
+                        )
+
+                        require_contextual_choice_alternative(
+                            reference, resolved, partial(resolver.resolve, target=declared)
+                        )

@@ -94,27 +94,6 @@ def comparison_report():
                 right_reading=readings[1],
                 dimensions=dimensions,
             ),
-            sources_input=[
-                dict(
-                    product_id=source.source_product,
-                    member_id=None,
-                    kind_contract=source.kind_contract,
-                    reference=source.source,
-                    project_id="p",
-                    subject=source.subject,
-                    subject_definition=source.subject_definition,
-                    original_source=source.original_source,
-                    analyzed_scope_meaning=source.analyzed_scope_meaning,
-                )
-                for source in sources
-            ],
-            reports_input=[
-                dict(
-                    **{key: value for key, value in reading.items() if key != "contribution_id"},
-                    reference=canonical_bytes([reading["product_id"], None]).decode(),
-                )
-                for reading in readings
-            ],
         )
     )
 
@@ -489,13 +468,11 @@ def finite_report(variant):
             scope="selected",
         )
     ]
-    pin = base.sources_input[0].model_dump(mode="python")
     if variant == "condition_qualification":
         contribution = base.comparison.left_reading.contribution_id
         return DeclaredConditionReport.model_validate(
             dict(
                 inputs=inputs,
-                source_input=pin,
                 condition_qualification=dict(
                     relation="condition",
                     attachment={
@@ -530,8 +507,6 @@ def finite_report(variant):
     return DeclaredDefinitionComponentsReport.model_validate(
         dict(
             inputs=inputs,
-            sources_input=[pin],
-            reports_input=[],
             definition_components=dict(stages=[]),
             members=unadmitted_component_members((component,)),
         )

@@ -377,65 +377,11 @@ def test_native_provider_profile_authenticates_exact_canonical_asset(native_roll
     )
 
 
-def test_native_relower_requires_finalization_and_retains_admitted_immutable_facts(native_rollback):
+def test_native_admitted_operation_facts_remain_immutable(native_rollback):
     connection = native_rollback.connection
-    digest = _install(connection)
-    payload, _ = _archive(
-        connection, binding={"operator": "forall", "children": [{"operator": "scan", "roles": []}]}
-    )
+    _install(connection)
+    payload, _ = _archive(connection)
     _admit(connection, payload)
-    assert (
-        connection.scalar(
-            text("SELECT quantified FROM sem.data_operation_definition WHERE release_id=:release"),
-            {"release": RELEASE},
-        )
-        is True
-    )
-    with pytest.raises(DBAPIError, match="already admitted finalized"), connection.begin_nested():
-        connection.execute(
-            text("SELECT sem.relower_admitted_data_operation_release(:release)"),
-            {"release": RELEASE},
-        )
-    connection.execute(
-        insert(get_metadata().tables["sem.release_finalization"]).values(
-            release_id=RELEASE, content_digest=sha256(b"literal").hexdigest()
-        )
-    )
-    expected = {"release_id": RELEASE, "model_digest": payload["model_digest"]}
-    with pytest.raises(DBAPIError, match="immutable semantic content"), connection.begin_nested():
-        connection.scalar(
-            text("SELECT sem.relower_admitted_data_operation_release(:release)"),
-            {"release": RELEASE},
-        )
-    # Model an authenticated forward DATA step's bounded retirement of these
-    # exact intrinsic guards. The savepoint rolls back both DDL and data, so
-    # normal immutable admission remains protected after this control.
-    with connection.begin_nested() as data_step:
-        for relation in (
-            "sem.data_operation_definition",
-            "sem.data_operation_release",
-            "sem.runtime_binding",
-        ):
-            connection.exec_driver_sql(
-                "ALTER TABLE " + relation + " DISABLE TRIGGER semantic_immutable"
-            )
-        assert (
-            connection.scalar(
-                text("SELECT sem.relower_admitted_data_operation_release(:release)"),
-                {"release": RELEASE},
-            )
-            == expected
-        )
-        assert (
-            connection.scalar(
-                text(
-                    "SELECT lowering_digest FROM sem.data_operation_release WHERE release_id=:release"
-                ),
-                {"release": RELEASE},
-            )
-            == digest
-        )
-        data_step.rollback()
     with pytest.raises(DBAPIError, match="immutable semantic content"), connection.begin_nested():
         connection.execute(
             text(
@@ -507,7 +453,7 @@ def test_native_runtime_provider_requires_its_captured_operation_and_attestation
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
-def test_stale_lowering_refuses_reads_and_demands_until_existing_release_is_relowered(ddo_kernel):
+def test_stale_lowering_refuses_reads_demands_and_admission(ddo_kernel):
     from native_refusals import native_refusal
 
     from corpus_structure.semantic.data_operation_demands import DemandPlanner, freeze_demand
@@ -596,31 +542,5 @@ def test_stale_lowering_refuses_reads_and_demands_until_existing_release_is_relo
                     )
                 savepoint.rollback()
             assert connection.scalar(digest_query, params) == "authored-stale-lowering"
-            for relation in (
-                "sem.data_operation_definition",
-                "sem.data_operation_release",
-                "sem.runtime_binding",
-            ):
-                connection.exec_driver_sql(
-                    "ALTER TABLE " + relation + " DISABLE TRIGGER semantic_immutable"
-                )
-            repaired = connection.scalar(
-                text("SELECT sem.relower_admitted_data_operation_release(:release)"), params
-            )
-            assert repaired["release_id"] == release
-            assert connection.scalar(digest_query, params) == original
-            for relation in (
-                "sem.data_operation_definition",
-                "sem.data_operation_release",
-                "sem.runtime_binding",
-            ):
-                connection.exec_driver_sql(
-                    "ALTER TABLE " + relation + " ENABLE TRIGGER semantic_immutable"
-                )
-            assert (
-                storage.inspect_data_operation_release({"release_id": release})["release_id"]
-                == release
-            )
-            assert register("lowering:after")["demand_id"]
         finally:
             transaction.rollback()

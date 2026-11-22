@@ -28,7 +28,7 @@ from semantic.structural_production_native_support import (
     selected_for_source,
     source_pin,
 )
-from semantic.test_sentence_partition_chain_native import _private_source
+from semantic.test_sentence_partition_chain_native import _registered_source
 
 
 @pytest.mark.parametrize(
@@ -48,11 +48,9 @@ from semantic.test_sentence_partition_chain_native import _private_source
     ids=("textbook", "business"),
 )
 def test_condition_admits_only_the_exact_supported_roles(
-    semantic_bare_engine, native_settings, literal, qualifier, host, tmp_path, monkeypatch
+    commit_db_engine, native_settings, literal, qualifier, host, tmp_path
 ):
-    with _private_source(
-        semantic_bare_engine, native_settings, tmp_path, monkeypatch, literal
-    ) as source:
+    with _registered_source(commit_db_engine, native_settings, tmp_path, literal) as source:
         kernel = admit_current_target(source, recipe(tmp_path / "recipe"), tmp_path / "consumer")
         _, original, products, _ = produce_source_reports(source, kernel, PREDICATES, text=literal)
         (predicates,) = selected_for_source(

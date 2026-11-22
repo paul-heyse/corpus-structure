@@ -349,6 +349,7 @@ def test_retained_linguistic_roles_join_action_to_its_real_scoped_artifact():
     assert links["uses_artifact"][1]["text"] == "Table 5.1"
     from pathlib import Path
 
+    from corpus_structure.semantic.contribution_input_references import split_contribution_evidence
     from corpus_structure.semantic.contributions import bind_contributions
     from corpus_structure.semantic.observations import observation_inputs
     from corpus_structure.semantic.prepare import prepare_release
@@ -362,7 +363,7 @@ def test_retained_linguistic_roles_join_action_to_its_real_scoped_artifact():
         prepared,
         source=view.unit_ref,
         operations=(output["operation"], *output["extra_operations"]),
-        contributions=rows,
+        contributions=tuple(split_contribution_evidence(row)[0] for row in rows),
         coordinate_texts=output["coordinates"],
     )
     assert len(bound_rows) == len(rows)
@@ -501,6 +502,7 @@ def test_retained_predicate_publication_preserves_exact_hosts_and_refuses_swappe
     from pathlib import Path
 
     from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.semantic.contribution_input_references import split_contribution_evidence
     from corpus_structure.semantic.contributions import bind_contributions, contribution_identity
     from corpus_structure.semantic.observations import observation_inputs
     from corpus_structure.semantic.prepare import prepare_release
@@ -545,7 +547,7 @@ def test_retained_predicate_publication_preserves_exact_hosts_and_refuses_swappe
             prepared,
             source=view.unit_ref,
             operations=(output["operation"], *output["extra_operations"]),
-            contributions=population,
+            contributions=tuple(split_contribution_evidence(row)[0] for row in population),
             coordinate_texts=output["coordinates"],
         )
 
@@ -578,7 +580,12 @@ def test_named_coverage_counts_selected_blocks_once_and_does_not_assume_absence(
     view = native_table_source(
         (table_cell("1", 0, 0),), caption="Table 6.1", note="A value is reported."
     )
-    items = {item["self_ref"]: dict(item, content_layer="body") for item in view.items}
+    view = projection(
+        view.text,
+        pieces=view.pieces,
+        items=tuple(dict(item, content_layer="body") for item in view.items),
+    )
+    items = {item["self_ref"]: item for item in view.items}
     primary = source_primary_products(view)
     unavailable = source_primary_products(view, annotations=())
     passages = tuple(

@@ -45,7 +45,7 @@ def nominal_product(builder, view, *, value=None):
             builder.facts(),
             interpreted_member_contracts(profile.prepared, profile.model),
             (),
-        ) | {"annotation_support": [], "formal_atom_support": []}
+        ) | {"annotation_support": [], "formal_support": []}
     return validate_interpreted_product(
         profile.prepared, profile.model, value, selected, (), subject_context=context
     )

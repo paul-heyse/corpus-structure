@@ -352,7 +352,9 @@ def selected_definition_applicability(
         component_ref=SemanticReference.member(
             "components", candidate.component.component_id
         ).member_value(),
-        link_ref=SemanticReference.member("relationship", candidate.link_ref.edge_id).member_value(),
+        link_ref=SemanticReference.member(
+            "relationship", candidate.link_ref.edge_id
+        ).member_value(),
         component=candidate.component,
         outcome=assessment.outcome,
         evidence=assessment.evidence,
@@ -412,7 +414,9 @@ def execute_definition_applicability(
         component_id=component_id,
     )
     if component_reference.member_id is not None or any(
-        pin.context != component_reference.context for pin in report.sources_input
+        {name: getattr(pin, name) for name in component_reference.context}
+        != component_reference.context
+        for pin in report.inputs.sources
     ):
         raise ValueError(
             "definition component report differs from its exact whole native source context"
@@ -439,11 +443,7 @@ def execute_definition_applicability(
         else "witnessed-definition-applicability-1",
         sources=tuple(sources.values()),
         passages=tuple(passages.values()),
-        dependencies=tuple(
-            dict.fromkeys(
-                (*report.inputs.dependencies, member.product, exact.member("relationship").product)
-            )
-        ),
+        dependencies=report.inputs.dependencies,
     )
     reading = selected_definition_applicability(
         inputs,

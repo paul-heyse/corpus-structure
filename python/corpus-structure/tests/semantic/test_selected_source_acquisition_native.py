@@ -34,26 +34,13 @@ SOURCE_PROOF_CASE = pytest.mark.parametrize(
 
 
 @pytest.fixture
-def ddo_kernel(request, semantic_bare_engine, tmp_path, monkeypatch):
-    from pathlib import Path
-
-    from corpus_structure.schema.model_change import native_model_inputs
-    from corpus_structure.semantic import migrations
-    from corpus_structure.semantic.metadata import get_metadata
-    from corpus_structure.semantic.target_installation import capture_target_installation
+def ddo_kernel(request, commit_db_engine, tmp_path):
     from semantic.data_operation_kernel_support import admit_kernel, prepare_kernel
-    from semantic.test_target_installation_native import install_target_root
 
-    admin = semantic_bare_engine
-    epoch = capture_target_installation(
-        get_metadata(), logical_sources=native_model_inputs(Path(__file__).resolve().parents[4])
-    )
-    *_, revision_path = install_target_root(admin, epoch, tmp_path)
-    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
     recipe = request.param
     preparation = prepare_kernel(recipe, directory=tmp_path / "source-acquisition-kernel")
-    with admin.begin() as connection:
-        return admit_kernel(connection, recipe, engine=admin, preparation=preparation)
+    with commit_db_engine.begin() as connection:
+        return admit_kernel(connection, recipe, engine=commit_db_engine, preparation=preparation)
 
 
 def selected(kernel, demand, *, member_id=None):

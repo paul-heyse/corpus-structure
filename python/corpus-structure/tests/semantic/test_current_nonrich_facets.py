@@ -73,7 +73,7 @@ def test_actual_nominal_structural_meaning_preserves_unresolved_candidate_and_so
     interpreted = next(item["row"] for item in rows if item["population"] == "interpretation")
     component = interpreted["meaning"]["members"][0]["body"]
     assert component["interpretation"] == "unresolved" and component["basis"] == "unqualified"
-    assert interpreted["meaning"]["sources_input"][0]["product_id"] == "source:actual"
+    assert interpreted["meaning"]["inputs"]["sources"][0]["source_product"] == "source:actual"
     assert (
         interpreted["standing"] == "private_proposal"
         and interpreted["scientific_truth"] == "not-established"

@@ -41,21 +41,93 @@ def structural_report(scope, selected):
     if root.structural is None:
         raise ValueError("selected output has no current structural report contract")
     from .data_product_reference import read_semantic_reference
-    from .live_reference_resolution import require_selected_output_reference
+    from .live_reference_resolution import (
+        PreparedSelectedOutputReferences,
+        require_selected_output_reference,
+    )
     from .structural_products import (
         DeclaredArtifactReport,
         DeclaredClauseReport,
         DeclaredDefinitionApplicabilityReport,
         DeclaredDossierReport,
+        DeclaredLearnedDefinitionComponentsReport,
         DeclaredLocatedDefinitionComponent,
         DeclaredNamedDefinitionComponentsReport,
+        DeclaredSyntaxDefinitionComponentsReport,
     )
 
+    if isinstance(
+        root.structural,
+        (
+            DeclaredNamedDefinitionComponentsReport,
+            DeclaredLearnedDefinitionComponentsReport,
+            DeclaredSyntaxDefinitionComponentsReport,
+        ),
+    ):
+        prepared_references = PreparedSelectedOutputReferences(scope, selected)
+        if isinstance(root.structural, DeclaredLearnedDefinitionComponentsReport):
+            prepared_references.resolve(
+                read_semantic_reference(root.structural.candidates_input),
+                path="/candidates_input",
+                metadata_only=True,
+            )
+        if isinstance(root.structural, DeclaredNamedDefinitionComponentsReport):
+            prepared_references.resolve(
+                read_semantic_reference(root.structural.constructions_input),
+                path="/constructions_input",
+                metadata_only=True,
+            )
+        if isinstance(root.structural, DeclaredSyntaxDefinitionComponentsReport):
+            for support in root.structural.syntax_support:
+                body = prepared_references.resolve(
+                    read_semantic_reference(support.target), path="/syntax_support/*/target"
+                )
+                if (
+                    not isinstance(body, dict)
+                    or body.get("record_type") != "term"
+                    or body.get("value") != "declaration_sentence"
+                ):
+                    raise ValueError(
+                        "definition syntax support is not its actual admitted sentence"
+                    )
     if isinstance(root.structural, DeclaredArtifactReport):
+        prepared_references = PreparedSelectedOutputReferences(scope, selected)
+        artifact = root.structural.artifact_identity
+        navigation = [
+            ("/artifact_identity/records/*/primary_node", record.primary_node)
+            for record in artifact.records
+        ]
+        navigation.extend(
+            (
+                "/artifact_identity/records/*/explicit_reference/primary_node",
+                record.explicit_reference.primary_node,
+            )
+            for record in artifact.records
+            if record.explicit_reference is not None
+        )
+        navigation.extend(
+            ("/artifact_identity/external_nominations/*/primary_node", nomination.primary_node)
+            for nomination in artifact.external_nominations
+        )
+        for relationship in artifact.declared_relationships or ():
+            navigation.append(
+                (
+                    "/artifact_identity/declared_relationships/*/primary_node",
+                    relationship.primary_node,
+                )
+            )
+            navigation.extend(
+                (
+                    "/artifact_identity/declared_relationships/*/targets/*/work_primary_node",
+                    target.work_primary_node,
+                )
+                for target in relationship.targets
+                if target.work_primary_node is not None
+            )
+        for path, target in navigation:
+            prepared_references.resolve(read_semantic_reference(target), path=path)
         for nomination in root.structural.artifact_identity.external_nominations:
-            relation = require_selected_output_reference(
-                scope,
-                selected,
+            relation = prepared_references.resolve(
                 read_semantic_reference(nomination.relationship),
                 path="/artifact_identity/external_nominations/*/relationship",
             )

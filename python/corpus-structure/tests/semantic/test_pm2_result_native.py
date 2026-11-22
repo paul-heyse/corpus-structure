@@ -262,7 +262,7 @@ def test_actual_seventeen_question_refusal_stays_at_provider_boundary():
 @pytest.mark.provider_evidence
 @pytest.mark.prerequisite("pm2_native_assets")
 def test_actual_literal_provider_answer_survives_current_selected_read(
-    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+    commit_db_engine, native_settings, tmp_path
 ):
     from evaluate.declared_record_native_support import table_source_content
 
@@ -271,14 +271,14 @@ def test_actual_literal_provider_answer_survives_current_selected_read(
     from corpus_structure.serve.demand_export import export_demand_result, verified_demand_export
     from semantic.current_pdf_source_support import PROJECT, PdfSourceScenario
     from semantic.current_pm2_provider_fixture import OPERATION as ACTUAL
-    from semantic.test_sentence_partition_chain_native import _private_source
+    from semantic.test_sentence_partition_chain_native import _registered_source
 
     assets = Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])
     checked = preflight_native_runtime("d1", assets)
     selected = pm2_selection("d1", assets, checked["runtime_identity"], checked["assets"])
     scenario = PdfSourceScenario(table_source_content(), ("#/groups/0",))
-    with _private_source(
-        semantic_bare_engine, native_settings, tmp_path, monkeypatch, "", scenario=scenario
+    with _registered_source(
+        commit_db_engine, native_settings, tmp_path, "", scenario=scenario
     ) as source:
         kernel = admit_current_target(
             source, provider_recipe(tmp_path, selected), tmp_path / "consumer"

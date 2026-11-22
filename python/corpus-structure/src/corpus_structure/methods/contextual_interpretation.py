@@ -41,7 +41,15 @@ class ContextualEvaluationOperation:
                 "checker_operation": "text.contextual_evaluation/source-native",
                 "checker_callable": "corpus_structure.semantic.construction_products.verify_interpreted_dependency_members",
                 "parameters": {
-                    "paths": ["dependencies", "members"],
+                    "paths": [
+                        "members",
+                        "formal_member_support",
+                        "formal_product_support",
+                        "constructions_member_support",
+                        "constructions_product_support",
+                        "supporting_member_support",
+                        "supporting_product_support",
+                    ],
                     "input_reads": {
                         "formal": ["members"],
                         "constructions": ["members"],
@@ -183,7 +191,7 @@ class ContextualEvaluationOperation:
                 ],
                 "minimum": 1,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "required",
                 "parameter": "formal",
                 "support": {
@@ -213,7 +221,7 @@ class ContextualEvaluationOperation:
                 ],
                 "minimum": 1,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "required",
                 "parameter": "constructions",
                 "support": {
@@ -265,6 +273,50 @@ class ContextualEvaluationOperation:
         "outcomes": ["success", "failed"],
         "precision_description": "retained-positioned-characterization",
         "dependencies": ["text.formal_evidence/source-native", "text.constructions/source-native"],
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/formal_member_support/*/target",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/formal_product_support/*/target",
+                "input_role": "formal",
+                "variant": "product",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/constructions_member_support/*/target",
+                "input_role": "constructions",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/constructions_product_support/*/target",
+                "input_role": "constructions",
+                "variant": "product",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/supporting_member_support/*/target",
+                "input_role": "supporting",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/supporting_product_support/*/target",
+                "input_role": "supporting",
+                "variant": "product",
+                "occurrence_position": True,
+            },
+        ],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],
@@ -280,8 +332,8 @@ class ContextualEvaluationOperation:
             "operator": "all",
             "children": [
                 {"operator": "scan", "roles": ["source"]},
-                {"operator": "collection", "roles": ["formal"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["constructions"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["formal"], "collection": "set"},
+                {"operator": "collection", "roles": ["constructions"], "collection": "set"},
                 {"operator": "collection", "roles": ["supporting"], "collection": "set"},
             ],
         },

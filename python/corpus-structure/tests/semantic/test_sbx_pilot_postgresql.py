@@ -25,7 +25,7 @@ from corpus_structure.semantic.runtime import connection_settings
 from corpus_structure.serve.companion_export import _literal_statement
 from semantic.companion_export_native_support import read_settings
 from semantic.sbx_pilot_postgresql import annotation_geometry, annotation_membership
-from semantic.test_sentence_partition_chain_native import _private_source
+from semantic.test_sentence_partition_chain_native import _registered_source
 
 
 @contextmanager
@@ -105,14 +105,11 @@ def test_native_typed_sets_preserve_invalid_submitted_order(infrastructure_rollb
 
 
 def test_exact_snapshot_adbc_retains_nonempty_values_and_interleaved_catalog_cut(
-    semantic_bare_engine,
+    commit_db_engine,
     native_settings,
     tmp_path,
-    monkeypatch,
 ):
-    with _private_source(
-        semantic_bare_engine, native_settings, tmp_path, monkeypatch, "Ada acts."
-    ) as source:
+    with _registered_source(commit_db_engine, native_settings, tmp_path, "Ada acts.") as source:
         _check_snapshot(source, native_settings)
 
 

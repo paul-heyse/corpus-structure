@@ -121,10 +121,15 @@ def selected_journey_layer(layer, opportunity, body, projected, *, comparison=No
             row
             for row in artifact["records"]
             if layer.case_id in (None, row["occurrence_id"], row["contribution_id"])
-            and _selected_anchor(
-                opportunity,
-                row["source_contribution"].get("pin", {}),
-                row["source_contribution"].get("anchors", ()),
+            and any(
+                opportunity.source.matches_pin(source)
+                and citation["source_ref"] == opportunity.source.identity
+                and citation["source_pointer"] == opportunity.pointer
+                and any(
+                    citation["start"] <= start < end <= citation["end"] for start, end in projected
+                )
+                for source in body["inputs"]["sources"]
+                for citation in row["citations"]
             )
         ]
         ids = {row["contribution_id"] for row in records}

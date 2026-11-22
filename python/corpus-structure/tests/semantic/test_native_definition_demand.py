@@ -30,7 +30,7 @@ from semantic.current_pdf_source_support import (
     current_consumer_request,
 )
 from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
-from semantic.test_sentence_partition_chain_native import _private_source
+from semantic.test_sentence_partition_chain_native import _registered_source
 
 ROOT = Path(__file__).resolve().parents[4]
 TEXT = "A dispatch token is a short identifier assigned to a submitted support request."
@@ -84,11 +84,9 @@ def _field_names(value) -> set[str]:
 @pytest.mark.provider_evidence
 @pytest.mark.prerequisite("pm2_native_assets")
 def test_actual_definition_demand_retains_provider_pair_and_exact_component_source(
-    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+    commit_db_engine, native_settings, tmp_path
 ):
-    with _private_source(
-        semantic_bare_engine, native_settings, tmp_path, monkeypatch, TEXT
-    ) as source:
+    with _registered_source(commit_db_engine, native_settings, tmp_path, TEXT) as source:
         kernel = admit_current_target(
             source,
             _captured_definition_recipe(Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])),
@@ -136,20 +134,9 @@ def test_actual_definition_demand_retains_provider_pair_and_exact_component_sour
         assert observation["source"]["document"] == frozen.roots[0].original_source
         assert candidates["source_pin"] == pin
         assert report["inputs"]["sources"] == [pin]
-        (source_input,) = report["sources_input"]
-        assert source_input["product_id"] == pin["source_product"]
-        assert source_input.get("member_id") == pin.get("source_member")
-        assert (
-            source_input["reference"]
-            == canonical_bytes([pin["source_product"], pin.get("source_member")]).decode()
-        )
-        assert {value["product_id"] for value in report["reports_input"]} == {
-            products[PROVIDER]["candidates"]["product_id"]
-        }
-        assert set(report["inputs"]["dependencies"]) == {
-            products[PROVIDER]["result"]["product_id"],
-            products[PROVIDER]["candidates"]["product_id"],
-        }
+        assert "sources_input" not in report and "reports_input" not in report
+        assert report["candidates_input"] == {"variant": "product", "role": "candidates"}
+        assert report["inputs"]["dependencies"] == []
         assert not (
             _field_names(report)
             & {

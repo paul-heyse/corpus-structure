@@ -1,21 +1,15 @@
-"""Private N29 successor and actual settlement under declared validity."""
+"""Current native validity on a freshly installed target."""
 
 import json
-import os
-import shutil
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
-from pathlib import Path
 from time import monotonic, sleep
 from typing import cast
-from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
-from corpus_structure.cli.schema import _native_candidate_python
-from corpus_structure.schema.data_steps import DataStepRequest, prepare_data_steps
 from corpus_structure.semantic._data_operation_wire import (
     WirePublishDataDerivationRequest,
     WireRevokeDataSupportRequest,
@@ -23,122 +17,19 @@ from corpus_structure.semantic._data_operation_wire import (
 from corpus_structure.semantic.data_operation_admission import inspect_data_operation_release
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.metadata import get_metadata
-from corpus_structure.semantic.migrations import ALEMBIC_DIR, upgrade
-from corpus_structure.semantic.native_authoring import (
-    authored_admission_sql,
-    load_native_state,
-    verify_rendered_candidate,
-)
-from corpus_structure.semantic.native_objects import native_owner
-from corpus_structure.semantic.native_protocol_authoring import native_source_digest
+from corpus_structure.semantic.migrations import upgrade
 from corpus_structure.semantic.releases import open_release
-from corpus_structure.semantic.target_installation import (
-    capture_target_installation,
-    prepare_target_successor,
-)
 from native_test_support import principal_engine
 from semantic.data_operation_demand_support import attach, claim, publish, retain
 from semantic.data_operation_kernel_support import STORAGE, admit_kernel, prepare_kernel
-from semantic.test_target_installation_native import register_target_revision
-
-N29 = "semantic_ddo_pe_n29"
 
 
-def _seed_old_definitions(connection):
-    with native_owner(connection, "corpus_sem_publisher"):
-        connection.exec_driver_sql(
-            "INSERT INTO sem.release(release_id,content_digest,profile,prepared_bytes,manifest_bytes) "
-            "VALUES ('release:n29-validity-control','digest','control','{}','{}')"
-        )
-        connection.exec_driver_sql(
-            "INSERT INTO sem.data_operation_definition("
-            "release_id,operation_id,subject_definition,recipe,profile,implementation_revision,"
-            "input_roles,output_roles,support_contract,binding_expression,definition_identity,"
-            "eligibility_identity,quantified,validity_family,dependencies) "
-            "SELECT 'release:n29-validity-control',name,'subject',name,'derivation','control',"
-            "'[]','[]','{}','{}',name,name,false,family,'[]' "
-            "FROM (VALUES ('claimed','record-grade'),('ordinary',NULL)) AS old(name,family)"
-        )
-
-
-@pytest.fixture
-def declared_validity_target(semantic_database_at, tmp_path, monkeypatch):
-    from alembic.script import ScriptDirectory
-
-    from corpus_structure.semantic import migrations
-    from corpus_structure.semantic.migrations import alembic_config
-
-    metadata = get_metadata()
-    deployment = capture_target_installation(metadata)
-    captured_digest = native_source_digest(deployment.authoring_inputs.native_sources)
-    predecessor = load_native_state(ALEMBIC_DIR / "versions" / (N29 + "_native.json"))
-    names = {"ddo_classify_validity", "ddo_rich_producing_request", "record_sql_admission"}
-    retired = frozenset(item.identity for item in predecessor if item.identity.name in names)
-    assert {item.name for item in retired} == names
-    steps = prepare_data_steps(
-        (DataStepRequest(name="ddo_declared_validity"),), target=metadata, predecessor=N29
-    )
-    with semantic_database_at(N29) as engine:
-        with engine.begin() as connection:
-            _seed_old_definitions(connection)
-            candidate, authoring = prepare_target_successor(
-                connection,
-                deployment,
-                predecessor=predecessor,
-                retire=retired,
-                owned_authoring=True,
-                predecessor_revision=N29,
-                data_steps=steps,
-            )
-            assert candidate.upgrade_ops is not None
-            rendered = _native_candidate_python(candidate.upgrade_ops)
-            verify_rendered_candidate(
-                connection,
-                rendered,
-                authoring,
-                candidate.privilege_policies,
-                authored_admission_sql(authoring),
-            )
-        location = tmp_path / "candidate-revisions"
-        shutil.copytree(ALEMBIC_DIR, location, ignore=shutil.ignore_patterns("__pycache__"))
-        directory = ScriptDirectory.from_config(alembic_config(script_location=location))
-        ancestors = {
-            revision.revision for revision in directory.walk_revisions(base="base", head=N29)
-        }
-        for revision in directory.walk_revisions():
-            if revision.revision not in ancestors:
-                Path(revision.path).unlink()
-        revision = register_target_revision(
-            location, "udm_a_control", rendered, authoring, candidate, predecessor=N29
-        )
-        with engine.begin() as connection:
-            upgrade(
-                connection, revision.revision, script_location=location, expected_predecessor=N29
-            )
-            assert (
-                connection.scalar(
-                    text("SELECT sem.data_operation_native_descriptor()->>'source_digest'")
-                )
-                == captured_digest
-            )
-        monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
-        yield engine
-
-
-def test_n29_conversion_and_conservative_settlement(
-    declared_validity_target, native_settings, tmp_path
+def test_current_root_native_validity_and_conservative_settlement(
+    semantic_bare_engine, native_settings, tmp_path
 ):
-    engine = declared_validity_target
+    engine = semantic_bare_engine
     with engine.begin() as connection:
-        staged = connection.execute(
-            text(
-                "SELECT operation_id,validity_families,validity_conservative "
-                "FROM sem.data_operation_definition WHERE release_id='release:n29-validity-control' "
-                "ORDER BY operation_id"
-            )
-        ).all()
-        assert staged == [("claimed", ["record-grade"], False), ("ordinary", [], False)]
+        upgrade(connection)
         decimal = text("SELECT data.decimal_canonical(:value)")
         for value, expected in (
             ("9" * 10000, "9" * 10000),
@@ -156,6 +47,7 @@ def test_n29_conversion_and_conservative_settlement(
             ):
                 connection.scalar(decimal, {"value": value})
             assert getattr(refusal.value.orig, "sqlstate", None) == "23514"
+
         connection.exec_driver_sql(
             "CREATE TEMP TABLE validity_array_control "
             "(LIKE sem.data_operation_definition INCLUDING CONSTRAINTS)"
@@ -163,49 +55,18 @@ def test_n29_conversion_and_conservative_settlement(
         for bad in ("ARRAY['unknown']", "ARRAY[NULL::text]"):
             with pytest.raises(IntegrityError), connection.begin_nested():
                 connection.exec_driver_sql(
-                    "CREATE TEMP TABLE validity_array_input AS TABLE validity_array_control WITH NO DATA"
+                    "INSERT INTO validity_array_control("
+                    "release_id,operation_id,subject_definition,recipe,profile,"
+                    "implementation_revision,input_roles,output_roles,support_contract,"
+                    "binding_expression,definition_identity,eligibility_identity,"
+                    "quantified,validity_families,validity_conservative,dependencies,"
+                    "parameter_definitions) "
+                    "VALUES ('release:control','control','subject','recipe','derivation',"
+                    "'control','[]','[]','{}','{}','definition','eligibility',false,"
+                    + bad
+                    + ",false,'[]','{}')"
                 )
-                connection.exec_driver_sql(
-                    "INSERT INTO validity_array_input SELECT * FROM sem.data_operation_definition "
-                    "WHERE operation_id='ordinary'"
-                )
-                connection.exec_driver_sql(
-                    "UPDATE validity_array_input SET validity_families=" + bad
-                )
-                connection.exec_driver_sql(
-                    "INSERT INTO validity_array_control TABLE validity_array_input"
-                )
-
     _conservative_settlement(engine, native_settings, tmp_path, project="ddo-test")
-
-
-@pytest.mark.skipif(
-    os.environ.get("CORPUS_UDM_TRANSITION_OBSERVATION") != "130661481",
-    reason="requires an explicit observation of the owned transition stage",
-)
-def test_deployed_transition_conservative_settlement(native_settings, tmp_path):
-    from corpus_structure.semantic.migrations import current_revision, head_revision
-    from corpus_structure.semantic.storage_target import acquired_target
-
-    deployment = native_settings.deployment
-    assert deployment is not None
-    maintenance = deployment.maintenance_url.replace("postgresql://", "postgresql+psycopg://", 1)
-    engine = create_engine(
-        maintenance, connect_args={"application_name": "udm-transition-stage-observation"}
-    )
-    try:
-        with engine.connect() as connection:
-            target = acquired_target(connection, purpose="maintenance")
-            assert (target.database_oid, target.database, target.port) == (
-                130661481,
-                "corpus_structure_ddo_stage",
-                5434,
-            )
-            assert current_revision(connection) == head_revision()
-        project = "udm-transition-conservative-" + uuid4().hex[:12]
-        _conservative_settlement(engine, native_settings, tmp_path, project=project)
-    finally:
-        engine.dispose()
 
 
 def _conservative_settlement(engine, native_settings, tmp_path, *, project):

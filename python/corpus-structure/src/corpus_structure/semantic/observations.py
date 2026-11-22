@@ -61,8 +61,7 @@ def observation_inputs(
     operations = classes.get("SourceContributionOperation", {}).get("attributes", {})
     if (
         "primary_layers" in operations
-        or operations.get("primary_products")
-        != expected["SourceContributionOperation"]["attributes"]["primary_products"]
+        or "primary_products" in operations
         or any(
             name in classes
             for name in ("CharacterizationProductReference", "CharacterizationQualifiedReference")

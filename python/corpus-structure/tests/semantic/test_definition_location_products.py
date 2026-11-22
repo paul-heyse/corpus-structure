@@ -19,7 +19,6 @@ from corpus_structure.semantic.structural_products import (
     DeclaredDefinitionComponentsProduct,
     DeclaredDefinitionComponentsReport,
     DeclaredStructuralInput,
-    DeclaredStructuralInputPin,
     DefinitionRoleCandidate,
     StructuralPassage,
     declared_definition_component,
@@ -108,9 +107,6 @@ def population(prepared):
                     index=2,
                 ),
             ),
-        ),
-        sources_input=(
-            DeclaredStructuralInputPin.from_bound(member, project="outside-statistics"),
         ),
     )
     reference = dict(

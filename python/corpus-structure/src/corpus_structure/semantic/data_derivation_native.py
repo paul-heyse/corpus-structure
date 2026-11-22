@@ -686,6 +686,22 @@ def _publish_derivation(model: MetaData) -> NativeRoutine:
                 )
             ),
             Sql(record_publication_delivery(model, observe, key, request("project_id"))),
+            Perform(
+                func.ops.ddo_record_computation_wakes(
+                    select(
+                        func.coalesce(
+                            func.jsonb_agg(observations.c.id),
+                            _json("[]"),
+                        )
+                    )
+                    .where(
+                        observations.c.derivation_id == episode,
+                        observations.c.request_id == request("id"),
+                        observations.c.generation == generation,
+                    )
+                    .scalar_subquery()
+                )
+            ),
             Return(_record(payload=publication_response(key, episode, False, snapshot))),
         ),
         (

@@ -1,4 +1,4 @@
-"""Page-local progress, waiting watermarks and native set correspondence."""
+"""Page-local progress, exact origin observation and native set correspondence."""
 
 from types import SimpleNamespace
 from typing import Any, NotRequired, TypedDict, cast
@@ -18,7 +18,7 @@ class FrontierObligation(TypedDict):
     fate: str
     request_id: str
     generation: int
-    inputs_watermark: str
+    binding_origin_changed: NotRequired[bool]
     subject: NotRequired[str]
     original_source: NotRequired[str]
     analyzed_scope: NotRequired[dict[str, object]]
@@ -52,7 +52,7 @@ def page(compiled) -> FrontierPage:
                 "fate": "attached",
                 "request_id": "request:" + str(i),
                 "generation": 1,
-                "inputs_watermark": "inputs:one",
+                "binding_origin_changed": False,
             }
             for i in range(3)
         ],
@@ -119,18 +119,19 @@ def test_attach_set_preserves_siblings_and_counts_only_page_changes(monkeypatch)
 
 
 @pytest.mark.parametrize("changed,retained", [(False, False), (True, False), (False, True)])
-def test_waiting_skip_requires_same_native_watermark_and_not_retained(
+def test_waiting_skip_requires_no_new_native_origin_and_not_retained(
     monkeypatch, changed, retained
 ):
     compiled = model(operation("op:result"))
     snapshot = page(compiled)
     snapshot["obligations"] = snapshot["obligations"][:1]
     snapshot["obligations"][0]["fate"] = "awaiting-inputs"
+    snapshot["obligations"][0]["binding_origin_changed"] = changed
     snapshot["uses"] = [
         {
             "obligation_id": "0",
             "fate": "awaiting-inputs",
-            "selection": {"inputs_watermark": "inputs:old" if changed else "inputs:one"},
+            "selection": {"read_id": "read:binding"},
         }
     ]
     snapshot.update(project_id="project", trust_snapshot={})
@@ -175,36 +176,22 @@ def test_native_registration_owns_frozen_root_dependency_expansion():
     assert set(calls[0]["selection"]["root_operations"]) == {"op:base", "op:result"}
 
 
-def test_demand_result_preserves_native_waiting_watermark():
+def test_demand_result_preserves_native_waiting_read_identity():
     from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.demand_results import DemandResult
+    from semantic.demand_result_support import demand_result_page
 
-    native = {
-        "demand_id": "demand",
-        "project_id": "project",
-        "release_id": "release",
-        "runtime_id": "runtime",
-        "read_id": "read",
-        "read_snapshot": "1:2:",
-        "frontier_at": "2026-11-17T00:00:00Z",
-        "selection": {},
-        "trust_snapshot": {},
-        "scope": {},
-        "view": "frontier",
-        "continuation": None,
-        "obligations": [{"obligation_id": "obligation", "inputs_watermark": "native:watermark"}],
-        "uses": [
-            {
-                "obligation_id": "obligation",
-                "fate": "awaiting-inputs",
-                "selection": {"inputs_watermark": "native:watermark", "reasons": []},
-            }
-        ],
-        "populations": [],
-    }
+    native = demand_result_page()
+    native["obligations"][0].update(fate="awaiting-inputs", historical_fate="awaiting-inputs")
+    native["uses"][0].update(
+        fate="awaiting-inputs",
+        historical_fate="awaiting-inputs",
+        selection={"read_id": "read:binding", "reasons": []},
+        products=[],
+    )
     result = DemandResult(json_bytes(native))
     report = result.report()
     assert report["obligations"] == native["obligations"]
     assert report["uses"] == native["uses"]
-    report["obligations"][0]["inputs_watermark"] = "mutated"
-    assert result.record["obligations"][0]["inputs_watermark"] == "native:watermark"
+    report["uses"][0]["selection"]["read_id"] = "mutated"
+    assert result.record["uses"][0]["selection"]["read_id"] == "read:binding"

@@ -51,10 +51,17 @@ def operation_identity(*values: Any, **dimensions: Any) -> str:
     return _identity("contribution-operation", [values, dimensions])
 
 
-def contribution_identity(row: Mapping[str, Any]) -> str:
+def contribution_identity_and_evidence(row: Mapping[str, Any]):
+    from .contribution_input_references import split_contribution_evidence
+
+    meaning, evidence = split_contribution_evidence(dict(row))
     return _identity(
-        "source-contribution", {k: v for k, v in row.items() if k != "contribution_id"}
-    )
+        "source-contribution", {k: v for k, v in meaning.items() if k != "contribution_id"}
+    ), evidence
+
+
+def contribution_identity(row: Mapping[str, Any]) -> str:
+    return contribution_identity_and_evidence(row)[0]
 
 
 def validate_contribution_declarations(definitions) -> None:

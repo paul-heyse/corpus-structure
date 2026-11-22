@@ -245,7 +245,6 @@ class PreparedDossierInputs:
             DeclaredDossierComparisonSelection,
             DeclaredDossierReport,
             DeclaredStructuralInput,
-            DeclaredStructuralInputPin,
         )
 
         def pairs(role, values):
@@ -260,12 +259,6 @@ class PreparedDossierInputs:
                 self.prepared, value, member, project=self.context.project_id
             )
             for member, value in source_pairs
-        }
-        source_pins = {
-            key(member): DeclaredStructuralInputPin.from_bound(
-                member, project=self.context.project_id
-            )
-            for member, _ in source_pairs
         }
         source_refs = {
             frame.pin.source_key: DeclaredStructuralSource.model_validate(frame.pin.values())
@@ -290,15 +283,6 @@ class PreparedDossierInputs:
             # A derived report and its original inputs have distinct declared
             # subjects. Authenticate each complete source pin against the bound
             # dossier sources; keep the output reference in its own native context.
-            if isinstance(
-                report, (DeclaredDefinitionComponentsReport, DeclaredComparisonReport)
-            ) and (
-                not report.sources_input
-                or any(source_pins.get(pin.reference) != pin for pin in report.sources_input)
-            ):
-                raise ValueError(
-                    "dossier predecessor differs from its exact bound native source inputs"
-                )
             for source in report.inputs.sources:
                 original = source_refs.get(source.source)
                 if original != source:
@@ -344,11 +328,11 @@ class PreparedDossierInputs:
             raise ValueError("dossier scope differs from its actual selected root")
         definition_members = {}
         for member, raw in pairs("definitions", definitions):
-            report, reference, payload = retain(
-                member, raw, DeclaredDefinitionApplicabilityReport
-            )
+            report, reference, payload = retain(member, raw, DeclaredDefinitionApplicabilityReport)
             definition_members[reference] = (
-                member, cast(DeclaredDefinitionApplicabilityReport, report), payload
+                member,
+                cast(DeclaredDefinitionApplicabilityReport, report),
+                payload,
             )
         for member, raw in pairs("comparisons", comparisons):
             retain(member, raw, DeclaredComparisonReport)

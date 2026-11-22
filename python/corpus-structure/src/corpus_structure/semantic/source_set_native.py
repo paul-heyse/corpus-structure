@@ -505,15 +505,26 @@ def _binding_source_native_routines():
     )
     entry = entries.c.value
     fields_ = ("product", "member", "subject", "subject_definition", "original_source")
+    local_source = or_(
+        name.is_(None),
+        and_(role["support"]["source"].astext == "original-source", ~source_sets.has_key(name)),
+    )
     source_address = routine(
         "ddo_binding_source_address",
         common,
         (
             If(
-                name.is_(None),
+                local_source,
                 (Return(row["original_source"].astext.is_not_distinct_from(consumer_source)),),
             ),
             Assign("scope", source_sets[name]),
+            If(
+                and_(
+                    role["support"]["source"].astext == "original-source",
+                    row["original_source"].astext.is_distinct_from(consumer_source),
+                ),
+                (Return(literal(False)),),
+            ),
             If(
                 func.jsonb_typeof(scope["entries"]).is_distinct_from("array"),
                 (Return(literal(False)),),
@@ -553,7 +564,7 @@ def _binding_source_native_routines():
                 ),
                 (Return(literal(False)),),
             ),
-            If(name.is_(None), (Return(literal(True)),)),
+            If(local_source, (Return(literal(True)),)),
             Assign("scope", source_sets[name]),
             Return(
                 or_(

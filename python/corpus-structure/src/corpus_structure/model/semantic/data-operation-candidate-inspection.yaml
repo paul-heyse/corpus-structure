@@ -51,8 +51,26 @@ classes:
       coordinate_texts: {range: RecordCoordinateText, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
       coverage: {range: DdoCandidateCoverage, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
       diagnostics_json: {required: true}
-  DdoPredicateInspectionReport:
+  DdoCandidatePrimarySupport:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id: {required: true}
+      field: {required: true, pattern: '^(component|value)/.+$(?![\s\S])'}
+      position: {range: integer, required: true, minimum_value: 0}
+      target: {range: DdoSemanticReference, inlined: true, required: true}
+  DdoCandidateInheritedSupport:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id: {required: true}
+      target: {range: DdoSemanticReference, inlined: true, required: true}
+  DdoSupportedCandidateInspectionReport:
     is_a: DdoCandidateInspectionReport
+    abstract: true
+    attributes:
+      construction_support: {range: DdoCandidatePrimarySupport, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      formal_support: {range: DdoCandidatePrimarySupport, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+  DdoPredicateInspectionReport:
+    is_a: DdoSupportedCandidateInspectionReport
     description: Exact retained primary predicate frame, reading and qualifier inspection.
   DdoGlinerFunctionCandidatesReport:
     is_a: DdoCandidateInspectionReport
@@ -65,7 +83,9 @@ classes:
     attributes:
       observation_set_digest: {required: true}
   DdoScopedRelationsReport:
-    is_a: DdoCandidateInspectionReport
+    is_a: DdoSupportedCandidateInspectionReport
+    attributes:
+      inherited_support: {range: DdoCandidateInheritedSupport, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
     description: Exact source-local structural, procedure, formula and named relationship inspection.
   DdoGlinerDefinitionCandidatesReport:
     is_a: DdoCandidateInspectionReport

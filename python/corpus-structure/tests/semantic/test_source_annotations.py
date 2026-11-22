@@ -20,6 +20,7 @@ from corpus_structure.semantic.sentence_products import (
     _blocks,
     source_annotation_rows,
     validate_source_annotations,
+    verify_source_annotation_carrier,
 )
 from corpus_structure.semantic.source_products import FrozenNativeSource
 from semantic.source_annotations_test_support import (
@@ -54,6 +55,7 @@ def test_annotation_payload_is_immutable_and_context_changes_retain_decoded_cust
         pytest.fail("retained annotation data was decoded or validated again")
 
     monkeypatch.setattr(sentence_partitions, "sentence_product_payload", repeated)
+    assert verify_source_annotation_carrier(prepared, model, product, source) is product
     carried = product.with_context(None)
     assert carried.value is product.value
     assert source_annotation_blocks(carried) is blocks

@@ -33,7 +33,6 @@ from corpus_structure.semantic.structural_products import (
     DeclaredDefinitionComponentsProduct,
     DeclaredDefinitionComponentsReport,
     DeclaredStructuralInput,
-    DeclaredStructuralInputPin,
     LocatedDefinitionSpan,
     StructuralPassage,
     declared_definition_component,
@@ -154,19 +153,6 @@ def event_value(
         ),
         members=unadmitted_component_members((component,)),
         definition_components=DeclaredDefinitionComponentsProduct(stages=()),
-        sources_input=(
-            DeclaredStructuralInputPin(
-                product_id=pin.source_product,
-                member_id=pin.source_member,
-                kind_contract=source_kind,
-                project_id=PROJECT,
-                subject=context.subject,
-                subject_definition=context.subject_definition,
-                original_source=coordinate["document"],
-                analyzed_scope_meaning=pin.analyzed_scope_meaning,
-                reference=pin.source,
-            ),
-        ),
     )
     selector = SelectedDefinitionEvent(
         report=report_reference,

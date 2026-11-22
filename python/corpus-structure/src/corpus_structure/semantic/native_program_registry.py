@@ -370,6 +370,8 @@ def program_closures(definitions: tuple[NativeDefinition, ...], wire_names) -> P
                 and identity.name
                 in {
                     "acquire_data_read_context",
+                    "resume_data_demand",
+                    "read_demand_settlement",
                     "data_binding_rows",
                     "begin_selected_archive",
                     "fetch_selected_archive",

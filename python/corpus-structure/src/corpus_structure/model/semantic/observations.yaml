@@ -183,7 +183,6 @@ classes:
     is_a: SourceRecordProduct
     description: One attributed semantic question under a shared invocation, including zero-output questions.
     attributes:
-      primary_products: {range: DdoSemanticProductReference, inlined: true, multivalued: true}
       operation_key: {required: true}
       question: {required: true}
       operation_version: {required: true}
@@ -403,8 +402,6 @@ classes:
       attachment_contribution_id: {required: true}
       target_contribution_id: {required: true}
       attachment_kind: {required: true}
-      primary_node: {range: DdoSemanticMemberReference, inlined: true}
-      primary_choices: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
   PredicateProjectedExtent:
     is_a: SourceRecordProduct
     attributes:
@@ -413,8 +410,6 @@ classes:
   PredicateFrameMember:
     is_a: SourceRecordProduct
     attributes:
-      primary_node: {range: DdoSemanticMemberReference, inlined: true}
-      primary_choices: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
       contribution: {required: true}
       role: {required: true, pattern: '^(predicate|focus|actor|subject|object|complement|marker)$(?![\s\S])'}
       token_indices: {range: integer, minimum_value: 0, multivalued: true, required: true, minimum_cardinality: 1}
@@ -435,8 +430,6 @@ classes:
     is_a: WitnessedComponent
     description: Neutral predicate and source-coordinate focus with grammatical role members.
     attributes:
-      primary_node: {range: DdoSemanticMemberReference, inlined: true}
-      primary_choices: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
       kind: {equals_string: predicate_frame}
       annotation: {required: true, pattern: '^annotation:[0-9a-f]{64}$(?![\s\S])'}
       block: {required: true}
@@ -450,9 +443,6 @@ classes:
     is_a: WitnessedComponent
     description: Exact linguistic qualifier evidence with candidate predicate heads, independently of an attachment.
     attributes:
-      primary_node: {range: DdoSemanticMemberReference, inlined: true}
-      primary_choices: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
-      primary_marker: {range: DdoSemanticMemberReference, inlined: true}
       kind: {equals_string: predicate_cue}
       annotation: {required: true, pattern: '^annotation:[0-9a-f]{64}$(?![\s\S])'}
       block: {required: true}
@@ -472,8 +462,6 @@ classes:
     is_a: WitnessedComponent
     description: Deterministic private interpretation of one retained neutral frame.
     attributes:
-      primary_node: {range: DdoSemanticMemberReference, inlined: true}
-      primary_choices: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
       kind: {equals_string: predicate_reading}
       frame: {required: true}
       reading: {required: true, pattern: '^(definition|explanation|reference|prescribed_action|described_process|assumption_restriction|example|unresolved)$(?![\s\S])'}
@@ -489,9 +477,6 @@ classes:
     is_a: WitnessedComponent
     description: Located qualifier with one source-owned predicate host. Logical lowering is optional.
     attributes:
-      primary_condition_parts: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
-      primary_node: {range: DdoSemanticMemberReference, inlined: true}
-      primary_choices: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
       kind: {equals_string: predicate_qualifier}
       qualifier_contribution_id: {required: true}
       host_contribution_id: {required: true}

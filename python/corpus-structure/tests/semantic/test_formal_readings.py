@@ -268,3 +268,46 @@ def test_native_piece_containment_keeps_pointer_and_zero_width_boundaries(profil
     assert view.containing_piece(second["item_ref"], first["start"], first["end"]) is None
     assert view.native_gap(first["end"], second["start"])
     assert not view.native_gap(first["start"], second["end"])
+
+
+def test_comparison_citations_keep_original_positions_after_source_filtering(profile):
+    from corpus_structure.semantic.data_product_reference import (
+        DataProductReference,
+        member_reference,
+    )
+
+    text = "revenue > 25000 USD\nComparison basis: annual gross revenue."
+    native, product, source, passage, _primary = case(profile, text)
+    primary = FormalSourceReadings._from_retained(
+        native.value,
+        ((DataProductReference(product.semantic_id), product.inventory()),),
+        product.value["lexicon"],
+        input_positions={product.semantic_id: 7},
+    )
+    (field,), complete = _threshold_inventory(passage, source, primary)
+    assert complete and field.typed is not None
+    for reference in (field.typed.primary_formal, field.typed.primary_basis):
+        assert reference is not None
+        assert reference == {
+            "variant": "member",
+            "role": "formal",
+            "occurrence": "7",
+            "member_id": reference["member_id"],
+        }
+        assert reference["member_id"] in {row["member_id"] for row in product.value["members"]}
+    with pytest.raises(ValueError, match="outside the retained input population"):
+        primary.member_target(member_reference(DataProductReference("other-product"), "node"))
+
+
+@pytest.mark.parametrize("position", [None, -1, True])
+def test_comparison_rejects_missing_or_invalid_original_input_position(profile, position):
+    from corpus_structure.semantic.data_product_reference import DataProductReference
+
+    native, product, _source, _passage, _primary = case(profile, "x > 2 kg")
+    with pytest.raises(ValueError, match="exact original input positions"):
+        FormalSourceReadings._from_retained(
+            native.value,
+            ((DataProductReference(product.semantic_id), product.inventory()),),
+            product.value["lexicon"],
+            input_positions={product.semantic_id: position},
+        )

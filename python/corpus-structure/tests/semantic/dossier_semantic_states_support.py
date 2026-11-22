@@ -63,7 +63,6 @@ def components(value: DeclaredStructuralInput | None = None, *, passage_id=None,
     )
     return DeclaredDefinitionComponentsReport(
         inputs=value,
-        sources_input=tuple(source_pin(source) for source in value.sources),
         members=unadmitted_component_members(
             tuple(
                 declared_definition_component(

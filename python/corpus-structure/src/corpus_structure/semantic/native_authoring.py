@@ -551,8 +551,6 @@ def compare_declared_candidate(
     authoring,
     old_descriptor,
     physical_contract,
-    data_steps=(),
-    predecessor_revision=None,
 ):
     """One Alembic comparison for explicit prior/desired declarations, including fresh roots."""
     from .alembic_privileges import plugin as privileges_plugin
@@ -613,8 +611,6 @@ def compare_declared_candidate(
             row["name"]: row["owner"] for row in target_policies if row["kind"] == "table"
         }
         ordered: list[MigrateOperation] = []
-        after_data: list[MigrateOperation] = []
-        deferred_keys = {key for step in data_steps for key in step.deferred_foreign_keys}
         for item in candidate.upgrade_ops.ops:
             if isinstance(item, ModifyTableOps):
                 relation = f"{item.schema}.{item.table_name}"
@@ -631,8 +627,7 @@ def compare_declared_candidate(
                                 dialect=connection.dialect
                             )
                         )
-                        destination = after_data if (relation, remote) in deferred_keys else ordered
-                        destination.append(
+                        ordered.append(
                             OwnedSQLOp(
                                 owner,
                                 statement,
@@ -660,16 +655,6 @@ def compare_declared_candidate(
         candidate.upgrade_ops.ops[:] = ordered
         _order_physical_retirement(candidate.upgrade_ops)
         _order_row_type_evolution(connection, candidate.upgrade_ops, authoring)
-        from corpus_structure.schema.data_steps import order_data_steps
-
-        order_data_steps(
-            candidate.upgrade_ops,
-            data_steps,
-            authoring,
-            target=target_metadata,
-            predecessor=predecessor_revision,
-        )
-        candidate.upgrade_ops.ops.extend(after_data)
         candidate.upgrade_ops.ops.extend(compared_privileges)
         if physical_contract is not None:
             candidate.upgrade_ops.ops.append(OwnedSQLOp(role_name("publisher"), physical_contract))

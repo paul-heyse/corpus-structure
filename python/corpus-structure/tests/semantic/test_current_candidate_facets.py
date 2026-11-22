@@ -227,6 +227,7 @@ def test_candidate_facets_keep_exact_alternatives_source_member_support_and_priv
     source,
 ):
     body = report(source)
+    body.update(construction_support=[], formal_support=[])
     value = selected(source, body, CANDIDATE_NAMESPACE + "DdoPredicateInspectionReport")
     actual = rows(source, value)
     interpreted = next(

@@ -22,6 +22,7 @@ from corpus_structure.semantic.structural_products import (
 )
 from semantic.artifact_identity_support import nomination as nomination
 from semantic.artifact_identity_support import record as record
+from semantic.artifact_identity_support import reference_for
 
 
 def test_exact_artifact_declarations_keep_direction_and_cross_work_score_scope():
@@ -74,20 +75,12 @@ def test_exact_artifact_declarations_keep_direction_and_cross_work_score_scope()
         if revision:
             body += f" (revision: {revision})"
         body += suffix
-        records.append(
-            row.model_copy(
-                update={
-                    "source_contribution": {"anchors": [{"end": citation.end}]},
-                }
-            )
-        )
+        records.append(row)
         passages.append(SimpleNamespace(passage_id=citation.passage_id, start=0, end=len(body)))
         view = source(body, labels=("caption" if role == "caption" else "text",))
         indexes[citation.source_ref] = source_primary_products(view, annotations=()).navigation
     links = declared_artifact_relationships(
-        records,
-        SimpleNamespace(passages=passages),
-        indexes,
+        records, SimpleNamespace(passages=passages), indexes, reference_for=reference_for
     )
     assert [(row.kind, row.source_id, [end.record_id for end in row.targets]) for row in links] == [
         ("supersedes", "second", ["first"]),
@@ -130,8 +123,6 @@ def test_shared_generators_are_one_pair_with_complete_provenance():
     assert pair.dependencies == (
         "a",
         "b",
-        "product:source:a",
-        "product:source:b",
         *(n.contribution_id for n in external),
     )
     assert pair.model_probability is None and pair.standing == "candidate_relative_private"
@@ -332,7 +323,13 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
         )
         records = (
             native_artifact_records(
-                frame, primary.source, inputs, reference.identity, "parent", primary.navigation
+                frame,
+                primary.source,
+                inputs,
+                reference.identity,
+                "parent",
+                primary.navigation,
+                reference_for=reference_for,
             )
             if bound
             else ()

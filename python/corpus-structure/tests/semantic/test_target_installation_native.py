@@ -343,82 +343,6 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
         fresh_target_epoch,
         tmp_path,
     )
-    frozen = load_native_state(ALEMBIC_DIR / "versions" / "semantic_ddo_pe_n29_native.json")
-    current_acl = {
-        item.identity: (item.catalog["owner"], item.catalog.get("acl"))
-        for item in authoring.desired
-    }
-    previous_acl = {
-        item.identity: (item.catalog["owner"], item.catalog.get("acl")) for item in frozen
-    }
-    assert {item.name for item in previous_acl.keys() - current_acl.keys()} == {
-        "ddo_classify_validity",
-        "record_sql_admission",
-        "ddo_rich_producing_request",
-    }
-    assert {item.name for item in current_acl.keys() - previous_acl.keys()} == {
-        "ddo_conservative_dependencies_valid",
-        "ddo_support_reference_node",
-        "ddo_privileged_effect_eligible",
-        "ddo_privileged_effect_admitted",
-        "ddo_privileged_effect_authorized",
-        "ddo_require_completion_effect_authority",
-        "ddo_record_grade_require_cut_material",
-        "ddo_record_grade_acquire_census_material",
-        "admit_data_operation_effect_grants",
-        "ddo_rich_producing_request",
-        "prove_execution_release",
-        "prove_execution_catalog",
-        "consume_data_completion_draft",
-        "ddo_impl_consume_data_completion_draft",
-        "inspect_data_completion_draft",
-        "ddo_impl_inspect_data_completion_draft",
-        "ddo_impl_register_data_execution_origin",
-        "require_execution_binding_facts",
-        "ddo_current_validation_identities",
-        "ddo_missing_validation_identities",
-        "ddo_require_episode_identity",
-        "ddo_require_completion_invariants",
-        "ddo_require_completion_families",
-        "ddo_require_episode_artifact_correspondence",
-        "ddo_require_episode_contextual_correspondence",
-        "ddo_require_episode_definition_correspondence",
-        "ddo_require_episode_operation_event_correspondence",
-        "ddo_require_episode_record_fit_correspondence",
-        "ddo_require_episode_record_grade_correspondence",
-        "ddo_require_episode_rich_correspondence",
-        "ddo_require_consuming_episode",
-        "ddo_episode_current_valid",
-        "ddo_receipt_validation_current",
-        "ddo_reconfirm_completion_validity",
-        "pdf_spool_material_identity",
-        "pdf_spool_request_material",
-        "read_pdf_spool_recovery_candidates",
-        "register_data_execution_origin",
-        "semantic_immutable",
-    }
-    assert {
-        (item.schema, item.relation)
-        for item in current_acl.keys() - previous_acl.keys()
-        if item.name == "semantic_immutable"
-    } == {
-        ("ops", "data_draft_consumption"),
-        ("ops", "data_execution_origin"),
-        ("ops", "data_validity_reconfirmation"),
-        ("sem", "data_operation_effect_grant"),
-    }
-    assert all(
-        current_acl[item] == previous_acl[item] for item in current_acl.keys() & previous_acl.keys()
-    )
-    frozen_n31 = {
-        item.identity: item
-        for item in load_native_state(ALEMBIC_DIR / "versions" / "semantic_ddo_pe_n31_native.json")
-    }
-    n36_canonical_json = next(
-        item
-        for item in load_native_state(ALEMBIC_DIR / "versions" / "semantic_ddo_pe_n36_native.json")
-        if item.identity.schema == "data" and item.identity.name == "canonical_json"
-    )
     desired = {item.identity: item for item in authoring.desired}
     from corpus_structure.semantic.native_products import literal_json_descriptor
 
@@ -437,14 +361,6 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
             assert "semantic-release-archive-4" in archive_check
             assert "archive generated products differ from release identity" in archive_check
             assert "products_digest" in archive_check
-        elif key == n36_canonical_json.identity:
-            assert desired[key].statements == n36_canonical_json.statements
-        else:
-            assert desired[key].statements == frozen_n31[key].statements
-        assert current_acl[key] == (
-            frozen_n31[key].catalog["owner"],
-            frozen_n31[key].catalog.get("acl"),
-        )
     # Resolve this genuinely registered immutable root. A reader must not need
     # access to the maintenance-only Alembic table to authenticate its contract.
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)

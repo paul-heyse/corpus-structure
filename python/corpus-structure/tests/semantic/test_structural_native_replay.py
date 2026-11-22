@@ -92,7 +92,6 @@ def _formal_case(profile, text):
 def test_current_comparison_literal_has_independent_bounded_meaning(profile, spelling, expected):
     from corpus_structure.methods.structural_products import _literal_reading
     from corpus_structure.semantic.structural_products import (
-        DeclaredPrimaryReference,
         LocatedDefinitionSpan,
     )
 
@@ -101,9 +100,10 @@ def test_current_comparison_literal_has_independent_bounded_meaning(profile, spe
     literal, reference = _literal_reading(span, source, primary)
     assert (literal.model_dump(mode="json", exclude_none=True) if literal else None) == expected
     if expected is not None:
-        assert isinstance(reference, DeclaredPrimaryReference)
-        assert reference.product_id == product.semantic_id
-        assert reference.member_id in {member.member_id for member in product.members}
+        assert reference is not None
+        assert reference["variant"] == "member" and reference["role"] == "formal"
+        assert reference["occurrence"] == "0"
+        assert reference["member_id"] in {row["member_id"] for row in product.value["members"]}
 
 
 @pytest.mark.parametrize(
@@ -215,11 +215,10 @@ def test_current_retained_clause_keeps_repeated_exact_occurrences_and_empty_exce
         text.index("No exceptions") + 13,
         "No exceptions",
     )
-    from corpus_structure.semantic.structural_products import DeclaredPrimaryReference
-
     reference = groups["exception"].primary_witnesses[0]
-    assert isinstance(reference, DeclaredPrimaryReference)
-    assert reference.product_id == formal.semantic_id
+    assert reference["variant"] == "member" and reference["role"] == "formal"
+    assert reference["occurrence"] == "0"
+    assert reference["member_id"] in {row["member_id"] for row in formal.value["members"]}
     assert groups["condition"].state == "absent"
 
 
@@ -312,11 +311,12 @@ def test_current_dossier_page_excludes_unselected_member_source_closure():
     ids=("threshold", "passive-actor"),
 )
 def test_current_native_comparison_consumes_actual_predicate_and_formal_source_products(
-    semantic_bare_engine, native_settings, tmp_path, monkeypatch, left, right, actor_outcome
+    commit_db_engine, native_settings, tmp_path, left, right, actor_outcome
 ):
     from corpus_structure.semantic.data_operation_service import DemandOperationSelection
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
-    from semantic.current_pdf_source_support import admit_current_target
+    from corpus_structure.semantic.demand_results import read_demand_result, stream_selected_support
+    from semantic.current_pdf_source_support import PROJECT, admit_current_target
     from semantic.structural_admission_native_support import COMPARE, execute, request
     from semantic.structural_admission_native_support import selected as selected_products
     from semantic.structural_production_native_support import (
@@ -325,11 +325,9 @@ def test_current_native_comparison_consumes_actual_predicate_and_formal_source_p
         recipe,
         selected_for_source,
     )
-    from semantic.test_sentence_partition_chain_native import _private_source
+    from semantic.test_sentence_partition_chain_native import _registered_source
 
-    with _private_source(
-        semantic_bare_engine, native_settings, tmp_path, monkeypatch, left, right
-    ) as source:
+    with _registered_source(commit_db_engine, native_settings, tmp_path, left, right) as source:
         kernel = admit_current_target(source, recipe(tmp_path / "recipe"), tmp_path / "consumer")
         _, _, products, _ = produce_source_reports(source, kernel, PREDICATES, text=left)
         source_kind = kernel.identities[
@@ -441,9 +439,33 @@ def test_current_native_comparison_consumes_actual_predicate_and_formal_source_p
             assert threshold["left_group"]["members"][0]["typed"]["value"] == "25000"
             assert threshold["right_group"]["members"][0]["typed"]["value"] == "50000"
             assert threshold["typed_outcome"] == "unknown"
+            with kernel.purpose("read").begin() as connection:
+                frontier = read_demand_result(
+                    connection,
+                    demand["demand_id"],
+                    project_id=PROJECT,
+                    scope={"product_ids": [product.row["product_id"]]},
+                )
+                formal_inputs = {
+                    str(item["record"]["position"]): item["record"]["product_id"]
+                    for item in stream_selected_support(connection, frontier, whole_read=True)
+                    if item["relation"] == "ops.data_derivation_input"
+                    and item["record"]["derivation_id"] == product.row["derivation_id"]
+                    and item["record"]["role"] == "formal"
+                }
+            by_product = {value.row["product_id"]: value for value in formal}
+            for side, original in zip(("left_group", "right_group"), originals, strict=True):
+                target = threshold[side]["members"][0]["typed"]["primary_formal"]
+                assert target["role"] == "formal" and target["variant"] == "member"
+                report = by_product[formal_inputs[target["occurrence"]]]
+                assert report.context == original.context
+                assert target["member_id"] in {
+                    member["member_id"] for member in report.body["members"]
+                }
         assert [comparison[key]["product_id"] for key in ("left_reading", "right_reading")] == [
             value.row["product_id"] for value in reports
         ]
-        assert [value["product_id"] for value in product.body["sources_input"]] == [
+        assert "sources_input" not in product.body
+        assert [value["source_product"] for value in product.body["inputs"]["sources"]] == [
             value.row["product_id"] for value in originals
         ]

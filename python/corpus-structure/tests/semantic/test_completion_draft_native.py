@@ -15,8 +15,6 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.data_operation_wire import wire_contracts
-from corpus_structure.semantic.metadata import get_metadata
-from corpus_structure.semantic.target_installation import capture_target_installation
 from native_test_support import principal_engine
 from semantic.data_operation_demand_support import (
     attach,
@@ -26,21 +24,15 @@ from semantic.data_operation_demand_support import (
     publish,
 )
 from semantic.data_operation_kernel_support import STORAGE, admit_kernel, prepare_kernel
-from semantic.test_target_installation_native import install_target_root
 
 
 def test_private_native_origin_recovery_preserves_original_and_refuses_unretired(
-    semantic_bare_engine,
+    commit_db_engine,
     native_settings,
     tmp_path,
     monkeypatch,
 ):
-    from corpus_structure.semantic import migrations
-
-    engine = semantic_bare_engine
-    epoch = capture_target_installation(get_metadata())
-    _, _, _, _, _, location = install_target_root(engine, epoch, tmp_path)
-    monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
+    engine = commit_db_engine
     preparation = prepare_kernel(STORAGE, directory=tmp_path / "kernel")
     with engine.begin() as connection:
         kernel = admit_kernel(connection, STORAGE, preparation=preparation)
@@ -245,13 +237,8 @@ def test_private_native_origin_recovery_preserves_original_and_refuses_unretired
         writer.dispose()
 
 
-def test_private_native_pdf_material_snapshots(semantic_bare_engine, tmp_path, monkeypatch):
-    from corpus_structure.semantic import migrations
-
-    engine = semantic_bare_engine
-    epoch = capture_target_installation(get_metadata())
-    _, _, _, _, _, location = install_target_root(engine, epoch, tmp_path)
-    monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
+def test_private_native_pdf_material_snapshots(commit_db_engine, tmp_path, monkeypatch):
+    engine = commit_db_engine
     _assert_native_pdf_material_snapshots(engine, tmp_path / "material-snapshots", monkeypatch)
 
 

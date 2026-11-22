@@ -42,6 +42,7 @@ _PATHS = (
     "semantic/declared_candidate_products.py",
     "semantic/declared_record_sources.py",
     "semantic/contributions.py",
+    "semantic/contribution_input_references.py",
     "semantic/formal_readings.py",
     "semantic/formal_products.py",
 )
@@ -58,7 +59,9 @@ def structural_operation_declarations():
         DeclaredDefinitionApplicabilityReport,
         DeclaredDefinitionComponentsReport,
         DeclaredDossierReport,
+        DeclaredLearnedDefinitionComponentsReport,
         DeclaredNamedDefinitionComponentsReport,
+        DeclaredSyntaxDefinitionComponentsReport,
     )
 
     schema = TypeAdapter(
@@ -67,13 +70,22 @@ def structural_operation_declarations():
         | DeclaredDossierReport
         | DeclaredDefinitionComponentsReport
         | DeclaredNamedDefinitionComponentsReport
+        | DeclaredLearnedDefinitionComponentsReport
+        | DeclaredSyntaxDefinitionComponentsReport
         | DeclaredDefinitionApplicabilityReport
         | DeclaredArtifactReport
         | DeclaredClauseReport
     ).json_schema()
     kinds = nominal_schema_kinds(schema, namespace=NAMESPACE, root_name="Products")
     for kind in kinds:
-        if kind["id"] == NAMESPACE + "DeclaredNamedDefinitionComponentsReport":
+        if kind["id"] in {
+            NAMESPACE + name
+            for name in (
+                "DeclaredNamedDefinitionComponentsReport",
+                "DeclaredLearnedDefinitionComponentsReport",
+                "DeclaredSyntaxDefinitionComponentsReport",
+            )
+        }:
             kind["is_a"] = NAMESPACE + "DeclaredDefinitionComponentsReport"
     return SourceArtifact(
         "structural/nominal-kinds.json",
@@ -168,15 +180,6 @@ class PreparedStructuralInputs:
         from .structural_products import DeclaredStructuralInputPin
 
         return DeclaredStructuralInputPin.from_bound(self.member(name), project=self.project)
-
-    def references(self, name):
-        from .structural_products import DeclaredStructuralInputPin
-
-        (role,) = (role for role in self.roles if role.role == name)
-        return tuple(
-            DeclaredStructuralInputPin.from_bound(member, project=self.project)
-            for member in role.members
-        )
 
     def selected(self, name, values, reference):
         (role,) = (role for role in self.roles if role.role == name)
@@ -359,7 +362,7 @@ def execute_comparison(receiver, sources, reports, formal, **selection):
                 "comparison formal product lacks its exact whole selected original scope"
             )
         address, frame = matches[0]
-        source = FrozenNativeSource.acquire(profile.prepared, frame.value)
+        source = FrozenNativeSource.acquire(profile.prepared, frame.acquired_source)
         context = SubjectContext(
             profile.project,
             member.subject,
@@ -378,7 +381,12 @@ def execute_comparison(receiver, sources, reports, formal, **selection):
         lexical[address.identity].extend(raw["lexicon"])
     primary_readings = {
         address.identity: FormalSourceReadings._from_retained(
-            frame.value, retained_formal[address.identity], lexical[address.identity]
+            frame.value,
+            retained_formal[address.identity],
+            lexical[address.identity],
+            input_positions={
+                member.product: member.reference_position for member in formal_role.members
+            },
         )
         for address, frame in dict(((a, left), (b, right))).items()
         if retained_formal[address.identity]
@@ -390,17 +398,7 @@ def execute_comparison(receiver, sources, reports, formal, **selection):
         policy_id=selection["policy_id"],
         sources=tuple(dict.fromkeys((a, b))),
         passages=(left_passage, right_passage),
-        dependencies=tuple(
-            dict.fromkeys(
-                (
-                    left_ref.product_id,
-                    right_ref.product_id,
-                    left_ref.contribution_id,
-                    right_ref.contribution_id,
-                    *(member.product for member in formal_role.members),
-                )
-            )
-        ),
+        dependencies=tuple(dict.fromkeys((left_ref.contribution_id, right_ref.contribution_id))),
         coverage_limits=(
             "Only retained predicate coverage is used; unavailable formal characterization remains unresolved.",
         ),
@@ -417,14 +415,9 @@ def execute_comparison(receiver, sources, reports, formal, **selection):
         primary_readings=primary_readings,
         check_active=profile.check_active,
     )
-    return DeclaredComparisonReport.model_validate(
-        {
-            **report.model_dump(mode="python"),
-            "sources_input": profile.references("sources"),
-            "reports_input": profile.references("reports"),
-            "formal_input": profile.references("formal"),
-        }
-    ).model_dump(mode="json")
+    return DeclaredComparisonReport.model_validate(report.model_dump(mode="python")).model_dump(
+        mode="json"
+    )
 
 
 def execute_condition(receiver, source, report, **selection):
@@ -455,7 +448,6 @@ def execute_condition(receiver, source, report, **selection):
     )
     return DeclaredConditionReport(
         inputs=inputs,
-        source_input=profile.reference("source"),
         condition_qualification=condition_qualification(
             inputs, reference.contribution_id, retained, project_id=profile.project
         ),

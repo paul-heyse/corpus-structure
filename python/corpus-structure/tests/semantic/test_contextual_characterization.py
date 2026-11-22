@@ -115,7 +115,7 @@ def symbolic_layer(case, *, conflicting=False):
         case.primary.source, body, interpreted_member_contracts(prepared, model), ()
     )
     value["annotation_support"] = []
-    value["formal_atom_support"] = []
+    value["formal_support"] = []
     return validate_interpreted_product(
         prepared, model, value, case.primary.source, (), subject_context=case.primary.context
     )

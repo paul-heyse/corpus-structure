@@ -29,6 +29,7 @@ _PATHS = (
     "semantic/declared_candidate_products.py",
     "semantic/source_contexts.py",
     "semantic/contributions.py",
+    "semantic/contribution_input_references.py",
     "semantic/record_contracts.py",
     "semantic/sentence_products.py",
     "semantic/construction_products.py",
@@ -212,14 +213,20 @@ class PreparedPredicateInputs:
             qualifier_preflight=lambda value: predicate_qualifier_refusal(self.prepared, value),
             check_active=self.check_active,
         )
+        from .contribution_input_references import pack_contribution_input_support
+
+        contributions, support = pack_contribution_input_support(
+            evidence.contributions, self.roles, primary_evidence=evidence.primary_evidence
+        )
         return candidate_inspection_report(
             self.prepared,
             model,
             frame,
             self.context,
             report_class="DdoPredicateInspectionReport",
+            input_support=support,
             inspection_outcome="produced" if evidence.contributions else "empty",
-            contributions=evidence.contributions,
+            contributions=contributions,
             operations=evidence.operations,
             coordinate_texts=evidence.coordinate_texts,
             coverage=[
@@ -233,7 +240,6 @@ class PreparedPredicateInputs:
             ],
             diagnostics={
                 "inspection_complete": evidence.inspection_complete,
-                "primary_products": [product.semantic_id for product in retained],
             },
         )
 

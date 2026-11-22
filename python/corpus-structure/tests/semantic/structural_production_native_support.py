@@ -102,6 +102,7 @@ def produce_source_reports(
     original_source=None,
     discovered_entries=None,
     selection_name=None,
+    selection_predecessor=(None, 0),
 ):
     """One source-discovery demand owns genuine source and primary producer uses."""
     from corpus_structure.semantic.demand_results import read_demand_result
@@ -111,7 +112,9 @@ def produce_source_reports(
     pending = current_consumer_request(
         source, kernel, (target,), discover=True, discovered_entries=discovered_entries
     )
-    retained, execution = execute(kernel, pending, selection_name=selection_name)
+    retained, execution = execute(
+        kernel, pending, selection_name=selection_name, selection_predecessor=selection_predecessor
+    )
     assert execution.receipt_count > 0
     with kernel.purpose("read").begin() as connection:
         page = read_demand_result(connection, retained["demand_id"], project_id=PROJECT, limit=1000)

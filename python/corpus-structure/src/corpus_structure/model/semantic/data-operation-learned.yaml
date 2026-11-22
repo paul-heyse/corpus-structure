@@ -216,6 +216,10 @@ classes:
   DdoContextualNativeProduct:
     is_a: DdoInterpretedProduct
     attributes:
+      dependencies:
+        range: DdoSemanticProductReference
+        inlined: true
+        multivalued: true
       formal_proxy_support:
         range: DdoContextualProxySupport
         inlined: true

@@ -423,10 +423,9 @@ def execute_clause_classification(
     from .data_operation_identity import body_identity, contextual_product_identity
 
     canonical_header = canonical["header"]
-    if (
-        canonical_header["source"] != frame.value["source"]
-        or tuple(canonical_header["selectors"]) != tuple(frame.value["selectors"])
-    ):
+    if canonical_header["source"] != frame.value["source"] or tuple(
+        canonical_header["selectors"]
+    ) != tuple(frame.value["selectors"]):
         raise ValueError("clause canonical units differ from their exact original source and scope")
     (canonical_member,) = profile.members("canonical")
     canonical_context = SubjectContext(
@@ -665,7 +664,6 @@ def execute_clause_classification(
             inspected_frames=tuple(inspected),
             unprojectable_frames=tuple(unavailable),
         ),
-        sources_input=(exact.reference("source"),),
         predicate_input=SemanticReference.whole("predicates").whole_value(),
     )
     profile.check_active()

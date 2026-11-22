@@ -69,11 +69,11 @@ class ContextualCase:
 
 
 @pytest.fixture(scope="module")
-def current_contextual_case(native_server, native_settings, tmp_path_factory):
+def current_contextual_case(semantic_head_template, native_settings, tmp_path_factory):
     directory = tmp_path_factory.mktemp("current-contextual")
 
     with contextual_target_source(
-        native_server, native_settings, directory, TEXT, TEXT
+        semantic_head_template, native_settings, directory, TEXT, TEXT
     ) as source:
         encoder = controlled_encoder(directory / "encoder")
         kernel = admit_current_target(

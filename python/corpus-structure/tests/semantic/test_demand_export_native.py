@@ -2,10 +2,7 @@
 
 import json
 import sys
-from contextlib import ExitStack
 from hashlib import sha256
-from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -17,50 +14,8 @@ from corpus_structure.semantic.source_interfaces import (
 )
 from corpus_structure.serve.demand_export import export_demand_result, verify_demand_export
 from semantic.data_operation_kernel_support import EXECUTION
-from semantic.declared_scenarios import DeclaredServingRecipe, build_declared_serving_recipe
-
-
-@pytest.fixture(scope="module")
-def declared_serving_case(native_server, native_settings, tmp_path_factory):
-    """Exercise the authored current native root before migration registration."""
-    from corpus_structure.schema.model_change import native_model_inputs
-    from corpus_structure.semantic import migrations
-    from corpus_structure.semantic.metadata import get_metadata
-    from corpus_structure.semantic.target_installation import capture_target_installation
-    from native_test_support import database_name, principal_engine
-    from semantic.test_target_installation_native import install_target_root
-
-    native_server.semantic_ready()
-    directory = tmp_path_factory.mktemp("selected-archive-current-root")
-    epoch = capture_target_installation(
-        get_metadata(), logical_sources=native_model_inputs(Path(__file__).resolve().parents[4])
-    )
-    with (
-        native_server.database(database_name("bare").name, native_server.template) as admin,
-        pytest.MonkeyPatch.context() as patch,
-        ExitStack() as resources,
-    ):
-        *_, revision_path = install_target_root(admin, epoch, directory)
-        patch.setattr(migrations, "ALEMBIC_DIR", revision_path)
-        purposes = {}
-
-        def purpose(name):
-            if name not in purposes:
-                engine = principal_engine(native_settings, name, admin.url.database)
-                resources.callback(engine.dispose)
-                purposes[name] = engine
-            return purposes[name]
-
-        recipe_directory = directory / "recipe"
-        recipe_directory.mkdir()
-        stage = build_declared_serving_recipe(
-            DeclaredServingRecipe(),
-            admin,
-            purpose("write"),
-            recipe_directory,
-            purpose_engine=purpose,
-        )
-        yield SimpleNamespace(admin=admin, reader=purpose("read"), stage=stage)
+from semantic.declared_scenarios import declared_serving_case as declared_serving_case
+from semantic.declared_scenarios import declared_serving_seed as declared_serving_seed
 
 
 @pytest.mark.parametrize("encoding", ["jsonl", "parquet"])

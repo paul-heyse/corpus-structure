@@ -24,11 +24,6 @@ from corpus_structure.schema.compiled_changes import (
     CompiledModelComparison,
     compare_compiled_models,
 )
-from corpus_structure.schema.data_steps import (
-    DataStepRequest,
-    FrozenDataStep,
-    prepare_data_steps,
-)
 from corpus_structure.schema.declarations import ModelError
 from corpus_structure.schema.model_explanation import ModelChangeExplanation
 from corpus_structure.schema.physical import (
@@ -148,15 +143,10 @@ class ChangeRequest(NativeIntent):
     deployment: bool = False
     deployment_profile: DeploymentProfile | None = None
     source_migrations: tuple[SourceMigration, ...] = ()
-    data_steps: tuple[DataStepRequest, ...] = ()
     effect_approvals: tuple[ApprovedEffect, ...] = ()
 
     @model_validator(mode="after")
     def explicit_application_runtime(self):
-        if self.data_steps and not self.native_requested:
-            raise ValueError("revision data steps require explicit native authoring")
-        if len({step.name for step in self.data_steps}) != len(self.data_steps):
-            raise ValueError("duplicate revision data step")
         executable = bool(self.data_operations and (self.deployment or self.native_requested))
         if self.effect_approvals and not executable:
             raise ValueError("effect approvals require an actual DDO application deployment")
@@ -184,9 +174,7 @@ class ChangeRequest(NativeIntent):
 
     def native_effect(self, delta: NativeProgramDelta | None) -> bool:
         return self.native_requested and (
-            delta is None
-            or not delta.unchanged
-            or bool(self.retire or self.recreate or self.data_steps)
+            delta is None or not delta.unchanged or bool(self.retire or self.recreate)
         )
 
 
@@ -263,7 +251,6 @@ class ChangePreview(BaseModel):
     runtime: RuntimeCustody | None = None
     discovery: dict | None = None
     source_migrations: tuple[SourceMigrationPreview, ...] = ()
-    data_steps: tuple[FrozenDataStep, ...] = ()
     source_comparison: EffectiveChangeComparison | None = None
     query_analysis: ProjectionAnalysisComparison | None = None
     preparation_fingerprint: str | None = None
@@ -817,7 +804,6 @@ def prepare_preview(
     for item in changed:
         compatibility.setdefault(item.kind, []).append(item.source + "/" + item.element)
     physical = None
-    data_steps = ()
     if native:
         physical_input = _read(root, _PHYSICAL)
         if physical_input is None:
@@ -827,9 +813,6 @@ def prepare_preview(
         )
         requested_physical = physical_source_closure(PHYSICAL_ROOT, new.sources.get)
         target_metadata = compile_physical(requested_physical)
-        data_steps = prepare_data_steps(
-            request.data_steps, target=target_metadata, predecessor=request.native_predecessor
-        )
         physical = (physical_sources_id(original_physical), physical_sources_id(requested_physical))
         if expected_physical is not None and expected_physical != physical[1]:
             raise ModelError(["physical release inputs changed during preview"])
@@ -1127,7 +1110,6 @@ def prepare_preview(
             (physical is not None and physical[0] != physical[1], "trusted_physical_change"),
             (bool(request.retire), "explicit_native_retirement"),
             (bool(request.recreate), "explicit_native_recreation"),
-            (bool(request.data_steps), "revision_data_steps"),
         )
         if applies
     )
@@ -1196,7 +1178,6 @@ def prepare_preview(
         release_manifest_sha256=release_manifest_sha256,
         release_artifacts_sha256=release_artifacts_sha256,
         source_migrations=migrations,
-        data_steps=data_steps,
         source_comparison=source_comparison,
         query_analysis=query_analysis,
         discovery=locate_consumers(
@@ -1233,19 +1214,6 @@ def check_preview(root: Path, preview: ChangePreview, *, applied: bool = False) 
     for path, before in preview.inputs.items():
         if path not in effects and _digest(_read(root, path)) != before:
             raise ModelError([f"stale model input {path}"])
-    if preview.request.data_steps or preview.data_steps:
-        source = effects[_PHYSICAL].after if _PHYSICAL in effects else _read(root, _PHYSICAL)
-        if source is None or preview.effects.physical is None:
-            raise ModelError(["revision data steps require an approved physical target"])
-        closure = _physical_closure(root, source)
-        if physical_sources_id(closure) != preview.effects.physical[
-            1
-        ] or preview.data_steps != prepare_data_steps(
-            preview.request.data_steps,
-            target=compile_physical(closure),
-            predecessor=preview.request.native_predecessor,
-        ):
-            raise ModelError(["revision data-step custody changed after preview"])
     for effect in preview.files:
         actual = _digest(_read(root, effect.path))
         if actual != _digest(effect.after) and (applied or actual != effect.before):

@@ -53,17 +53,6 @@ def _predecessor():
         evidence=("definition",),
         reason="Independent selected candidate remains unresolved.",
     )
-    pin = DeclaredStructuralInputPin(
-        product_id="source:actual",
-        member_id="member:actual",
-        reference=reference.source,
-        kind_contract="kind:source",
-        project_id="project",
-        subject=reference.subject,
-        subject_definition=reference.subject_definition,
-        original_source=reference.original_source,
-        analyzed_scope_meaning=reference.analyzed_scope_meaning,
-    )
     report = DeclaredDefinitionComponentsReport(
         inputs=DeclaredStructuralInput(
             question="Read the retained definition.",
@@ -85,7 +74,6 @@ def _predecessor():
                 ),
             ),
         ),
-        sources_input=(pin,),
     )
     address = dict(
         product_id="native:component-report",
@@ -239,13 +227,22 @@ def _run_bound_dossier(monkeypatch, *, changed_pin=None):
 
     component, _, predecessor, report, _ = _predecessor()
     (source,) = report.inputs.sources
-    (pin,) = report.sources_input
+    pin = DeclaredStructuralInputPin(
+        product_id=source.source_product,
+        member_id=source.source_member,
+        reference=source.source,
+        kind_contract=source.kind_contract,
+        project_id=source.project_id,
+        subject=source.subject,
+        subject_definition=source.subject_definition,
+        original_source=source.original_source,
+        analyzed_scope_meaning=source.analyzed_scope_meaning,
+    )
     meaning = json_context_meaning(json_bytes({"scope": "selected"})).decode()
     source = source.model_copy(update={"analyzed_scope_meaning": meaning})
     pin = pin.model_copy(update={"analyzed_scope_meaning": meaning})
     report = report.model_copy(
         update={
-            "sources_input": (pin,),
             "inputs": report.inputs.model_copy(
                 update={
                     "sources": (source,),
@@ -303,7 +300,17 @@ def _run_bound_dossier(monkeypatch, *, changed_pin=None):
     # remain the responsibility of the actual structural journey.
     monkeypatch.setattr(DeclaredNativeFrameSource, "acquire", lambda *args, **kw: frame)
     if changed_pin is not None:
-        report = report.model_copy(update={"sources_input": (pin.model_copy(update=changed_pin),)})
+        fields = {
+            "product_id": "source_product",
+            "member_id": "source_member",
+            "reference": "source",
+        }
+        changed_source = source.model_copy(
+            update={fields.get(key, key): value for key, value in changed_pin.items()}
+        )
+        report = report.model_copy(
+            update={"inputs": report.inputs.model_copy(update={"sources": (changed_source,)})}
+        )
     return (
         selected.run(
             ({},),
@@ -374,5 +381,5 @@ def test_dossier_authenticates_source_pins_without_relabelling_derived_output_co
     ],
 )
 def test_dossier_refuses_each_source_pin_custody_or_context_substitution(monkeypatch, field, value):
-    with pytest.raises(ValueError, match="exact bound native source inputs"):
+    with pytest.raises(ValueError, match="source"):
         _run_bound_dossier(monkeypatch, changed_pin={field: value})

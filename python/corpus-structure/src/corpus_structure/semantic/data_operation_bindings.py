@@ -460,9 +460,17 @@ def compile_binding(
         for role in op.roles
         if role.support is not None and role.support.source_set is not None
     }
-    if not named_source_sets <= available_source_sets.keys():
+    required_source_sets = {
+        role.support.source_set
+        for role in op.roles
+        if role.support is not None and role.support.source == "frozen-source-set"
+    }
+    if not required_source_sets <= available_source_sets.keys():
         raise ValueError("binding lacks a declared frozen source set")
-    selected_source_sets = {name: available_source_sets[name] for name in sorted(named_source_sets)}
+    selected_source_sets = {
+        name: available_source_sets[name]
+        for name in sorted(named_source_sets & available_source_sets.keys())
+    }
     for source_set in source_sets:
         if source_set.name in named_source_sets:
             for entry in source_set.entries:
@@ -616,12 +624,16 @@ def compile_binding(
             true() if target is None else alias.c[subject_columns.get(name, "subject")] == target
         )
         support = roles[name].support
-        if support is not None and support.source_set is not None:
+        if support is not None and support.source_set in selected_source_sets:
             from .data_operation_source_sets import source_entry_predicate, source_proof_predicate
 
             scope = selected_source_sets[support.source_set]
             return and_(
                 association,
+                alias.c.original_source.is_not_distinct_from(original_source)
+                if support.source == "original-source"
+                and original_source is not _UNQUALIFIED_SOURCE
+                else true(),
                 source_entry_predicate(scope, alias),
                 source_proof_predicate(scope, alias),
             )

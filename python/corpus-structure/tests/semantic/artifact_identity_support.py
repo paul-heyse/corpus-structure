@@ -6,12 +6,12 @@ from corpus_structure.semantic.constructions.navigation import (
     artifact_source_labels,
     source_alias_fields,
 )
+from corpus_structure.semantic.data_product_reference import SemanticReference
 from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import (
     DeclaredArtifactNomination,
     DeclaredArtifactRecord,
-    DeclaredPrimaryReference,
     DeclaredSourceArtifactOccurrence,
 )
 
@@ -47,13 +47,15 @@ def record(
         analyzed_scope_meaning="{}",
         kind_contract="kind:source",
     )
-    primary = DeclaredPrimaryReference(
-        product_id="product:navigation:" + identity, member_id="member:artifact:" + identity
+    primary = dict(
+        variant="member",
+        role="constructions",
+        occurrence="0",
+        member_id="member:artifact:" + identity,
     )
     return DeclaredArtifactRecord(
         contribution_id=identity,
         occurrence_id="occurrence:" + identity,
-        source_contribution={"pin": pin.model_dump(mode="json", exclude_none=True)},
         primary_node=primary,
         citations=(
             dict(
@@ -78,8 +80,6 @@ def record(
             occurrence_role=role,
             scope="chapter5",
             source_pointer="#/texts/" + identity,
-            dependencies=(source_product,),
-            primary_node=primary,
         ),
         numbering=numbering_label,
         revision=revision_label,
@@ -106,8 +106,18 @@ def nomination(left, right, ordinal=1):
             )
             for role, key in (("attachment", left), ("target", right))
         ),
-        primary_node=DeclaredPrimaryReference(
-            product_id="product:navigation:" + left, member_id="member:reference:" + left
+        primary_node=dict(
+            variant="member",
+            role="constructions",
+            occurrence="0",
+            member_id="member:reference:" + left,
         ),
         origin_cue=dict(source_pointer="#/texts/" + left, start=0, end=3, text="See"),
     )
+
+
+def reference_for(reference):
+    """One explicitly controlled construction occurrence, without native standing."""
+    return SemanticReference.member(
+        "constructions", reference.member_id, occurrence="0"
+    ).occurrence_member_value()

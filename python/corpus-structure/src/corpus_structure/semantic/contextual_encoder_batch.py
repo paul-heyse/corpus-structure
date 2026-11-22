@@ -64,7 +64,11 @@ def encoder_packet(members, operation, *, member_metadata=None):
     bodies, frames, population = {}, {}, []
     members = _batch_members(members)
     if member_metadata is None:
-        member_metadata = (dict(learned_dependencies={}, formal_atom_parents={}),) * len(members)
+        member_metadata = (
+            dict(
+                learned_dependencies={}, construction_formal_parents={}, contextual_input_parents={}
+            ),
+        ) * len(members)
     for member, metadata in zip(members, member_metadata, strict=True):
         basis = decode_semantic_value(member["input_basis"])
         frame = None
@@ -85,7 +89,8 @@ def encoder_packet(members, operation, *, member_metadata=None):
                 input_basis_digest=_digest(member["input_basis"]),
                 frame=frame,
                 learned_dependencies=metadata["learned_dependencies"],
-                formal_atom_parents=metadata["formal_atom_parents"],
+                construction_formal_parents=metadata["construction_formal_parents"],
+                contextual_input_parents=metadata.get("contextual_input_parents", {}),
             )
         )
     return dict(
@@ -137,12 +142,28 @@ def unpack_encoder_packet(packet):
             "input_basis_digest",
             "frame",
             "learned_dependencies",
-            "formal_atom_parents",
+            "construction_formal_parents",
+            "contextual_input_parents",
         }:
             raise ValueError("encoder packet member contract changed")
         basis = decode_semantic_value(member["input_basis"])
         dependencies = member["learned_dependencies"]
-        formal = member["formal_atom_parents"]
+        formal = member["construction_formal_parents"]
+        contextual = member["contextual_input_parents"]
+        if not isinstance(contextual, dict) or any(
+            type(product) is not str
+            or not product
+            or not isinstance(parents, (tuple, list))
+            or any(
+                not isinstance(parent, (tuple, list))
+                or len(parent) != 3
+                or parent[0] not in {"formal", "constructions", "supporting"}
+                or any(type(value) is not str or not value for value in parent)
+                for parent in parents
+            )
+            for product, parents in contextual.items()
+        ):
+            raise ValueError("encoder packet contextual addresses differ from its member contract")
         if not isinstance(dependencies, dict) or any(
             type(product) is not str
             or not product
@@ -187,9 +208,8 @@ def unpack_encoder_packet(packet):
             _digest(restored) != member["input_basis_digest"]
             or frame != member["frame"]
             or (frame is not None and frame not in packet["frames"])
-            or (dependencies.keys() | formal.keys()) - {
-                row["product_id"] for row in basis["roles"] if row["role"] == "primary"
-            }
+            or (dependencies.keys() | formal.keys() | contextual.keys())
+            - {row["product_id"] for row in basis["roles"] if row["role"] == "primary"}
         ):
             raise ValueError("encoder packet member basis/frame correspondence changed")
         if frame is not None:
@@ -298,7 +318,12 @@ def prepare_encoder_members(packet, members, *, check_active=lambda: None):
                     member["input_basis"],
                     frame,
                     learned_dependencies=packet["members"][position]["learned_dependencies"],
-                    formal_atom_parents=packet["members"][position]["formal_atom_parents"],
+                    construction_formal_parents=packet["members"][position][
+                        "construction_formal_parents"
+                    ],
+                    contextual_input_parents=packet["members"][position][
+                        "contextual_input_parents"
+                    ],
                 )
             except SelectedQueryContextUnavailable as error:
                 failures[position] = member_failure("selected-context-unavailable", error)

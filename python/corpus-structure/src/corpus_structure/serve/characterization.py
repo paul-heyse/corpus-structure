@@ -170,10 +170,14 @@ def inspect_demand_definition(connection, request: DemandDefinitionRequest):
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.native_definition_projection import definition_variant_contract
 
-    contract = definition_variant_contract(
-        bound_data_operation_model(release), projection, request.variant
-    )
-    contracts = set() if contract is None else {contract}
+    model = bound_data_operation_model(release)
+    contract = definition_variant_contract(model, projection, request.variant)
+    contracts = set()
+    if contract is not None:
+        from corpus_structure.semantic.data_operation_kind_refinements import input_kind_contracts
+
+        (owner,) = [row["kind"] for row in projection["kinds"] if row["kind_contract"] == contract]
+        contracts.update(input_kind_contracts(model, (owner,))[owner])
     if not contracts:
         return dict(
             result,

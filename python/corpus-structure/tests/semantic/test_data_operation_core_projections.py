@@ -63,38 +63,22 @@ def test_archive_stages_support_keys_and_hydrates_only_staged_relations():
 def test_dependency_free_wake_filters_local_candidate_changes_by_actual_role():
     from pglast import ast
     from pglast.visitors import Visitor
+    from sqlalchemy import literal, select
 
-    from corpus_structure.semantic.data_operation_projections import _local_input_changed
+    from corpus_structure.semantic.obligation_wake_native import _computation_candidates
 
-    metadata = get_metadata()
-    query = _compile(
-        _local_input_changed(
-            metadata,
-            metadata.tables["ops.data_obligation"].alias("waiting_obligation"),
-            metadata.tables["ops.demand_use"].alias("waiting_use"),
-            metadata.tables["ops.data_demand_read"].alias("waiting_read"),
-        ).element
-    )
+    requested = select(literal("actual-origin").label("value")).subquery("requested_origins")
+    query = _compile(_computation_candidates(get_metadata(), requested))
     parsed = pglast.parse_sql(query)
     assert parsed and isinstance(parsed[0].stmt, ast.SelectStmt)
-    assert "local_input_use.demand_id = d.id" in query
-    assert "local_input_product.project_id = d.project_id" in query
-    assert "waiting_read.demand_id = d.id" in query
-    assert "jsonb_array_length(local_input_operation.value['dependencies']) = 0" in query
+    assert "wake_emitted" in query and "wake_producer" in query
     assert "accepted_kind_contracts" in query and "source_set" in query
-    assert "IS NULL" in query and "waiting_obligation.analyzed_scope" in query
-    assert "local_input_later.obligation_id = local_input_use.obligation_id" in query
-    # Authorization routines refuse, rather than returning false. Their actual
-    # evaluation must stay behind immutable role/context eligibility.
-    conditions = parsed[0].stmt.whereClause
-    assert isinstance(conditions, ast.BoolExpr) and conditions.args
-    authorization = conditions.args[-1]
-    assert isinstance(authorization, ast.CaseExpr)
-    assert authorization.args
-    assert isinstance(authorization.args[0].expr, ast.CaseExpr)
-    disclosure = authorization.args[0].result
-    assert isinstance(disclosure, ast.CaseExpr) and disclosure.args
-    assert isinstance(disclosure.args[0].result, ast.BoolExpr)
+    assert "jsonb_array_length" in query and "dependencies" in query
+    assert (
+        ".analyzed_scope" in query
+        and "wake_previous.obligation_id = wake_origin.obligation_id" in query
+    )
+    assert ".canonical_body" not in query
     calls = set()
 
     class Calls(Visitor):
@@ -102,14 +86,13 @@ def test_dependency_free_wake_filters_local_candidate_changes_by_actual_role():
             calls.add(tuple(part.sval for part in node.funcname))
 
     Calls()(parsed[0])
-    assert {
-        ("ops", "ddo_binding_subject"),
-        ("ops", "ddo_binding_source"),
-        ("ops", "ddo_kind_access"),
-        ("ops", "ddo_body_access"),
-    } <= calls
-    page = _compile(read_page(get_metadata()))
-    assert "binding_local_input_changed" in page and "watermark_prerequisites" in page
+    assert {("ops", "ddo_binding_subject"), ("ops", "ddo_binding_source")} <= calls
+    assert (
+        not {("ops", "ddo_kind_access"), ("ops", "ddo_body_access"), ("ops", "ddo_valid_closure")}
+        & calls
+    )
+    page = _compile(read_page(get_metadata(), scheduler=True))
+    assert "ddo_obligation_wake_changed" in page
 
 
 def test_selected_cut_disclosure_is_pinned_before_any_role_reacquisition():
@@ -207,15 +190,21 @@ def test_captured_sql_scope_projection_follows_its_domain_function_providers():
     from pglast import ast
     from pglast.visitors import Visitor
 
+    from corpus_structure.semantic.native_objects import native_sql_script
     from corpus_structure.semantic.native_sql_body import body_source
     from corpus_structure.semantic.prepared_sql import prepare_sql
+    from corpus_structure.semantic.target_installation import capture_target_installation
 
-    captured = native_protocol_sources()
+    installation = capture_target_installation(get_metadata())
+    captured = installation.authoring_inputs.native_sources
     scope_source = next(
         source for source in captured if source.name == "native/data-operation-support-scopes.sql"
     )
     assert "CREATE OR REPLACE FUNCTION ops.ddo_support_scopes" in scope_source.content.decode()
-    prepared = prepare_sql(native_sql(captured), source="scope-provider-installation-order")
+    prepared = prepare_sql(
+        native_sql_script(program.sql for program in installation.programs),
+        source="scope-provider-installation-order",
+    )
     declarations = {
         tuple(part.sval for part in statement.stmt.funcname or ()): (index, statement.stmt)
         for index, statement in enumerate(prepared.statements)
@@ -299,10 +288,11 @@ def test_core_projection_capture_consumes_explicit_counterfactual_metadata_witho
 
 @pytest.mark.parametrize("change", ["retire", "rename", "reclassify"])
 def test_intrinsic_trigger_inventory_follows_captured_target_classes_without_ambient_fallback(
-    change, monkeypatch, tmp_path
+    change, monkeypatch
 ):
     import yaml
 
+    from corpus_structure.model import compiled
     from corpus_structure.schema.physical import compile_physical
     from corpus_structure.semantic import native_protocol_authoring as storage
     from corpus_structure.semantic.metadata import get_metadata
@@ -321,7 +311,11 @@ def test_intrinsic_trigger_inventory_follows_captured_target_classes_without_amb
     # This table has no incoming foreign keys; each proposed physical declaration
     # remains coherent independently of the fixed current read function's support.
     assert proposed.sorted_tables
-    monkeypatch.setattr(storage, "_ROOT", tmp_path / "unavailable-installed-model")
+
+    def unavailable(name):
+        pytest.fail(f"intrinsic trigger inventory loaded installed model resource {name}")
+
+    monkeypatch.setattr(compiled, "model_source", unavailable)
     names = {
         relation.fullname
         for relation in storage.data_operation_immutable_relations(proposed, sources)

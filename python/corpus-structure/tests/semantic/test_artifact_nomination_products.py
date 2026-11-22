@@ -15,6 +15,7 @@ from corpus_structure.semantic.data_product_reference import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.record_contracts import anchor_identity
+from semantic.artifact_identity_support import reference_for
 
 
 def nomination_case():
@@ -118,6 +119,7 @@ def project(case):
             )
             for source in sources
         },
+        reference_for=reference_for,
     )
 
 
@@ -126,7 +128,9 @@ def test_native_artifact_nomination_keeps_directed_origins_cue_and_real_semantic
     assert result.endpoints[0].role == "attachment" and result.endpoints[1].role == "target"
     assert result.primary_node is not None
     assert (
-        result.origin_cue.text == "see" and result.primary_node.product_id == "product:navigation"
+        result.origin_cue.text == "see"
+        and result.primary_node["role"] == "constructions"
+        and result.primary_node["occurrence"] == "0"
     )
     assert all(endpoint.origin_source == '["product:source",null]' for endpoint in result.endpoints)
     assert result.relationship == {

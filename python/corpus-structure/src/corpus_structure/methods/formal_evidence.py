@@ -231,7 +231,7 @@ class FormalEvidenceOperation:
             "ownership": "immutable",
         },
         "behavior": "positioned formal characterization without native symbolic evaluation",
-        "parameters": {},
+        "parameters": {"math_start": {"value_type": "string", "default": "any_value"}},
         "binding": {"operator": "scan", "roles": ["source"]},
         "opaque": [
             {
@@ -314,5 +314,9 @@ class FormalEvidenceOperation:
         self.options = options
         self.check_active = check_active
 
-    def run(self, source: FrozenNativeSource) -> FormalEvidenceProduct:
-        return execute_formal_profile(self, source)
+    def run(
+        self,
+        source: FrozenNativeSource,
+        math_start: str = "any_value",
+    ) -> FormalEvidenceProduct:
+        return execute_formal_profile(self, source, math_start)

@@ -144,11 +144,46 @@ class ArtifactIdentityOperation:
         "reference_targets": [
             {
                 "output_role": "result",
+                "path": "/artifact_identity/records/*/primary_node",
+                "input_role": "constructions",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/artifact_identity/records/*/explicit_reference/primary_node",
+                "input_role": "constructions",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/artifact_identity/external_nominations/*/primary_node",
+                "input_role": "constructions",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/artifact_identity/declared_relationships/*/primary_node",
+                "input_role": "constructions",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/artifact_identity/declared_relationships/*/targets/*/work_primary_node",
+                "input_role": "constructions",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
                 "path": "/artifact_identity/external_nominations/*/relationship",
                 "input_role": "nominations",
                 "variant": "member",
                 "occurrence_binding": True,
-            }
+            },
         ],
         "output_witnesses": [
             {

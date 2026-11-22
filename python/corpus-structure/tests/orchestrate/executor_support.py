@@ -376,7 +376,7 @@ def execution_case(monkeypatch, prepared, policy, requests, ports, **options):
     def read_result(request):
         from semantic.demand_result_support import demand_result_page
 
-        result = demand_result_page()
+        result = demand_result_page(scheduler=True)
         result["demand_id"] = request["demand_id"]
         result["read_id"] = request["read_id"]
         result["obligations"][0]["obligation_id"] = request["obligation_id"]
@@ -417,7 +417,7 @@ def execution_case(monkeypatch, prepared, policy, requests, ports, **options):
     native_io.calls = WireCheckedStorage(
         {
             "claim_data_requests": claim_set,
-            "read_demand_result": read_result,
+            "resume_data_demand": read_result,
             "retain_data_completion_intent": retain,
             "publish_data_derivation": publish,
             "release_data_attempt": failed,

@@ -177,165 +177,114 @@ class DeclaredStructuralComparison:
                 {"operator": "collection", "roles": ["formal"], "collection": "set"},
             ],
         },
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/comparison/dimensions/*/left/primary_formal",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/comparison/dimensions/*/left_group/members/*/primary_formal",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/comparison/dimensions/*/left/typed/primary_formal",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/comparison/dimensions/*/left_group/members/*/typed/primary_formal",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/comparison/dimensions/*/left/typed/primary_basis",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/comparison/dimensions/*/left_group/members/*/typed/primary_basis",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/comparison/dimensions/*/left_group/primary_witnesses/*",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/comparison/dimensions/*/right/primary_formal",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/comparison/dimensions/*/right_group/members/*/primary_formal",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/comparison/dimensions/*/right/typed/primary_formal",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/comparison/dimensions/*/right_group/members/*/typed/primary_formal",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/comparison/dimensions/*/right/typed/primary_basis",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/comparison/dimensions/*/right_group/members/*/typed/primary_basis",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/comparison/dimensions/*/right_group/primary_witnesses/*",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/comparison/succession/primary_witnesses/*",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+        ],
         "output_witnesses": [
-            {
-                "output_role": "result",
-                "records": "/sources_input/*",
-                "input_role": "sources",
-                "comparisons": [
-                    {
-                        "output_field": "product_id",
-                        "input": {
-                            "role": "sources",
-                            "projection": "selected-input",
-                            "field": "product",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "reference",
-                        "input": {
-                            "role": "sources",
-                            "projection": "selected-input",
-                            "field": "reference",
-                        },
-                        "encoding": "json",
-                    },
-                    {
-                        "output_field": "kind_contract",
-                        "input": {
-                            "role": "sources",
-                            "projection": "selected-input",
-                            "field": "kind_contract",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "project_id",
-                        "input": {
-                            "role": "sources",
-                            "projection": "selected-input",
-                            "field": "project_id",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject",
-                        "input": {
-                            "role": "sources",
-                            "projection": "selected-input",
-                            "field": "subject",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject_definition",
-                        "input": {
-                            "role": "sources",
-                            "projection": "selected-input",
-                            "field": "subject_definition",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "original_source",
-                        "input": {
-                            "role": "sources",
-                            "projection": "selected-input",
-                            "field": "original_source",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "analyzed_scope_meaning",
-                        "input": {
-                            "role": "sources",
-                            "projection": "selected-input",
-                            "field": "analyzed_scope",
-                        },
-                        "encoding": "context-meaning-json",
-                    },
-                ],
-            },
-            {
-                "output_role": "result",
-                "records": "/reports_input/*",
-                "input_role": "reports",
-                "comparisons": [
-                    {
-                        "output_field": "product_id",
-                        "input": {
-                            "role": "reports",
-                            "projection": "selected-input",
-                            "field": "product",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "reference",
-                        "input": {
-                            "role": "reports",
-                            "projection": "selected-input",
-                            "field": "reference",
-                        },
-                        "encoding": "json",
-                    },
-                    {
-                        "output_field": "kind_contract",
-                        "input": {
-                            "role": "reports",
-                            "projection": "selected-input",
-                            "field": "kind_contract",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "project_id",
-                        "input": {
-                            "role": "reports",
-                            "projection": "selected-input",
-                            "field": "project_id",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject",
-                        "input": {
-                            "role": "reports",
-                            "projection": "selected-input",
-                            "field": "subject",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject_definition",
-                        "input": {
-                            "role": "reports",
-                            "projection": "selected-input",
-                            "field": "subject_definition",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "original_source",
-                        "input": {
-                            "role": "reports",
-                            "projection": "selected-input",
-                            "field": "original_source",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "analyzed_scope_meaning",
-                        "input": {
-                            "role": "reports",
-                            "projection": "selected-input",
-                            "field": "analyzed_scope",
-                        },
-                        "encoding": "context-meaning-json",
-                    },
-                ],
-            },
             {
                 "output_role": "result",
                 "records": "/inputs/sources/*",
@@ -453,31 +402,31 @@ class DeclaredStructuralComparison:
             },
             {
                 "output_role": "result",
-                "records": "/formal_input/*",
-                "input_role": "formal",
+                "records": "/comparison/left_reading",
+                "input_role": "reports",
                 "comparisons": [
                     {
                         "output_field": "product_id",
                         "input": {
-                            "role": "formal",
+                            "role": "reports",
                             "projection": "selected-input",
                             "field": "product",
                         },
                         "encoding": "value",
                     },
                     {
-                        "output_field": "reference",
+                        "output_field": "member_id",
                         "input": {
-                            "role": "formal",
+                            "role": "reports",
                             "projection": "selected-input",
-                            "field": "reference",
+                            "field": "member",
                         },
-                        "encoding": "json",
+                        "encoding": "value",
                     },
                     {
                         "output_field": "kind_contract",
                         "input": {
-                            "role": "formal",
+                            "role": "reports",
                             "projection": "selected-input",
                             "field": "kind_contract",
                         },
@@ -486,7 +435,7 @@ class DeclaredStructuralComparison:
                     {
                         "output_field": "project_id",
                         "input": {
-                            "role": "formal",
+                            "role": "reports",
                             "projection": "selected-input",
                             "field": "project_id",
                         },
@@ -495,7 +444,7 @@ class DeclaredStructuralComparison:
                     {
                         "output_field": "subject",
                         "input": {
-                            "role": "formal",
+                            "role": "reports",
                             "projection": "selected-input",
                             "field": "subject",
                         },
@@ -504,7 +453,7 @@ class DeclaredStructuralComparison:
                     {
                         "output_field": "subject_definition",
                         "input": {
-                            "role": "formal",
+                            "role": "reports",
                             "projection": "selected-input",
                             "field": "subject_definition",
                         },
@@ -513,7 +462,7 @@ class DeclaredStructuralComparison:
                     {
                         "output_field": "original_source",
                         "input": {
-                            "role": "formal",
+                            "role": "reports",
                             "projection": "selected-input",
                             "field": "original_source",
                         },
@@ -522,7 +471,86 @@ class DeclaredStructuralComparison:
                     {
                         "output_field": "analyzed_scope_meaning",
                         "input": {
-                            "role": "formal",
+                            "role": "reports",
+                            "projection": "selected-input",
+                            "field": "analyzed_scope",
+                        },
+                        "encoding": "context-meaning-json",
+                    },
+                ],
+            },
+            {
+                "output_role": "result",
+                "records": "/comparison/right_reading",
+                "input_role": "reports",
+                "comparisons": [
+                    {
+                        "output_field": "product_id",
+                        "input": {
+                            "role": "reports",
+                            "projection": "selected-input",
+                            "field": "product",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "member_id",
+                        "input": {
+                            "role": "reports",
+                            "projection": "selected-input",
+                            "field": "member",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "kind_contract",
+                        "input": {
+                            "role": "reports",
+                            "projection": "selected-input",
+                            "field": "kind_contract",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "project_id",
+                        "input": {
+                            "role": "reports",
+                            "projection": "selected-input",
+                            "field": "project_id",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "subject",
+                        "input": {
+                            "role": "reports",
+                            "projection": "selected-input",
+                            "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "subject_definition",
+                        "input": {
+                            "role": "reports",
+                            "projection": "selected-input",
+                            "field": "subject_definition",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "original_source",
+                        "input": {
+                            "role": "reports",
+                            "projection": "selected-input",
+                            "field": "original_source",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "analyzed_scope_meaning",
+                        "input": {
+                            "role": "reports",
                             "projection": "selected-input",
                             "field": "analyzed_scope",
                         },
@@ -757,85 +785,6 @@ class DeclaredConditionQualification:
             },
         ],
         "output_witnesses": [
-            {
-                "output_role": "result",
-                "records": "/source_input",
-                "input_role": "source",
-                "comparisons": [
-                    {
-                        "output_field": "product_id",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "product",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "reference",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "reference",
-                        },
-                        "encoding": "json",
-                    },
-                    {
-                        "output_field": "kind_contract",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "kind_contract",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "project_id",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "project_id",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "subject",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject_definition",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "subject_definition",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "original_source",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "original_source",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "analyzed_scope_meaning",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "analyzed_scope",
-                        },
-                        "encoding": "context-meaning-json",
-                    },
-                ],
-            },
             {
                 "output_role": "result",
                 "records": "/inputs/sources/*",

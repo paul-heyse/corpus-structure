@@ -137,7 +137,7 @@ def controlled_product(release, facts, *, dependencies=None, source=None):
         dependencies,
     )
     value["annotation_support"] = []
-    value["formal_atom_support"] = []
+    value["formal_support"] = []
     return validate_interpreted_product(
         release.prepared,
         release.model,
@@ -178,6 +178,19 @@ def evaluated_product(release, products, roots, env, *, symbolic_products=None, 
         source,
         values,
         product_type=ContextualMeaningProduct,
+        contextual_roles={
+            "constructions": tuple(
+                product
+                for key, product in products.items()
+                if symbolic_products is None or key in symbolic_products
+            ),
+            "formal": tuple(
+                product
+                for key, product in products.items()
+                if symbolic_products is not None and key not in symbolic_products
+            ),
+            "supporting": (),
+        },
         subject_context=publication_context(source),
     )
 
@@ -351,7 +364,8 @@ def test_evaluated_layer_uses_retained_shapes_and_exact_dependencies(release):
     source = controlled_product(release, literal_facts(release))
     pin = source.reference
     result = evaluated_product(release, {pin: source}, [member_reference(pin, "b1")], environment())
-    assert json.loads(result.content)["dependencies"] == [pin.values()]
+    assert "dependencies" not in json.loads(result.content)
+    assert result.contextual_input_parents == (("constructions", "0", pin.product_id),)
     assert result.inventory()["roles"]
     assert all(r["basis"]["status"] == "private_proposal" for r in result.inventory()["roles"])
 
@@ -836,7 +850,7 @@ def test_provenance_only_symbol_layer_is_not_an_implicit_reading(release):
     result = evaluated_product(
         release, {old_pin: old, pin: source}, [], environment(), symbolic_products=(pin,)
     )
-    assert {ref["product_id"] for ref in json.loads(result.content)["dependencies"]} == {
+    assert {parent for _, _, parent in result.contextual_input_parents} == {
         old.semantic_id,
         source.semantic_id,
     }

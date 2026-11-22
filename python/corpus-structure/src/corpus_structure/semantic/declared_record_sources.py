@@ -259,6 +259,12 @@ class DeclaredNativeFrameSource:
         return result
 
     @property
+    def acquired_source(self) -> FrozenNativeSource:
+        """Retain the validated source payload behind this exact occurrence frame."""
+        FrozenNativeSource._require_acquired(self._acquired_source)
+        return self._acquired_source
+
+    @property
     def value(self):
         return self.view.value
 

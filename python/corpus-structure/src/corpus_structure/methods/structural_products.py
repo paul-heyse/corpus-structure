@@ -43,12 +43,8 @@ def _located(passage, text: str, start: int) -> LocatedDefinitionSpan:
     )
 
 
-def _declared_primary(reference):
-    from corpus_structure.semantic.structural_products import (
-        DeclaredPrimaryReference,
-    )
-
-    return DeclaredPrimaryReference.model_validate(reference.values())
+def _declared_primary(reference, primary):
+    return primary.member_target(reference)
 
 
 def _formal_source(primary, source):
@@ -136,12 +132,15 @@ def _succession(left, right, *, sources, primary_layers, primary_readings=None):
                     ),
                     primary_witnesses=(
                         *(
-                            _declared_primary(value)
-                            for value in (
-                                declaration.reference,
-                                fact.reference,
-                                lineages[older.passage_id].reference,
-                                lineages[newer.passage_id].reference,
+                            _declared_primary(
+                                value,
+                                (primary_readings or {}).get(passage.source_ref, primary_layers),
+                            )
+                            for value, passage in (
+                                (declaration.reference, older),
+                                (fact.reference, newer),
+                                (lineages[older.passage_id].reference, older),
+                                (lineages[newer.passage_id].reference, newer),
                             )
                         ),
                     ),
@@ -488,12 +487,14 @@ def _threshold_inventory(passage, source, primary_layers):
                     comparator=value["comparator"],
                     quantity=value.get("quantity"),
                     unit=value.get("unit"),
-                    primary_formal=_declared_primary(field.reference),
+                    primary_formal=_declared_primary(field.reference, primary_layers),
                     basis=None if basis is None else basis.value,
                     basis_evidence=None
                     if basis is None
                     else _located(passage, basis.text, basis.start - passage.start),
-                    primary_basis=None if basis is None else _declared_primary(basis.reference),
+                    primary_basis=None
+                    if basis is None
+                    else _declared_primary(basis.reference, primary_layers),
                 ),
             )
         )
@@ -544,10 +545,11 @@ def _literal_reading(span, source, primary_layers):
     else:
         return None, None
     try:
-        return ComparisonLiteral.model_validate(literal), _declared_primary(field.reference)
+        parsed = ComparisonLiteral.model_validate(literal)
     except ValueError:
         # Exact primary syntax remains available outside this bounded domain projection.
         return None, None
+    return parsed, _declared_primary(field.reference, primary_layers)
 
 
 _ROLE_DIMENSIONS = {"actor": "actor", "predicate": "action", "object": "object"}
@@ -620,7 +622,9 @@ def _group_fields(passage, members, incomplete, *, source=None, primary_layers=N
         grouping="conjunction" if words == {"and"} else "disjunction",
         members=ordered,
         witnesses=tuple(connectors),
-        primary_witnesses=tuple(_declared_primary(fact.reference) for fact in facts),
+        primary_witnesses=tuple(
+            _declared_primary(fact.reference, primary_layers) for fact in facts
+        ),
     )
 
 
@@ -801,7 +805,7 @@ def read_retained_clause(
         groups["exception"] = DeclaredClauseFieldGroup(
             state="empty",
             witnesses=(_located(passage, fact.text, fact.start - passage.start),),
-            primary_witnesses=(_declared_primary(fact.reference),),
+            primary_witnesses=(_declared_primary(fact.reference, primary),),
         )
     condition = groups["condition"]
     threshold = groups["threshold_unit"]

@@ -249,7 +249,8 @@ def match_named_source_links(
         raise ValueError("current named navigation requires the retained primary recipe")
     index = navigation
     matches, inspected = [], set()
-    incomplete = not index.complete or bool(annotation_errors)
+    passages = tuple(passages or ())
+    incomplete = bool(passages) and (not index.complete or bool(annotation_errors))
     by_pointer = {p["item_ref"]: p for p in pieces if p["kind"] == "native_text"}
     for passage in passages or ():
         for record in index.select("named_availability"):

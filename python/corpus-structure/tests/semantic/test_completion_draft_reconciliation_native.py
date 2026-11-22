@@ -13,27 +13,17 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.data_operation_wire import wire_contracts
-from corpus_structure.semantic.metadata import get_metadata
-from corpus_structure.semantic.target_installation import capture_target_installation
 from native_test_support import principal_engine
 from semantic.data_operation_demand_support import attach, cancel_demand, claim, publish
 from semantic.data_operation_kernel_support import STORAGE, admit_kernel, prepare_kernel
-from semantic.test_target_installation_native import install_target_root
 
 
 def test_consumed_original_reconciles_after_local_ack_loss_without_new_answer(
-    semantic_bare_engine,
+    commit_db_engine,
     native_settings,
     tmp_path,
-    monkeypatch,
 ):
-    from corpus_structure.semantic import migrations
-
-    engine = semantic_bare_engine
-    _, _, _, _, _, location = install_target_root(
-        engine, capture_target_installation(get_metadata()), tmp_path
-    )
-    monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
+    engine = commit_db_engine
     preparation = prepare_kernel(STORAGE, directory=tmp_path / "kernel")
     with engine.begin() as connection:
         kernel = admit_kernel(connection, STORAGE, preparation=preparation)

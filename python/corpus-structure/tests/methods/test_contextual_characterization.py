@@ -260,7 +260,7 @@ def test_contextual_evaluation_retains_one_group_candidate_per_mention(native_so
         (snapshot,),
     )
     value["annotation_support"] = []
-    value["formal_atom_support"] = []
+    value["formal_support"] = []
     symbolic = validate_interpreted_product(
         prepared,
         model,

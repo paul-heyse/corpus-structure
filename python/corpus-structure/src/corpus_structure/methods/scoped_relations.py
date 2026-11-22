@@ -403,10 +403,10 @@ def artifact_occurrence(
             occurrence_role="caption" if caption else "reference",
             scope=pointer,
             source_pointer=pointer,
-            dependencies=(dependency,),
-            primary_node=found["primary_node"],
         )
     ).model_dump(mode="json", exclude_none=True)
+    # Working evidence is separated by the report owner before publication.
+    value["primary_node"] = found["primary_node"]
     artifact = {
         **item,
         "semantic_type": "structural.artifact",
@@ -433,7 +433,6 @@ def discover_relations(
     retained_predicates=None,
     retained_predicate_operations=(),
     retained_coordinate_texts=(),
-    primary_product_refs=(),
 ):
     """Return participants and relation candidates against actual detached source pieces.
 
@@ -1592,34 +1591,12 @@ def discover_relations(
         contributions=tuple(products),
         coordinates=tuple(coordinates.values()),
         extra_operations=tuple(
-            {
-                **operation,
-                **(
-                    {
-                        "primary_products": tuple(
-                            reference.values() for reference in primary_product_refs
-                        )
-                    }
-                ),
-            }
-            for operation in (
-                *extra_operations,
-                *predicate_operations,
-                *inline_operations,
-                *witnessed_operations,
-            )
+            (*extra_operations, *predicate_operations, *inline_operations, *witnessed_operations)
         ),
         formula_diagnostics=tuple(formula_diagnostics),
         operation=dict(
             operation_key=op,
             question="source_structural_relations",
-            **(
-                {
-                    "primary_products": tuple(
-                        reference.values() for reference in primary_product_refs
-                    )
-                }
-            ),
             operation_version="1",
             outcome="succeeded" if any(p["operation_key"] == op for p in products) else "empty",
             inspected_count=len(source_pieces),

@@ -148,9 +148,9 @@ class PreparedDefinitionInputs:
         from .source_products import FrozenNativeSource
         from .structural_products import (
             DeclaredDefinitionComponentsProduct,
-            DeclaredDefinitionComponentsReport,
+            DeclaredDefinitionSyntaxSupport,
             DeclaredStructuralInput,
-            DeclaredStructuralInputPin,
+            DeclaredSyntaxDefinitionComponentsReport,
             DefinitionStage,
             definition_component_packets,
             definition_component_report_values,
@@ -187,18 +187,17 @@ class PreparedDefinitionInputs:
         ):
             raise ValueError("definition passage exceeds its analyzed original source scope")
         primary = self.retained("syntax", syntax, "DdoDeclarationSyntaxProduct", model, selected)
-        component = primary_declaration_component_products(
+        component, evidence = primary_declaration_component_products(
             primary, selected, passage, source_pin=frame.pin.values()
         )
-        source_pin = DeclaredStructuralInputPin.from_bound(
-            source_member, project=self.context.project_id
-        )
-        primary_pins = tuple(
-            DeclaredStructuralInputPin.from_bound(member, project=self.context.project_id)
-            for member in self.members("syntax")
-        )
-        dependencies = tuple(member.product for member in self.members("syntax"))
-        report = DeclaredDefinitionComponentsReport(
+        from .data_product_reference import SemanticReference
+
+        positions = {member.product: member.reference_position for member in self.members("syntax")}
+        if any(position is None for position in positions.values()) or len(
+            set(positions.values())
+        ) != len(positions):
+            raise ValueError("definition syntax lacks its exact original input ledger")
+        report = DeclaredSyntaxDefinitionComponentsReport(
             inputs=DeclaredStructuralInput(
                 question="Read the exact retained local declaration chain.",
                 scope=scope,
@@ -206,7 +205,7 @@ class PreparedDefinitionInputs:
                 policy_id="retained-declaration-chain-v2",
                 sources=(reference,),
                 passages=(passage,),
-                dependencies=dependencies,
+                dependencies=(),
             ),
             members=definition_component_packets(self.prepared, self.context, (component,)),
             definition_components=DeclaredDefinitionComponentsProduct(
@@ -219,8 +218,18 @@ class PreparedDefinitionInputs:
                     ),
                 ),
             ),
-            sources_input=(source_pin,),
-            reports_input=primary_pins,
+            syntax_support=tuple(
+                DeclaredDefinitionSyntaxSupport(
+                    component_id=component.component_id,
+                    sentence_position=position,
+                    target=SemanticReference.member(
+                        "syntax",
+                        reference.member_id,
+                        occurrence=str(positions[reference.product.product_id]),
+                    ).occurrence_member_value(),
+                )
+                for position, reference in enumerate(evidence)
+            ),
         )
         self.check_active()
         return definition_component_report_values(report)

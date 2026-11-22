@@ -177,6 +177,7 @@ class FormalSourceReadings:
     _text: str
     source: SemanticFormalSource
     _selected: tuple[tuple[DataProductReference, dict[str, Any]], ...]
+    _input_positions: dict[str, int]
 
     @classmethod
     def from_products(cls, products, source, *, prepared=None, model=None):
@@ -194,7 +195,7 @@ class FormalSourceReadings:
         return cls._from_retained(selected, retained, lexical)
 
     @classmethod
-    def _from_retained(cls, selected, retained, lexical):
+    def _from_retained(cls, selected, retained, lexical, *, input_positions=None):
         """Private prepared-kernel read index after its parent authenticated all inputs."""
         from .identity import canonical_bytes
 
@@ -204,9 +205,32 @@ class FormalSourceReadings:
             canonical_bytes(coordinate), coordinate["projection"]
         )
         instance._selected = tuple(retained)
+        instance._input_positions = (
+            {pin.product_id: position for position, (pin, _body) in enumerate(instance._selected)}
+            if input_positions is None
+            else dict(input_positions)
+        )
+        positions = [instance._input_positions.get(pin.product_id) for pin, _ in instance._selected]
+        if (
+            len({pin.product_id for pin, _ in instance._selected}) != len(instance._selected)
+            or any(type(position) is not int or position < 0 for position in positions)
+            or len(set(positions)) != len(positions)
+        ):
+            raise ValueError("formal readings lack their exact original input positions")
         instance._lexical = tuple(lexical)
         instance._text = selected["text"]
         return instance
+
+    def member_target(self, reference):
+        """Address a retained node in the producing call's original formal input ledger."""
+        from .data_product_reference import SemanticReference
+
+        product_id = reference.product.product_id
+        if product_id not in {pin.product_id for pin, _body in self._selected}:
+            raise ValueError("formal member is outside the retained input population")
+        return SemanticReference.member(
+            "formal", reference.member_id, occurrence=str(self._input_positions[product_id])
+        ).occurrence_member_value()
 
     @cached_property
     def _indexes(self):

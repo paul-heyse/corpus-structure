@@ -145,7 +145,7 @@ def test_declared_named_reader_keeps_actual_member_origin_and_original_role_algo
     text, native, primary, product = population()
     result, refs, nominations, _ = DeclaredNamedRules((primary,), native).decode(product)
     (match,) = result.matches
-    assert refs[match].product_id == "construction-product"
+    assert refs[match].product.product_id == "construction-product"
     assert refs[match].member_id == "match"
     assert match.nodes == (1, 2, 4)
     assert [(role.role, role.extents) for role in match.roles] == [
@@ -278,6 +278,7 @@ def test_named_definition_acquisition_compiles_without_model_provider_dependenci
     assert {
         (target.path, target.input_role, target.variant) for target in operation.reference_targets
     } == {
+        ("/constructions_input", "constructions", "product"),
         (
             "/witnesses/*/basis/annotation_product",
             "annotations",

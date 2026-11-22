@@ -63,7 +63,7 @@ class ConstructionOperation:
                 "checker_operation": "text.constructions/source-native",
                 "checker_callable": "corpus_structure.semantic.construction_products.verify_interpreted_dependency_members",
                 "parameters": {
-                    "paths": ["dependencies", "formal_atom_support", "members"],
+                    "paths": ["dependencies", "formal_support", "members"],
                     "input_reads": {
                         "formal": ["members"],
                         "sentences": ["execution_profile", "block_coverage"],
@@ -215,6 +215,7 @@ class ConstructionOperation:
                     "origins": ["computation"],
                     "source": "original-source",
                     "coverage": {"role": "formal", "description": "selected-scope"},
+                    "source_set": "construction-formal-evidence",
                 },
             },
             {
@@ -273,7 +274,7 @@ class ConstructionOperation:
         "reference_targets": [
             {
                 "output_role": "result",
-                "path": "/formal_atom_support/*/target",
+                "path": "/formal_support/*/target",
                 "input_role": "formal",
                 "variant": "member",
                 "occurrence_position": True,

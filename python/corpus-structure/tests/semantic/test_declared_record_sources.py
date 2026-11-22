@@ -227,7 +227,9 @@ def test_declared_literal_record_assembly_preserves_semantic_member_pin():
         subject_definition="original-source-view",
         support_references=(),
     )
-    frame = DeclaredNativeFrameSource.acquire(prepared, native.value, member, project="p")
+    frame = DeclaredNativeFrameSource.acquire(prepared, native, member, project="p")
+    assert frame.acquired_source is native
+    assert FrozenNativeSource.acquire(prepared, frame.acquired_source) is native
     context = NativeSourceContext(
         frame,
         (),

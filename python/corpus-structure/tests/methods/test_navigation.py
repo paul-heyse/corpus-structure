@@ -1,14 +1,15 @@
 """Primary navigation fields and consumers retain exact roles without rematching."""
 
 import json
-from dataclasses import replace
 
 import pytest
+from semantic.artifact_identity_support import reference_for
 
 from corpus_structure.methods.witnessed_source_links import (
     match_named_source_links,
     symbol_declarations,
 )
+from corpus_structure.semantic.construction_products import CharacterizationSnapshot
 from corpus_structure.semantic.constructions.navigation import NativeNavigationIndex
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import StructuralPassage
@@ -82,7 +83,7 @@ def test_navigation_refuses_missing_primary_and_dangling_retained_role():
     next(packet["body"] for packet in payload["members"] if "navigation" in packet["body"])[
         "navigation"
     ]["roles"][0]["occurrences"] = ["missing-source"]
-    invalid = replace(primary.construction, content=canonical_bytes(payload))
+    invalid = CharacterizationSnapshot(primary.construction.semantic_id, canonical_bytes(payload))
     with pytest.raises(ValueError, match="unknown declared source occurrence"):
         NativeNavigationIndex((invalid,), primary.source)
 
@@ -109,7 +110,13 @@ def test_artifact_fields_and_targets_are_consumed_without_source_recognition(mon
     )
     monkeypatch.setattr(navigation, "_ARTIFACT", None)
     records = native_artifact_records(
-        view, primary.source, inputs, inputs.sources[0].identity, "work", primary.navigation
+        view,
+        primary.source,
+        inputs,
+        inputs.sources[0].identity,
+        "work",
+        primary.navigation,
+        reference_for=reference_for,
     )
 
     aliases = [row for row in records if row.artifact.controlled_code == "5.1"]
@@ -125,7 +132,7 @@ def test_artifact_fields_and_targets_are_consumed_without_source_recognition(mon
     )
     assert (target.numbering.value, target.revision.value) == ("Main", "new")
     assert all(
-        row.primary_node == row.artifact.primary_node and row.primary_node is not None
+        row.primary_node is not None and row.primary_node["role"] == "constructions"
         for row in records
     )
 

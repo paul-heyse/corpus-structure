@@ -82,7 +82,9 @@ def test_actual_artifact_profile_has_complete_current_inputs_and_scalar_factory(
         "analyzed_scope_meaning",
     }
     assert artifact_preparation.model.operation("text.constructions/source-native").recipe
-    (nomination,) = operation.reference_targets
+    (nomination,) = [
+        target for target in operation.reference_targets if target.input_role == "nominations"
+    ]
     assert nomination.input_role == "nominations" and nomination.occurrence_binding
 
 

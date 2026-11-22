@@ -14,7 +14,6 @@ from corpus_structure.semantic.structural_products import (
 )
 from semantic.definition_component_members_support import (
     unadmitted_component_members,
-    unadmitted_component_source,
 )
 from semantic.structural_admission_support import (
     definition as definition,
@@ -111,7 +110,6 @@ def test_definition_attachment_fact_identity_excludes_interpretation_proof_and_r
         kind="definition_components",
         inputs=inputs(),
         members=unadmitted_component_members((component,)),
-        sources_input=(unadmitted_component_source(),),
         definition_components=DeclaredDefinitionComponentsProduct(stages=()),
     )
     meaning = component.model_dump(exclude={"component_id"})

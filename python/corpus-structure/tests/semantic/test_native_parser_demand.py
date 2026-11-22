@@ -33,7 +33,7 @@ from semantic.current_pdf_source_support import (
     current_consumer_request,
 )
 from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
-from semantic.test_sentence_partition_chain_native import _private_source
+from semantic.test_sentence_partition_chain_native import _registered_source
 
 ROOT = Path(__file__).resolve().parents[4]
 TARGETS = (
@@ -90,7 +90,7 @@ def _captured_parser_recipe(assets, *, sentence_assets=None):
 @pytest.mark.provider_evidence
 @pytest.mark.prerequisite("pm2_native_assets")
 def test_actual_parser_demand_preserves_three_families_and_exact_resume(
-    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+    commit_db_engine, native_settings, tmp_path
 ):
     panel = json.loads(
         (
@@ -99,8 +99,8 @@ def test_actual_parser_demand_preserves_three_families_and_exact_resume(
         ).read_bytes()
     )["cases"]
     passages = tuple(panel[index]["text"] for index in (0, 2, 4))
-    with _private_source(
-        semantic_bare_engine, native_settings, tmp_path, monkeypatch, "\n".join(passages)
+    with _registered_source(
+        commit_db_engine, native_settings, tmp_path, "\n".join(passages)
     ) as source:
         kernel = admit_current_target(
             source,
@@ -212,7 +212,7 @@ def test_actual_parser_demand_preserves_three_families_and_exact_resume(
 @pytest.mark.provider_evidence
 @pytest.mark.prerequisite("pm2_native_assets")
 def test_actual_candidate_conditioned_d1_exports_exact_contextual_support(
-    semantic_bare_engine, native_settings, tmp_path, monkeypatch, record_property
+    commit_db_engine, native_settings, tmp_path, monkeypatch, record_property
 ):
     from sqlalchemy import event, text
 
@@ -227,9 +227,7 @@ def test_actual_candidate_conditioned_d1_exports_exact_contextual_support(
     hanlp_operation, maverick_operation = TARGETS[:2]
     page_bytes = 32 * 1024 * 1024
     started = perf_counter()
-    with _private_source(
-        semantic_bare_engine, native_settings, tmp_path, monkeypatch, passage
-    ) as source:
+    with _registered_source(commit_db_engine, native_settings, tmp_path, passage) as source:
         kernel = admit_current_target(
             source,
             _captured_parser_recipe(

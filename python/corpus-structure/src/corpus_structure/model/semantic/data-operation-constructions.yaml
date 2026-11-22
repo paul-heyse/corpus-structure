@@ -6,6 +6,12 @@ prefixes:
 default_prefix: dco
 default_range: string
 enums:
+  DdoConstructionFormalSupportUse:
+    permissible_values:
+      external_premise:
+      basis_external_premise:
+      required_external_choice:
+      basis_required_external_choice:
   DdoConstructionAnnotationSupportUse:
     permissible_values:
       external_premise:
@@ -158,6 +164,10 @@ classes:
     annotations:
       cs:data_universe: ordinary
     attributes:
+      dependencies:
+        range: DdoSemanticProductReference
+        inlined: true
+        multivalued: true
       members:
         range: DdoConstructionPacket
         inlined: true
@@ -170,8 +180,8 @@ classes:
     annotations:
       cs:data_universe: ordinary
     attributes:
-      formal_atom_support:
-        range: DdoConstructionFormalAtomSupport
+      formal_support:
+        range: DdoConstructionFormalSupport
         inlined: true
         multivalued: true
         value_presence: PRESENT
@@ -182,10 +192,12 @@ classes:
         multivalued: true
         value_presence: PRESENT
         minimum_cardinality: 0
-  DdoConstructionFormalAtomSupport:
+  DdoConstructionFormalSupport:
     is_a: SourceRecordProduct
     attributes:
       owner: {required: true, pattern: '^.+$(?![\s\S])'}
+      use: {range: DdoConstructionFormalSupportUse, required: true}
+      position: {range: integer, minimum_value: 0, required: true}
       target: {range: DdoSemanticReference, inlined: true, required: true}
   DdoConstructionAnnotationSupport:
     is_a: SourceRecordProduct
@@ -225,6 +237,42 @@ classes:
     annotations:
       cs:data_universe: ordinary
     attributes:
+      formal_member_support:
+        range: DdoContextualInputSupport
+        multivalued: true
+        inlined: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      formal_product_support:
+        range: DdoContextualInputSupport
+        multivalued: true
+        inlined: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      constructions_member_support:
+        range: DdoContextualInputSupport
+        multivalued: true
+        inlined: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      constructions_product_support:
+        range: DdoContextualInputSupport
+        multivalued: true
+        inlined: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      supporting_member_support:
+        range: DdoContextualInputSupport
+        multivalued: true
+        inlined: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      supporting_product_support:
+        range: DdoContextualInputSupport
+        multivalued: true
+        inlined: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
       roots:
         range: DdoSemanticMemberReference
         multivalued: true
@@ -240,6 +288,13 @@ classes:
         multivalued: true
         value_presence: PRESENT
         minimum_cardinality: 0
+  DdoContextualInputSupport:
+    is_a: SourceRecordProduct
+    attributes:
+      owner: {required: true, pattern: '^.+$(?![\s\S])'}
+      use: {required: true, pattern: '^(premise|basis_premise|choice|basis_choice|root|hypotheses|proposals|choices|attribution|context_products|binding_variable|binding_binder)$(?![\s\S])'}
+      position: {range: integer, required: true, minimum_value: 0}
+      target: {range: DdoSemanticReference, inlined: true, required: true}
   DdoInterpretedChoiceMember:
     is_a: DdoInterpretedNestedChoiceMember
     mixins:
@@ -366,10 +421,6 @@ classes:
         required: true
         inlined: true
         multivalued: true
-      dependencies:
-        range: DdoSemanticProductReference
-        inlined: true
-        multivalued: true
       outcome:
         required: true
         pattern: '^(complete|partial|failed)$(?![\s\S])'
@@ -411,8 +462,6 @@ classes:
     is_a: DdoContextualMember
     mixins:
     - DdoCharacterizedProduct
-    attributes:
-      dependencies: {range: DdoSemanticProductReference, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
 
   DdoSemanticNavigationToken:
     is_a: SourceRecordProduct

@@ -1046,11 +1046,13 @@ def _attachment_program(model, protocol: bytes):
         .distinct()
         .subquery("positioned_roles")
     )
-    ledger = func.ops.ddo_derivation_input_positions(
-        r("binding")["inputs"], retained_definition.c.input_roles
-    ).table_valued(
-        column("input_record", JSONB()), column("physical_position", Integer())
-    ).lateral("reference_position_ledger")
+    ledger = (
+        func.ops.ddo_derivation_input_positions(
+            r("binding")["inputs"], retained_definition.c.input_roles
+        )
+        .table_valued(column("input_record", JSONB()), column("physical_position", Integer()))
+        .lateral("reference_position_ledger")
+    )
     address_role = ledger.c.input_record["role"].astext
     reference_positions = (
         select(
@@ -2073,7 +2075,9 @@ def _attachment_program(model, protocol: bytes):
                     case(
                         (
                             and_(episode.is_(None), retained_id.is_(None)),
-                            func.jsonb_strip_nulls(_object(reference_positions=reference_positions)),
+                            func.jsonb_strip_nulls(
+                                _object(reference_positions=reference_positions)
+                            ),
                         ),
                         else_=_json("{}"),
                     )
@@ -2155,6 +2159,7 @@ def _attachment_batch_program(model):
     )
     scope_key, cache_key = (_value(name) for name in ("scope_key", "cache_key"))
     entries = _elements(p["items"], "attach_entry")
+    completed = _elements(results, "attached_result")
     scopes = (
         func.ops.ddo_support_scopes(
             demand("project_id"),
@@ -2289,6 +2294,18 @@ def _attachment_batch_program(model):
                 Assign("cached", cached.op("||")(func.jsonb_build_object(cache_key, result))),
                 Assign("results", results.op("||")(func.jsonb_build_array(result))),
             ),
+        ),
+        Perform(
+            func.ops.ddo_record_computation_wakes(
+                select(
+                    func.coalesce(
+                        func.jsonb_agg(completed.c.value["result"]["use_id"]),
+                        _json("[]"),
+                    )
+                )
+                .where(completed.c.value["state"].astext.in_(("attached", "fulfilled")))
+                .scalar_subquery()
+            )
         ),
         Return(_object(payload=_object(items=results))),
     )

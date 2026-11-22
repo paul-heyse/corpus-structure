@@ -175,14 +175,23 @@ def test_native_receipt_requires_exact_identity(release_guard_context):
         assert connection.scalar(select(func.count()).select_from(receipt)) == 3
 
 
-def test_catalog_extraction_retains_exact_old_and_current_catalog_area():
+def test_catalog_extraction_keeps_legacy_guard_predicates_for_sealed_replay():
     from pglast import ast, parse_plpgsql, parse_sql
 
-    from corpus_structure.semantic.migrations import ALEMBIC_DIR
     from corpus_structure.semantic.native_admission import frozen_catalog_verification
 
-    old = (ALEMBIC_DIR / "versions" / "semantic_ddo_pe_n7_admission.sql").read_text()
-    body = function_bodies(old)["data.require_execution_release"]
+    body = """BEGIN
+ IF NOT EXISTS(SELECT FROM sem.physical_contract WHERE physical_id = expected->>'physical_id') THEN
+  RAISE EXCEPTION 'catalog physical contract differs';
+ END IF;
+ IF EXISTS(SELECT FROM sem.release archived CROSS JOIN LATERAL (SELECT 1) descriptor) THEN
+  RAISE EXCEPTION 'release is not finalized';
+ END IF;
+ SELECT item.value INTO spec FROM jsonb_array_elements(expected->'functions') item(value) LIMIT 1;
+ IF NOT EXISTS(SELECT FROM sem.deployment_admission WHERE release_id = expected->>'release_id') THEN
+  PERFORM sem.record_deployment_admission();
+ END IF;
+END"""
     checks = catalog_checks(body)
     assert "sem.physical_contract" in checks
     assert "jsonb_array_elements" in checks and "'functions'" in checks

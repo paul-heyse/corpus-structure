@@ -348,9 +348,9 @@ def test_declared_native_syntax_preserves_same_domain_chain_and_genuine_primary_
     sentences, evidence = declaration_sentences_products((product,), source, passage(source))
     chain = _declaration_chain_from_sentences(sentences, passage(source))
     assert chain.label.text == "Definition 1" and chain.term.text == "samples"
-    assert [row.frame for row in chain.bindings] and all(
-        "member:" in row.frame for row in chain.bindings
-    )
+    assert {row.frame for row in chain.bindings} <= {
+        sentence.reference.member_id for sentence in sentences
+    }
     assert all(ref.values()["product_id"] == product.semantic_id for ref in evidence)
     supports = json.loads(product.content)["term_support"]
     assert len(supports) == 3
@@ -407,7 +407,7 @@ def test_target_definition_component_retains_semantic_witness_and_independent_do
         "_facts",
         lambda *_a, **_k: pytest.fail("consumer recognized declaration syntax"),
     )
-    component = primary_declaration_component_products(
+    component, evidence = primary_declaration_component_products(
         (product,),
         source,
         passage(source),
@@ -416,18 +416,16 @@ def test_target_definition_component_retains_semantic_witness_and_independent_do
     assert component.term.text == "samples" and component.basis == "declaration_chain"
     assert component.declaration_chain is not None
     witness = component.declaration_chain.model_dump(mode="json")
-    assert witness["primary_evidence"] and all(
-        reference["product_id"] == product.semantic_id and reference["member_id"]
-        for reference in witness["primary_evidence"]
+    assert "primary_evidence" not in witness
+    assert evidence and all(
+        reference.product.product_id == product.semantic_id for reference in evidence
     )
     assert "parser" not in witness and "task_id" not in canonical_bytes(witness).decode()
     assert component.content.text == (
         "Let X be a set. Let Y be a set that contains elements from the set of X. The elements of Y"
     )
-    assert witness["version"] == "definition-declaration-chain-2"
-    assert witness["naming_frame"] in {
-        reference.identity for reference in component.declaration_chain.primary_evidence
-    }
+    assert witness["version"] == "definition-declaration-chain-3"
+    assert witness["naming_frame"] in {reference.member_id for reference in evidence}
     assert len(witness["bindings"]) == 1
     assert witness["bindings"][0]["subject_token"] == 3
     assert witness["bindings"][0]["use_token"] == 12
@@ -466,7 +464,7 @@ def applicability_case():
     )
     source_ref = DeclaredStructuralSource.model_validate(frame.pin.values())
     target_passage = passage(source).model_copy(update={"source_ref": source_ref.identity})
-    component = primary_declaration_component_products(
+    component, _evidence = primary_declaration_component_products(
         (product,), source, target_passage, source_pin=frame.pin.values()
     )
     source_pin = DeclaredStructuralInputPin(
@@ -493,7 +491,6 @@ def applicability_case():
         inputs=inputs,
         members=unadmitted_component_members((component,)),
         definition_components=DeclaredDefinitionComponentsProduct(stages=()),
-        sources_input=(source_pin,),
     )
     context = {
         key: getattr(source_pin, key)
@@ -613,7 +610,11 @@ def test_declared_applicability_preserves_unknown_transfer_and_explicit_introduc
         "role": "components",
         "member_id": component.component_id,
     }
-    assert introduced.link_ref == relationship
+    assert introduced.link_ref == {
+        "variant": "member",
+        "role": "relationship",
+        "member_id": relationship.edge_id,
+    }
     assert all(row.state in {"compatible", "inapplicable"} for row in introduced.premises)
 
 
@@ -730,7 +731,7 @@ def test_current_healthy_chain_survives_unselected_malformed_sentence(monkeypatc
     )
     product = produce(source, native, canonical, changed)
     selected = passage(source).model_copy(update=dict(text=selected_text, end=len(selected_text)))
-    component = primary_declaration_component_products(
+    component, _evidence = primary_declaration_component_products(
         (product,), source, selected, source_pin=native[0].source.values()
     )
     assert component.term.text == "samples"

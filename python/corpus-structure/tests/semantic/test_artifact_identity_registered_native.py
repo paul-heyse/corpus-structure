@@ -19,6 +19,7 @@ from corpus_structure.semantic.structural_products import (
     DeclaredArtifactDeclaredRelationship,
     DeclaredArtifactIdentityProduct,
 )
+from corpus_structure.serve.demand_export import export_demand_result, verified_demand_export
 from corpus_structure.serve.structural_products import (
     SelectedStructuralRequest,
     inspect_selected_structures,
@@ -235,6 +236,10 @@ def test_current_artifact_numeric_policy_exact_witness_and_atomic_cpu_output_ref
             selection["source_reference"] for selection in parameters["selections"]
         }
         product = report.body["artifact_identity"]
+        assert report.body["inputs"]["dependencies"] == []
+        for record in product["records"]:
+            assert "source_contribution" not in record
+            assert {"primary_node", "dependencies"}.isdisjoint(record["artifact"])
         assert product["standing"] == "candidate_relative_private"
         assert product["policy"] == parameters["policy"]
         assert all(type(value) is float for value in product["policy"].values())
@@ -254,7 +259,10 @@ def test_current_artifact_numeric_policy_exact_witness_and_atomic_cpu_output_ref
             page = inspect_selected_structures(
                 connection,
                 SelectedStructuralRequest(
-                    project_id=PROJECT, demand_id=demand["demand_id"], roots=(report.root,)
+                    project_id=PROJECT,
+                    demand_id=demand["demand_id"],
+                    roots=(report.root,),
+                    max_graph_bytes=32 * 1024**2,
                 ),
             )
         assert (
@@ -310,5 +318,54 @@ def test_current_artifact_numeric_policy_exact_witness_and_atomic_cpu_output_ref
             ]
             assert pair["candidate_routes"] == ["external_pairs"]
             assert pair["score_status"] == "excluded" and pair.get("model_probability") is None
+            with kernel.engine.connect() as connection:
+                original_positions = {
+                    str(row.position): row.product_id
+                    for row in connection.execute(
+                        text(
+                            "SELECT position,product_id FROM ops.data_derivation_input "
+                            "WHERE derivation_id=:episode AND role='constructions'"
+                        ),
+                        {"episode": report.root.derivation_id},
+                    )
+                }
+            archive = tmp_path / "artifact-export"
+            with kernel.purpose("read").begin() as connection:
+                exported = export_demand_result(
+                    connection,
+                    demand["demand_id"],
+                    project_id=PROJECT,
+                    destination=archive,
+                    format="jsonl",
+                    page_rows=16,
+                    page_bytes=32 * 1024**2,
+                    scope={"product_ids": [report.root.product_id]},
+                )
+
+            def references(value):
+                if isinstance(value, dict):
+                    if value.get("variant") == "member" and value.get("role") == "constructions":
+                        yield value
+                    for nested in value.values():
+                        yield from references(nested)
+                elif isinstance(value, list):
+                    for nested in value:
+                        yield from references(nested)
+
+            with verified_demand_export(archive, manifest_digest=exported.manifest_digest) as (
+                _manifest,
+                _prepared,
+                _models,
+                index,
+            ):
+                member_rows = index.mapping("kb.data_product_member", ("product_id", "member_id"))
+                actual_refs = tuple(references(product))
+                assert actual_refs
+                for reference in actual_refs:
+                    assert set(reference) == {"variant", "role", "occurrence", "member_id"}
+                    assert (
+                        original_positions[reference["occurrence"]],
+                        reference["member_id"],
+                    ) in member_rows
         else:
             assert product["pairs"] == [] and product["declared_relationships"] == []

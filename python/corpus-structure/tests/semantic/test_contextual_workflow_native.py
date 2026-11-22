@@ -33,7 +33,13 @@ from semantic.current_pdf_source_support import (
     current_consumer_request,
 )
 from semantic.data_operation_kernel_support import Kernel
-from semantic.structural_admission_native_support import Product, execute, request, selected
+from semantic.structural_admission_native_support import (
+    DOSSIER,
+    Product,
+    execute,
+    request,
+    selected,
+)
 
 APPLICABILITY = "structure.definition_applicability/declared"
 COMPONENT_KIND = "urn:corpus:structural:DeclaredDefinitionComponentsReport"
@@ -117,7 +123,7 @@ def component_inventory(kernel, query, population):
 
 
 @pytest.fixture(scope="module")
-def current_workflow_case(native_server, native_settings, tmp_path_factory):
+def current_workflow_case(semantic_head_template, native_settings, tmp_path_factory):
     from corpus_structure.semantic.contextual_selection import freeze_contextual_target_demand
     from corpus_structure.semantic.data_operation_demands import RootSubject
     from corpus_structure.semantic.demand_results import read_demand_result
@@ -125,7 +131,9 @@ def current_workflow_case(native_server, native_settings, tmp_path_factory):
 
     directory = tmp_path_factory.mktemp("current-contextual-workflow")
 
-    with contextual_target_source(native_server, native_settings, directory, TEXT) as source:
+    with contextual_target_source(
+        semantic_head_template, native_settings, directory, TEXT
+    ) as source:
         encoder = controlled_encoder(directory / "encoder")
         kernel = admit_current_target(
             source,
@@ -413,10 +421,7 @@ def test_current_same_span_carriers_keep_original_query_episode_and_qualifying_e
         assert detached["support_state"] == "unassessed"
         assert detached["witness_standing"] == "private_authored_source_binding_hypotheses"
         assert detached["witness_input"] == {"variant": "product", "role": "witnesses"}
-        assert (
-            contextual_relationship_decision(detached).selected_edges
-            == decision.selected_edges
-        )
+        assert contextual_relationship_decision(detached).selected_edges == decision.selected_edges
         assert manifest.cut["scope"]["product_ids"] == [case.relationship.row["product_id"]]
 
 
@@ -441,11 +446,14 @@ def test_current_component_applicability_preserves_independent_transfer_unknowns
         "member_id": case.component_id,
     }
     (edge,) = [
-        row for row in contextual_relationship_decision(case.relationship.body).selected_edges
+        row
+        for row in contextual_relationship_decision(case.relationship.body).selected_edges
         if row.relation == "defined-by"
     ]
     assert reading["link_ref"] == {
-        "variant": "member", "role": "relationship", "member_id": edge.edge_id,
+        "variant": "member",
+        "role": "relationship",
+        "member_id": edge.edge_id,
     }
     assert report.body["relationship_input"] == {"variant": "product", "role": "relationship"}
     assert report.body["components_input"] == {"variant": "product", "role": "components"}
@@ -532,7 +540,11 @@ def test_native_applicability_refuses_same_component_from_a_different_actual_rep
                     applicability.row["product_id"],
                     case.components.row["product_id"],
                     supported_applicability,
-                    relationship=(literal(relationship_id), literal(edge.edge_id), literal(case.component_id)),
+                    relationship=(
+                        literal(relationship_id),
+                        literal(edge.edge_id),
+                        literal(case.component_id),
+                    ),
                 )
             ) == int(edge.relation == "defined-by")
     counts = text(
@@ -550,3 +562,100 @@ def test_native_applicability_refuses_same_component_from_a_different_actual_rep
     )
     with case.kernel.engine.connect() as connection:
         assert connection.execute(counts).one() == before
+
+
+def test_published_dossier_retains_selected_applicability(current_workflow_case, tmp_path):
+    from pathlib import Path
+
+    from corpus_structure.semantic.demand_results import read_demand_result, stream_selected_support
+    from corpus_structure.semantic.structural_products import DeclaredDefinitionApplicabilityReport
+    from corpus_structure.serve.selected_structural_review import (
+        SelectedStructuralReviewRequest,
+        export_selected_structural_review,
+        verify_selected_structural_review,
+    )
+    from corpus_structure.serve.structural_products import (
+        SelectedDossierRequest,
+        inspect_selected_dossier,
+    )
+
+    case = current_workflow_case
+    retained, _ = execute(case.kernel, applicability_request(case, introduction=True))
+    (definition,) = selected(
+        case.kernel,
+        retained["demand_id"],
+        kind="urn:corpus:structural:DeclaredDefinitionApplicabilityReport",
+    )
+    dossier_request = request(
+        case.kernel,
+        (DOSSIER,),
+        case.original.context,
+        source_sets=(
+            FrozenSourceSet.from_selected("dossier-sources", (case.original.entry(),)),
+            FrozenSourceSet.from_selected("dossier-components", (case.components.entry(),)),
+            FrozenSourceSet.from_selected("dossier-definitions", (definition.entry(),)),
+            *(
+                FrozenSourceSet.from_selected("dossier-" + role, ())
+                for role in ("comparisons", "candidates", "relationships", "admissions")
+            ),
+        ),
+        selections=(
+            DemandOperationSelection(
+                operation=DOSSIER,
+                parameters=dict(
+                    component_id=case.component_id,
+                    question="Selected meaning of count",
+                    scope="selected",
+                ),
+            ),
+        ),
+        inference="selected-definition-applicability-dossier",
+    )
+    dossier_demand, execution = execute(case.kernel, dossier_request)
+    assert execution.receipt_count == 1, json_loads(execution.snapshot)["uses"]
+    demand_id = dossier_demand["demand_id"]
+    (dossier,) = selected(
+        case.kernel, demand_id, kind="urn:corpus:structural:DeclaredDossierReport"
+    )
+    (member,) = [
+        row
+        for row in dossier.body["dossier"]["members"]
+        if row.get("applicability_outcome") == "applicable_definition"
+    ]
+    report = DeclaredDefinitionApplicabilityReport.model_validate(definition.body)
+    assert member["relation_product_id"] == report.product_id
+    assert member["sense"] == case.component_id
+    assert member["role"] == "definition"
+    read_request = SelectedDossierRequest(
+        project_id=PROJECT, demand_id=demand_id, root=dossier.root, population="membership"
+    )
+    with case.kernel.purpose("read").begin() as connection:
+        frontier = read_demand_result(
+            connection,
+            demand_id,
+            project_id=PROJECT,
+            scope={"product_ids": [dossier.row["product_id"]]},
+        )
+        (link,) = [
+            row["record"]
+            for row in stream_selected_support(connection, frontier, whole_read=True)
+            if row["relation"] == "ops.data_derivation_input"
+            and row["record"]["derivation_id"] == dossier.row["derivation_id"]
+            and row["record"]["role"] == "definitions"
+        ]
+        page = inspect_selected_dossier(connection, read_request)
+        archive = export_selected_structural_review(
+            connection,
+            SelectedStructuralReviewRequest(selection=read_request),
+            destination=tmp_path / "applicability-dossier",
+        )
+    assert link["product_id"] == definition.row["product_id"] and link["multiplicity"] == 1
+    assert page["availability"] == "observed"
+    archive_path, manifest_digest = archive["path"], archive["manifest_digest"]
+    assert isinstance(archive_path, str) and isinstance(manifest_digest, str)
+    assert (
+        verify_selected_structural_review(Path(archive_path), manifest_digest=manifest_digest)[
+            "cut_id"
+        ]
+        == archive["cut_id"]
+    )

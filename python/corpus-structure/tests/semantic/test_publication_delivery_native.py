@@ -4,14 +4,16 @@ import json
 from pathlib import Path
 from typing import cast
 
+import pytest
 from sqlalchemy import func, literal, select
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.schema.model_change import native_model_inputs
-from corpus_structure.semantic import migrations
 from corpus_structure.semantic._data_operation_wire import (
+    WireComputationalSupportMember,
     WirePublishDataDerivationRequest,
     WireRecordDataFateRequest,
+    WireResultBinding,
     WireRevokeDataSupportRequest,
 )
 from corpus_structure.semantic.canonical_sentences import canonical_sentence_operation_sources
@@ -26,11 +28,10 @@ from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.sentence_products import sentence_product_inputs
-from corpus_structure.semantic.target_installation import capture_target_installation
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
+from native_test_support import principal_engine
 from semantic.data_operation_demand_support import attach, claim, publish, retain
 from semantic.data_operation_kernel_support import STORAGE, admit_kernel, prepare_kernel
-from semantic.test_target_installation_native import install_target_root
 
 ROOT = Path(__file__).resolve().parents[4]
 PROJECT = "ddo-test"
@@ -38,14 +39,71 @@ PRODUCER = "urn:ddo-test:sample"
 CONSUMER = "urn:ddo-test:value-consumer"
 
 
-def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection(
-    semantic_bare_engine, tmp_path, monkeypatch
+@pytest.fixture
+def delivery_principal(native_settings):
+    engines = []
+
+    def acquire(admin, purpose):
+        engine = principal_engine(native_settings, purpose, admin.url.database)
+        engines.append(engine)
+        return engine
+
+    yield acquire
+    for engine in engines:
+        engine.dispose()
+
+
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True)
+def test_writer_scheduler_uses_authenticated_wire_and_refuses_reader(
+    ddo_kernel, delivery_principal
 ):
-    admin = semantic_bare_engine
+    from corpus_structure.semantic.data_operation_wire import wire_contract_digest
+
+    kernel = ddo_kernel
+    demand, _, _, _ = attach(kernel, operation=PRODUCER)
+    writer = delivery_principal(kernel.engine, "write")
+    reader = delivery_principal(kernel.engine, "read")
+    payload = {"demand_id": demand["demand_id"]}
+    with writer.begin() as connection:
+        raw = connection.scalar(select(func.ops.resume_data_demand(literal(payload, type_=JSONB))))
+        assert set(raw) == {"payload", "contract_digest"}
+        assert raw["contract_digest"] == wire_contract_digest()
+        assert raw["payload"]["demand_id"] == demand["demand_id"]
+        admitted = DataOperationStorage(connection).resume_data_demand(payload)
+        assert admitted["demand_id"] == demand["demand_id"]
+    with pytest.raises(DBAPIError, match="permission denied"), reader.begin() as connection:
+        DataOperationStorage(connection).resume_data_demand(payload)
+    with reader.begin() as connection:
+        public = DataOperationStorage(connection).read_demand_result(payload)
+    assert all(
+        not {
+            "native_readiness",
+            "native_settlement",
+            "binding_origin_changed",
+            "binding_scope_changed",
+            "binding_authority_changed",
+        }.intersection(row)
+        for row in public["obligations"]
+    )
+    with pytest.raises(DBAPIError, match="input schema"), writer.begin() as connection:
+        connection.scalar(
+            select(
+                func.ops.resume_data_demand(
+                    literal(
+                        {**payload, "unexpected": True},
+                        type_=JSONB,
+                    )
+                )
+            )
+        )
+
+
+def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection(
+    commit_db_engine, tmp_path, delivery_principal
+):
+    admin = commit_db_engine
+    writer = delivery_principal(admin, "write")
     physical = get_metadata()
-    epoch = capture_target_installation(physical, logical_sources=native_model_inputs(ROOT))
-    *_, revision_path = install_target_root(admin, epoch, tmp_path)
-    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
 
     # Lower the real declaration without running its parser provider. Check its
     # role against the same native source-address routine used for delivery.
@@ -234,8 +292,11 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
             assert deliveries(connection, scope, token.generation) == []
             assert unreconciled(connection, scope, token.generation) == [receipt]
             assert unreconciled(connection, "b", generation_b.generation) == []
-        assert advance(scope, demand) == token
-        assert advance(scope, demand) == token
+        # Ordinary execution resume repairs the committed visibility gap. The
+        # operator does not replay enrollment to make its own committed work live.
+        for _ in range(2):
+            with writer.begin() as connection:
+                DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(demand)
         with admin.begin() as connection:
             assert deliveries(connection, scope, token.generation) == [receipt]
             assert unreconciled(connection, scope, token.generation) == []
@@ -243,20 +304,30 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
     uses = physical.tables["ops.demand_use"]
 
     def snapshot(demand):
-        with admin.begin() as connection:
+        with writer.begin() as connection:
             return DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(demand)
 
     def recipient(frontier):
         return next(row for row in frontier["obligations"] if row["operation_id"] == CONSUMER)
 
-    def routes(frontier, *, after_wait=False):
-        with admin.begin() as connection:
-            connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_writer")
-            planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
-            return planner._fulfilled_use_recipients(
-                frontier,
-                [row["obligation_id"] for row in frontier["obligations"]],
-                after_wait=after_wait,
+    wakes = physical.tables["ops.data_obligation_wake"]
+
+    def origin_work(frontier):
+        with admin.connect() as connection:
+            return tuple(
+                connection.execute(
+                    select(
+                        wakes.c.obligation_id,
+                        wakes.c.origin_id,
+                        wakes.c.input_role,
+                        wakes.c.occurrence,
+                    )
+                    .where(
+                        wakes.c.obligation_id == recipient(frontier)["obligation_id"],
+                        wakes.c.origin_kind == "fulfilled-use",
+                    )
+                    .order_by(wakes.c.id)
+                ).mappings()
             )
 
     with admin.begin() as connection:
@@ -268,55 +339,41 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
     frontier_b = snapshot(b)
     target_a = recipient(frontier_a)
     assert target_a.get("request_id") is None
-    assert routes(snapshot(c)) == ()
-    (other_reason,) = routes(frontier_b)
-    assert other_reason["use_id"] != use_a
-    assert other_reason["selection_name"] == generation_b.name
-    reasons = routes(frontier_a)
-    with admin.begin() as connection:
-        connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_writer")
+    assert origin_work(snapshot(c)) == ()
+    (other_work,) = origin_work(frontier_b)
+    assert other_work["origin_id"] != use_a
+    (work,) = origin_work(frontier_a)
+    assert work["origin_id"] == use_a
+    assert work["obligation_id"] == target_a["obligation_id"] and work["input_role"] == "source"
+    assert work["occurrence"]["output_role"] == "result"
+    assert work["occurrence"]["output_position"] == 0 and work["occurrence"]["member_id"] is None
+    with writer.begin() as connection:
         planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
         ready = planner.ready(frontier_a, authorization=b"{}")
     assert [item.operation for item in ready] == [CONSUMER]
     assert [item.obligation for item in ready] == [target_a["obligation_id"]]
-    assert len(reasons) == 1
-    reason = reasons[0]
-    assert reason["use_id"] == use_a
-    assert reason["producer_operation"] == PRODUCER
-    assert reason["output_role"] == "result" and reason["output_position"] == 0
-    assert reason["input_role"] == "source"
-    assert reason["selection_name"] == restored_a.name
-    assert reason["selection_generation"] == restored_a.generation
-    assert reason["successor_fate"] == "pending" and reason["successor_use_id"] is None
-    assert set(reason) == {
-        "selection_name",
-        "selection_generation",
-        "use_id",
-        "producer_operation",
-        "output_role",
-        "output_position",
-        "recipient_obligation",
-        "recipient_operation",
-        "input_role",
-        "successor_fate",
-        "successor_use_id",
-    }
     attached_frontier = snapshot(a)
     attached_use = next(
         item
         for item in attached_frontier["uses"]
         if item["obligation_id"] == target_a["obligation_id"]
     )
-    with admin.begin() as connection:
-        planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
-        (attached_reason,) = planner._fulfilled_use_recipients(
-            attached_frontier, [target_a["obligation_id"]]
-        )
-    assert attached_reason == {
-        **reason,
-        "successor_fate": "attached",
-        "successor_use_id": attached_use["use_id"],
+    assert attached_use["fate"] == "attached"
+    assert "inputs" in attached_use["selection"]
+    binding = cast(WireResultBinding, attached_use["selection"])
+    (input_,) = binding["inputs"]
+    (support,) = binding["support"]
+    assert input_["role"] == support["role"] == "source"
+    assert input_["product_id"] == work["occurrence"]["product_id"]
+    assert "admission_use_id" in support
+    assert cast(WireComputationalSupportMember, support)["admission_use_id"] == use_a
+    assert input_["producer_output"] == {
+        "role": "result",
+        "position": 0,
+        "member_id": None,
+        "multiplicity": 1,
     }
+    assert origin_work(attached_frontier) == (work,)
     assert recipient(snapshot(b)).get("request_id") is None
 
     extra = "urn:ddo-test:source"
@@ -326,7 +383,7 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
     reused = reusable["demand_id"]
     assert reused != a
     assert attached["fate"] == "fulfilled"
-    reused_selection = advance("reused", reused)
+    advance("reused", reused)
     with admin.begin() as connection:
         reuse_id = connection.scalar(
             select(uses.c.id).where(
@@ -342,10 +399,9 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
         )
     frontier_reused = snapshot(reused)
     assert recipient(frontier_reused).get("request_id") is None
-    (reuse_reason,) = routes(frontier_reused)
-    assert reuse_reason["recipient_operation"] == CONSUMER
-    assert reuse_reason["use_id"] == reuse_id
-    assert reuse_reason["selection_name"] == reused_selection.name
+    (reuse_work,) = origin_work(frontier_reused)
+    assert reuse_work["obligation_id"] == recipient(frontier_reused)["obligation_id"]
+    assert reuse_work["origin_id"] == reuse_id and reuse_work["input_role"] == "source"
     current_reused = snapshot(reused)
     extra_obligation = next(
         row for row in current_reused["obligations"] if row["operation_id"] == extra
@@ -370,15 +426,15 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
             )
 
     remember_wait(snapshot(demand))
-    assert routes(snapshot(demand), after_wait=True) == ()
+    assert recipient(snapshot(demand))["binding_origin_changed"] is False
     published = publish(kernel, fence, intent)
     seen = snapshot(demand)
-    (pending_reason,) = routes(seen, after_wait=True)
-    assert pending_reason["successor_fate"] == "pending"
+    assert recipient(seen)["binding_origin_changed"] is True
+    (pending_work,) = origin_work(seen)
     remember_wait(seen)
     settled_wait = snapshot(demand)
-    assert routes(settled_wait, after_wait=True) == ()
-    assert routes(settled_wait) == (pending_reason,)
+    assert recipient(settled_wait)["binding_origin_changed"] is False
+    assert origin_work(settled_wait) == (pending_work,)
     assert recipient(settled_wait)["binding_authority_changed"] is False
     with admin.begin() as connection:
         DataOperationStorage(connection).revoke_data_support(
@@ -395,20 +451,19 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
         )
     revoked = snapshot(demand)
     assert recipient(revoked)["binding_authority_changed"] is True
-    assert routes(revoked) == ()
+    assert recipient(revoked)["native_readiness"]["ready"] is False
+    assert origin_work(revoked) == (pending_work,)
     remember_wait(revoked)
     assert recipient(snapshot(demand))["binding_authority_changed"] is False
 
 
 def test_dependency_free_waiter_observes_local_candidate_arrival_and_departure(
-    semantic_bare_engine, tmp_path, monkeypatch
+    commit_db_engine, tmp_path, delivery_principal
 ):
-    admin = semantic_bare_engine
+    admin = commit_db_engine
+    writer, reader = (delivery_principal(admin, purpose) for purpose in ("write", "read"))
     target = "urn:ddo-test:consumer"
     other = "urn:ddo-test:source"
-    capture = capture_target_installation(get_metadata(), logical_sources=native_model_inputs(ROOT))
-    *_, revision_path = install_target_root(admin, capture, tmp_path)
-    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
     prepared = prepare_kernel(STORAGE, directory=tmp_path / "local-readiness")
     with admin.begin() as connection:
         kernel = admit_kernel(connection, STORAGE, engine=admin, preparation=prepared)
@@ -419,7 +474,7 @@ def test_dependency_free_waiter_observes_local_candidate_arrival_and_departure(
     assert demand["demand_id"] == second["demand_id"]
 
     def snapshot():
-        with admin.begin() as connection:
+        with writer.begin() as connection:
             return DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(
                 demand["demand_id"]
             )
@@ -428,21 +483,18 @@ def test_dependency_free_waiter_observes_local_candidate_arrival_and_departure(
         return next(row for row in page["obligations"] if row["operation_id"] == target)
 
     def remember(page, obligation):
+        observed = {"read_id": page["read_id"], "reasons": []}
         with admin.begin() as connection:
             DataOperationStorage(connection).record_data_fate(
                 {
                     "obligation_id": obligation,
                     "fate": "awaiting-inputs",
-                    "selection": {
-                        "read_id": page["read_id"],
-                        "inputs_watermark": candidate(page)["inputs_watermark"],
-                        "reasons": [],
-                    },
+                    "selection": observed,
                 }
             )
 
     def target_bindings(page):
-        with admin.begin() as connection:
+        with writer.begin() as connection:
             planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
             return tuple(
                 request
@@ -453,13 +505,13 @@ def test_dependency_free_waiter_observes_local_candidate_arrival_and_departure(
     first = snapshot()
     target_id = candidate(first)["obligation_id"]
     assert candidate(first)["native_readiness"] is None
-    watermark = candidate(first)["inputs_watermark"]
+    with pytest.raises(DBAPIError, match="permission denied"), reader.begin() as connection:
+        DataOperationStorage(connection).resume_data_demand({"demand_id": demand["demand_id"]})
     remember(first, target_id)
     fence = claim(kernel, unrelated)
     publish(kernel, fence, retain(kernel, fence, outputs=(15,)))
     unchanged = snapshot()
-    assert candidate(unchanged)["binding_local_input_changed"] is False
-    assert candidate(unchanged)["inputs_watermark"] == watermark
+    assert candidate(unchanged)["binding_origin_changed"] is False
     assert target_bindings(unchanged) == ()
 
     sample_kind = kernel.identities[
@@ -479,18 +531,21 @@ def test_dependency_free_waiter_observes_local_candidate_arrival_and_departure(
     fence = claim(kernel, matching)
     published = publish(kernel, fence, retain(kernel, fence, mutate=sample_output))
     arrived = snapshot()
-    assert candidate(arrived)["binding_local_input_changed"] is True
-    assert candidate(arrived)["inputs_watermark"] == watermark
+    assert candidate(arrived)["binding_origin_changed"] is True
+    with reader.begin() as connection:
+        public = DataOperationStorage(connection).read_demand_result(
+            {"demand_id": demand["demand_id"]}
+        )
+    assert "binding_origin_changed" not in candidate(public)
     (bound,) = target_bindings(arrived)
     (member,) = bound.resolved.roles[0].members
     assert member.support_episodes == (published["derivation_id"],)
     remember(arrived, target_id)
-    assert candidate(snapshot())["binding_local_input_changed"] is False
+    assert candidate(snapshot())["binding_origin_changed"] is False
 
     remember(snapshot(), producer["obligation_id"])
     departed = snapshot()
-    assert candidate(departed)["binding_local_input_changed"] is True
+    assert candidate(departed)["binding_origin_changed"] is True
     assert candidate(departed)["binding_authority_changed"] is False
-    assert candidate(departed)["inputs_watermark"] == watermark
     assert target_bindings(departed) == ()
-    assert candidate(snapshot())["binding_local_input_changed"] is False
+    assert candidate(snapshot())["binding_origin_changed"] is False

@@ -735,9 +735,19 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         "rows",
     )
     formal_target = next(target for target in targets if target.input_role == "formal")
-    assert formal_target.path == "/formal_atom_support/*/target"
+    assert formal_target.path == "/formal_support/*/target"
     assert formal_target.occurrence_position
-    assert not consumer.reference_targets
+    assert {(target.input_role, target.variant) for target in consumer.reference_targets} == {
+        (role, variant)
+        for role in ("formal", "constructions", "supporting")
+        for variant in ("member", "product")
+    }
+    assert all(target.occurrence_position for target in consumer.reference_targets)
+    assert all(
+        role.collection == "set"
+        for role in consumer.roles
+        if role.name in {"formal", "constructions", "supporting"}
+    )
     product = {
         "source": source.value["source"],
         "selectors": source.value["selectors"],
@@ -833,7 +843,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
 
 def test_primary_support_preserves_formal_premises_and_checks_exact_annotation_addresses():
     from corpus_structure.semantic.construction_products import (
-        _stage_annotation_support,
+        _stage_construction_support,
         annotation_support_index,
         verify_interpreted_annotation_support,
     )
@@ -851,7 +861,32 @@ def test_primary_support_preserves_formal_premises_and_checks_exact_annotation_a
         "choices": [],
         "terms": [term],
     }
-    links = {"annotation_support": _stage_annotation_support(facts)}
+    annotation_support, formal_support = _stage_construction_support(
+        facts, (SimpleNamespace(semantic_id="formal"),)
+    )
+    links = {"annotation_support": annotation_support, "formal_support": formal_support}
+    assert term["external_premises"] == []
+    assert formal_support == [
+        {
+            "owner": "term",
+            "use": "external_premise",
+            "position": 0,
+            "target": {
+                "variant": "member",
+                "role": "formal",
+                "occurrence": "0",
+                "member_id": "literal",
+            },
+        }
+    ]
+    from corpus_structure.semantic.construction_formal_references import (
+        project_construction_formal_support,
+    )
+
+    projected = project_construction_formal_support(
+        {**links, "members": [{"member_id": "term", "body": term}]}, (("0", "formal"),)
+    )
+    term = projected["members"][0]["body"]
     assert term["external_premises"] == [formal]
     assert annotation_support_index(links)["term", "external_premise", None] == (
         (1, token),
@@ -882,7 +917,8 @@ def test_retained_family_ingress_uses_selected_member_context_and_checks_native_
     member = BoundRoleMember(
         product=original.semantic_id,
         kind_contract=next(
-            item.key for item in port.model.identities
+            item.key
+            for item in port.model.identities
             if item.owner == formal_role.kind and item.domain == "kind"
         ),
         subject=context.subject,

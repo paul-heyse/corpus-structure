@@ -2,8 +2,8 @@
 
 import json
 import re
+from contextlib import nullcontext
 from dataclasses import replace
-from pathlib import Path
 from typing import cast as typing_cast
 
 import pytest
@@ -13,6 +13,7 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.semantic._data_operation_wire import (
     WireCancelDataDemandRequest,
     WireClaimDataRequestsRequest,
+    WirePublishDataDerivationRequest,
     WireRevokeDataSupportRequest,
 )
 from corpus_structure.semantic.data_operation_demands import (
@@ -116,23 +117,13 @@ PINNED_WAITING_EPISODES = _waiting_episode_set_recipe()
 
 
 @pytest.fixture
-def current_pinned_waiter_kernel(semantic_bare_engine, tmp_path, monkeypatch):
-    from corpus_structure.schema.model_change import native_model_inputs
-    from corpus_structure.semantic import migrations
-    from corpus_structure.semantic.metadata import get_metadata
-    from corpus_structure.semantic.target_installation import capture_target_installation
+def current_pinned_waiter_kernel(commit_db_engine, tmp_path):
     from semantic.data_operation_kernel_support import admit_kernel, prepare_kernel
-    from semantic.test_target_installation_native import install_target_root
 
-    capture = capture_target_installation(
-        get_metadata(), logical_sources=native_model_inputs(Path(__file__).resolve().parents[4])
-    )
-    *_, revision_path = install_target_root(semantic_bare_engine, capture, tmp_path)
-    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
     recipe = PINNED_WAITING_EPISODES
     prepared = prepare_kernel(recipe, directory=tmp_path / "pinned-waiter-kernel")
-    with semantic_bare_engine.begin() as connection:
-        return admit_kernel(connection, recipe, engine=semantic_bare_engine, preparation=prepared)
+    with commit_db_engine.begin() as connection:
+        return admit_kernel(connection, recipe, engine=commit_db_engine, preparation=prepared)
 
 
 def _produce(kernel, *, subject, value, inference="inference:test"):
@@ -149,7 +140,9 @@ def _produce(kernel, *, subject, value, inference="inference:test"):
     return demand, receipt, product
 
 
-def _register(kernel, entry, inference="focus-comparison", *, expected_roots=(CONSUMER,)):
+def _register(
+    kernel, entry, inference="focus-comparison", *, expected_roots=(CONSUMER,), connection=None
+):
     intent = freeze_demand(
         kernel["model"],
         roots=(RootSubject("focus:A", "source:A", b'{"focus":true}'),),
@@ -159,8 +152,8 @@ def _register(kernel, entry, inference="focus-comparison", *, expected_roots=(CO
         execution_profile="execution:test",
     )
     assert intent.record["root_operations"] == list(expected_roots)
-    with kernel["engine"].begin() as connection:
-        return DemandPlanner(kernel["model"], DataOperationStorage(connection)).register(
+    with kernel["engine"].begin() if connection is None else nullcontext(connection) as active:
+        return DemandPlanner(kernel["model"], DataOperationStorage(active)).register(
             intent,
             project="ddo-test",
             release=kernel["prepared"].release_id,
@@ -175,6 +168,67 @@ def _ready(kernel, demand):
     with kernel["engine"].begin() as connection:
         planner = DemandPlanner(kernel["model"], DataOperationStorage(connection))
         return snapshot, planner.ready(snapshot, authorization=b"{}")
+
+
+@pytest.mark.parametrize("ddo_kernel", [PINNED_EPISODES], indirect=True)
+def test_checked_collection_attachment_supplies_complete_native_scope_coverage(ddo_kernel):
+    from corpus_structure.semantic.data_operation_service import advance_demand_selection
+
+    _, first, product = _produce(
+        ddo_kernel, subject="source-subject:B", value=42, inference="first"
+    )
+    _, second, same_product = _produce(
+        ddo_kernel, subject="source-subject:B", value=42, inference="second"
+    )
+    assert same_product == product
+    context = SubjectContext(
+        "ddo-test",
+        "source-subject:B",
+        "source:B",
+        b'{"page":1}',
+        subject_definition="original-occurrence",
+    )
+    entry = SourceSetEntry.from_semantic_source(DataProductReference(product), context=context)
+    demand = _register(ddo_kernel, entry)
+    with ddo_kernel.engine.begin() as connection:
+        advance_demand_selection(
+            connection,
+            "ddo-test",
+            "collection",
+            demand["demand_id"],
+            expected_demand_id=None,
+            expected_generation=0,
+        )
+    before, ready = _ready(ddo_kernel, demand)
+    assert (
+        next(row for row in before["obligations"] if row["operation_id"] == CONSUMER)[
+            "native_readiness"
+        ]
+        is None
+    )
+    (selected,) = ready
+    assert {member.support_episodes for member in selected.binding_result.roles[0].members} == {
+        (first["derivation_id"],),
+        (second["derivation_id"],),
+    }
+    complete_ready(ddo_kernel, selected)
+    with ddo_kernel.engine.begin() as connection:
+        final = DemandPlanner(ddo_kernel.model, DataOperationStorage(connection)).resume(
+            demand["demand_id"], settlement=True
+        )
+    assert final["scheduler_settlement"]["selections"] == [
+        {
+            "selection_name": "collection",
+            "selection_generation": 1,
+            "state": "settled",
+            "obligation_count": 1,
+            "settled_count": 1,
+            "unavailable_count": 0,
+            "pending_count": 0,
+            "uncovered_count": 0,
+            "discovery_complete": True,
+        }
+    ]
 
 
 @pytest.mark.parametrize("ddo_kernel", [PINNED], indirect=True, ids=["pinned-retained"])
@@ -573,7 +627,6 @@ def test_native_waiter_wakes_for_new_exact_pinned_use_from_another_demand(
     before, ready = _ready(ddo_kernel, demand)
     assert ready == ()
     obligation = next(row for row in before["obligations"] if row["operation_id"] == CONSUMER)
-    watermark = obligation["inputs_watermark"]
     with ddo_kernel["engine"].connect() as connection:
         saved_kernel = connection.scalar(
             text("SELECT kernel_digest FROM ops.data_demand_read WHERE id=:read"),
@@ -596,8 +649,7 @@ def test_native_waiter_wakes_for_new_exact_pinned_use_from_another_demand(
     unchanged_obligation = next(
         row for row in unchanged["obligations"] if row["operation_id"] == CONSUMER
     )
-    assert unchanged_obligation["binding_pin_changed"] is False
-    assert unchanged_obligation["inputs_watermark"] == watermark
+    assert unchanged_obligation["binding_origin_changed"] is False
 
     second_demand, second, same_product = _produce(
         ddo_kernel, subject="source-subject:B", value=42, inference="second-pinned-observation"
@@ -608,8 +660,7 @@ def test_native_waiter_wakes_for_new_exact_pinned_use_from_another_demand(
     after, ready = _ready(ddo_kernel, demand)
     assert ready == ()
     changed = next(row for row in after["obligations"] if row["operation_id"] == CONSUMER)
-    assert changed["binding_pin_changed"] is True
-    assert changed["inputs_watermark"] == watermark
+    assert changed["binding_origin_changed"] is True
     after_intent, before_intent = after["selection"], before["selection"]
     assert after_intent["version"] == "data-demand-intent-v2"
     assert before_intent["version"] == "data-demand-intent-v2"
@@ -628,7 +679,7 @@ def test_native_waiter_wakes_for_new_exact_pinned_use_from_another_demand(
     revisited_obligation = next(
         row for row in revisited["obligations"] if row["operation_id"] == CONSUMER
     )
-    assert revisited_obligation["binding_pin_changed"] is False
+    assert revisited_obligation["binding_origin_changed"] is False
 
     _, third, third_product = _produce(
         ddo_kernel, subject="source-subject:B", value=42, inference="third-pinned-observation"
@@ -642,3 +693,126 @@ def test_native_waiter_wakes_for_new_exact_pinned_use_from_another_demand(
         (second["derivation_id"],),
         (third["derivation_id"],),
     }
+
+
+@pytest.mark.parametrize("origin_commits_first", [False, True])
+def test_uncommitted_pinned_recipient_recovers_origin_without_a_sparse_pointer(
+    current_pinned_waiter_kernel, native_settings, origin_commits_first
+):
+    """Both owners miss the other's writes, then normal resume rejoins the cause."""
+    from native_test_support import principal_engine
+
+    kernel = current_pinned_waiter_kernel
+    _, first, product = _produce(kernel, subject="source-subject:B", value=42, inference="first")
+    context = SubjectContext(
+        "ddo-test",
+        "source-subject:B",
+        "source:B",
+        b'{"page":1}',
+        subject_definition="original-occurrence",
+    )
+    entry = SourceSetEntry.from_semantic_source(DataProductReference(product), context=context)
+    _, _, _, attached = attach(
+        kernel, subject="source-subject:B", original_source="source:B", inference="second"
+    )
+    fence = claim(kernel, attached, seconds=300)
+    intent = retain(kernel, fence, outputs=(42,))
+    writer = principal_engine(native_settings, "write", kernel.engine.url.database)
+    try:
+        with writer.connect() as enroller, kernel.engine.connect() as emitter:
+            enrollment = enroller.begin()
+            publication = emitter.begin()
+            try:
+                demand = _register(kernel, entry, "enrollment-overlap", connection=enroller)
+                receipt = DataOperationStorage(emitter).publish_data_derivation(
+                    typing_cast(
+                        WirePublishDataDerivationRequest,
+                        {**fence, "intent_id": intent["intent_id"]},
+                    )
+                )
+                # The emitter's exact named-pin route saw no committed recipient.
+                planner = DemandPlanner(kernel.model, DataOperationStorage(enroller))
+                first_cut = planner.resume(demand["demand_id"])
+                target = next(
+                    row["obligation_id"]
+                    for row in first_cut["obligations"]
+                    if row["operation_id"] == CONSUMER
+                )
+                assert (
+                    emitter.scalar(
+                        text(
+                            "SELECT count(*) FROM ops.data_obligation_wake WHERE obligation_id=:target"
+                        ),
+                        {"target": target},
+                    )
+                    == 0
+                )
+                if origin_commits_first:
+                    publication.commit()
+                    enrollment.commit()
+                else:
+                    enrollment.commit()
+                    publication.commit()
+            finally:
+                if publication.is_active:
+                    publication.rollback()
+                if enrollment.is_active:
+                    enrollment.rollback()
+        # Graph writes consume the retained cut in a fresh owning transaction.
+        with writer.begin() as connection:
+            assert (
+                DemandPlanner(kernel.model, DataOperationStorage(connection)).ready(
+                    first_cut, authorization=b"{}"
+                )
+                == ()
+            )
+        with writer.begin() as connection:
+            planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+            observed = planner.resume(demand["demand_id"])
+            target_row = next(
+                row for row in observed["obligations"] if row["operation_id"] == CONSUMER
+            )
+            assert target_row["binding_origin_changed"] is True
+        # Two exact episodes still fail this independent minimum of three.
+        with writer.begin() as connection:
+            assert (
+                DemandPlanner(kernel.model, DataOperationStorage(connection)).ready(
+                    observed, authorization=b"{}"
+                )
+                == ()
+            )
+        with kernel.engine.connect() as inspector:
+            assert (
+                inspector.scalar(
+                    text("SELECT ops.ddo_sparse_obligation_wake_changed(:target,:before,:after)"),
+                    {
+                        "target": target,
+                        "before": first_cut["read_id"],
+                        "after": observed["read_id"],
+                    },
+                )
+                is False
+            )
+        with writer.begin() as connection:
+            unchanged = DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(
+                demand["demand_id"]
+            )
+            assert (
+                next(row for row in unchanged["obligations"] if row["operation_id"] == CONSUMER)[
+                    "binding_origin_changed"
+                ]
+                is False
+            )
+        _, third, same_product = _produce(
+            kernel, subject="source-subject:B", value=42, inference="third"
+        )
+        assert same_product == product
+        _, ready = _ready(kernel, demand)
+        (answer,) = ready
+        assert {member.support_episodes for member in answer.binding_result.roles[0].members} == {
+            (first["derivation_id"],),
+            (receipt["derivation_id"],),
+            (third["derivation_id"],),
+        }
+    finally:
+        writer.dispose()

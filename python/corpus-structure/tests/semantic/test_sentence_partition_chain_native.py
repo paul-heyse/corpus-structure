@@ -10,9 +10,10 @@ import pytest
 from sqlalchemy import func, literal, select
 from sqlalchemy.dialects.postgresql import JSONB
 
-from corpus_structure.schema.model_change import native_model_inputs
-from corpus_structure.semantic import migrations
-from corpus_structure.semantic._data_operation_wire import WireResultBinding
+from corpus_structure.semantic._data_operation_wire import (
+    WireComputationalSupportMember,
+    WireResultBinding,
+)
 from corpus_structure.semantic.canonical_sentences import canonical_sentence_operation_sources
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_demands import DemandPlanner
@@ -26,14 +27,12 @@ from corpus_structure.semantic.data_operation_storage import (
 )
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.demand_results import read_demand_result, stream_selected_support
-from corpus_structure.semantic.metadata import get_metadata, table
+from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.primary_operations import combine_primary_sources
 from corpus_structure.semantic.sentence_products import sentence_product_inputs
-from corpus_structure.semantic.target_installation import capture_target_installation
 from native_test_support import principal_engine
 from semantic.current_pdf_source_support import (
     PROJECT,
-    ROOT,
     PdfSourceScenario,
     admit_current_target,
     build_pdf_source,
@@ -53,7 +52,6 @@ from semantic.structural_production_native_support import (
     produce_source_reports,
     selected_for_source,
 )
-from semantic.test_target_installation_native import install_target_root
 
 
 def _recipe(directory, *, target="canonical", sentence_configuration=None):
@@ -114,12 +112,12 @@ def _recipe(directory, *, target="canonical", sentence_configuration=None):
 
 
 @contextmanager
-def _private_pdf_captures(admin, native_settings, tmp_path, monkeypatch):
-    epoch = capture_target_installation(get_metadata(), logical_sources=native_model_inputs(ROOT))
-    *_, revision_path = install_target_root(admin, epoch, tmp_path)
-    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
-    with ExitStack() as resources:
+def _registered_pdf_captures(admin, native_settings, tmp_path):
+    from corpus_structure.orchestrate.execution_host import execution_host_scope
+
+    with execution_host_scope(), ExitStack() as resources:
         purposes = {}
+        kernels = {}
 
         def purpose(name):
             if name not in purposes:
@@ -138,16 +136,16 @@ def _private_pdf_captures(admin, native_settings, tmp_path, monkeypatch):
                 inputs,
                 purpose_engine=purpose,
                 source_uri=source_uri,
+                kernel_stage=kernels.get(scenario.math_context),
             )
+            kernels[scenario.math_context] = stage.kernel
             return stage.acquired(SimpleNamespace(admin=admin, purpose=purpose))
 
         yield capture
 
 
 @contextmanager
-def _private_source(
-    admin, native_settings, tmp_path, monkeypatch, text, *other_texts, scenario=None
-):
+def _registered_source(admin, native_settings, tmp_path, text, *other_texts, scenario=None):
     if scenario is None:
         texts = (text, *other_texts)
         scenario = PdfSourceScenario(
@@ -155,18 +153,19 @@ def _private_source(
             tuple(f"#/groups/{index}" for index in range(len(texts))),
             False,
         )
-    with _private_pdf_captures(admin, native_settings, tmp_path, monkeypatch) as capture:
+    with _registered_pdf_captures(admin, native_settings, tmp_path) as capture:
         yield capture(scenario)
 
 
 @pytest.mark.gpu
 @pytest.mark.provider_evidence
 def test_actual_population_readback_binds_moved_renamed_and_split_occurrences(
-    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+    commit_db_engine, native_settings, tmp_path
 ):
     operation = "segment.sentences/canonical-projection"
     namespace = "https://corpus-structure.dev/semantic/data-operation-sentences/"
     ada, bob = "Ada acts.", "Bob waits."
+    selection_name = "canonical-reconverted-occurrences"
 
     def scenario(texts, *, reverse=False):
         content = section_content(
@@ -178,7 +177,7 @@ def test_actual_population_readback_binds_moved_renamed_and_split_occurrences(
             content = replace(content, document_json=json.dumps(document).encode())
         return PdfSourceScenario(content, ("#/groups/0",), False)
 
-    def read_occurrences(source, kernel, expected):
+    def read_occurrences(source, kernel, expected, *, predecessor=(None, 0)):
         (pin,) = [
             header
             for header, body in selected_current_sources(source)
@@ -192,6 +191,8 @@ def test_actual_population_readback_binds_moved_renamed_and_split_occurrences(
             text=None,
             original_source=pin["original_source"],
             discovered_entries=(source_entry(pin),),
+            selection_name=selection_name,
+            selection_predecessor=predecessor,
         )
         (annotations,) = selected_for_source(
             kernel, products, namespace + "DdoSourceAnnotations", original
@@ -255,11 +256,11 @@ def test_actual_population_readback_binds_moved_renamed_and_split_occurrences(
                 for row in canonical_rows
             )
             digest_and_start[pointer] = (anno["partition_digest"], start)
-        return digest_and_start
+        assert original.row["original_source"] == pin["original_source"]
+        assert canonical.row["original_source"] == pin["original_source"]
+        return retained["demand_id"], digest_and_start
 
-    with _private_pdf_captures(
-        semantic_bare_engine, native_settings, tmp_path, monkeypatch
-    ) as capture:
+    with _registered_pdf_captures(commit_db_engine, native_settings, tmp_path) as capture:
         base_source = capture(scenario((ada,)), "base", source_uri="base.pdf")
         moved_source = capture(scenario((ada, bob), reverse=True), "moved", source_uri="moved.pdf")
         split_source = capture(scenario((bob, ada, ada)), "split", source_uri="split.pdf")
@@ -267,11 +268,14 @@ def test_actual_population_readback_binds_moved_renamed_and_split_occurrences(
         kernel = admit_current_target(
             base_source, _recipe(tmp_path / "recipe"), tmp_path / "target"
         )
-        base = read_occurrences(base_source, kernel, [("#/texts/0", ada, [(0, 9)])])
-        moved = read_occurrences(
-            moved_source, kernel, [("#/texts/1", bob, [(0, 10)]), ("#/texts/0", ada, [(0, 9)])]
+        base_id, base = read_occurrences(base_source, kernel, [("#/texts/0", ada, [(0, 9)])])
+        moved_id, moved = read_occurrences(
+            moved_source,
+            kernel,
+            [("#/texts/1", bob, [(0, 10)]), ("#/texts/0", ada, [(0, 9)])],
+            predecessor=(base_id, 1),
         )
-        split = read_occurrences(
+        split_id, split = read_occurrences(
             split_source,
             kernel,
             [
@@ -279,12 +283,22 @@ def test_actual_population_readback_binds_moved_renamed_and_split_occurrences(
                 ("#/texts/1", ada, [(0, 9)]),
                 ("#/texts/2", ada, [(0, 9)]),
             ],
+            predecessor=(moved_id, 2),
         )
-        merged = read_occurrences(
+        merged_id, merged = read_occurrences(
             merged_source,
             kernel,
             [("#/texts/0", bob, [(0, 10)]), ("#/texts/1", f"{ada} {ada}", [(0, 9), (10, 19)])],
+            predecessor=(split_id, 3),
         )
+        selections = table("ops.data_demand_selection")
+        with kernel.engine.connect() as connection:
+            history = connection.execute(
+                select(selections.c.generation, selections.c.demand_id)
+                .where(selections.c.project_id == PROJECT, selections.c.name == selection_name)
+                .order_by(selections.c.generation)
+            ).all()
+        assert history == [(1, base_id), (2, moved_id), (3, split_id), (4, merged_id)]
         assert base["#/texts/0"][0] == moved["#/texts/0"][0]
         assert base["#/texts/0"][1] < moved["#/texts/0"][1]
         assert moved["#/texts/1"][0] == split["#/texts/0"][0]
@@ -296,25 +310,26 @@ def test_actual_population_readback_binds_moved_renamed_and_split_occurrences(
 @pytest.mark.gpu
 @pytest.mark.provider_evidence
 def test_actual_annotation_partition_proof_and_canonical_chain(
-    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+    commit_db_engine, native_settings, tmp_path, monkeypatch
 ):
     text = "Ada acts. Bob waits."
     target = "segment.sentences/canonical-projection"
     namespace = "https://corpus-structure.dev/semantic/data-operation-sentences/"
-    with _private_source(
-        semantic_bare_engine, native_settings, tmp_path, monkeypatch, text
-    ) as source:
+    with _registered_source(commit_db_engine, native_settings, tmp_path, text) as source:
         kernel = admit_current_target(source, _recipe(tmp_path / "recipe"), tmp_path / "target")
-        observed_routes = []
-        find_recipients = DemandPlanner._fulfilled_use_recipients
+        observed_wakes = []
+        resume = DemandPlanner.resume
 
-        def observe_recipients(planner, snapshot, page, **options):
-            reasons = find_recipients(planner, snapshot, page, **options)
-            if options.get("after_wait"):
-                observed_routes.extend(reasons)
-            return reasons
+        def observe_resume(planner, *args, **options):
+            snapshot = resume(planner, *args, **options)
+            observed_wakes.extend(
+                row["obligation_id"]
+                for row in snapshot["obligations"]
+                if row.get("binding_origin_changed")
+            )
+            return snapshot
 
-        monkeypatch.setattr(DemandPlanner, "_fulfilled_use_recipients", observe_recipients)
+        monkeypatch.setattr(DemandPlanner, "resume", observe_resume)
         retained, original, products, _ = produce_source_reports(
             source, kernel, target, text=text, selection_name="canonical-sentences"
         )
@@ -467,29 +482,46 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
             for use in frontier["uses"]
             if use["obligation_id"] == consumer["obligation_id"] and use["fate"] == "fulfilled"
         ]
-        with kernel.purpose("write").begin() as connection:
-            planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
-            reasons = planner._fulfilled_use_recipients(frontier, [consumer["obligation_id"]])
-        assert reasons == (
-            {
-                "selection_name": selection.name,
-                "selection_generation": selection.generation,
-                "use_id": annotation_use["use_id"],
-                "producer_operation": producer["operation_id"],
-                "output_role": "result",
-                "output_position": 0,
-                "recipient_obligation": consumer["obligation_id"],
-                "recipient_operation": target,
-                "input_role": "inventory",
-                "successor_use_id": canonical_use["use_id"],
-                "successor_fate": "fulfilled",
-            },
-        )
-        assert {
-            **reasons[0],
-            "successor_use_id": None,
-            "successor_fate": "pending",
-        } in observed_routes
+        assert "inputs" in canonical_use["selection"]
+        binding = cast(WireResultBinding, canonical_use["selection"])
+        (inventory,) = [row for row in binding["inputs"] if row["role"] == "inventory"]
+        (inventory_support,) = [row for row in binding["support"] if row["role"] == "inventory"]
+        assert inventory["product_id"] == annotation.row["product_id"]
+        assert inventory["producer_output"] == {
+            "role": "result",
+            "position": 0,
+            "member_id": None,
+            "multiplicity": 1,
+        }
+        assert "admission_use_id" in inventory_support
+        support = cast(WireComputationalSupportMember, inventory_support)
+        assert support["derivation_id"] == annotation_use["derivation_id"]
+        assert consumer["obligation_id"] in observed_wakes
+        wake = table("ops.data_obligation_wake")
+        use = table("ops.demand_use")
+        with kernel.engine.connect() as connection:
+            (origin,) = connection.execute(
+                select(use).where(
+                    use.c.id == support["admission_use_id"],
+                )
+            ).mappings()
+            assert origin["obligation_id"] == producer["obligation_id"]
+            assert origin["derivation_id"] == support["derivation_id"]
+            (work,) = connection.execute(
+                select(wake.c.occurrence).where(
+                    wake.c.obligation_id == consumer["obligation_id"],
+                    wake.c.origin_kind == "fulfilled-use",
+                    wake.c.origin_id == origin["id"],
+                    wake.c.input_role == "inventory",
+                )
+            ).scalars()
+        assert work == {
+            "output_role": "result",
+            "output_position": 0,
+            "product_id": annotation.row["product_id"],
+            "member_id": None,
+        }
+        assert selection.name == "canonical-sentences" and selection.generation >= 1
         repeated = execute_captured_kernel_demand(kernel, demand_id)
         assert repeated.receipt_count == 0
 
@@ -497,7 +529,7 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
 @pytest.mark.gpu
 @pytest.mark.provider_evidence
 def test_actual_canonical_adopts_equal_projection_from_another_annotation_capture(
-    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+    commit_db_engine, native_settings, tmp_path
 ):
     from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
@@ -505,8 +537,9 @@ def test_actual_canonical_adopts_equal_projection_from_another_annotation_captur
     text = "Ada acts. Bob waits."
     operation = "segment.sentences/canonical-projection"
     namespace = "https://corpus-structure.dev/semantic/data-operation-sentences/"
+    selection_name = "canonical-annotation-capture"
 
-    def capture(source, name, batch_size):
+    def capture(source, name, batch_size, *, predecessor=(None, 0)):
         directory = tmp_path / name
         directory.mkdir()
         config = SentenceConfig(exclude=("ner",), batch_size=batch_size)
@@ -516,7 +549,12 @@ def test_actual_canonical_adopts_equal_projection_from_another_annotation_captur
             directory / "target",
         )
         retained, original, products, _ = produce_source_reports(
-            source, kernel, operation, text=text
+            source,
+            kernel,
+            operation,
+            text=text,
+            selection_name=selection_name,
+            selection_predecessor=predecessor,
         )
         (annotation,) = selected_for_source(
             kernel, products, namespace + "DdoSourceAnnotations", original
@@ -553,12 +591,10 @@ def test_actual_canonical_adopts_equal_projection_from_another_annotation_captur
         ]
         return kernel, demand_id, annotation, canonical, fulfilled, digest
 
-    with _private_source(
-        semantic_bare_engine, native_settings, tmp_path, monkeypatch, text
-    ) as source:
+    with _registered_source(commit_db_engine, native_settings, tmp_path, text) as source:
         first, first_demand, annotated, canonical, published, digest = capture(source, "first", 64)
         second, second_demand, revised, selected, adopted, revised_digest = capture(
-            source, "revised", 1
+            source, "revised", 1, predecessor=(first_demand, 1)
         )
 
         assert first.runtime != second.runtime
@@ -578,6 +614,7 @@ def test_actual_canonical_adopts_equal_projection_from_another_annotation_captur
         generations = table("ops.data_request_generation")
         demands = table("ops.data_demand")
         populations = table("ops.data_population")
+        selections = table("ops.data_demand_selection")
         historical = populations.alias("historical_population")
         forged_population = func.jsonb_populate_record(
             populations.table_valued(),
@@ -603,6 +640,11 @@ def test_actual_canonical_adopts_equal_projection_from_another_annotation_captur
             )
 
         with second.engine.begin() as connection:
+            selection_history = connection.execute(
+                select(selections.c.generation, selections.c.demand_id)
+                .where(selections.c.project_id == PROJECT, selections.c.name == selection_name)
+                .order_by(selections.c.generation)
+            ).all()
             producing_product = connection.scalar(
                 select(inputs.c.product_id).where(
                     inputs.c.derivation_id == published["derivation_id"]
@@ -631,6 +673,7 @@ def test_actual_canonical_adopts_equal_projection_from_another_annotation_captur
                 .where(demands.c.id == second_demand, historical.c.demand_id == first_demand)
             ).all()
         assert producing_product == annotated.row["product_id"]
+        assert selection_history == [(1, first_demand), (2, second_demand)]
         assert current_attempts == 0
         assert (True, False) in population_support
         assert all(stale is False for _, stale in population_support)
@@ -658,16 +701,14 @@ def test_actual_canonical_adopts_equal_projection_from_another_annotation_captur
 @pytest.mark.gpu
 @pytest.mark.provider_evidence
 def test_actual_hanlp_declaration_binds_the_historical_canonical_input(
-    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+    commit_db_engine, native_settings, tmp_path
 ):
     from corpus_structure.semantic.constructions.retained_declarations import DECLARATION_FAMILY
 
     text = "The mean is 2."
     target = "text.declaration_syntax/source-native"
     namespace = "https://corpus-structure.dev/semantic/"
-    with _private_source(
-        semantic_bare_engine, native_settings, tmp_path, monkeypatch, text
-    ) as source:
+    with _registered_source(commit_db_engine, native_settings, tmp_path, text) as source:
         kernel = admit_current_target(
             source, _recipe(tmp_path / "recipe", target="declaration"), tmp_path / "target"
         )
@@ -690,12 +731,10 @@ def test_actual_hanlp_declaration_binds_the_historical_canonical_input(
 @pytest.mark.gpu
 @pytest.mark.provider_evidence
 def test_actual_construction_names_admitted_annotation_rows(
-    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+    commit_db_engine, native_settings, tmp_path
 ):
     text = "If it rains, Ada waits."
-    with _private_source(
-        semantic_bare_engine, native_settings, tmp_path, monkeypatch, text
-    ) as source:
+    with _registered_source(commit_db_engine, native_settings, tmp_path, text) as source:
         kernel = admit_current_target(
             source, _recipe(tmp_path / "recipe", target="construction"), tmp_path / "target"
         )
@@ -737,7 +776,7 @@ def test_actual_construction_names_admitted_annotation_rows(
 @pytest.mark.gpu
 @pytest.mark.provider_evidence
 def test_actual_annotation_fork_shares_admitted_source_and_formal_input(
-    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+    commit_db_engine, native_settings, tmp_path, monkeypatch
 ):
     from corpus_structure.semantic.canonical_sentences import (
         PreparedCanonicalProfile,
@@ -772,8 +811,8 @@ def test_actual_annotation_fork_shares_admitted_source_and_formal_input(
     )
     scenario = PdfSourceScenario(section_content(rows, one_section=True), ("#/groups/0",), True)
     targets = ("text.declaration_syntax/source-native", "text.constructions/source-native")
-    with _private_source(
-        semantic_bare_engine, native_settings, tmp_path, monkeypatch, declaration, scenario=scenario
+    with _registered_source(
+        commit_db_engine, native_settings, tmp_path, declaration, scenario=scenario
     ) as source:
         kernel = admit_current_target(
             source, _recipe(tmp_path / "recipe", target="fork"), tmp_path / "target"

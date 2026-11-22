@@ -125,7 +125,7 @@ def product_value(case, facts, dependencies=()) -> dict[str, Any]:
             dependencies,
         ),
         "annotation_support": [],
-        "formal_atom_support": [],
+        "formal_support": [],
     }
 
 

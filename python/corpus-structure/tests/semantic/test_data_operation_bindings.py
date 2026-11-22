@@ -1361,6 +1361,55 @@ def test_sql_source_set_selects_exact_product_without_relabelling_source(storage
     )
 
 
+def test_optional_original_source_set_preserves_default_and_explicit_empty(storage):
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SourceSetEntry
+    from corpus_structure.semantic.data_product_reference import (
+        DataProductMemberReference,
+        DataProductReference,
+    )
+
+    connection, _table, projection = storage
+    schema = model(BindingExpression("scan", roles=("items",)))
+    operation = schema.operations[0]
+    role = operation.roles[0]
+    assert role.support is not None
+    role = replace(
+        role, support=replace(role.support, source="original-source", source_set="inputs")
+    )
+    schema = replace(schema, operations=(replace(operation, roles=(role,)),))
+
+    def bind(*scopes):
+        return execute_binding(
+            connection,
+            compile_binding(
+                schema,
+                "urn:op",
+                (projection,),
+                subject="doc",
+                original_source="source",
+                source_sets=scopes,
+            ),
+        )
+
+    assert bind().status == "ready"
+    entry = SourceSetEntry.from_semantic_source(
+        DataProductMemberReference(DataProductReference("p2"), "m2"),
+        context=SubjectContext(
+            "project", "doc", "source", b'{"page":1}', subject_definition="document"
+        ),
+    )
+    selected = bind(FrozenSourceSet.unqualified("inputs", (entry,)))
+    assert [member.product for member in selected.roles[0].members] == ["p2"]
+    assert bind(FrozenSourceSet.unqualified("inputs", ())).status == "awaiting-inputs"
+    assert (
+        bind(
+            FrozenSourceSet.unqualified("inputs", (replace(entry, original_source="foreign"),))
+        ).status
+        == "awaiting-inputs"
+    )
+
+
 def test_native_population_member_ids_are_qualified_by_owning_product(storage):
     connection, table, projection = storage
     original = dict(

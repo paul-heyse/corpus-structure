@@ -197,7 +197,7 @@ def test_reconstructed_binding_consumes_original_pinned_read_without_attachment(
         seen.append(("binding", value["read_id"], options))
         return (bound,)
 
-    storage = SimpleNamespace(read_demand_result=read)
+    storage = SimpleNamespace(resume_data_demand=read)
     cast(Any, executor.native_io).calls = storage
     cast(Any, executor.native_io).plan = lambda _model: SimpleNamespace(bound_requests=bindings)
     monkeypatch.setattr(
@@ -273,8 +273,7 @@ def test_batches_never_mix_distinct_execution_bases(monkeypatch, prepared):
         )
         for item in executor._ready_items
     )
-    executor._ready_context = lambda item: contexts[int(item.obligation) % 2]
-    executor._execution_context = lambda claim: contexts[int(claim.request_id) % 2]
+    executor._contexts.update({context.basis.key: context for context in contexts})
 
     result = executor.advance("controlled-demand")
     assert result.receipt_count == 4

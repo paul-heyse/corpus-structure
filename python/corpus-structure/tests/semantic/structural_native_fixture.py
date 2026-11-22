@@ -20,7 +20,7 @@ ASSET = "structural-native-fixture/source-assets"
 OPERATION = "fixture.structural_inventory"
 
 
-def source_values(prepared, model, source, pin, context, source_input):
+def source_values(prepared, model, source, pin, context):
     from corpus_structure.semantic.contributions import (
         bind_contributions,
         contribution_identity,
@@ -236,7 +236,6 @@ def source_values(prepared, model, source, pin, context, source_input):
                     )
                 ],
             ),
-            sources_input=[source_input],
         )
     )
     return dict(
@@ -249,14 +248,12 @@ def execute_profile(receiver, source):
 
 
 def execute_kernel(
-    source: dict, pin: dict, context: dict, source_input: dict, *, prepared, check_active
+    source: dict, pin: dict, context: dict, *, prepared, check_active
 ) -> dict[str, dict]:
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 
     check_active()
-    return source_values(
-        prepared, bound_data_operation_model(prepared), source, pin, context, source_input
-    )
+    return source_values(prepared, bound_data_operation_model(prepared), source, pin, context)
 
 
 class ControlledStructuralInventory:
@@ -311,6 +308,123 @@ class ControlledStructuralInventory:
             },
         ],
         "result_fields": {"predicates": "predicates", "components": "components"},
+        "output_witnesses": [
+            {
+                "output_role": "components",
+                "records": "/inputs/sources/*",
+                "input_role": "source",
+                "comparisons": [
+                    {
+                        "output_field": "source",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "reference",
+                        },
+                        "encoding": "json",
+                    },
+                    {
+                        "output_field": "source_product",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "product",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "kind_contract",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "kind_contract",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "project_id",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "project_id",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "subject",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "subject_definition",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "subject_definition",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "original_source",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "original_source",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "analyzed_scope_meaning",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "analyzed_scope",
+                        },
+                        "encoding": "context-meaning-json",
+                    },
+                    {
+                        "output_field": "document",
+                        "input": {
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/document",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "projection_digest",
+                        "input": {
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/projection",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "section_pointer",
+                        "input": {
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/section_pointer",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "membership",
+                        "input": {
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/membership",
+                        },
+                        "encoding": "value",
+                    },
+                ],
+            }
+        ],
         "applicability": [{"kind": "documentation", "text": "exact-finite-Ada-acts-source-only"}],
         "invariants": [
             {
@@ -390,7 +504,6 @@ class InventoryPlan:
     def plan(self, arguments, *, binding, check_active, execution_owner):
         from corpus_structure.semantic.data_operation_json import json_loads
         from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
-        from corpus_structure.semantic.structural_products import DeclaredStructuralInputPin
 
         if binding is None or binding.subject_context is None or not binding.sufficient:
             raise ValueError(
@@ -412,9 +525,6 @@ class InventoryPlan:
                 subject_definition=context.subject_definition,
                 analyzed_scope=json_loads(context.analyzed_scope),
             ),
-            source_input=DeclaredStructuralInputPin.from_bound(
-                member, project=context.project_id
-            ).model_dump(mode="python"),
             prepared=self.prepared,
             check_active=check_active,
         )

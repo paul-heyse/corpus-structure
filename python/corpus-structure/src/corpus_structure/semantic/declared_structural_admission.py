@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .data_operation_model import EffectContract
 from .declared_structural_references import DeclaredProductRef
 from .identity import canonical_bytes
+from .structural_products import DEFINITION_COMPONENT_KINDS
 
 ADMISSION_OPERATION = "structure.admit"
 ADMISSION_FACTORY = "corpus_structure.methods.structural_admission.StructuralAdmission.acquire_port"
@@ -414,9 +415,7 @@ def validate_structural_report_support(
         or kind is None
         or kind["kind"]
         not in (
-            {nominal, "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport"}
-            if variant == "definition_components"
-            else {nominal}
+            set(DEFINITION_COMPONENT_KINDS) if variant == "definition_components" else {nominal}
         )
         or kind["universe"] != "ordinary"
         or len(selected_outputs) != 1

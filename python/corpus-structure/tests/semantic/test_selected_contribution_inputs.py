@@ -342,7 +342,7 @@ def test_consumed_use_selection_keeps_same_derivation_uses_separate(tmp_path, mo
                         use_id="other-use",
                         derivation_id="root-episode",
                         fate="fulfilled",
-                        selection={"inputs_watermark": "another-selected-basis"},
+                        selection={"read_id": "read:another-selected-basis"},
                     )
                 ],
             }
@@ -354,7 +354,7 @@ def test_consumed_use_selection_keeps_same_derivation_uses_separate(tmp_path, mo
         monkeypatch.setattr(index, "frontier_rows", refuse_scan)
         assert selected_use_selection(index, "root-use", "root-episode")["inputs"] == []
         assert selected_use_selection(index, "other-use", "root-episode") == {
-            "inputs_watermark": "another-selected-basis"
+            "read_id": "read:another-selected-basis"
         }
         with pytest.raises(ValueError, match="exact fulfilled use"):
             selected_use_selection(index, "absent", "root-episode")

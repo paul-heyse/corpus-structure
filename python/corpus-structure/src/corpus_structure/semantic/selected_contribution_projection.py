@@ -59,6 +59,12 @@ def contribution_rows(
                 max_nested_members=request.max_nested_members,
             )
         elif selected.nominal in candidate_kinds.families:
+            if selected.reference.member_id is None:
+                from .contribution_input_references import (
+                    require_selected_contribution_input_support,
+                )
+
+                require_selected_contribution_input_support(scope, selected)
             rows = candidate_facets(
                 selected,
                 candidate_kinds,

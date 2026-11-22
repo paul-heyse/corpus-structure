@@ -73,7 +73,7 @@ class PredicateEvidenceOperation:
                 ],
                 "minimum": 1,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "required",
                 "support": {
                     "provenance": "exact",
@@ -95,7 +95,7 @@ class PredicateEvidenceOperation:
                 ],
                 "minimum": 1,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "required",
                 "support": {
                     "provenance": "exact",
@@ -138,6 +138,22 @@ class PredicateEvidenceOperation:
             "text.formal_evidence/source-native",
             "text.constructions/source-native",
         ],
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/construction_support/*/target",
+                "input_role": "constructions",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/formal_support/*/target",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+        ],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],
@@ -152,8 +168,8 @@ class PredicateEvidenceOperation:
             "operator": "all",
             "children": [
                 {"operator": "scan", "roles": ["source", "annotations"]},
-                {"operator": "collection", "roles": ["constructions"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["formal"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["constructions"], "collection": "set"},
+                {"operator": "collection", "roles": ["formal"], "collection": "set"},
             ],
         },
         "output_witnesses": [

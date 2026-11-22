@@ -178,6 +178,14 @@ stream controls stopped before execution at the legacy installed descriptor. Run
 registered cold root. The request fence and the independent retained-reply check remain part
 of acceptance.
 
+**Threaded PDF reply custody · Tested by selected identity · 2026-11-22.** Region rendering,
+visual mapping, capture, transforms and views construct the complete reply before their final
+acquired-premise check. The two threaded region controls passed with a controlled renderer and
+the actual verification (`uv run ci test`, `5ffe892a01f64933944211def96e9984`), including a
+file change during encoding. The visual mapping controls passed by identity in the mixed
+result `9627a7ac6d0f45bebd7a2b4098437ae0`. Real PDF provider and native stream acceptance use
+the registered-root qualification scope.
+
 **Implementation checkpoint · 2026-11-21.** The closed source constructor, same-decoder
 acceptance and sealed CPU worker ingress share the selected validation contract. The immutable
 decoded source payload is bounded by the process runtime-byte owner. Invocation-owned indexes
@@ -264,6 +272,16 @@ mapping retain their acquired verification and check inside actual work. Sevente
 profile and region controls passed (`uv run ci test`, `8e56875d62354c949fdbc820ba8d31cf`).
 The threaded visual control detected a captured file modified at a function-local import and
 refused the reply (`2c3342248b9749bb81903157f94d6fb4`, stable source snapshot).
+
+**Worker and provider custody · Tested by selected scope · 2026-11-22.** The formal worker
+consumes the authenticated source, parser configuration and nominal member contracts in its
+own packet. Two spawned controls passed with a shared CPU pool and zero schema-capsule bytes,
+including a pool initialized for another release (`uv run ci test retry`,
+`65cdc5d8687e43aa998a56dd421561bc`). Sentence and HanLP execution custody retains stable
+provider identity and asset location. The CUDA process hand-off retains the existing file
+receipts. The 30 selected file and provider custody checks passed (`uv run ci test`,
+`ba0426f784b249dcb506ede76fdb6f0f`), including stable custody across the metadata safety
+window and refusal of changed file bytes.
 
 **Implementation checkpoint · 2026-11-21.** The shared CPU plan verifies inside a successful
 admission and after collection. The descriptor retains its immutable source and asset mapping in

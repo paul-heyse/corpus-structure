@@ -46,12 +46,14 @@ from .native_program import (
 )
 from .native_program_registry import ProgramDeclaration
 from .obligation_readiness_native import (
+    demand_settlement,
     obligation_readiness,
     obligation_settlement,
+    population_binding_unavailable,
     record_obligation_cut,
 )
 from .publication_delivery_native import (
-    fulfilled_use_recipients,
+    reconcile_demand_publications,
     reconcile_publication_delivery,
     settle_pending_discovery,
     unreconciled_publication_origins,
@@ -474,7 +476,10 @@ def _demand_registration(model: MetaData) -> NativeRoutine:
         .exists(),
         select(1)
         .select_from(input_scope)
-        .where(source_role.is_not(None), ~frozen_sources.has_key(source_role))
+        .where(
+            inputs.c.value["support"]["source"].astext == "frozen-source-set",
+            ~frozen_sources.has_key(source_role),
+        )
         .exists(),
     )
     scoped_sources = union_all(
@@ -1096,6 +1101,25 @@ def _cancel_demand(model: MetaData) -> NativeRoutine:
                         ),
                     ),
                 ),
+                ForQuery(
+                    ("affected_original",),
+                    select(obligations.c.original_source)
+                    .where(
+                        obligations.c.demand_id == demand_id,
+                    )
+                    .distinct()
+                    .order_by(obligations.c.original_source),
+                    (
+                        Perform(
+                            func.ops.ddo_record_scope_wakes(
+                                project,
+                                core_variable("affected_original", Text()),
+                                "demand-cancellation",
+                                demand_id,
+                            )
+                        ),
+                    ),
+                ),
                 Return(
                     func.jsonb_build_object(
                         "payload",
@@ -1123,6 +1147,7 @@ def _cancel_demand(model: MetaData) -> NativeRoutine:
                 Local("boundary", read),
                 Local("requests", pg_type("jsonb"), _json("[]")),
                 Local("generation_row", pg_type("record")),
+                Local("affected_original", pg_type("text")),
             ),
         ),
     )
@@ -1236,6 +1261,11 @@ def _record_fate(model: MetaData, recordable_fates: tuple[str, ...]) -> NativeRo
                     )
                     .on_conflict_do_nothing()
                 ),
+                Perform(
+                    func.ops.ddo_record_computation_wakes(
+                        func.jsonb_build_array(core_variable("key", uses.c.id.type))
+                    )
+                ),
                 Return(
                     func.jsonb_build_object(
                         "payload",
@@ -1255,6 +1285,7 @@ def _record_fate(model: MetaData, recordable_fates: tuple[str, ...]) -> NativeRo
 
 def demand_intent_programs(model: MetaData, *, protocol: bytes) -> tuple[ProgramDeclaration, ...]:
     from .data_operation_protocol import protocol_value_sets
+    from .obligation_wake_native import obligation_wake_programs
 
     routines = (
         _demand_registration(model),
@@ -1262,9 +1293,12 @@ def demand_intent_programs(model: MetaData, *, protocol: bytes) -> tuple[Program
         _record_fate(model, protocol_value_sets(protocol)["RecordableFate"]),
         _close_population(model),
         unreconciled_publication_origins(model),
+        reconcile_demand_publications(model),
         obligation_readiness(model),
+        population_binding_unavailable(model),
         record_obligation_cut(model),
         obligation_settlement(model),
+        demand_settlement(model),
     )
     commands = tuple(
         ProgramDeclaration(
@@ -1277,6 +1311,7 @@ def demand_intent_programs(model: MetaData, *, protocol: bytes) -> tuple[Program
     )
     return (
         *commands,
+        *obligation_wake_programs(model),
         *(
             ProgramDeclaration(
                 routine,
@@ -1284,7 +1319,7 @@ def demand_intent_programs(model: MetaData, *, protocol: bytes) -> tuple[Program
                 owner=role_name("publisher"),
                 access=NativeProgramAccess(purposes=("write", "evaluate")),
             )
-            for routine in (fulfilled_use_recipients(model), settle_pending_discovery(model))
+            for routine in (settle_pending_discovery(model),)
         ),
         ProgramDeclaration(
             _advance_demand_selection(model),
@@ -1550,8 +1585,23 @@ def _close_population(model: MetaData) -> NativeRoutine:
         search_path=("pg_catalog", "pg_temp"),
         body=Block(
             (
-                _required(
-                    payload, "demand_id", "name", "product_id", "derivation_id", "member_role"
+                Perform(
+                    func.ops.ddo_fields(
+                        payload,
+                        array(
+                            ("demand_id", "name", "product_id", "derivation_id", "member_role"),
+                            type_=Text(),
+                        ),
+                        array(("admission_use_id",), type_=Text()),
+                    )
+                ),
+                _refusal(
+                    and_(
+                        payload.has_key("admission_use_id"),
+                        func.jsonb_typeof(payload["admission_use_id"]).is_distinct_from("string"),
+                    ),
+                    "population exact admission use must be a declared identifier",
+                    "23514",
                 ),
                 acquire(demand, "d", "id", payload["demand_id"].astext),
                 acquire(derivation, "producer", "id", payload["derivation_id"].astext),
@@ -1573,6 +1623,10 @@ def _close_population(model: MetaData) -> NativeRoutine:
                     .select_from(uses.join(obligations, obligations.c.id == uses.c.obligation_id))
                     .where(
                         *custody,
+                        or_(
+                            ~payload.has_key("admission_use_id"),
+                            uses.c.id == payload["admission_use_id"].astext,
+                        ),
                         active_use,
                         uses.c.fate == "fulfilled",
                         obligations.c.demand_id == demand_id,
@@ -1697,6 +1751,7 @@ def _close_population(model: MetaData) -> NativeRoutine:
                 ),
                 Sql(subordinate),
                 GetRowCount("inserted_count"),
+                Perform(func.ops.ddo_record_population_wakes(func.jsonb_build_array(key))),
                 Return(
                     func.jsonb_build_object(
                         "payload",

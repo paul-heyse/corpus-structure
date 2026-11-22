@@ -31,6 +31,7 @@ _PATHS = (
     "semantic/declared_record_sources.py",
     "semantic/declared_candidate_products.py",
     "semantic/contributions.py",
+    "semantic/contribution_input_references.py",
     "semantic/record_contracts.py",
 )
 
@@ -107,8 +108,7 @@ def execute_scoped_relations(
     from .contributions import contribution_identity
     from .data_operation_admission import bound_data_operation_model
     from .data_operation_json import json_bytes
-    from .data_product_reference import DataProductReference
-    from .declared_candidate_products import candidate_inspection_report, candidate_member_values
+    from .declared_candidate_products import candidate_inspection_report
     from .declared_formal_readings import declared_formal_layers
     from .declared_record_sources import DeclaredNativeFrameSource
     from .declared_structural_references import DeclaredStructuralSource
@@ -173,7 +173,13 @@ def execute_scoped_relations(
     ).model_dump(mode="python", exclude_unset=True)
     if retained["source_pin"] != frame.pin.values():
         raise ValueError("scoped predicate inspection differs from its exact original source")
-    rows = candidate_member_values(retained, candidate_type="contribution")
+    from .contribution_input_references import (
+        pack_contribution_input_support,
+        project_contribution_input_support,
+    )
+
+    (predicate_member,) = profile.members("predicates")
+    rows = project_contribution_input_support(retained, predicate_member)
     if any(
         contribution_identity(row) != row["contribution_id"] or row["pin"] != frame.pin.values()
         for row in rows
@@ -222,24 +228,23 @@ def execute_scoped_relations(
         retained_predicates=rows,
         retained_predicate_operations=tuple(retained["operations"]),
         retained_coordinate_texts=tuple(retained["coordinate_texts"]),
-        primary_product_refs=tuple(
-            DataProductReference(member.product)
-            for role in ("constructions", "formal", "predicates")
-            for member in profile.members(role)
-        ),
         annotation_errors=errors,
         inline_equations_enabled=True,
         witnessed_links_enabled=True,
         max_formula_chars=max(1, len(frame.text)),
     )
     profile.check_active()
+    contributions, support = pack_contribution_input_support(
+        result["contributions"], profile.roles, inherited=rows
+    )
     return candidate_inspection_report(
         profile.prepared,
         model,
         frame,
         profile.context,
         inspection_outcome="produced" if result["contributions"] else "empty",
-        contributions=result["contributions"],
+        contributions=contributions,
+        input_support=support,
         operations=(result["operation"], *result["extra_operations"]),
         coordinate_texts=result["coordinates"],
         coverage=tuple(

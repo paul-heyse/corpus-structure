@@ -1209,6 +1209,7 @@ def _selected_population_program(model):
                 selected_row(populations, populations.c.id == key, "selected"),
             ),
         ),
+        Perform(func.ops.ddo_record_population_wakes(func.jsonb_build_array(selected("id")))),
         Return(
             _object(
                 payload=_object(

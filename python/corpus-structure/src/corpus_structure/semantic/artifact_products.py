@@ -25,6 +25,8 @@ _PATHS = (
     "methods/scoped_relations.py",
     "methods/witnessed_source_links.py",
     "semantic/artifact_identity.py",
+    "semantic/contribution_input_references.py",
+    "semantic/contributions.py",
     "semantic/structural_products.py",
     "semantic/constructions/navigation.py",
     "semantic/source_contexts.py",
@@ -117,7 +119,9 @@ def artifact_operation_sources():
     )
 
 
-def native_artifact_records(frame, source, inputs, source_ref, source_work, navigation):
+def native_artifact_records(
+    frame, source, inputs, source_ref, source_work, navigation, reference_for
+):
     """Read only characterized artifacts, avoiding unrelated scoped joins and NLP."""
     from corpus_structure.methods.artifact_identity import identity_records
     from corpus_structure.methods.scoped_relations import (
@@ -196,6 +200,7 @@ def native_artifact_records(frame, source, inputs, source_ref, source_work, navi
         source_ref,
         rows,
         navigation,
+        reference_for,
     )
 
 
@@ -269,6 +274,19 @@ def execute_artifact_identity(
         raise ValueError(
             "artifact cohort requires exact selected native sources and whole construction products"
         )
+    positions = {member.product: member.reference_position for member in construction_role.members}
+    if any(position is None for position in positions.values()) or len(
+        set(positions.values())
+    ) != len(positions):
+        raise ValueError("artifact constructions lack their exact original input positions")
+
+    def reference_for(reference):
+        return SemanticReference.member(
+            "constructions",
+            reference.member_id,
+            occurrence=str(positions[reference.product.product_id]),
+        ).occurrence_member_value()
+
     chosen = tuple(ArtifactSourceSelection.model_validate(value) for value in selections)
     if (
         not chosen
@@ -368,19 +386,7 @@ def execute_artifact_identity(
         policy_id="artifact-identity-5",
         sources=tuple(original),
         passages=tuple(passages),
-        dependencies=tuple(
-            dict.fromkeys(
-                [
-                    member.product
-                    for member in (
-                        *source_role.members,
-                        *construction_role.members,
-                        *nomination_members,
-                    )
-                ]
-                + [selection.contribution_id for selection in chosen_nominations]
-            )
-        ),
+        dependencies=tuple(selection.contribution_id for selection in chosen_nominations),
     )
     records = []
     for selection, reference in zip(chosen, original, strict=True):
@@ -393,6 +399,7 @@ def execute_artifact_identity(
                     reference.identity,
                     selection.source_work,
                     indexes[reference.identity],
+                    reference_for,
                 )
             )
     selected = artifact_cohort(records)
@@ -435,6 +442,7 @@ def execute_artifact_identity(
                 rows,
                 sources=by_source,
                 indexes=source_indexes,
+                reference_for=reference_for,
             )
         )
     aliases, _ = native_alias_candidates(selected)
@@ -443,6 +451,7 @@ def execute_artifact_identity(
         selected,
         inputs,
         indexes,
+        reference_for,
     )
     candidates = pair_candidates(
         selected,

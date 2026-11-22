@@ -12,6 +12,7 @@ from .native_objects import INTERNAL_PROGRAM
 from .native_program import (
     Block,
     ForQuery,
+    If,
     Local,
     NativeRoutine,
     Parameter,
@@ -56,7 +57,9 @@ def _rule_partition(rule, partition, product_id):
     )
 
 
-def _rule_premise(specification, product_id, partition_key, target_product=None, target_partition=None):
+def _rule_premise(
+    specification, product_id, partition_key, target_product=None, target_partition=None
+):
     return func.ops.ddo_rule_premise(
         specification, product_id, partition_key, target_product, target_partition, type_=Text()
     )
@@ -423,6 +426,19 @@ def _settle_attestations(model):
             ),
             Sql(conclude),
             Sql(establish),
+            If(
+                matched_count > 0,
+                (
+                    Perform(
+                        func.ops.ddo_record_scope_wakes(
+                            _request_field(request, "project_id"),
+                            _request_field(request, "original_source"),
+                            "rule-establishment",
+                            episode,
+                        )
+                    ),
+                ),
+            ),
         ),
         (Local("admitted", pg_type("jsonb")), Local("failure", pg_type("text"))),
     )

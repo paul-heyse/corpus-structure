@@ -7,7 +7,9 @@ from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.data_operation_wire import validate_native_wire
 
 
-def demand_result_page(*, trust=None, member_id=None, empty=False) -> dict[str, Any]:
+def demand_result_page(
+    *, trust=None, member_id=None, empty=False, scheduler=False
+) -> dict[str, Any]:
     body = dict(
         members=[
             dict(
@@ -57,7 +59,7 @@ def demand_result_page(*, trust=None, member_id=None, empty=False) -> dict[str, 
         inference="authored-review",
         execution_profile="authored-profile",
     )
-    result = dict(
+    result: dict[str, Any] = dict(
         demand_id="demand:A",
         project_id="project:A",
         release_id="release:A",
@@ -86,11 +88,8 @@ def demand_result_page(*, trust=None, member_id=None, empty=False) -> dict[str, 
                 original_source="source:A",
                 analyzed_scope={},
                 parameters={},
-                inputs_watermark="authored-inputs",
                 historical_fate=None if empty else "fulfilled",
                 fate="waiting" if empty else "fulfilled",
-                native_settlement=None,
-                native_readiness=None,
                 request_id=None if empty else "request:A",
                 generation=None if empty else 1,
                 intent_id=None,
@@ -131,4 +130,14 @@ def demand_result_page(*, trust=None, member_id=None, empty=False) -> dict[str, 
         ],
     )
 
-    return validate_native_wire("read_demand_result", "output", result)
+    if scheduler:
+        result["view"] = "frontier"
+        for obligation in result["obligations"]:
+            obligation.update(native_readiness=None, native_settlement=None)
+        for use in result["uses"]:
+            for product in use["products"]:
+                product["body_state"] = "not_requested"
+                product.pop("body", None)
+    return validate_native_wire(
+        "resume_data_demand" if scheduler else "read_demand_result", "output", result
+    )

@@ -8,12 +8,6 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from corpus_structure.semantic.support_edges import declared_support_edges, reference_node
-from semantic.test_target_installation_native import (
-    fresh_target_epoch as fresh_target_epoch,
-)
-from semantic.test_target_installation_native import (
-    install_target_root,
-)
 
 
 def test_profiles_preserve_historical_and_selected_support_distinctions():
@@ -62,11 +56,8 @@ def test_unknown_support_reference_refuses(reference):
         reference_node(reference)
 
 
-def test_installed_support_classifier_and_terminal_edges(
-    semantic_bare_engine, fresh_target_epoch, tmp_path, monkeypatch
-):
-    engine = semantic_bare_engine
-    _, _, _, _, _, location = install_target_root(engine, fresh_target_epoch, tmp_path)
+def test_installed_support_classifier_and_terminal_edges(commit_db_engine, tmp_path):
+    engine = commit_db_engine
     with engine.begin() as connection:
         for reference, expected in (
             (
@@ -98,15 +89,12 @@ def test_installed_support_classifier_and_terminal_edges(
         assert connection.execute(
             text("SELECT * FROM ops.ddo_validity_edges('original','control')")
         ).all() == [(0, None, None)]
-    _cross_release_population(engine, location, tmp_path, monkeypatch)
+    _cross_release_population(engine, tmp_path)
 
 
-def test_changed_population_member_reuses_unchanged_child_results(
-    semantic_bare_engine, fresh_target_epoch, tmp_path, monkeypatch
-):
+def test_changed_population_member_reuses_unchanged_child_results(commit_db_engine, tmp_path):
     from dataclasses import replace
 
-    from corpus_structure.semantic import migrations
     from corpus_structure.semantic.data_operation_demands import DemandPlanner
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.identity import canonical_bytes
@@ -114,9 +102,7 @@ def test_changed_population_member_reuses_unchanged_child_results(
     from semantic.data_operation_kernel_support import POPULATION, admit_kernel, prepare_kernel
     from semantic.population_completion_support import complete_ready
 
-    engine = semantic_bare_engine
-    _, _, _, _, _, location = install_target_root(engine, fresh_target_epoch, tmp_path)
-    monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
+    engine = commit_db_engine
     assert POPULATION.declaration_content is not None
     declaration = json.loads(POPULATION.declaration_content)
     for operation in declaration["operations"]:
@@ -342,11 +328,10 @@ def _assert_selected_substitution_scope(
         assert set(connection.execute(select(scope))) == expected
 
 
-def _cross_release_population(engine, location, tmp_path, monkeypatch, *, project_id="ddo-test"):
+def _cross_release_population(engine, tmp_path, *, project_id="ddo-test"):
     from dataclasses import replace
     from typing import cast
 
-    from corpus_structure.semantic import migrations
     from corpus_structure.semantic._data_operation_wire import (
         WireAttachDataRequestsRequest,
         WireCloseDataPopulationRequest,
@@ -360,8 +345,6 @@ def _cross_release_population(engine, location, tmp_path, monkeypatch, *, projec
     from semantic.data_operation_binding_support import discover
     from semantic.data_operation_kernel_support import POPULATION, admit_kernel, prepare_kernel
 
-    if location is not None:
-        monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
     old_recipe = replace(POPULATION, project_id=project_id)
     old_preparation = prepare_kernel(old_recipe, directory=tmp_path / "old")
     with engine.begin() as connection:
@@ -846,7 +829,7 @@ def test_native_witnesses_attribute_direct_and_selected_upstream_once():
     os.environ.get("CORPUS_UDM_TRANSITION_OBSERVATION") != "130661481",
     reason="explicit owned-stage observation is not selected",
 )
-def test_owned_stage_transition_discovery_and_impact(tmp_path, monkeypatch):
+def test_owned_stage_transition_discovery_and_impact(tmp_path):
     from uuid import uuid4
 
     from corpus_structure.schema.model_deployment import deployment_settings
@@ -873,4 +856,4 @@ def test_owned_stage_transition_discovery_and_impact(tmp_path, monkeypatch):
                 "stage and observation source require the same captured kernel"
             )
         project = "udm-transition-stage-observation-" + uuid4().hex
-        _cross_release_population(engine, None, tmp_path, monkeypatch, project_id=project)
+        _cross_release_population(engine, tmp_path, project_id=project)

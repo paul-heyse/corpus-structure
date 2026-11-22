@@ -48,7 +48,7 @@ class DefinitionDeclarationOperation:
                 "direction": "input",
                 "minimum": 1,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "required",
                 "support": {
                     "provenance": "exact",
@@ -59,7 +59,7 @@ class DefinitionDeclarationOperation:
             },
             {
                 "name": "result",
-                "kind": "urn:corpus:structural:DeclaredDefinitionComponentsReport",
+                "kind": "urn:corpus:structural:DeclaredSyntaxDefinitionComponentsReport",
                 "direction": "output",
                 "minimum": 1,
                 "maximum": 1,
@@ -89,6 +89,15 @@ class DefinitionDeclarationOperation:
         "dependencies": [
             "text.declaration_syntax/source-native",
         ],
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/syntax_support/*/target",
+                "input_role": "syntax",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+        ],
         "effects": [],
         "capabilities": {
             "cpu_receipts": 1,
@@ -111,32 +120,32 @@ class DefinitionDeclarationOperation:
             "operator": "all",
             "children": [
                 {"operator": "scan", "roles": ["source"]},
-                {"operator": "collection", "roles": ["syntax"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["syntax"], "collection": "set"},
             ],
         },
         "output_witnesses": [
             {
                 "output_role": "result",
-                "records": "/sources_input/*",
+                "records": "/inputs/sources/*",
                 "input_role": "source",
                 "comparisons": [
                     {
-                        "output_field": "product_id",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "product",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "reference",
+                        "output_field": "source",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
                             "field": "reference",
                         },
                         "encoding": "json",
+                    },
+                    {
+                        "output_field": "source_product",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "product",
+                        },
+                        "encoding": "value",
                     },
                     {
                         "output_field": "kind_contract",
@@ -192,84 +201,41 @@ class DefinitionDeclarationOperation:
                         },
                         "encoding": "context-meaning-json",
                     },
-                ],
-            },
-            {
-                "output_role": "result",
-                "records": "/reports_input/*",
-                "input_role": "syntax",
-                "comparisons": [
                     {
-                        "output_field": "product_id",
+                        "output_field": "document",
                         "input": {
-                            "role": "syntax",
-                            "projection": "selected-input",
-                            "field": "product",
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/document",
                         },
                         "encoding": "value",
                     },
                     {
-                        "output_field": "reference",
+                        "output_field": "projection_digest",
                         "input": {
-                            "role": "syntax",
-                            "projection": "selected-input",
-                            "field": "reference",
-                        },
-                        "encoding": "json",
-                    },
-                    {
-                        "output_field": "kind_contract",
-                        "input": {
-                            "role": "syntax",
-                            "projection": "selected-input",
-                            "field": "kind_contract",
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/projection",
                         },
                         "encoding": "value",
                     },
                     {
-                        "output_field": "project_id",
+                        "output_field": "section_pointer",
                         "input": {
-                            "role": "syntax",
-                            "projection": "selected-input",
-                            "field": "project_id",
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/section_pointer",
                         },
                         "encoding": "value",
                     },
                     {
-                        "output_field": "subject",
+                        "output_field": "membership",
                         "input": {
-                            "role": "syntax",
-                            "projection": "selected-input",
-                            "field": "subject",
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/membership",
                         },
                         "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject_definition",
-                        "input": {
-                            "role": "syntax",
-                            "projection": "selected-input",
-                            "field": "subject_definition",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "original_source",
-                        "input": {
-                            "role": "syntax",
-                            "projection": "selected-input",
-                            "field": "original_source",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "analyzed_scope_meaning",
-                        "input": {
-                            "role": "syntax",
-                            "projection": "selected-input",
-                            "field": "analyzed_scope",
-                        },
-                        "encoding": "context-meaning-json",
                     },
                 ],
             },

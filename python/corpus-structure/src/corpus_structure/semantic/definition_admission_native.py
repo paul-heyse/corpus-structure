@@ -42,6 +42,7 @@ from .native_program import (
     pg_type,
 )
 from .native_program_registry import ProgramDeclaration, ProgramValidity
+from .structural_products import DEFINITION_COMPONENT_KINDS
 from .validity_programs import input_role, selected_family
 
 
@@ -148,16 +149,27 @@ def definition_admission_native_programs(
     product_id = field(selected, "product_id")[1].astext
     member_id = plain(field(selected, "member_id"))
     pairs = (
-        ("product_id", product_id),
-        ("member_id", member_id),
+        ("format", literal("declared-native-source-v1")),
+        ("source", func.data.canonical_json(func.jsonb_build_array(product_id, member_id))),
+        ("source_product", product_id),
+        ("source_member", member_id),
         ("kind_contract", field(selected, "kind_contract")[1].astext),
+        ("document", field(field(field(selected, "body"), "source"), "document")[1].astext),
+        (
+            "projection_digest",
+            field(field(field(selected, "body"), "source"), "projection")[1].astext,
+        ),
+        (
+            "section_pointer",
+            field(field(field(selected, "body"), "source"), "section_pointer")[1].astext,
+        ),
+        ("membership", field(field(field(selected, "body"), "source"), "membership")[1].astext),
         *(
             (name, field(context, name)[1].astext)
             for name in ("project_id", "subject", "subject_definition")
         ),
         ("original_source", plain(field(context, "original_source"))),
         ("analyzed_scope_meaning", func.data.canonical_json(field(context, "analyzed_scope"))),
-        ("reference", func.data.canonical_json(func.jsonb_build_array(product_id, member_id))),
     )
     add(
         "ddo_definition_source_reference",
@@ -182,12 +194,7 @@ def definition_admission_native_programs(
                         .select_from(kind)
                         .where(
                             kind.c.kind_contract == field(selected, "kind_contract")[1].astext,
-                            kind.c.kind.in_(
-                                (
-                                    "urn:corpus:structural:DeclaredDefinitionComponentsReport",
-                                    "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport",
-                                )
-                            ),
+                            kind.c.kind.in_(DEFINITION_COMPONENT_KINDS),
                         )
                     ),
                 ),
@@ -302,7 +309,9 @@ def definition_admission_native_programs(
                 ("original_source_row",),
                 strict=True,
             ),
-            Assign("source_pins", plain(field(field(selected, "body"), "sources_input"))),
+            Assign(
+                "source_pins", plain(field(field(field(selected, "body"), "inputs"), "sources"))
+            ),
             reject(
                 or_(
                     func.jsonb_typeof(source_pins).is_distinct_from("array"),

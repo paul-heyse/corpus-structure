@@ -54,7 +54,7 @@ class ScopedRelationsOperation:
                 ],
                 "minimum": 1,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "required",
                 "support": {
                     "provenance": "exact",
@@ -75,7 +75,7 @@ class ScopedRelationsOperation:
                 ],
                 "minimum": 1,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "required",
                 "support": {
                     "provenance": "exact",
@@ -135,6 +135,28 @@ class ScopedRelationsOperation:
             "text.formal_evidence/source-native",
             "structure.predicate_evidence/declared",
         ],
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/construction_support/*/target",
+                "input_role": "constructions",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/formal_support/*/target",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/inherited_support/*/target",
+                "input_role": "predicates",
+                "variant": "member",
+            },
+        ],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],
@@ -149,8 +171,8 @@ class ScopedRelationsOperation:
             "operator": "all",
             "children": [
                 {"operator": "scan", "roles": ["source"]},
-                {"operator": "collection", "roles": ["constructions"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["formal"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["constructions"], "collection": "set"},
+                {"operator": "collection", "roles": ["formal"], "collection": "set"},
                 {"operator": "scan", "roles": ["predicates"]},
             ],
         },

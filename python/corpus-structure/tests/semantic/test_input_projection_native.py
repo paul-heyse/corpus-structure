@@ -11,7 +11,6 @@ from sqlalchemy import bindparam, insert, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic import migrations
 from corpus_structure.semantic._data_operation_wire import WireResultBinding
 from corpus_structure.semantic.data_operation_demands import (
     DemandPlanner,
@@ -28,7 +27,6 @@ from corpus_structure.semantic.data_operation_values import decode_semantic_valu
 from corpus_structure.semantic.metadata import get_metadata, table
 from corpus_structure.semantic.native_objects import execute_native_sql
 from corpus_structure.semantic.request_attachment_native import _computation_identity_program
-from corpus_structure.semantic.target_installation import capture_target_installation
 from native_test_support import principal_engine
 from semantic.data_operation_declaration_support import root_subject
 from semantic.data_operation_demand_support import attach, claim, publish, retain
@@ -38,7 +36,6 @@ from semantic.test_data_product_admission_programs import (
     realize,
 )
 from semantic.test_data_product_admission_programs import product_connection as product_connection
-from semantic.test_target_installation_native import install_target_root
 
 
 def test_selected_whole_projection_digest_never_reads_partition_bodies(product_connection):
@@ -218,11 +215,8 @@ def _projected_storage_recipe():
 
 
 @pytest.fixture
-def projected_kernel(semantic_bare_engine, native_settings, tmp_path, monkeypatch):
-    admin = semantic_bare_engine
-    target = capture_target_installation(get_metadata())
-    *_, revision_path = install_target_root(admin, target, tmp_path)
-    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
+def projected_kernel(commit_db_engine, native_settings, tmp_path):
+    admin = commit_db_engine
     recipe = _projected_storage_recipe()
     preparation = prepare_kernel(recipe, directory=tmp_path / "kernel")
     with admin.begin() as connection:
@@ -235,7 +229,7 @@ def projected_kernel(semantic_bare_engine, native_settings, tmp_path, monkeypatc
 
 
 def test_native_projected_basis_preserves_distinct_request_custody(
-    projected_kernel, semantic_bare_engine
+    projected_kernel, commit_db_engine
 ):
     engine = projected_kernel.engine
     model = projected_kernel.model
@@ -252,7 +246,7 @@ def test_native_projected_basis_preserves_distinct_request_custody(
             kind_contract=sample_kind, body=semantic_value(body)
         )
 
-    with semantic_bare_engine.begin() as connection:
+    with commit_db_engine.begin() as connection:
         connection.execute(insert(table("data.project")).values(project_id="ddo-other"))
 
     destinations = (("ddo-test", 1), ("ddo-test", 2), ("ddo-other", 1))
@@ -279,7 +273,7 @@ def test_native_projected_basis_preserves_distinct_request_custody(
         current = json.loads(ready.binding)
         assert ready.operation == _CANONICAL
         assert native["action"] == "compute"
-        with semantic_bare_engine.connect() as connection:
+        with commit_db_engine.connect() as connection:
             row = connection.execute(
                 text(
                     "SELECT r.request_key, c.computation_key, r.analyzed_scope, r.project_id "

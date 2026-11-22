@@ -758,13 +758,18 @@ def prepare_formal_evidence(
     return PreparedFormalEvidence(prepared, grammar, model)
 
 
-def execute_formal_profile(receiver, source: FrozenFormalSource) -> FormalEvidenceProduct:
+def execute_formal_profile(
+    receiver, source: FrozenFormalSource, math_start: str = "any_value"
+) -> FormalEvidenceProduct:
     """The original endpoint's explicitly captured prepared-resource boundary."""
     from corpus_structure.methods.formal_evidence import FormalEvidenceOperation
 
     if type(receiver) is not FormalEvidenceOperation:
         raise ValueError("formal execution requires its exact prepared receiver")
-    return receiver.profile.run(source, receiver.options, check_active=receiver.check_active)
+    options = FormalEvidenceOptions.model_validate(
+        {**receiver.options.model_dump(mode="python"), "math_start": math_start}
+    )
+    return receiver.profile.run(source, options, check_active=receiver.check_active)
 
 
 def formal_execution_custody() -> SourceArtifact:
@@ -891,7 +896,6 @@ class PreparedFormalEvidencePort:
     _asset_paths: tuple = field(init=False, repr=False, compare=False)
     _assets_digest: str = field(init=False, repr=False, compare=False)
     _member_contracts: tuple[tuple[str, str], ...] = field(init=False, repr=False, compare=False)
-    _options_json: str = field(init=False, repr=False, compare=False)
 
     @property
     def logical_signature(self):
@@ -901,6 +905,12 @@ class PreparedFormalEvidencePort:
             (
                 inspect.Parameter(
                     "source", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=FrozenFormalSource
+                ),
+                inspect.Parameter(
+                    "math_start",
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    annotation=str,
+                    default="any_value",
                 ),
             ),
             return_annotation=FormalEvidenceProduct,
@@ -1005,7 +1015,6 @@ class PreparedFormalEvidencePort:
         member_contracts = tuple(
             formal_member_contracts(self.profile.prepared, self.profile.model).items()
         )
-        options_json = FormalEvidenceOptions().model_dump_json()
         verification = authenticated_prepared_product(sources, functions, required_sources=required)
         captured = {asset.name: asset for asset in required.boundary_contracts}
         profile_assets = captured["formal/profile-assets"]
@@ -1038,7 +1047,6 @@ class PreparedFormalEvidencePort:
         object.__setattr__(self, "_asset_paths", asset_paths)
         object.__setattr__(self, "_assets_digest", profile_assets.digest)
         object.__setattr__(self, "_member_contracts", member_contracts)
-        object.__setattr__(self, "_options_json", options_json)
         object.__setattr__(
             self,
             "_basis",
@@ -1056,7 +1064,6 @@ class PreparedFormalEvidencePort:
                     "_asset_paths",
                     "_assets_digest",
                     "_member_contracts",
-                    "_options_json",
                 )
             ),
         )
@@ -1102,10 +1109,18 @@ class PreparedFormalEvidencePort:
             not binding.sufficient
             or binding.operation != self.operation.semantic_id
             or binding.subject != source_subject(source.value["source"])
-            or decode_semantic_value(json.loads(binding.parameters)) != {}
+            or set(decode_semantic_value(json.loads(binding.parameters))) != {"math_start"}
         ):
             raise PortRefusal("formal input differs from the frozen source binding")
         return source
+
+    def _options(self, binding):
+        from .data_operation_values import decode_semantic_value
+
+        parameters = (
+            {} if binding is None else decode_semantic_value(json.loads(binding.parameters))
+        )
+        return FormalEvidenceOptions.model_validate(parameters)
 
     def _completion(self, product, source, binding=None):
         if binding is not None:
@@ -1195,8 +1210,9 @@ class PreparedFormalEvidencePort:
         math_grammar.require_main_thread()
         self._verify()
         source = self._source(values, binding)
-        product = FormalEvidenceOperation(self.profile, FormalEvidenceOptions(), check_active).run(
-            source
+        options = self._options(binding)
+        product = FormalEvidenceOperation(self.profile, options, check_active).run(
+            source, math_start=options.math_start
         )
         self._verify()
         return self._completion(product, source, binding)
@@ -1207,17 +1223,16 @@ class PreparedFormalEvidencePort:
 
         source = self._source(values, binding)
         cpu = execution_owner.cpu
-        if cpu.prepared.release_id != self.profile.prepared.release_id:
-            raise ValueError("formal CPU owner has another acquired schema")
         check_active()
 
+        # Formal work carries its acquired source, member contracts and parser assets.
+        # The process-owned pool can serve separately admitted release contexts.
         packet = canonical_bytes(
             dict(
                 profile="formal-source-native",
-                release_id=self.profile.prepared.release_id,
                 member_contracts=dict(self._member_contracts),
                 source=source.content.decode(),
-                options=self._options_json,
+                options=self._options(binding).model_dump_json(),
                 grammar=self.profile.grammar,
                 assets=self._assets_digest,
             )

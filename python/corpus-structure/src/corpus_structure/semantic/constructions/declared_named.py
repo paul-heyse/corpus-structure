@@ -9,7 +9,7 @@ from corpus_structure.methods.annotation_rules import (
     AnnotationRuleResult,
     LocatedRole,
 )
-from corpus_structure.semantic.structural_products import DeclaredPrimaryReference
+from corpus_structure.semantic.data_product_reference import DataProductReference, member_reference
 
 from .named_nominations import NamedNomination
 
@@ -31,7 +31,9 @@ class DeclaredNamedRules:
         source = json.loads(annotations.content)
         for product in constructions:
             body = json.loads(product.content)
-            if body["source"] != source["source"] or tuple(body["selectors"]) != tuple(source["selectors"]):
+            if body["source"] != source["source"] or tuple(body["selectors"]) != tuple(
+                source["selectors"]
+            ):
                 raise ValueError("named products differ from their exact native source and scope")
             support = annotation_support_index(body)
             inventory = product.inventory()
@@ -47,8 +49,8 @@ class DeclaredNamedRules:
                     raise ValueError("named binding lacks its actual selected native block")
                 self.matches.append(
                     (
-                        DeclaredPrimaryReference(
-                            product_id=product.semantic_id, member_id=row["local_id"]
+                        member_reference(
+                            DataProductReference(product.semantic_id), row["local_id"]
                         ),
                         row,
                         support,

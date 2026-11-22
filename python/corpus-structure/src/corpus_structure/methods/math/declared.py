@@ -81,7 +81,7 @@ def declared_math_readings(
     """
     if not isinstance(source, DeclaredNativeFrameSource):
         raise TypeError("declared mathematics requires its actual semantic source member")
-    frozen = FrozenNativeSource.acquire(prepared, source.value)
+    frozen = FrozenNativeSource.acquire(prepared, source.acquired_source)
     retained = SourceNativeMathReadings(frozen, tuple(formal))
     section = configuration.section()
     if section.native_domain_rules and blocks is None:
@@ -147,7 +147,9 @@ def declared_normalization_readings(
     if not isinstance(source, DeclaredNativeFrameSource):
         raise TypeError("normalization requires an admitted semantic source")
     positions = {item["self_ref"]: n for n, item in enumerate(source.items)}
-    selected, _ = selected_formula_inputs(FrozenNativeSource.acquire(prepared, source.value))
+    selected, _ = selected_formula_inputs(
+        FrozenNativeSource.acquire(prepared, source.acquired_source)
+    )
     topology = prepare_native_topology_columns(
         root=source.section_pointer,
         text=source.text,

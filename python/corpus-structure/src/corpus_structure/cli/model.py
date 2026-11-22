@@ -2183,7 +2183,6 @@ def candidate(
                             reviewed_delta=staged.effects.native_delta,
                             retire=retired,
                             recreate=recreated,
-                            data_steps=staged.data_steps,
                         )
                         report = publish_native_candidate(result, native, products)
                         report = report.model_copy(

@@ -20,7 +20,7 @@ CUES = "fixture.contextual_cues"
 COMPONENTS = "fixture.contextual_components"
 
 
-def source_values(prepared, model, source, pin, context, source_input):
+def source_values(prepared, model, source, pin, context):
     from corpus_structure.semantic.contributions import (
         bind_contributions,
         contribution_identity,
@@ -174,7 +174,6 @@ def source_values(prepared, model, source, pin, context, source_input):
                     )
                 ],
             ),
-            sources_input=[source_input],
         )
     )
     components = definition_component_report_values(component_report)
@@ -192,14 +191,12 @@ def source_values(prepared, model, source, pin, context, source_input):
 
 
 def _matched_source_values(input_basis: list, *, prepared, check_active) -> dict:
-    from corpus_structure.semantic.contextual_witnesses import contextual_input_reference
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.data_operation_cpu_basis import cpu_basis_values
     from corpus_structure.semantic.declared_record_sources import (
         DeclaredNativeFrameSource,
         DeclaredRecordSource,
     )
-    from corpus_structure.semantic.structural_products import DeclaredStructuralInputPin
 
     check_active()
     roles, context = cpu_basis_values(input_basis, scalar_roles=("source",), set_roles=())
@@ -224,17 +221,12 @@ def _matched_source_values(input_basis: list, *, prepared, check_active) -> dict
     frame = DeclaredNativeFrameSource.from_retained_record(
         canonical_bytes(source).decode(), canonical_bytes(address.pin()).decode()
     )
-    source_input = DeclaredStructuralInputPin(
-        **contextual_input_reference(row).model_dump(),
-        reference=canonical_bytes([actual.product_id, actual.member_id]).decode(),
-    )
     result = source_values(
         prepared,
         bound_data_operation_model(prepared),
         source,
         frame.pin.values(),
         context.record,
-        source_input.model_dump(mode="python"),
     )
     return result
 
@@ -433,6 +425,123 @@ class ControlledContextualComponents:
         "outcomes": ["success"],
         "precision_description": "exact-original-native-pieces",
         "dependencies": [],
+        "output_witnesses": [
+            {
+                "output_role": "result",
+                "records": "/inputs/sources/*",
+                "input_role": "source",
+                "comparisons": [
+                    {
+                        "output_field": "source",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "reference",
+                        },
+                        "encoding": "json",
+                    },
+                    {
+                        "output_field": "source_product",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "product",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "kind_contract",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "kind_contract",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "project_id",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "project_id",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "subject",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "subject_definition",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "subject_definition",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "original_source",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "original_source",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "analyzed_scope_meaning",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "analyzed_scope",
+                        },
+                        "encoding": "context-meaning-json",
+                    },
+                    {
+                        "output_field": "document",
+                        "input": {
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/document",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "projection_digest",
+                        "input": {
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/projection",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "section_pointer",
+                        "input": {
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/section_pointer",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "membership",
+                        "input": {
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/membership",
+                        },
+                        "encoding": "value",
+                    },
+                ],
+            }
+        ],
         "effects": [],
         "parameters": {"purpose": {}},
         "capabilities": {

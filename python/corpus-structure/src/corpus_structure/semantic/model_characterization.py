@@ -143,9 +143,12 @@ def declared_model_dependencies(products, source):
     dependencies = {}
     for product in products:
         body = json.loads(product.content)
-        if (
-            body["source"] != source.value["source"]
-            or tuple(body["selectors"]) != tuple(source.value["selectors"])
+        if "formal_member_support" in body:
+            from .contextual_input_references import project_contextual_input_support
+
+            body = project_contextual_input_support(body, product.contextual_input_parents)
+        if body["source"] != source.value["source"] or tuple(body["selectors"]) != tuple(
+            source.value["selectors"]
         ):
             raise ValueError("model dependency belongs to another original source projection")
         reference = DataProductReference(product.semantic_id)

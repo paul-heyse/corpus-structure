@@ -207,6 +207,7 @@ def execute(
     purpose: Literal["write", "evaluate"] = "write",
     author=False,
     selection_name: str | None = None,
+    selection_predecessor: tuple[str | None, int] = (None, 0),
 ) -> tuple[dict[str, Any], Any]:
     from corpus_structure.semantic.data_operation_service import (
         advance_demand_selection,
@@ -223,14 +224,15 @@ def execute(
         with kernel.purpose(purpose).begin() as connection:
             retained = dict(create_native_demand(connection, pending, prepared=kernel.prepared))
     if selection_name is not None:
+        expected_demand_id, expected_generation = selection_predecessor
         with kernel.purpose("admit").begin() as connection:
             advance_demand_selection(
                 connection,
                 pending.project_id,
                 selection_name,
                 retained["demand_id"],
-                expected_demand_id=None,
-                expected_generation=0,
+                expected_demand_id=expected_demand_id,
+                expected_generation=expected_generation,
             )
     result = execute_captured_kernel_demand(kernel, retained["demand_id"], purpose=purpose)
     return retained, result

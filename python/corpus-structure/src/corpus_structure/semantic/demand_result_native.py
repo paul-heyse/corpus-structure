@@ -78,7 +78,9 @@ def _endpoint(name, body, locals_, *, request=True):
     )
 
 
-def _read_demand_result(model, *, context_only=False):
+def _read_demand_result(model, *, context_only=False, scheduler=False):
+    from .obligation_readiness_native import scheduler_authorized
+
     demand = model.tables["ops.data_demand"]
     read = model.tables["ops.data_demand_read"]
     read_scope = model.tables["ops.data_demand_read_scope"]
@@ -125,14 +127,43 @@ def _read_demand_result(model, *, context_only=False):
     capture_row = {name: pinned(name) for name in boundary_columns}
     capture_row["trust_snapshot"] = snapshot
     return _endpoint(
-        "acquire_data_read_context" if context_only else "read_demand_result",
+        "acquire_data_read_context"
+        if context_only
+        else "resume_data_demand"
+        if scheduler
+        else "read_demand_result",
         (
+            *(
+                (
+                    _refusal(
+                        ~scheduler_authorized(),
+                        "demand scheduling requires writer or evaluator authority",
+                        "42501",
+                    ),
+                )
+                if scheduler
+                else ()
+            ),
             SelectInto(
                 _exact_row(demand, demand.c.id == payload["demand_id"].astext), ("d",), strict=True
             ),
             If(
                 and_(~acquisition, scope == _json("{}")),
                 (_authorize_selection(model, demand_selection, release),),
+            ),
+            *(
+                (
+                    If(
+                        ~acquisition,
+                        (
+                            PerformQuery(
+                                select(func.ops.ddo_reconcile_demand_publications(demand_id, 1000))
+                            ),
+                        ),
+                    ),
+                )
+                if scheduler
+                else ()
             ),
             _refusal(
                 or_(
@@ -150,6 +181,11 @@ def _read_demand_result(model, *, context_only=False):
             ),
             Assign("selected_view", func.coalesce(payload["view"].astext, "frontier")),
             _refusal(view.not_in(("frontier", "products", "support")), "unknown demand read view"),
+            *(
+                (_refusal(view != "frontier", "demand scheduler requires its frontier view"),)
+                if scheduler
+                else ()
+            ),
             Assign(
                 "selected_max_bytes",
                 func.coalesce(cast(payload["max_bytes"].astext, BigInteger()), 8 * 1024**2),
@@ -320,7 +356,7 @@ def _read_demand_result(model, *, context_only=False):
                 )
                 if context_only
                 else (
-                    SelectInto(read_page(model), ("results",)),
+                    SelectInto(read_page(model, scheduler=scheduler), ("results",)),
                     _refusal(
                         and_(
                             view.in_(("products", "support")),
@@ -477,6 +513,7 @@ def _revoke_support(model):
                     created_at=_clock(),
                 )
             ),
+            PerformQuery(select(func.ops.ddo_record_scope_wakes(project, original, "trust", key))),
             Return(
                 func.jsonb_build_object(
                     "payload",
@@ -509,6 +546,7 @@ def demand_result_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
             request=False,
         ),
         _read_demand_result(model),
+        _read_demand_result(model, scheduler=True),
         _read_demand_result(model, context_only=True),
     )
     return tuple(

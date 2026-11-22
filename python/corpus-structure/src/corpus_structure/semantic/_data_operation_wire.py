@@ -744,6 +744,7 @@ class WireClaimExternalDataPacketRequest(TypedDict):
 
 
 class WireCloseDataPopulationRequest(TypedDict):
+    admission_use_id: NotRequired[WireIdentifier]
     demand_id: Required[WireDemandId]
     derivation_id: Required[WireDerivationId]
     member_role: Required[WireIdentifier]
@@ -1203,7 +1204,7 @@ class WireReadinessIdentity(TypedDict):
 class WireReadinessRole(TypedDict):
     identity: Required[WireReadinessIdentity | None]
     input_role: Required[WireIdentifier]
-    state: Required[Literal["ready", "missing", "ambiguous", "invalid"]]
+    state: Required[Literal["ready", "missing", "ambiguous", "invalid", "unavailable"]]
 
 
 class WireObligationReadiness(TypedDict):
@@ -1216,7 +1217,7 @@ class WireObligationSettlement(TypedDict):
     binding_read_id: Required[WireReadId | None]
     selection_generation: Required[WirePositiveInteger]
     selection_name: Required[WireIdentifier]
-    state: Required[Literal["pending", "settled"]]
+    state: Required[Literal["pending", "settled", "unavailable"]]
     successor_use_id: Required[WireIdentifier | None]
 
 
@@ -1434,20 +1435,12 @@ class WireReadDemandResultRequest(TypedDict):
 
 class WireResultObligation(TypedDict):
     analyzed_scope: Required[ContextualJsonValue]
-    binding_authority_changed: NotRequired[bool]
-    binding_local_input_changed: NotRequired[bool]
-    binding_original_changed: NotRequired[bool]
-    binding_pin_changed: NotRequired[bool]
-    binding_population_changed: NotRequired[bool]
     demand_id: Required[WireDemandId]
     fate: Required[WireVisibleFate]
     generation: Required[WireGeneration | None]
     historical_fate: Required[WireHistoricalFate | None]
     id: Required[WireIdentifier]
-    inputs_watermark: NotRequired[str]
     intent_id: Required[WireCompletionIntentId | None]
-    native_readiness: Required[WireObligationReadiness | None]
-    native_settlement: Required[list[WireObligationSettlement] | None]
     obligation_id: Required[WireObligationId]
     operation_id: Required[WireOperationId]
     original_source: Required[WireOriginalSourceId | None]
@@ -1496,7 +1489,6 @@ class WireResultBinding(TypedDict):
 
 
 class WireReasonSelection(TypedDict):
-    inputs_watermark: NotRequired[str]
     read_id: NotRequired[WireReadId]
     reasons: NotRequired[list[WireBindingReason]]
 
@@ -1541,6 +1533,28 @@ class WireReadDemandResultResult(TypedDict):
     trust_snapshot: Required[WireTrustSnapshot]
     uses: Required[list[WireResultUse]]
     view: Required[Literal["frontier", "products", "support"]]
+
+
+class WireReadDemandSettlementRequest(TypedDict):
+    read_id: Required[WireReadId]
+
+
+class WireSelectionSettlement(TypedDict):
+    discovery_complete: Required[bool]
+    obligation_count: Required[int]
+    pending_count: Required[int]
+    selection_generation: Required[int]
+    selection_name: Required[WireIdentifier]
+    settled_count: Required[int]
+    state: Required[Literal["pending", "settled", "unavailable"]]
+    unavailable_count: Required[int]
+    uncovered_count: Required[int]
+
+
+class WireReadDemandSettlementResult(TypedDict):
+    read_id: Required[WireReadId]
+    scope: Required[WireDemandReadScope]
+    selections: Required[list[WireSelectionSettlement]]
 
 
 class WireReadExternalDataPacketRequest(TypedDict):
@@ -2010,6 +2024,53 @@ class WireRenewedDataRequestResult(TypedDict):
     trust_snapshot: Required[WireTrustSnapshot]
 
 
+class WireSchedulerObligation(TypedDict):
+    analyzed_scope: Required[WireJsonValue]
+    binding_authority_changed: NotRequired[bool]
+    binding_origin_changed: NotRequired[bool]
+    binding_scope_changed: NotRequired[bool]
+    binding_unavailable: NotRequired[bool]
+    demand_id: Required[WireIdentifier]
+    fate: Required[WireVisibleFate]
+    generation: Required[WirePositiveInteger | None]
+    historical_fate: Required[WireHistoricalFate | None]
+    id: Required[WireIdentifier]
+    intent_id: Required[WireIdentifier | None]
+    native_readiness: Required[WireObligationReadiness | None]
+    native_settlement: Required[list[WireObligationSettlement] | None]
+    obligation_id: Required[WireIdentifier]
+    operation_id: Required[WireIdentifier]
+    original_source: Required[WireIdentifier | None]
+    parameters: Required[WireParameterMap]
+    request_id: Required[WireIdentifier | None]
+    subject: Required[WireIdentifier]
+    subject_definition: Required[WireIdentifier]
+
+
+class WireResumeDataDemandResult(TypedDict):
+    attempt_failures: NotRequired[list[WireAttemptFailureObservation]]
+    continuation: Required[WireContinuation | None]
+    demand_id: Required[WireIdentifier]
+    frontier_at: Required[WireFrontierAt]
+    intent: Required[WireReadDemandSelection]
+    obligations: Required[list[WireSchedulerObligation]]
+    original_source_admissions: NotRequired[list[WireOriginalSourceAdmissionResult]]
+    populations: Required[list[WirePopulation]]
+    project_id: Required[WireIdentifier]
+    read_id: Required[WireReadId]
+    read_snapshot: Required[WireReadSnapshot]
+    release_id: Required[WireIdentifier]
+    root: Required[list[WireRootSubject]]
+    runtime_id: Required[WireIdentifier]
+    scope: Required[WireDemandReadScope]
+    selection: Required[WireReadDemandSelection]
+    state: NotRequired[Literal["active", "cancelled"]]
+    support_page: NotRequired[WireSelectedSupportPage | None]
+    trust_snapshot: Required[WireTrustSnapshot]
+    uses: Required[list[WireResultUse]]
+    view: Required[Literal["frontier"]]
+
+
 class WireRetainDataCompletionIntentResult(TypedDict):
     intent_id: Required[WireCompletionIntentId]
     payload_digest: Required[WireIdentifier]
@@ -2372,6 +2433,16 @@ class DataOperationCalls:
         self, payload: WireReadDemandResultRequest
     ) -> WireReadDemandResultResult:
         return cast(WireReadDemandResultResult, self._invoke("read_demand_result", payload))
+
+    def resume_data_demand(
+        self, payload: WireReadDemandResultRequest
+    ) -> WireResumeDataDemandResult:
+        return cast(WireResumeDataDemandResult, self._invoke("resume_data_demand", payload))
+
+    def read_demand_settlement(
+        self, payload: WireReadDemandSettlementRequest
+    ) -> WireReadDemandSettlementResult:
+        return cast(WireReadDemandSettlementResult, self._invoke("read_demand_settlement", payload))
 
     def retain_external_data_packet(
         self, payload: WireRetainExternalDataPacketRequest

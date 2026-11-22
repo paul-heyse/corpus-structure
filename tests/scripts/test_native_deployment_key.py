@@ -283,7 +283,9 @@ def test_key_components_match_independently_named_determinant_groups(source_tree
 
 
 def test_pinned_artifact_identity_uses_checked_declaration(source_tree):
-    from corpus_structure.semantic.migrations import ALEMBIC_DIR
+    from alembic.script import ScriptDirectory
+
+    from corpus_structure.semantic.migrations import alembic_config
 
     artifact = source_tree["chain"] / "state.json"
     expected = sha256(artifact.read_bytes()).hexdigest()
@@ -293,7 +295,9 @@ def test_pinned_artifact_identity_uses_checked_declaration(source_tree):
     assert components["artifacts"] == []
     artifact.write_text("altered bytes")
     assert deployment_key(**source_tree)[0] == before
-    namespace = runpy.run_path(str(ALEMBIC_DIR / "versions" / "semantic_ddo_current_root.py"))
+    registered = ScriptDirectory.from_config(alembic_config()).get_revision("head")
+    assert registered is not None
+    namespace = runpy.run_path(registered.path)
     load = namespace["_read"]
     load.__globals__["__file__"] = str(revision)
     with pytest.raises(RuntimeError, match="frozen native artifact differs"):

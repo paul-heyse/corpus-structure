@@ -1,7 +1,6 @@
 """Explicit current source/primary inputs for scoped relation controls."""
 
 from corpus_structure.methods.scoped_relations import discover_relations as _discover_relations
-from corpus_structure.semantic.data_product_reference import DataProductReference
 from corpus_structure.semantic.declared_formal_readings import declared_formal_layers
 from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
 from corpus_structure.semantic.source_contexts import (
@@ -65,10 +64,6 @@ def discover_relations(frame, **kwargs):
         retained_predicates=evidence.contributions,
         retained_predicate_operations=evidence.operations,
         retained_coordinate_texts=evidence.coordinate_texts,
-        primary_product_refs=tuple(
-            DataProductReference(product.semantic_id)
-            for product in (primary.construction, primary.formal)
-        ),
         **kwargs,
     )
 

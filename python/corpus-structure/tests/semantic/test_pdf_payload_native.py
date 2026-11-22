@@ -19,33 +19,28 @@ from semantic.pdf_staging_support import create_private_build as create_private_
 from semantic.pdf_staging_support import private_build as private_build
 
 
-def test_payload_forward_state_retains_previous_managed_objects():
-    from corpus_structure.semantic.migrations import ALEMBIC_DIR
+def test_registered_payload_root_captures_required_native_objects():
+    from alembic.script import ScriptDirectory
 
-    before = json.loads(
-        ALEMBIC_DIR.joinpath("versions/semantic_ddo_compiler23_native.json").read_bytes()
-    )
-    after = json.loads(
-        ALEMBIC_DIR.joinpath("versions/semantic_ddo_consumer_fixes_native.json").read_bytes()
-    )
+    from corpus_structure.semantic.migrations import ALEMBIC_DIR, alembic_config
+    from corpus_structure.semantic.native_authoring import load_native_state
 
-    def identities(state):
-        return {
-            (
-                item["identity"]["schema"],
-                item["identity"]["name"],
-                tuple(item["identity"]["arguments"]),
-            )
-            for item in state["desired"]
-        }
-
-    assert before["desired"]
-    assert identities(before) <= identities(after)
-    assert after["predecessor"] == "semantic_ddo_compiler23"
-    assert all(
-        item["kind"] == "native" and item["payload"]["after"] is not None
-        for item in after["operations"]
-    )
+    scripts = ScriptDirectory.from_config(alembic_config())
+    assert scripts.get_heads() == ["semantic_sbx_current_root"]
+    revision = scripts.get_revision("semantic_sbx_current_root")
+    assert revision is not None and revision.down_revision is None
+    path = ALEMBIC_DIR / "versions/semantic_sbx_current_root_native.json"
+    captured = json.loads(path.read_bytes())
+    assert captured["predecessor"] is None
+    definitions = load_native_state(path)
+    assert {
+        ("ops", "read_pdf_frozen_rows"),
+        ("ops", "pdf_identity_companion_scalar"),
+        ("ops", "validate_pdf_build"),
+        ("ops", "seal_pdf_build"),
+        ("ops", "pdf_artifact_parts"),
+        ("ops", "pdf_verify_shared_stream"),
+    } <= {(item.identity.schema, item.identity.name) for item in definitions}
 
 
 def test_frozen_capture_includes_actual_ipc_and_logical_scalar(

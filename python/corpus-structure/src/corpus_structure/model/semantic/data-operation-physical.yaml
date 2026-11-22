@@ -112,6 +112,7 @@ classes:
     annotations:
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
       ph:immutability: intrinsic
+      ph:indexes: {tag: 'ph:indexes', value: [{columns: [input_roles], using: gin}]}
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["release_id"],"target":"sem.release.release_id"}]}
   data_operation_effect_grant:
     in_subset: [sem]
@@ -168,6 +169,7 @@ classes:
       ph:frontier_guard: exempt
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
       ph:immutability: intrinsic
+      ph:indexes: {tag: 'ph:indexes', value: [{columns: [selection], using: gin}]}
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["release_id","runtime_id"],"target":"sem.runtime_binding.release_id,runtime_id"}]}
   data_demand_selection:
     in_subset: [ops]
@@ -617,6 +619,45 @@ classes:
       ph:read_roles: {tag: 'ph:read_roles', value: []}
       ph:immutability: intrinsic
       ph:foreign_keys: {tag: 'ph:foreign_keys', value: [{columns: [project_id, name, selection_generation], target: 'ops.data_demand_selection.project_id,name,generation'}, {columns: [obligation_id], target: 'ops.data_obligation.id'}, {columns: [attachment_use_id], target: 'ops.demand_use.id'}, {columns: [read_id], target: 'ops.data_demand_read.id'}]}
+  data_binding_origin:
+    description: Transactional routing facts retained before recipient fanout, including recipients not yet committed. Authority stays with the named native origin.
+    in_subset: [ops]
+    attributes:
+      origin_kind: {range: string, required: true}
+      origin_id: {range: string, required: true}
+      project_id: {range: string, required: true}
+      demand_id: {range: string, required: false}
+      original_source: {range: string, required: false}
+      created_at: {range: timestamp, required: true}
+      created_xid: {range: exact_numeric, required: true}
+      read_snapshot: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [origin_kind, origin_id]}
+    annotations:
+      ph:read_roles: {tag: 'ph:read_roles', value: []}
+      ph:immutability: intrinsic
+      ph:frontier_guard: exempt
+      ph:indexes: {tag: 'ph:indexes', value: [[demand_id, created_xid], [project_id, created_xid]]}
+  data_obligation_wake:
+    description: Sparse native recipient work references. Top-level transaction visibility, not insertion order, determines whether an exact acquired binding cut has observed an origin.
+    in_subset: [ops]
+    attributes:
+      id: {range: string, required: true, identifier: true}
+      obligation_id: {range: string, required: true}
+      origin_kind: {range: string, required: true}
+      origin_id: {range: string, required: true}
+      input_role: {range: string, required: true}
+      occurrence: {range: json_payload, required: true}
+      created_at: {range: timestamp, required: true}
+      created_xid: {range: exact_numeric, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+    annotations:
+      ph:read_roles: {tag: 'ph:read_roles', value: []}
+      ph:immutability: intrinsic
+      ph:frontier_guard: exempt
+      ph:foreign_keys: {tag: 'ph:foreign_keys', value: [{columns: [obligation_id], target: 'ops.data_obligation.id'}]}
+      ph:indexes: {tag: 'ph:indexes', value: [[obligation_id, created_xid]]}
   data_validity_reconfirmation:
     in_subset: [ops]
     attributes:

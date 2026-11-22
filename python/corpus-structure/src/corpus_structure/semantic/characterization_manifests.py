@@ -5,7 +5,6 @@ from hashlib import sha256
 from .identity import canonical_bytes
 from .source_products import source_subject
 
-
 _LEARNED_KIND_PREFIX = "https://corpus-structure.dev/semantic/data-operation-learned/Ddo"
 
 

@@ -162,7 +162,7 @@ def test_current_observation_refuses_wrong_or_untyped_member_position(ordinal):
 
 
 def test_current_named_definition_preserves_source_cue_and_refuses_changed_cpu_body_atomically(
-    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+    commit_db_engine, native_settings, tmp_path, monkeypatch
 ):
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.data_operation_values import (
@@ -177,12 +177,10 @@ def test_current_named_definition_preserves_source_cue_and_refuses_changed_cpu_b
         recipe,
         selected_for_source,
     )
-    from semantic.test_sentence_partition_chain_native import _private_source
+    from semantic.test_sentence_partition_chain_native import _registered_source
 
     literal = "We define variance as spread."
-    with _private_source(
-        semantic_bare_engine, native_settings, tmp_path, monkeypatch, literal
-    ) as source:
+    with _registered_source(commit_db_engine, native_settings, tmp_path, literal) as source:
         kernel = admit_current_target(source, recipe(tmp_path / "recipe"), tmp_path / "consumer")
         retain = DataOperationStorage.retain_data_completion_intent
         attempted = []
@@ -227,7 +225,7 @@ def test_current_named_definition_preserves_source_cue_and_refuses_changed_cpu_b
             "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport",
             original,
         )
-        assert report.body["sources_input"][0]["member_id"] == original.row["member_id"]
+        assert report.body["inputs"]["sources"][0]["source_member"] == original.row["member_id"]
         packets = report.body["members"]
         assert packets and "components" not in report.body["definition_components"]
         with kernel.engine.connect() as connection:

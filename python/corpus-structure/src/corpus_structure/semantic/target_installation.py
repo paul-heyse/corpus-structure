@@ -824,8 +824,6 @@ def prepare_target_successor(
     retire=frozenset(),
     recreate=frozenset(),
     owned_authoring=False,
-    data_steps=(),
-    predecessor_revision=None,
 ):
     """Prepare a current successor from one exact registered target state.
 
@@ -911,8 +909,6 @@ def prepare_target_successor(
         authoring=authoring,
         old_descriptor=descriptor,
         physical_contract=physical_contract,
-        data_steps=data_steps,
-        predecessor_revision=predecessor_revision,
     )
     if candidate.upgrade_ops is not None and replacements:
         # The CHECK drops take and retain the table locks before the native
@@ -952,7 +948,7 @@ def require_empty_target(connection) -> None:
 
 
 def prepare_target_candidate(
-    connection, installation: TargetInstallation, *, owned_authoring=False, data_steps=()
+    connection, installation: TargetInstallation, *, owned_authoring=False
 ):
     """Prepare a fresh root on an owned empty target, preserving normal Alembic custody."""
     from alembic.migration import MigrationContext
@@ -1030,7 +1026,6 @@ def prepare_target_candidate(
         authoring=authoring,
         old_descriptor=dict(tables=[], privileges=[]),
         physical_contract=physical_contract,
-        data_steps=data_steps,
     )
     if candidate.upgrade_ops is None:
         raise NativeAuthoringError("fresh target preparation produced no migration body")

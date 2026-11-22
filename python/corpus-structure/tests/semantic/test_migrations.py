@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import Engine, inspect, text
+from sqlalchemy import Engine, inspect
 
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.migrations import current_revision, downgrade, upgrade
@@ -40,19 +40,3 @@ def test_bootstrap_downgrade_refuses_destructive_reversal(commit_db_engine: Engi
             downgrade(conn)
         assert current_revision(conn) == before
         assert "data_request" in inspect(conn).get_table_names(schema="ops")
-
-
-def test_frozen_n29_replays_its_legacy_decimal_semantics(semantic_database_at) -> None:
-    from corpus_structure.semantic.identity import canonical_bytes
-
-    lexical = "9" * 10000
-    with semantic_database_at("semantic_ddo_pe_n29") as engine, engine.begin() as conn:
-        for tag, value, expected in (
-            ("string", lexical, lexical),
-            ("decimal", lexical, lexical),
-            ("decimal", "1e200000", "1" + "0" * 200000),
-        ):
-            assert conn.scalar(
-                text("SELECT data.ddo_normalize(CAST(:value AS jsonb))"),
-                {"value": canonical_bytes([tag, value]).decode()},
-            ) == [tag, expected]

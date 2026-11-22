@@ -70,7 +70,7 @@ class DefinitionComponentsOperation:
             },
             {
                 "name": "result",
-                "kind": "urn:corpus:structural:DeclaredDefinitionComponentsReport",
+                "kind": "urn:corpus:structural:DeclaredLearnedDefinitionComponentsReport",
                 "direction": "output",
                 "minimum": 1,
                 "maximum": 1,
@@ -99,6 +99,14 @@ class DefinitionComponentsOperation:
         "outcomes": ["success"],
         "precision_description": "original-native-half-open-extents",
         "dependencies": ["text.gliner_definitions/source-native"],
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/candidates_input",
+                "input_role": "candidates",
+                "variant": "product",
+            },
+        ],
         "effects": [],
         "capabilities": {
             "cpu_receipts": 1,
@@ -121,26 +129,26 @@ class DefinitionComponentsOperation:
         "output_witnesses": [
             {
                 "output_role": "result",
-                "records": "/sources_input/*",
+                "records": "/inputs/sources/*",
                 "input_role": "source",
                 "comparisons": [
                     {
-                        "output_field": "product_id",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "product",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "reference",
+                        "output_field": "source",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
                             "field": "reference",
                         },
                         "encoding": "json",
+                    },
+                    {
+                        "output_field": "source_product",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "product",
+                        },
+                        "encoding": "value",
                     },
                     {
                         "output_field": "kind_contract",
@@ -196,84 +204,41 @@ class DefinitionComponentsOperation:
                         },
                         "encoding": "context-meaning-json",
                     },
-                ],
-            },
-            {
-                "output_role": "result",
-                "records": "/reports_input/*",
-                "input_role": "candidates",
-                "comparisons": [
                     {
-                        "output_field": "product_id",
+                        "output_field": "document",
                         "input": {
-                            "role": "candidates",
-                            "projection": "selected-input",
-                            "field": "product",
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/document",
                         },
                         "encoding": "value",
                     },
                     {
-                        "output_field": "reference",
+                        "output_field": "projection_digest",
                         "input": {
-                            "role": "candidates",
-                            "projection": "selected-input",
-                            "field": "reference",
-                        },
-                        "encoding": "json",
-                    },
-                    {
-                        "output_field": "kind_contract",
-                        "input": {
-                            "role": "candidates",
-                            "projection": "selected-input",
-                            "field": "kind_contract",
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/projection",
                         },
                         "encoding": "value",
                     },
                     {
-                        "output_field": "project_id",
+                        "output_field": "section_pointer",
                         "input": {
-                            "role": "candidates",
-                            "projection": "selected-input",
-                            "field": "project_id",
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/section_pointer",
                         },
                         "encoding": "value",
                     },
                     {
-                        "output_field": "subject",
+                        "output_field": "membership",
                         "input": {
-                            "role": "candidates",
-                            "projection": "selected-input",
-                            "field": "subject",
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/membership",
                         },
                         "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject_definition",
-                        "input": {
-                            "role": "candidates",
-                            "projection": "selected-input",
-                            "field": "subject_definition",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "original_source",
-                        "input": {
-                            "role": "candidates",
-                            "projection": "selected-input",
-                            "field": "original_source",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "analyzed_scope_meaning",
-                        "input": {
-                            "role": "candidates",
-                            "projection": "selected-input",
-                            "field": "analyzed_scope",
-                        },
-                        "encoding": "context-meaning-json",
                     },
                 ],
             },

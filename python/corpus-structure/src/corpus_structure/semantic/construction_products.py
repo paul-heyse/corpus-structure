@@ -12,7 +12,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Self, overload
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
@@ -26,7 +26,6 @@ from corpus_structure.semantic.characterization import (
 from corpus_structure.semantic.native_source_view import (
     freeze_native,
     matches_positioned_source_extent,
-    thaw_native,
 )
 from corpus_structure.semantic.source_products import (
     native_selected_ranges,
@@ -65,7 +64,7 @@ from .sentence_products import (
     SourceAnnotations,
     retained_source_annotation_products,
     sentence_product_inputs,
-    validate_source_annotations,
+    verify_source_annotation_carrier,
 )
 from .source_products import (
     FrozenNativeSource,
@@ -217,11 +216,14 @@ class _InterpretedPayload:
     members: tuple[bytes, ...]
     body_digest: str
     kind_contract: str
-    formal_atom_parents: tuple[tuple[str, str], ...] = ()
+    construction_formal_parents: tuple[tuple[str, str], ...] = ()
+    contextual_input_parents: tuple[tuple[str, str, str], ...] = ()
+    dependency_products: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, init=False)
 class InterpretedProduct:
+    manifest_name: ClassVar[str]
     kind_name: ClassVar[str]
     content: bytes
     prepared: PreparedRelease
@@ -236,7 +238,7 @@ class InterpretedProduct:
         )
 
     @classmethod
-    def _from_payload(cls, payload, source, prepared, model, subject_context):
+    def _from_payload(cls, payload, source, prepared, model, subject_context) -> Self:
         product = object.__new__(cls)
         object.__setattr__(product, "content", payload.content)
         object.__setattr__(product, "prepared", prepared)
@@ -269,7 +271,12 @@ class InterpretedProduct:
             for item in model.identities
         ):
             raise ValueError("construction product has another nominal contract")
-        _construction_dependencies(self.value, dependencies)
+        if type(self) is ContextualMeaningProduct:
+            available = {product.semantic_id for product in dependencies}
+            if not set(self._payload.dependency_products) <= available:
+                raise ValueError("contextual product lacks its exact retained dependency closure")
+        else:
+            _construction_dependencies(self.value, dependencies)
 
     def _publication_context(self):
         if self.subject_context is None:
@@ -317,9 +324,9 @@ class ConstructionProduct(InterpretedProduct):
     manifest_name: ClassVar[str] = "DdoConstructionManifest"
 
     @property
-    def formal_atom_parents(self):
+    def construction_formal_parents(self):
         self._require_acquired()
-        return self._payload.formal_atom_parents
+        return self._payload.construction_formal_parents
 
 
 @dataclass(frozen=True)
@@ -329,7 +336,8 @@ class CharacterizationSnapshot:
     product_id: str
     content: bytes
     partitions: tuple[bytes, ...] | None = None
-    formal_atom_parents: tuple[tuple[str, str], ...] = ()
+    construction_formal_parents: tuple[tuple[str, str], ...] = ()
+    contextual_input_parents: tuple[tuple[str, str, str], ...] = ()
 
     @property
     def semantic_id(self):
@@ -341,9 +349,13 @@ class CharacterizationSnapshot:
 
     @classmethod
     def from_product(cls, product):
-        positions = getattr(product, "formal_atom_parents", ())
+        positions = getattr(product, "construction_formal_parents", ())
         snapshot = cls(
-            product.semantic_id, product.content, getattr(product, "partitions", None), positions
+            product.semantic_id,
+            product.content,
+            getattr(product, "partitions", None),
+            positions,
+            getattr(product, "contextual_input_parents", ()),
         )
         object.__setattr__(snapshot, "value", product.value)
         return snapshot
@@ -445,15 +457,12 @@ def construction_product_values(
         ),
     )
     atom_references = {}
-    for position, product in enumerate(formal):
+    for product in formal:
         for packet in product.value["members"]:
             if packet["body"]["record_type"] == "occurrence":
                 atom_references.setdefault(packet["member_id"], []).append(
-                    SemanticReference.member(
-                        "formal", packet["member_id"], occurrence=str(position)
-                    ).values()
+                    {"product_id": product.semantic_id, "member_id": packet["member_id"]}
                 )
-    formal_atom_support = {}
     attempted = set()
     requested, unknown = _requested_regions(source)
     for selector in unknown:
@@ -528,11 +537,11 @@ def construction_product_values(
                         for atom in atoms
                         if (atom.start + start, atom.end + start) == (node["start"], node["end"])
                     ]
-                    formal_atom_support[key] = tuple(
+                    builder.annotations[key]["external_premises"] = [
                         ref
                         for atom in supporting
                         for ref in atom_references.get(atom.occurrence, ())
-                    )
+                    ]
     vocab = None
     if native is not None:
         from .constructions.matching import (
@@ -643,7 +652,7 @@ def construction_product_values(
                     "native-dependent construction coverage unavailable; source grammar retained",
                 )
     facts = builder.facts()
-    support = _stage_annotation_support(facts)
+    support, formal_support = _stage_construction_support(facts, formal)
     value = interpreted_product_value(
         source,
         facts,
@@ -653,11 +662,7 @@ def construction_product_values(
     return {
         **value,
         "annotation_support": support,
-        "formal_atom_support": [
-            {"owner": owner, "target": ref}
-            for owner, references in sorted(formal_atom_support.items())
-            for ref in references
-        ],
+        "formal_support": formal_support,
     }
 
 
@@ -718,9 +723,12 @@ def annotation_support_index(value):
     return {key: tuple(sorted(rows.items())) for key, rows in result.items()}
 
 
-def _stage_annotation_support(facts):
-    """Lift native annotation addresses out of shared polymorphic member bodies."""
-    references = []
+def _stage_construction_support(facts, formal):
+    """Lift computed input references while retaining their exact graph positions."""
+    references, formal_references = [], []
+    positions = {product.semantic_id: position for position, product in enumerate(formal)}
+    if len(positions) != len(formal):
+        raise ValueError("construction repeats an original formal input")
 
     def entry(owner, use, position, value, binding=None):
         references.append(
@@ -733,16 +741,29 @@ def _stage_annotation_support(facts):
             }
         )
 
-    def split_premises(owner, use, record):
-        if "external_premises" not in record:
+    def split_premises(owner, use, record, field="external_premises"):
+        if field not in record:
             return
         retained = []
-        for position, value in enumerate(record["external_premises"]):
-            if value.get("role") == "sentences":
+        for position, value in enumerate(record[field]):
+            if value.get("role") == "sentences" and field == "external_premises":
                 entry(owner, use, position, value)
+            elif value.get("product_id") in positions:
+                formal_references.append(
+                    dict(
+                        owner=owner,
+                        use=use,
+                        position=position,
+                        target=SemanticReference.member(
+                            "formal",
+                            value["member_id"],
+                            occurrence=str(positions[value["product_id"]]),
+                        ).values(),
+                    )
+                )
             else:
                 retained.append(value)
-        record["external_premises"] = retained
+        record[field] = retained
 
     nodes = (
         row
@@ -753,9 +774,13 @@ def _stage_annotation_support(facts):
     for node in nodes:
         owner = node["local_id"]
         split_premises(owner, "external_premise", node)
+        split_premises(owner, "required_external_choice", node, "required_external_choices")
         if "basis" in node:
             node["basis"] = dict(node["basis"])
             split_premises(owner, "basis_external_premise", node["basis"])
+            split_premises(
+                owner, "basis_required_external_choice", node["basis"], "required_external_choices"
+            )
         if "named_match" in node:
             named = node["named_match"] = dict(node["named_match"])
             for position, ref in enumerate(named.pop("nodes", ())):
@@ -777,14 +802,17 @@ def _stage_annotation_support(facts):
             ]
             for position, token in enumerate(tokens):
                 entry(owner, "navigation_token", position, token.pop("native_node"))
-    return sorted(
-        references,
-        key=lambda row: (
-            row["owner"],
-            row["use"],
-            row.get("binding_position", -1),
-            row["position"],
+    return (
+        sorted(
+            references,
+            key=lambda row: (
+                row["owner"],
+                row["use"],
+                row.get("binding_position", -1),
+                row["position"],
+            ),
         ),
+        sorted(formal_references, key=lambda row: (row["owner"], row["use"], row["position"])),
     )
 
 
@@ -799,9 +827,10 @@ def _selected_annotation_blocks(selected):
     for product in selected:
         if type(product) is SourceAnnotations:
             native.append((product.value, product.partition_blocks))
-        elif type(product) is RetainedCharacterizationProduct and (
-            blocks := product.partition_blocks
-        ) is not None:
+        elif (
+            type(product) is RetainedCharacterizationProduct
+            and (blocks := product.partition_blocks) is not None
+        ):
             native.append((product.value, blocks))
     return native
 
@@ -1068,7 +1097,7 @@ def verify_interpreted_positioned_geometry(packets, source):
 
 def verify_interpreted_dependency_members(product, nodes, dependencies, *, include_annotations):
     """Bind external graph premises and alternative choices to actual primary members."""
-    if _inventory_field(product, "dependencies", []) != [
+    if "formal_member_support" not in product and _inventory_field(product, "dependencies", []) != [
         {"product_id": key} for key, _ in dependencies
     ]:
         raise ValueError("construction product changes selected primary dependencies")
@@ -1081,6 +1110,19 @@ def verify_interpreted_dependency_members(product, nodes, dependencies, *, inclu
     external_choices = {
         key for key, body in external.items() if body["record_type"] == "choice_member"
     }
+    if "formal_support" in product:
+        for packet in product["members"]:
+            body = packet["body"]
+            public_nodes = (
+                (body, *body.get("members", ())) if body.get("record_type") == "choice" else (body,)
+            )
+            for public in public_nodes:
+                for record in (public, public.get("basis", {})):
+                    if any(
+                        record.get(field)
+                        for field in ("external_premises", "required_external_choices")
+                    ):
+                        raise ValueError("construction product retains a computed formal input pin")
     for address in nodes:
         node = nodes[address]
         basis = _inventory_field(node, "basis", {})
@@ -1098,6 +1140,22 @@ def verify_interpreted_dependency_members(product, nodes, dependencies, *, inclu
                 raise ValueError("construction requires an actual primary choice alternative")
 
 
+@overload
+def validate_interpreted_product[Product: InterpretedProduct](
+    prepared,
+    model,
+    value,
+    source,
+    formal,
+    *,
+    product_type: type[Product],
+    subject_context=None,
+    contextual_proxy_inputs=None,
+    contextual_roles=None,
+) -> Product: ...
+
+
+@overload
 def validate_interpreted_product(
     prepared,
     model,
@@ -1105,9 +1163,23 @@ def validate_interpreted_product(
     source,
     formal,
     *,
-    product_type=ConstructionProduct,
     subject_context=None,
     contextual_proxy_inputs=None,
+    contextual_roles=None,
+) -> ConstructionProduct: ...
+
+
+def validate_interpreted_product(
+    prepared,
+    model,
+    value,
+    source,
+    formal,
+    *,
+    product_type: type[InterpretedProduct] = ConstructionProduct,
+    subject_context=None,
+    contextual_proxy_inputs=None,
+    contextual_roles=None,
 ):
     return _checked_interpreted_product(
         prepared,
@@ -1118,21 +1190,23 @@ def validate_interpreted_product(
         product_type=product_type,
         subject_context=subject_context,
         contextual_proxy_inputs=contextual_proxy_inputs,
+        contextual_roles=contextual_roles,
     )
 
 
-def _checked_interpreted_product(
+def _checked_interpreted_product[Product: InterpretedProduct](
     prepared,
     model,
     value,
     source,
     formal,
     *,
-    product_type=ConstructionProduct,
+    product_type: type[Product],
     subject_context=None,
     contextual_proxy_inputs=None,
     bound_member=None,
-):
+    contextual_roles=None,
+) -> Product:
     from .data_operation_ports import project_product_members
     from .data_operation_values import semantic_value
 
@@ -1146,8 +1220,12 @@ def _checked_interpreted_product(
     body_digest = body_identity(typed_value).key
     graph_value = checked
     parents = ()
-    if product_type is ConstructionProduct and checked.get("formal_atom_support"):
-        from .construction_formal_references import formal_atom_parents, project_formal_atom_support
+    contextual_parents = ()
+    if product_type is ConstructionProduct and checked.get("formal_support"):
+        from .construction_formal_references import (
+            construction_formal_parents,
+            project_construction_formal_support,
+        )
 
         parents = (
             tuple(
@@ -1156,13 +1234,30 @@ def _checked_interpreted_product(
                 if not _annotation_dependency(item.value)
             )
             if bound_member is None
-            else formal_atom_parents(bound_member)
+            else construction_formal_parents(bound_member)
         )
-        graph_value = project_formal_atom_support(checked, parents)
+        graph_value = project_construction_formal_support(checked, parents)
     if contextual_proxy_inputs is not None:
         from .contextual_proxy_references import project_contextual_proxy_graph
 
         graph_value = project_contextual_proxy_graph(checked, contextual_proxy_inputs)
+    if product_type is ContextualMeaningProduct:
+        from .contextual_input_references import (
+            contextual_input_parents,
+            project_contextual_input_support,
+        )
+
+        if bound_member is None:
+            if contextual_roles is None:
+                raise ValueError("contextual graph requires its exact producing input roles")
+            contextual_parents = tuple(
+                (role, str(position), product.semantic_id)
+                for role, products in contextual_roles.items()
+                for position, product in enumerate(products)
+            )
+        else:
+            contextual_parents = contextual_input_parents(bound_member)
+        graph_value = project_contextual_input_support(checked, contextual_parents)
     packets = analytical_packets(
         graph_value, manifest_contract(prepared, model, product_type.manifest_name)
     )
@@ -1249,6 +1344,8 @@ def _checked_interpreted_product(
         body_digest,
         kind_contract,
         parents,
+        contextual_parents,
+        tuple(product.semantic_id for product in formal),
     )
     return product_type._from_payload(payload, source, prepared, model, subject_context)
 
@@ -1268,6 +1365,7 @@ def validate_construction_product(prepared, model, value, source, formal, *, sub
         value,
         source,
         _construction_dependencies(value, formal),
+        product_type=ConstructionProduct,
         subject_context=subject_context,
     )
 
@@ -1291,6 +1389,7 @@ def acquired_construction_product(
         value,
         source,
         _construction_dependencies(value, formal),
+        product_type=ConstructionProduct,
         subject_context=subject_context,
         bound_member=member,
     )
@@ -1314,15 +1413,8 @@ class PreparedConstructionProfile:
         options = ConstructionOptions() if options is None else options
         source = FrozenNativeSource.acquire(self.prepared, source)
         if sentences is not None:
-            sentences = validate_source_annotations(
-                self.prepared,
-                self.model,
-                json.loads(sentences.content),
-                source,
-                receipts=sentences.execution_receipts,
-                configuration=sentences.configuration,
-                subject_context=sentences.subject_context,
-                partitions=sentences.partitions,
+            sentences = verify_source_annotation_carrier(
+                self.prepared, self.model, sentences, source
             )
         FormalSourceReadings.from_products(formal, source, prepared=self.prepared, model=self.model)
         return self._construct(
@@ -1369,6 +1461,11 @@ class ContextualMeaningProduct(InterpretedProduct):
     kind_name: ClassVar[str] = "DdoContextualMeaningProduct"
     manifest_name: ClassVar[str] = "DdoContextualManifest"
 
+    @property
+    def contextual_input_parents(self):
+        self._require_acquired()
+        return self._payload.contextual_input_parents
+
 
 @dataclass(frozen=True)
 class PreparedContextualProfile:
@@ -1396,11 +1493,11 @@ class PreparedContextualProfile:
             product.require_readable_from(source, self.model, (*formal, *supporting))
         return self._evaluate(
             source,
-            constructions,
-            formal,
+            tuple(sorted(constructions, key=lambda product: product.semantic_id)),
+            tuple(sorted(formal, key=lambda product: product.semantic_id)),
             roots=roots,
             env=env,
-            supporting=supporting,
+            supporting=tuple(sorted(supporting, key=lambda product: product.semantic_id)),
             check_active=check_active,
             subject_context=subject_context,
             max_nodes=max_nodes,
@@ -1422,6 +1519,7 @@ class PreparedContextualProfile:
         for product in supporting:
             if product.value["source"] != source.value["source"]:
                 raise ValueError("context support belongs to another original source")
+        roles = dict(formal=formal, supporting=supporting, constructions=constructions)
         products = (*formal, *supporting, *constructions)
         symbolic = tuple(product.reference for product in constructions)
         snapshots = tuple(CharacterizationSnapshot.from_product(product) for product in products)
@@ -1434,6 +1532,10 @@ class PreparedContextualProfile:
             env=env,
             check_active=check_active,
             max_nodes=max_nodes,
+            input_roles={
+                role: tuple(CharacterizationSnapshot.from_product(product) for product in values)
+                for role, values in roles.items()
+            },
         )
         return validate_interpreted_product(
             self.prepared,
@@ -1443,6 +1545,7 @@ class PreparedContextualProfile:
             products,
             product_type=ContextualMeaningProduct,
             subject_context=subject_context,
+            contextual_roles=roles,
         )
 
 
@@ -1456,6 +1559,7 @@ def contextual_product_values(
     env=None,
     check_active: Callable[[], None] = lambda: None,
     max_nodes=20000,
+    input_roles=None,
 ) -> dict[str, Any]:
     from .constructions.evaluation import ContextualEvaluator, environment
 
@@ -1515,4 +1619,24 @@ def contextual_product_values(
             attribution=[ref.values() for ref in env.attribution],
         ),
     )
-    return thaw_native(append_manifest(value, contracts["contextual_manifest"]))
+    from .contextual_input_references import pack_contextual_input_support
+
+    if input_roles is None:
+        symbolic_ids = {pin.product_id for pin in symbolic}
+        input_roles = {
+            "constructions": tuple(
+                product for product in products if product.semantic_id in symbolic_ids
+            ),
+            "supporting": tuple(
+                product for product in products if _annotation_dependency(product.value)
+            ),
+            "formal": tuple(
+                product
+                for product in products
+                if product.semantic_id not in symbolic_ids
+                and not _annotation_dependency(product.value)
+            ),
+        }
+    return pack_contextual_input_support(
+        append_manifest(value, contracts["contextual_manifest"]), input_roles
+    )

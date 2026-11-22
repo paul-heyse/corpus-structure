@@ -88,7 +88,9 @@ def semantic_declaration(statement):
 def test_payload_programs_preserve_inventory_owner_acl_and_current_raw_capture():
     frozen = {
         item.identity: item
-        for item in load_native_state(ALEMBIC_DIR / "versions/semantic_ddo_pe_n31_native.json")
+        for item in load_native_state(
+            ALEMBIC_DIR / "versions/semantic_sbx_current_root_native.json"
+        )
     }
     count = 0
     for programs, raw, expected_names in contexts():
@@ -129,7 +131,7 @@ def test_payload_programs_preserve_inventory_owner_acl_and_current_raw_capture()
 
 def test_payload_programs_refuse_missing_actual_providers():
     programs = tuple(program for cohort, _, _ in contexts() for program in cohort)
-    frozen = load_native_state(ALEMBIC_DIR / "versions/semantic_ddo_pe_n31_native.json")
+    frozen = load_native_state(ALEMBIC_DIR / "versions/semantic_sbx_current_root_native.json")
     providers = frozenset(item.identity for item in frozen) - {
         program.identity for program in programs
     }

@@ -25,6 +25,11 @@ Stage installation belongs to [SBX-20](#sbx-20).
 functional tests for the scope just implemented. For this cutover, author a cold root from
 the integrated source against an empty authoring target on the dedicated PostgreSQL cluster.
 
+**Stage predecessor · Inspected · 2026-11-22.** The stage transition starts from
+`semantic_ddo_pe_n47`. Commit `65c6da048` registered and verified that revision with the stage
+guard. The checkout immediately before this implementation was `83ab2996d`. SBX-20 uses the
+stage revision and its Git-held native inventory when it prepares the stage transition.
+
 ### Development reset through SBX-09
 
 1. Integrate the remaining consumers of the [selected immutable carrier](common-analytical-basis.md#pilot-implementation-and-evidence)
@@ -103,6 +108,87 @@ preview `b7ee66f404f44834b5976bc30bb12768`, null-predecessor candidate
 `7e1e964fbc534356b5bd6bf70b640d5a` and registration `3ae875080cb74428bb24e1ce1e21fa68`.
 It retained one active root. The installed ordinary scope and later source changes still need
 integrated evidence before replacing development.
+
+**Integrated authoring checkpoint · Tested by selected scope · 2026-11-22.** A private
+checkout captured the writer-only resume, bounded publication reconciliation and exact discovery
+use changes. `uv run ci model change candidate` first refused a changed generated file
+(`5ad8bb7041854e7ab53a356c7924f92a`) and then identified a `bigint` argument to an `integer`
+receipt limit (`d2fbb15fc0da45269be9454ad06505dc`). Applying the generated files and passing the
+bounded count as the declared type produced a passing rollback-only candidate with a null
+predecessor (`a486325d0a4341e2b565d568d39814ec`, preview `ffde9beb25294a73b6f6b126b4791c81`).
+Registration passed in the isolated checkout (`5ef35305ba1d40bcbcf6d02a69936bb1`). Fresh clone
+replay exposed a private resume envelope decoding defect before native stream, finite and
+canonical execution (`dfdf3fe832ca48dd829efcc96816c0fd`, `df99fea6fd7f4e42be67bc84c5c41d69`,
+`97b145b8bc8a43e0b7897bfef3a78f27`). The stored response carries the frontier under `payload`.
+This checkpoint predates the remaining settlement and contextual integration.
+
+**Checkpoint replay · Tested by selected identity · 2026-11-22.** With the private response
+unwrapped in the isolated checkout, the actual finite candidate advanced through rich publication,
+native export and verified detached replay (`uv run ci test --native-host private`,
+`06edf263c5b3425188466cb1c316eb80`). That mixed result's dossier setup lacked the declared
+admission input kind. Four native stream cases passed in `b83d32374d714e5190d93e7694a036eb`.
+The cancellation case passed after its fixture acquired the read and attached in separate
+transactions (`uv run ci test retry`, `426c687fff2b4ca28a51088099b9d575`). Final-source
+qualification repeats both selections with the registered wire contract.
+
+The next registered-root provider and dossier attempts reached discovery settlement. The
+population-close routine rejected the added `admission_use_id` before the affected native
+binding (`7a63e15235544a4c8ebea14c9382194a`, `1cecafeeb4584e4e8076db020e5213d1`). The routine
+now treats that field as an exact optional pin. The next checkpoint exercises its native
+type guard and admitted-use match.
+
+**Registered wire checkpoint · Tested by selected identity · 2026-11-22.** The next isolated
+root passed managed preview `b4a92f8cc67a40a297592dc3e420309a`, rollback-only candidate
+`f747ad5c23934802aff41ce9f3e0d715`, and registration `1b165ce82c6544178978e513f7d68b74`.
+All five native stream cases then passed through the registered wire, including read fencing
+and cancellation (`uv run ci test --native-host private`, `5edb009f93ad4e94b4442b6c0899374f`).
+That mixed attempt reached published applicability in the dossier before a test assertion
+mistook a canonical report identity for a body field. The publication-delivery control also
+found a mismatch between the accepted original input use and the reported current
+recipient. Final qualification includes corrected dossier and exact-use replay controls.
+The same registered source passed the two governed CUDA cases by identity (`uv run ci test
+--native-host private --providers-only`, `9075a3dfe31c4452879cc4db607fb897`). One verified
+adoption after a different real annotation capture produced equal canonical semantics without
+a new canonical generation. The other verified moved, renamed, repeated, split and merged
+block placements at named selection generations. The other two identities refused at producer
+custody before assertion of contextual or multi-report construction outcomes. Both remain required.
+
+**Readiness and dossier checkpoint · Tested by selected identity · 2026-11-22.** The dossier
+retry passed actual applicability publication followed by selected membership and verified detached
+replay (`uv run ci test --native-host private`, `30c93385c75e4c139db653e38939c6ab`). The next
+main-checkout provisional native root passed rollback-only authoring with 802 registered operations
+(`3ac4c95a62a748f6ab406e8618f4967f`) and registration (`d7865aa5f6264091ada397a7c793495a`).
+In its installed clone, the full publication-delivery module passed along with scalar and
+collection coverage, exact-pinned readiness and original and selected population wakes. Two new
+overlap cases in the same result stopped at a fixture's direct internal table read under the
+writer role (`c861a4f958fb4b97b12f60da07f07dd2`). The corrected retry acquired the obligation
+through ordinary writer resume and checked the sparse pointer under maintenance authority.
+Both commit orders passed (`6e6c6f7ee85540109ef0c782c04a4402`). The origin committed without a
+visible recipient. Native resume recovered the exact cross-demand pin, left it idle on the next
+unchanged read, and bound it after a third distinct producing episode completed the input set.
+
+The same provisional root passed the ordinary finite-to-rich detached replay and native
+comparison by selected identity (`uv run ci test --native-host private`,
+`6bcae026e28447829c4fe7a978d84a95`). Cross-work artifact publication completed. Its live
+inspection reached the default 8 MiB examined-closure limit. That fixture now requests the
+existing 32 MiB caller budget to exercise the complete selected graph and its archived member
+references. The retry passed both exact cross-work artifact and formal comparison references
+through the registered checkpoint (`e2b1b670a5274bff9fc931ebf9b2ef8e`). SBX-11 owns the keyed
+read. The patched provider checkpoint passed contextual
+publication (`4dd80f50071c4096a2f95292c779a806`), and the two-report construction case reached
+publication before a fixture compared the local current request IDs to those of the original
+independent reports. Its corrected check uses the exact producing derivations and admitted uses.
+
+**Final root authoring and installation · Tested · 2026-11-22.** Managed model preview
+`a850d08e091b4912868483c935ca0162`, apply `d70bcfa5b6874e71b5d4ddaa1d02602b`, and rollback-only
+candidate `13c1631f45dc4a8e9ef1b494cfe26754` passed. Candidate inspection confirmed a null
+predecessor. `uv run ci model change register` installed the sole revision file set in the
+checkout (`99ea673ffb5d4f7384b0a61798a2ef80`). `uv run ci db init` applied
+`semantic_sbx_current_root` on the empty `corpus_structure_sbx09_qualification` database.
+Maintenance readback matched the installed native descriptor to the registered one, verified
+reader, writer and evaluator grants, refused reader scheduling and direct writer publication,
+and found zero projects, documents, originals, demands and products. The development reset
+follows integrated functional and provider acceptance.
 
 Keep one authentic cross-boundary producer, publication and export journey. Reader-only checks
 can consume its authenticated artifacts while their producer, prepared release, wire and authority

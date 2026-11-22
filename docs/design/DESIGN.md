@@ -953,8 +953,11 @@ binds independently discovered formal-evidence products as a set. More than one 
 can bind for the same source scope. A citation uses the original derivation's role-local input
 address and member key. The consumer authorizes the exact cited input in its current use.
 Producer-local positions and ordered structures inside each formal product retain their meaning.
+Independent grammar analyses freeze their start choice in their own requests. Construction can
+use its discovered formal population or an exact named source set under the same original scope.
+A supplied empty set discloses no eligible formal input.
 
-> Decision: [ADR-0151](../adr/0151-sbx-discovered-formal-inputs.md)
+> Decision: [ADR-0151](../adr/0151-sbx-discovered-formal-inputs.md), [ADR-0153](../adr/0153-sbx-exact-named-formal-inputs.md)
 
 **Accepted validated-carrier target · implementation and qualification Proposed · 2026-11-21.**
 The admitting constructor retains immutable bytes and one frozen interpreted value through the
@@ -1042,7 +1045,8 @@ declaration logs retain their producing compiler maps unchanged.
 **Implemented; rollback authoring scoped Tested · 2026-11-14.** Compared frozen table/schema
 policies own complete grants, column ACLs, effective purpose CREATE denial and declared ownership.
 Initial missing legacy facts are explicitly unrecorded; later transitions retain exact before/after
-custody. Named first-party Core data steps compile to frozen SQL under preview staleness premises.
+custody. The SBX development cutover retires predecessor-specific data-step builders. Successor
+authoring still compares captured native objects and privilege policy under preview staleness premises.
 [D3](D3-database.md#unified-operation-realization) owns realization and registration boundaries.
 
 > Decision: [ADR-0103](../adr/0103-ddo-privilege-policy.md)

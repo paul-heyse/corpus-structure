@@ -72,7 +72,11 @@ def _default_profile_source_sets(model: EffectiveDataOperationModel, closure: se
     optional: dict[str, bool] = {}
     for operation in closure:
         for role in model.operation(operation).roles:
-            if role.support is not None and role.support.source_set is not None:
+            if (
+                role.support is not None
+                and role.support.source == "frozen-source-set"
+                and role.support.source_set is not None
+            ):
                 name = role.support.source_set
                 optional[name] = optional.get(name, True) and role.minimum == 0
     return source_sets_record(

@@ -689,6 +689,7 @@ def _original_admission(model, output):
                 ~func.ops.ddo_original_admission_valid(admitted()),
                 "original source admission is revoked",
             ),
+            Perform(func.ops.ddo_record_original_wakes(func.jsonb_build_array(admitted("id")))),
             Return(
                 _object(
                     payload=_object(

@@ -10,11 +10,11 @@ import json
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
-from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, cast
 
 from pydantic import TypeAdapter
 from sqlalchemy import Text, bindparam, func, select
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY
 
 from corpus_structure.semantic._data_operation_wire import (
     WireAdmitAuthoredDataRequest,
@@ -27,10 +27,11 @@ from corpus_structure.semantic._data_operation_wire import (
     WireInspectDataCompletionResult,
     WireObligationId,
     WireReadDemandResultRequest,
-    WireReadDemandResultResult,
+    WireReadDemandSettlementResult,
     WireReadIdentity,
     WireRecordDataFateRequest,
     WireRegisterDataDemandResult,
+    WireResumeDataDemandResult,
     WireSelectDataPopulationRequest,
 )
 from corpus_structure.semantic.identifiers import ProjectId, RuntimeId
@@ -272,7 +273,7 @@ def freeze_demand(
         required_source_sets = {
             role.support.source_set
             for role in operation.roles
-            if role.support is not None and role.support.source_set is not None
+            if role.support is not None and role.support.source == "frozen-source-set"
         }
         if not required_source_sets <= frozen_source_sets.keys():
             raise SemanticRefusal("selected operation lacks its explicit frozen source set")
@@ -295,7 +296,7 @@ def freeze_demand(
         for role in operations[operation_id].roles
         if role.support is not None and role.support.source_set is not None
     }
-    if frozen_source_sets.keys() != declared_source_sets:
+    if not frozen_source_sets.keys() <= declared_source_sets:
         raise SemanticRefusal(
             "frozen source sets must exactly match selected operation declarations"
         )
@@ -401,22 +402,6 @@ class ReadyDataRequest:
         return json.loads(self.native).get("retained_intent_id")
 
 
-class FulfilledUseRecipient(TypedDict):
-    """A declared output-to-input role occurrence selected by the native routine."""
-
-    selection_name: str
-    selection_generation: int
-    use_id: str
-    producer_operation: str
-    output_role: str
-    output_position: int
-    recipient_obligation: str
-    recipient_operation: str
-    input_role: str
-    successor_use_id: str | None
-    successor_fate: Literal["pending", "attached", "fulfilled"]
-
-
 def _population_context_matches(
     row: dict,
     obligation: dict,
@@ -442,7 +427,8 @@ def _population_context_matches(
     selected = evidence.get("selection")
     if selected is not None:
         return (
-            selected.get("obligation_id") == obligation["obligation_id"]
+            source_set is None
+            and selected.get("obligation_id") == obligation["obligation_id"]
             and selected.get("operation_id") == obligation["operation_id"]
             and same_context(selected, obligation)
         )
@@ -452,7 +438,8 @@ def _population_context_matches(
     if source_set is None and same_context(producer, obligation):
         return True
     if (
-        original_source_role
+        source_set is None
+        and original_source_role
         and row.get("complete") is True
         and producer.get("original_source") == obligation["original_source"]
         and all(
@@ -499,8 +486,9 @@ def _population_context_matches(
     )
 
 
-class ResumedDataDemand(WireReadDemandResultResult):
+class ResumedDataDemand(WireResumeDataDemandResult):
     completion_inspections: dict[str, WireInspectDataCompletionResult]
+    scheduler_settlement: NotRequired[WireReadDemandSettlementResult]
 
 
 class DemandPlanner:
@@ -563,6 +551,7 @@ class DemandPlanner:
         after: str | None = None,
         trust_snapshot: dict | None = None,
         read_id: str | None = None,
+        settlement: bool = False,
     ) -> ResumedDataDemand:
         if type(limit) is not int or not 1 <= limit <= 1000:
             raise ValueError("demand frontier limit must be between one and 1000")
@@ -575,7 +564,7 @@ class DemandPlanner:
             request["trust_snapshot"] = trust_snapshot
         if read_id is not None:
             request["read_id"] = WireReadIdentity(read_id)
-        snapshot = self.storage.read_demand_result(request)
+        snapshot = self.storage.resume_data_demand(request)
         frozen = snapshot["intent"]
         if frozen["model"] != sha256(self.model.content).hexdigest():
             raise ValueError("resume requires the demand's original effective model")
@@ -605,7 +594,12 @@ class DemandPlanner:
                 )
         # These are current receipt observations, distinct from the pinned frontier.
         # Returning them lets the execution owner settle uncertainty without inference.
-        return {**snapshot, "completion_inspections": inspections}
+        result = cast(ResumedDataDemand, {**snapshot, "completion_inspections": inspections})
+        if settlement and snapshot.get("state") != "cancelled":
+            result["scheduler_settlement"] = self.storage.read_demand_settlement(
+                {"read_id": snapshot["read_id"]}
+            )
+        return result
 
     def settle_pending_discovery(self, snapshot: ResumedDataDemand) -> bool:
         producers = {relation["producer"] for relation in snapshot["intent"]["discovery"]}
@@ -627,28 +621,6 @@ class DemandPlanner:
             )
         )
 
-    def _fulfilled_use_recipients(
-        self,
-        snapshot: Mapping[str, Any],
-        page: list[str],
-        *,
-        after_wait: bool = False,
-    ) -> tuple[FulfilledUseRecipient, ...]:
-        if not page:
-            return ()
-        query = select(
-            func.ops.ddo_fulfilled_use_recipients(
-                snapshot["project_id"],
-                snapshot["read_id"],
-                bindparam("dispatch_page", page, type_=ARRAY(Text())),
-                after_wait,
-                type_=JSONB(),
-            )
-        )
-        return tuple(
-            cast(FulfilledUseRecipient, reason) for reason in self.storage.connection.scalars(query)
-        )
-
     def ready(
         self,
         snapshot: Mapping[str, Any],
@@ -663,19 +635,6 @@ class DemandPlanner:
         self.refusals = ()
         selected = {item["operation"]: item for item in snapshot["intent"]["operations"]}
         obligations = {item["obligation_id"]: item for item in snapshot["obligations"]}
-        woken = frozenset(
-            reason["recipient_obligation"]
-            for reason in self._fulfilled_use_recipients(
-                snapshot,
-                [
-                    key
-                    for key, obligation in obligations.items()
-                    if obligation["fate"] == "awaiting-inputs"
-                ],
-                after_wait=True,
-            )
-            if reason["successor_fate"] == "pending"
-        )
         rebindings = {}
         for use in snapshot.get("uses", ()):
             if use.get("rebind_derivation"):
@@ -687,7 +646,6 @@ class DemandPlanner:
                 snapshot,
                 authorization=authorization,
                 excluded_requests=excluded_requests,
-                woken_obligations=woken,
             )
         )
         items = []
@@ -757,7 +715,6 @@ class DemandPlanner:
         authorization: bytes,
         retained: bool = False,
         excluded_requests: frozenset[tuple[str, int]] = frozenset(),
-        woken_obligations: frozenset[str] = frozenset(),
     ):
         self.selected_population_ids = ()
         self.fulfilled_request_ids = ()
@@ -784,9 +741,17 @@ class DemandPlanner:
         source_sets = frozen.get("source_sets", {})
         latest_uses = {use["obligation_id"]: use for use in snapshot.get("uses", ())}
         for obligation in snapshot["obligations"]:
+            if obligation.get("binding_unavailable"):
+                continue
             if (obligation.get("request_id"), obligation.get("generation")) in excluded_requests:
                 continue
-            if obligation["fate"] in {"fulfilled", "closed", "cancelled", "failed"}:
+            if obligation["fate"] in {"closed", "cancelled", "failed"}:
+                continue
+            if obligation["fate"] == "fulfilled" and not (
+                obligation.get("binding_origin_changed")
+                or obligation.get("binding_authority_changed")
+                or obligation.get("binding_scope_changed")
+            ):
                 continue
             previous = latest_uses.get(obligation["obligation_id"])
             native_readiness = obligation.get("native_readiness")
@@ -795,21 +760,15 @@ class DemandPlanner:
             if (
                 native_readiness is None
                 and not retained
-                and obligation["obligation_id"] not in woken_obligations
+                and not obligation.get("binding_origin_changed")
+                and not obligation.get("binding_scope_changed")
                 and not obligation.get("binding_authority_changed")
-                and not obligation.get("binding_local_input_changed")
-                and not obligation.get("binding_original_changed")
-                and not obligation.get("binding_pin_changed")
-                and not obligation.get("binding_population_changed")
                 and previous is not None
                 and previous["fate"]
                 in {"awaiting-inputs", "awaiting-population", "awaiting-discovery"}
-                and previous["selection"].get("inputs_watermark") == obligation["inputs_watermark"]
             ):
                 continue
             wait_observation = {"read_id": snapshot["read_id"]}
-            if "inputs_watermark" in obligation:
-                wait_observation["inputs_watermark"] = obligation["inputs_watermark"]
             operation = selected[obligation["operation_id"]]
             discovery_roles = {
                 relation["target_role"]: relation["population"]
@@ -873,6 +832,12 @@ class DemandPlanner:
             for role_name, population_name in compiled.population_roles:
                 role = operation_roles[role_name]
                 scope_name = role.support.source_set if role.support is not None else None
+                if (
+                    role.support is not None
+                    and role.support.source == "original-source"
+                    and scope_name not in source_sets
+                ):
+                    scope_name = None
                 contextual = [
                     row
                     for row in snapshot["populations"]

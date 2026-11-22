@@ -84,6 +84,7 @@ def candidate_inspection_report(
     report_class="DdoCandidateInspectionReport",
     record_class="DdoCandidateSourceRecord",
     contribution_class="DdoCandidateSourceContribution",
+    input_support=None,
 ):
     """Store each actual candidate once; empty output retains its inspection scope.
 
@@ -147,6 +148,18 @@ def candidate_inspection_report(
         "coverage": coverage,
         "diagnostics_json": json_bytes(diagnostics or {}).decode(),
     }
+    if report_class in {"DdoPredicateInspectionReport", "DdoScopedRelationsReport"}:
+        from .contribution_input_references import SUPPORT_FIELDS, check_contribution_input_support
+
+        support = (
+            {field: [] for field in SUPPORT_FIELDS}
+            if input_support is None
+            else dict(input_support)
+        )
+        if report_class == "DdoPredicateInspectionReport" and support.pop("inherited_support", ()):
+            raise ValueError("predicate report cannot inherit a second predicate producer")
+        report.update(support)
+        check_contribution_input_support(report)
     if report_class in {"DdoGlinerFunctionCandidatesReport", "DdoD1SourceCandidatesReport"}:
         report["observation_set_digest"] = candidate_observation_set_digest(operations)
     return prepared.validate_json(report_class, json_bytes(report)).model_dump(

@@ -7,8 +7,6 @@ captured assets, tokenizer and owned CPU execution; it is not provider evidence.
 from contextlib import contextmanager
 from hashlib import sha256
 
-import pytest
-
 from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
 from semantic.data_operation_kernel_support import (
     execute_captured_kernel_demand,
@@ -17,16 +15,14 @@ from semantic.data_operation_kernel_support import (
 
 
 @contextmanager
-def contextual_target_source(native_server, native_settings, directory, *texts):
-    """Publish fixture sources against the captured current native target."""
+def contextual_target_source(semantic_head_template, native_settings, directory, *texts):
+    """Publish fixture sources on a clone of the verified registered target."""
     from native_test_support import database_name
-    from semantic.test_sentence_partition_chain_native import _private_source
+    from semantic.test_sentence_partition_chain_native import _registered_source
 
-    native_server.semantic_ready()
     with (
-        native_server.database(database_name("bare").name, native_server.template) as admin,
-        pytest.MonkeyPatch.context() as monkeypatch,
-        _private_source(admin, native_settings, directory, monkeypatch, *texts) as source,
+        semantic_head_template.clone(database_name("test").name) as admin,
+        _registered_source(admin, native_settings, directory, *texts) as source,
     ):
         yield source
 
@@ -185,10 +181,14 @@ def contextual_workflow_recipe(directory, selection):
         contextual_encoder_operation_sources,
     )
     from corpus_structure.semantic.contextual_operations import contextual_operation_declarations
+    from corpus_structure.semantic.declared_structural_admission import (
+        structural_admission_kind_declarations,
+    )
     from corpus_structure.semantic.definition_applicability_products import (
         applicability_inputs,
         applicability_operation_sources,
     )
+    from corpus_structure.semantic.dossier_products import dossier_inputs, dossier_operation_sources
     from corpus_structure.semantic.primary_operations import combine_primary_sources
     from semantic.contextual_native_fixture import operation_sources
     from semantic.current_pdf_source_support import current_pdf_recipe
@@ -205,12 +205,14 @@ def contextual_workflow_recipe(directory, selection):
             contextual_encoder_declarations(),
             contextual_operation_declarations(),
             structural_operation_declarations(),
+            structural_admission_kind_declarations(),
         ),
         combine_primary_sources(
             sources,
             contextual_encoder_operation_sources(selection),
             operation_sources(),
             applicability_operation_sources(),
+            dossier_operation_sources(),
         ),
     )
     return KernelRecipe(
@@ -221,7 +223,7 @@ def contextual_workflow_recipe(directory, selection):
         project_id=None,
         execution_profile="source-native",
         captured_inputs=CapturedKernelInputs(
-            applicability_inputs(captured.bundle), dependencies, captured.profile
+            dossier_inputs(applicability_inputs(captured.bundle)), dependencies, captured.profile
         ),
     )
 

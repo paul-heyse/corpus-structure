@@ -7,7 +7,6 @@ from typing import Literal
 import pytest
 from semantic.definition_component_members_support import (
     unadmitted_component_members,
-    unadmitted_component_source,
 )
 from semantic.structural_products_support import input_from_passages, root_references
 
@@ -171,7 +170,6 @@ def test_component_closure_rejects_relocated_text_and_old_report_protocol():
         kind="definition_components",
         inputs=value,
         members=unadmitted_component_members((c,)),
-        sources_input=(unadmitted_component_source(),),
         definition_components=DeclaredDefinitionComponentsProduct(stages=()),
     )
     with pytest.raises(ValueError):
@@ -181,7 +179,6 @@ def test_component_closure_rejects_relocated_text_and_old_report_protocol():
     with pytest.raises(ValueError, match="original passage"):
         DeclaredDefinitionComponentsReport(
             kind="definition_components",
-            sources_input=report.sources_input,
             members=report.members,
             inputs=value.model_copy(
                 update={

@@ -146,6 +146,10 @@ def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
             ("semantic.characterization", path.with_name("characterization.py")),
             ("semantic.characterization_evidence", path.with_name("characterization_evidence.py")),
             ("semantic.construction_products", path.with_name("construction_products.py")),
+            (
+                "semantic.contextual_input_references",
+                path.with_name("contextual_input_references.py"),
+            ),
             ("semantic.data_operation_json", path.with_name("data_operation_json.py")),
             ("semantic.source_products", path.with_name("source_products.py")),
             ("semantic.native_source_view", path.with_name("native_source_view.py")),
@@ -285,11 +289,20 @@ def execute_contextual_kernel(
     assets: str,
     *,
     check_active: Callable[[], None],
+    input_role_ids: dict[str, tuple[str, ...]] | None = None,
 ) -> dict[str, Any]:
     if assets != _semantic_assets("contextual").digest:
         raise ValueError("contextual child lacks acquired semantic assets")
+    by_id = {product.semantic_id: product for product in products}
+    input_roles = (
+        None
+        if input_role_ids is None
+        else {
+            role: tuple(by_id[product] for product in ids) for role, ids in input_role_ids.items()
+        }
+    )
     return contextual_product_values(
-        source, products, symbolic, contracts, check_active=check_active
+        source, products, symbolic, contracts, check_active=check_active, input_roles=input_roles
     )
 
 
@@ -659,7 +672,9 @@ class PreparedCharacterizationPort(ABC):
                     or value.prepared.release_id != self.prepared.release_id
                     or value.model.content != self.model.content
                 ):
-                    raise PortRefusal("heterogeneous inputs require their actual native kind lineage")
+                    raise PortRefusal(
+                        "heterogeneous inputs require their actual native kind lineage"
+                    )
                 value._require_acquired()
             return tuple(raw)
         if binding.subject_context is None:
@@ -817,7 +832,27 @@ class PreparedCharacterizationPort(ABC):
                     member=member,
                 )
             constructions.append(product)
-        return _ContextualInputs(source, formal, tuple(constructions), supporting)
+
+        def ordered(name, products):
+            if binding is None:
+                return tuple(sorted(products, key=lambda product: product.semantic_id))
+            selected = next(role for role in binding.roles if role.role == name)
+            positions = {member.product: member.reference_position for member in selected.members}
+            if (
+                len(positions) != len(products)
+                or set(positions.values()) != set(range(len(products)))
+                or any(member.multiplicity != 1 for member in selected.members)
+                or {product.semantic_id for product in products} != set(positions)
+            ):
+                raise PortRefusal("contextual inputs lack their exact original set ledger")
+            return tuple(sorted(products, key=lambda product: positions[product.semantic_id]))
+
+        return _ContextualInputs(
+            source,
+            ordered("formal", formal),
+            ordered("constructions", constructions),
+            ordered("supporting", supporting),
+        )
 
     @staticmethod
     def _observed_dependency_members(binding, inputs):
@@ -834,7 +869,7 @@ class PreparedCharacterizationPort(ABC):
             position = 0
             observed = []
             ordered = selected.members
-            if isinstance(inputs, _ConstructionInputs) and name == "formal":
+            if isinstance(inputs, _ContextualInputs) or name == "formal":
                 actual = {member.product: member for member in ordered}
                 if len(actual) != len(values):
                     raise ValueError("formal evidence attestation changes the selected population")
@@ -843,9 +878,7 @@ class PreparedCharacterizationPort(ABC):
                 retained = values[position]
                 if retained.semantic_id != member.product:
                     raise ValueError("dependency attestation requires its exact producing input")
-                observed.append(
-                    RuleObservedInput(retained.value, member.multiplicity)
-                )
+                observed.append(RuleObservedInput(retained.value, member.multiplicity))
                 position += member.multiplicity
             if position != len(values):
                 raise ValueError("dependency attestation changes the selected input multiplicity")
@@ -1038,14 +1071,21 @@ class PreparedCharacterizationPort(ABC):
             arguments = dict(
                 source=inputs.source,
                 products=tuple(
-                    CharacterizationSnapshot.from_product(product)
-                    for product in products
+                    CharacterizationSnapshot.from_product(product) for product in products
                 ),
                 symbolic=tuple(product.reference for product in constructions),
                 contracts=interpreted_member_contracts(self.prepared, self.model),
                 assets=self._asset_digest,
                 check_active=check_active,
             )
+            arguments["input_role_ids"] = {
+                role: tuple(product.semantic_id for product in values)
+                for role, values in dict(
+                    formal=inputs.formal,
+                    constructions=inputs.constructions,
+                    supporting=inputs.supporting,
+                ).items()
+            }
         else:
             raise TypeError("unknown prepared characterization input profile")
         reply = yield from plan_cpu_call(
@@ -1074,6 +1114,11 @@ class PreparedCharacterizationPort(ABC):
                 inputs.source,
                 (*inputs.formal, *inputs.supporting, *inputs.constructions),
                 product_type=ContextualMeaningProduct,
+                contextual_roles=dict(
+                    formal=inputs.formal,
+                    constructions=inputs.constructions,
+                    supporting=inputs.supporting,
+                ),
             )
         return replace(
             self._completion(product, binding, inputs=inputs),

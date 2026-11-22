@@ -43,6 +43,7 @@ from .native_program import (
     literal as native_literal,
 )
 from .native_program_registry import ProgramDeclaration
+from .structural_products import DEFINITION_COMPONENT_KINDS
 
 
 def _structural_declaration(routine: NativeRoutine) -> ProgramDeclaration:
@@ -994,7 +995,9 @@ def _dossier_component_origins(
             )
             .exists()
         )
-        statement = statement.where(or_(relationship_product.is_(None), and_(reference, actual_edge)))
+        statement = statement.where(
+            or_(relationship_product.is_(None), and_(reference, actual_edge))
+        )
     return statement
 
 
@@ -1600,9 +1603,7 @@ def _structural_issuance_completion(model):
         select_variant = (
             If(
                 report_kind.in_(
-                    (kind, "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport")
-                    if tag == "definition_components"
-                    else (kind,)
+                    DEFINITION_COMPONENT_KINDS if tag == "definition_components" else (kind,)
                 ),
                 (
                     Assign("variant", literal(tag)),
@@ -2148,8 +2149,7 @@ def _structural_report_support(model):
                                     and_(
                                         nominal
                                         == "urn:corpus:structural:DeclaredDefinitionComponentsReport",
-                                        kinds.c.kind
-                                        == "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport",
+                                        kinds.c.kind.in_(DEFINITION_COMPONENT_KINDS),
                                     ),
                                 ),
                                 kinds.c.universe == "ordinary",

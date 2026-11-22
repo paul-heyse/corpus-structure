@@ -25,14 +25,12 @@ from corpus_structure.semantic.structural_products import (
     DeclaredDefinitionComponentsProduct,
     DeclaredDefinitionComponentsReport,
     DeclaredDossierComparisonSelection,
-    DeclaredStructuralInputPin,
     Dimension,
     LocatedDefinitionSpan,
     declared_definition_component,
 )
 from semantic.definition_component_members_support import (
     unadmitted_component_members,
-    unadmitted_component_source,
 )
 from semantic.structural_products_support import input_from_passages, native_source
 
@@ -100,7 +98,6 @@ def fixture(value=None, *, exception=True, root_on_left=False, primary_layers=No
         kind="definition_components",
         inputs=value,
         members=unadmitted_component_members((root,)),
-        sources_input=(unadmitted_component_source(),),
         definition_components=DeclaredDefinitionComponentsProduct(stages=()),
     )
     root_ref = DeclaredComponentRef(
@@ -136,22 +133,7 @@ def fixture(value=None, *, exception=True, root_on_left=False, primary_layers=No
             contribution_id="source-contribution:" + "c" * 64, **custody(right_source, 32)
         ),
     )
-    comparison = DeclaredComparisonReport(
-        **comparison.model_dump(exclude_none=True),
-        sources_input=tuple(
-            DeclaredStructuralInputPin(
-                **custody(source, "source:" + str(i)), reference=source.source
-            )
-            for i, source in enumerate(value.sources)
-        ),
-        reports_input=tuple(
-            DeclaredStructuralInputPin(
-                **custody(source, 31 + i),
-                reference=canonical_bytes([f"unadmitted:product:{31 + i}", None]).decode(),
-            )
-            for i, source in enumerate((left_source, right_source))
-        ),
-    )
+    comparison = DeclaredComparisonReport.model_validate(comparison.model_dump(exclude_none=True))
     reference = DeclaredStructuralRef(
         structural_id=comparison.product_id, **custody(left_source, 33)
     )

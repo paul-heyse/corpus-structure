@@ -110,7 +110,10 @@ def test_requested_context_refuses_wrong_member_source_dependency_and_missing_po
 
 def test_encoder_packet_distinguishes_declared_empty_and_unavailable_learned_closures():
     from corpus_structure.semantic import contextual_encoder_batch as batch
-    from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
+    from corpus_structure.semantic.data_operation_values import (
+        decode_semantic_value,
+        semantic_value,
+    )
 
     members, _ = _query_members(selected=True)
     for member in members:
@@ -121,7 +124,10 @@ def test_encoder_packet_distinguishes_declared_empty_and_unavailable_learned_clo
     packet = batch.encoder_packet(
         members,
         "retrieve.contextual_query/selected-context",
-        member_metadata=({"product:primary": ()}, {"product:primary": None}),
+        member_metadata=(
+            dict(learned_dependencies={"product:primary": ()}, construction_formal_parents={}),
+            dict(learned_dependencies={"product:primary": None}, construction_formal_parents={}),
+        ),
     )
     prepared, failures = batch.prepare_encoder_members(packet, batch.unpack_encoder_packet(packet))
     assert len(prepared) == 1

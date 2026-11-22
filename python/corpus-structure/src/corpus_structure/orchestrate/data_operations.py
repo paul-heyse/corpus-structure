@@ -965,7 +965,7 @@ class NativeDemandExecutor:
                 "limit": 1,
                 "obligation_id": claimed["binding_obligation_id"],
             }
-            snapshot = storage.read_demand_result(cast(WireReadDemandResultRequest, request))
+            snapshot = storage.resume_data_demand(cast(WireReadDemandResultRequest, request))
             obligations = snapshot["obligations"]
             if (
                 len(obligations) != 1
@@ -1018,7 +1018,9 @@ class NativeDemandExecutor:
             )
         operation = context.model.operation(ready.operation)
         positioned = {
-            target.input_role for target in operation.reference_targets if target.occurrence_position
+            target.input_role
+            for target in operation.reference_targets
+            if target.occurrence_position
         }
         if not positioned:
             return original
@@ -2376,7 +2378,7 @@ class NativeDemandExecutor:
                     if not progress:
                         break
             with self.native_io.transaction() as connection:
-                final = connection.planner(self.model).resume(demand, limit=limit)
+                final = connection.planner(self.model).resume(demand, limit=limit, settlement=True)
             result = self._result(demand, json_bytes(final))
             if self._member_failures:
                 raise NativeDemandExecutionError(result, tuple(self._member_failures))

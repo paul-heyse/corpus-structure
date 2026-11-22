@@ -381,10 +381,11 @@ move. Public selected-read/reuse and sealed-history removal remain the DDO packa
 privilege operations replace creation-only grants. An explicit initial normalization marks missing
 legacy before facts unrecorded; later transitions use exact policy custody. Purpose roles retain
 no table mutation/schema CREATE authority. Owned DDL preserves caller restoration and cross-owner
-FK authorization; the explicit walk still owns global retirement ordering. Named first-party data
-steps compile to frozen SQL under preview implementation custody; upgrades never resolve builders.
-Registered successors through `semantic_ddo_drole_v2` execute whole upgrades and independently
-verify catalogs in rollback-only authoring; they are not deployed. Complete policy includes explicit delegation order,
+FK authorization; the explicit walk still owns global retirement ordering. Successor authoring
+compares frozen native state and independently verifies catalogs in rollback-only authoring.
+The [SBX cutover](../plans/set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09)
+owns the empty development baseline and retirement of the historical data-step builders.
+Complete policy includes explicit delegation order,
 empty column ACLs, evaluator-only protected tables and inherited trigger ownership. Raw trigger
 definitions acquire staging ownership from frozen parent facts before normalization; new/moved
 parents use declared target policy. Explicit owner/binding conflicts still refuse. Shared Core

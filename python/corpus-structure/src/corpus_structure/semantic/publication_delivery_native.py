@@ -2,19 +2,17 @@
 
 from sqlalchemy import (
     BigInteger,
-    Boolean,
     Column,
+    Integer,
     Text,
     and_,
     any_,
-    case,
     cast,
     column,
     func,
     literal,
     or_,
     select,
-    true,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, insert
 
@@ -23,18 +21,22 @@ from .native_program import (
     Assign,
     Block,
     ForQuery,
+    GetRowCount,
+    If,
     Local,
     NativeRoutine,
     Parameter,
     Perform,
+    PerformQuery,
     Return,
-    ReturnQuery,
     SelectInto,
+    Sql,
     column_type,
     core_relation_row,
     core_variable,
     pg_type,
 )
+from .native_program import literal as pg_literal
 
 
 def record_publication_delivery(model, observe, receipt_id, project_id):
@@ -147,7 +149,10 @@ def unreconciled_publication_origins(model):
     return NativeRoutine(
         "ops",
         "ddo_unreconciled_publication_origins",
-        parameters=tuple(Parameter(parameter, column_type(column)) for parameter, column in fields),
+        parameters=(
+            *(Parameter(parameter, column_type(column)) for parameter, column in fields),
+            Parameter("p_limit", pg_type("int4"), pg_literal(1000)),
+        ),
         returns=returns,
         body=select(origins.c.receipt_id)
         .select_from(history.join(origins, history.c.demand_id == origins.c.demand_id))
@@ -159,20 +164,127 @@ def unreconciled_publication_origins(model):
             func.ops.ddo_demand_active(history.c.demand_id),
             ~delivered,
         )
-        .distinct(),
+        .distinct()
+        .order_by(origins.c.receipt_id)
+        .limit(core_variable("p_limit", Integer())),
         search_path=("pg_catalog", "pg_temp"),
         volatility="stable",
     )
 
 
-def reconcile_publication_delivery(model, project, name, generation):
+def reconcile_publication_delivery(model, project, name, generation, limit=1000):
     """Materialize visible gaps while the caller owns the named generation fence."""
     origins = (
-        func.ops.ddo_unreconciled_publication_origins(project, name, generation)
+        func.ops.ddo_unreconciled_publication_origins(
+            project, name, generation, cast(limit, Integer())
+        )
         .table_valued(column("receipt_id", Text()))
         .render_derived(name="unreconciled_publications")
     )
     return _record_pending(model, project, name, generation, origins.c.receipt_id, origins)
+
+
+def reconcile_demand_publications(model):
+    """Repair committed enrollment/publication gaps through ordinary bounded resume.
+
+    The same per-name fence as enrollment precedes the fresh statement reading
+    fulfillment facts. Replays insert only missing exact origin identities.
+    This is recovery evidence, never a claim that the selected scope is settled.
+    """
+    from .obligation_readiness_native import scheduler_authorized
+
+    demands = model.tables["ops.data_demand"]
+    history = model.tables["ops.data_demand_selection"]
+    demand = core_variable("p_demand", Text())
+    bound = core_variable("p_limit", Integer())
+    total = core_variable("processed", BigInteger())
+    project = core_variable("project", Text())
+    name = core_variable("scope", Text(), "name")
+    generation = core_variable("scope", BigInteger(), "generation")
+    return NativeRoutine(
+        "ops",
+        "ddo_reconcile_demand_publications",
+        parameters=(
+            Parameter("p_demand", pg_type("text")),
+            Parameter("p_limit", pg_type("int4"), pg_literal(1000)),
+        ),
+        returns=pg_type("int8"),
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            (
+                If(
+                    or_(
+                        ~scheduler_authorized(),
+                        bound.is_(None),
+                        ~bound.between(1, 1000),
+                        func.current_setting("transaction_isolation").not_in(
+                            ("read committed", "read uncommitted")
+                        ),
+                    ),
+                    (Return(literal(0)),),
+                ),
+                PerformQuery(
+                    select(1)
+                    .select_from(demands)
+                    .where(demands.c.id == demand)
+                    .with_for_update(read=True)
+                ),
+                If(~func.ops.ddo_demand_active(demand), (Return(literal(0)),)),
+                SelectInto(
+                    select(demands.c.project_id).where(demands.c.id == demand),
+                    ("project",),
+                    strict=True,
+                ),
+                ForQuery(
+                    ("scope",),
+                    select(core_relation_row(history))
+                    .where(
+                        history.c.project_id == project,
+                        history.c.demand_id == demand,
+                        ~_superseded(history),
+                    )
+                    .order_by(history.c.name),
+                    (
+                        If(
+                            total < bound,
+                            (
+                                Perform(
+                                    func.pg_advisory_xact_lock(
+                                        func.hashtextextended(
+                                            cast(
+                                                func.jsonb_build_array(
+                                                    "ops.data_demand_selection", project, name
+                                                ),
+                                                Text(),
+                                            ),
+                                            0,
+                                        )
+                                    )
+                                ),
+                                Sql(
+                                    reconcile_publication_delivery(
+                                        model, project, name, generation, bound - total
+                                    )
+                                ),
+                                GetRowCount("inserted"),
+                                Assign(
+                                    "processed", total + core_variable("inserted", BigInteger())
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+                Return(total),
+            ),
+            (
+                Local("scope", history),
+                Local("project", pg_type("text")),
+                Local("processed", pg_type("int8"), literal(0)),
+                Local("inserted", pg_type("int8")),
+            ),
+        ),
+    )
 
 
 def settle_pending_discovery(model):
@@ -225,10 +337,12 @@ def settle_pending_discovery(model):
             populations.c.evidence["product_id"].astext == outputs.c.product_id,
             populations.c.evidence["derivation_id"].astext == uses.c.derivation_id,
             populations.c.evidence["member_role"].astext == outputs.c.role,
+            populations.c.evidence["admission_use_id"].astext == uses.c.id,
             ~populations.c.evidence.has_key("selection"),
             func.ops.ddo_read_visible(
                 populations.c.created_at, populations.c.created_xid, boundary
             ),
+            func.ops.ddo_node_valid("population", populations.c.id, boundary),
         )
         .correlate(declarations, uses, outputs)
         .exists()
@@ -246,6 +360,8 @@ def settle_pending_discovery(model):
                 uses.c.derivation_id,
                 "member_role",
                 outputs.c.role,
+                "admission_use_id",
+                uses.c.id,
             ).label("discovery_payload")
         )
         .select_from(
@@ -320,271 +436,4 @@ def settle_pending_discovery(model):
         ),
         search_path=("pg_catalog", "pg_temp"),
         security_definer=True,
-    )
-
-
-def fulfilled_use_recipients(model):
-    """Find direct scalar-role candidates within a current exact named demand.
-
-    Join the current named enrollment to durable fulfilled uses on this page.
-    This includes uses attached by reuse and publication concurrent with enrollment.
-    """
-    history = model.tables["ops.data_demand_selection"]
-    demands = model.tables["ops.data_demand"]
-    reads = model.tables["ops.data_demand_read"]
-    uses = model.tables["ops.demand_use"]
-    obligations = model.tables["ops.data_obligation"]
-    producer = obligations.alias("producer")
-    recipient = obligations.alias("recipient")
-    definitions = model.tables["sem.data_operation_definition"]
-    producer_definition = definitions.alias("producer_definition")
-    output = model.tables["ops.data_derivation_output"]
-    derivations = model.tables["ops.data_derivation"]
-    requests = model.tables["ops.data_request"]
-    kind = model.tables["sem.data_kind_contract"].alias("output_kind")
-    product = model.tables["kb.data_product"]
-    fields = (
-        ("p_project", history.c.project_id),
-        ("p_read", reads.c.id),
-    )
-    project, read = (core_variable(parameter, field.type) for parameter, field in fields)
-    page = core_variable("p_page", ARRAY(Text()))
-    after_wait = core_variable("p_after_wait", Boolean())
-    boundary = core_variable("boundary", JSONB())
-    demand_id = core_variable("boundary", reads.c.demand_id.type, "demand_id")
-    access_universes = core_variable("boundary", reads.c.access_universes.type, "access_universes")
-
-    def occurrence(values, name):
-        return (
-            func.jsonb_array_elements(values)
-            .table_valued(column("value", JSONB()))
-            .render_derived(name=name)
-            .lateral()
-        )
-
-    operations = occurrence(demands.c.selection["operations"], "selected_operation")
-    input_role = occurrence(definitions.c.input_roles, "input_role")
-    output_role = occurrence(producer_definition.c.output_roles, "output_role")
-    selected = operations.c.value
-    role = input_role.c.value
-    emitted = output_role.c.value
-    next_use = uses.alias("recipient_use")
-    successor = (
-        select(next_use.c.id, next_use.c.fate, next_use.c.selection)
-        .where(
-            next_use.c.obligation_id == recipient.c.id,
-            func.ops.ddo_read_visible(next_use.c.created_at, next_use.c.created_xid, boundary),
-        )
-        .order_by(next_use.c.created_at.desc(), next_use.c.id.desc())
-        .limit(1)
-        .correlate(recipient)
-        .lateral("recipient_current_use")
-    )
-    successor_input = occurrence(successor.c.selection["inputs"], "recipient_bound_input")
-    successor_support = occurrence(successor.c.selection["support"], "recipient_bound_support")
-    prior = reads.alias("recipient_wait_read")
-    already_observed = (
-        select(1)
-        .select_from(prior)
-        .where(
-            prior.c.id == successor.c.selection["read_id"].astext,
-            prior.c.demand_id == demand_id,
-            func.ops.ddo_read_visible(uses.c.created_at, uses.c.created_xid, prior.table_valued()),
-        )
-        .correlate(successor, uses)
-        .exists()
-    )
-    current_producer = (
-        select(1)
-        .select_from(next_use)
-        .where(
-            next_use.c.obligation_id == producer.c.id,
-            or_(
-                next_use.c.created_at > uses.c.created_at,
-                and_(next_use.c.created_at == uses.c.created_at, next_use.c.id > uses.c.id),
-            ),
-            func.ops.ddo_read_visible(next_use.c.created_at, next_use.c.created_xid, boundary),
-        )
-        .correlate(producer, uses)
-        .exists()
-    )
-    linked = (
-        select(1)
-        .select_from(successor_input.join(successor_support, true()))
-        .where(
-            successor_input.c.value["role"].astext == role["name"].astext,
-            successor_input.c.value["product_id"].astext == output.c.product_id,
-            successor_input.c.value["member_id"].astext.is_(None),
-            successor_support.c.value["role"].astext == role["name"].astext,
-            successor_support.c.value["position"].astext
-            == successor_input.c.value["position"].astext,
-            successor_support.c.value["admission_use_id"].astext == uses.c.id,
-            successor_support.c.value["derivation_id"].astext == derivations.c.id,
-        )
-        .correlate(successor, input_role, output, uses, derivations)
-        .exists()
-    )
-    successor_fate = case(
-        (linked & (successor.c.fate == "attached"), "attached"),
-        (
-            linked & (successor.c.fate == "fulfilled"),
-            case(
-                (func.ops.ddo_node_valid("use", successor.c.id, boundary), "fulfilled"),
-                else_="pending",
-            ),
-        ),
-        else_="pending",
-    )
-    candidate = (
-        select(
-            history.c.name.label("selection_name"),
-            history.c.generation.label("selection_generation"),
-            uses.c.id.label("origin"),
-            recipient.c.id.label("recipient"),
-            role["name"].astext.label("input"),
-            output.c.role.label("output"),
-            output.c.position.label("position"),
-            func.jsonb_build_object(
-                "selection_name",
-                history.c.name,
-                "selection_generation",
-                history.c.generation,
-                "use_id",
-                uses.c.id,
-                "producer_operation",
-                producer.c.operation_id,
-                "output_role",
-                output.c.role,
-                "output_position",
-                output.c.position,
-                "recipient_obligation",
-                recipient.c.id,
-                "recipient_operation",
-                recipient.c.operation_id,
-                "input_role",
-                role["name"].astext,
-                "successor_use_id",
-                case((linked, successor.c.id), else_=None),
-                "successor_fate",
-                successor_fate,
-            ).label("reason"),
-        )
-        .select_from(
-            history.join(demands, demands.c.id == history.c.demand_id)
-            .join(uses, uses.c.demand_id == demands.c.id)
-            .join(producer, producer.c.id == uses.c.obligation_id)
-            .join(derivations, derivations.c.id == uses.c.derivation_id)
-            .join(requests, requests.c.id == derivations.c.request_id)
-            .join(output, output.c.derivation_id == derivations.c.id)
-            .join(product, product.c.id == output.c.product_id)
-            .join(kind, kind.c.kind_contract == product.c.kind_contract)
-            .join(recipient, recipient.c.demand_id == demands.c.id)
-            .join(
-                producer_definition,
-                and_(
-                    producer_definition.c.release_id == derivations.c.release_id,
-                    producer_definition.c.operation_id == requests.c.operation_id,
-                    producer_definition.c.recipe == derivations.c.recipe,
-                ),
-            )
-            .join(
-                definitions,
-                and_(
-                    definitions.c.release_id == demands.c.release_id,
-                    definitions.c.operation_id == recipient.c.operation_id,
-                ),
-            )
-            .join(operations, selected["operation"].astext == recipient.c.operation_id)
-            .join(input_role, true())
-            .join(output_role, emitted["name"].astext == output.c.role)
-            .outerjoin(successor, true())
-        )
-        .where(
-            history.c.project_id == project,
-            history.c.demand_id == demand_id,
-            ~_superseded(history),
-            func.ops.ddo_demand_active(demands.c.id),
-            uses.c.fate == "fulfilled",
-            func.ops.ddo_read_visible(uses.c.created_at, uses.c.created_xid, boundary),
-            ~current_producer,
-            func.ops.ddo_node_valid("use", uses.c.id, boundary),
-            recipient.c.id == any_(page),
-            func.ops.ddo_read_visible(recipient.c.created_at, recipient.c.created_xid, boundary),
-            producer.c.operation_id == requests.c.operation_id,
-            selected["dependencies"].contains(func.jsonb_build_array(producer.c.operation_id)),
-            product.c.project_id == project,
-            kind.c.universe.in_(("ordinary", "source")),
-            func.coalesce(access_universes.bool_op("?")(kind.c.universe), False),
-            ~func.ops.ddo_policy_authority_leaf(derivations.c.id),
-            _custody_body_eligible(model, product.c.kind_contract, product.c.canonical_body),
-            producer.c.subject == recipient.c.subject,
-            producer.c.original_source.is_not_distinct_from(recipient.c.original_source),
-            producer.c.analyzed_scope == recipient.c.analyzed_scope,
-            product.c.subject == recipient.c.subject,
-            product.c.analyzed_scope == recipient.c.analyzed_scope,
-            output.c.member_id.is_(None),
-            output.c.position == 0,
-            output.c.multiplicity == 1,
-            emitted["collection"].astext == "scalar",
-            emitted["kind_contract"].astext == product.c.kind_contract,
-            role["collection"].astext == "scalar",
-            role["presence"].astext == "required",
-            func.coalesce(role["subject_target"].astext, "subject") == "subject",
-            role["subject_field"].astext.is_(None),
-            role["support"]["source_set"].astext.is_(None),
-            func.coalesce(
-                role["support"]["origins"], func.jsonb_build_array("computation")
-            ).bool_op("?")("computation"),
-            func.ops.ddo_binding_source_address(
-                role,
-                func.jsonb_build_object("original_source", product.c.original_source),
-                recipient.c.original_source,
-                func.jsonb_build_object(),
-            ),
-            role["accepted_kind_contracts"].contains(
-                func.jsonb_build_array(product.c.kind_contract)
-            ),
-            or_(~after_wait, ~already_observed),
-        )
-        .distinct()
-        .subquery("routed_occurrences")
-    )
-    returned = pg_type("jsonb")
-    returned.setof = True
-    return NativeRoutine(
-        "ops",
-        "ddo_fulfilled_use_recipients",
-        parameters=(
-            *(Parameter(parameter, column_type(field)) for parameter, field in fields),
-            Parameter("p_page", column_type(Column("page", ARRAY(Text())))),
-            Parameter("p_after_wait", pg_type("boolean")),
-        ),
-        returns=returned,
-        security_definer=True,
-        search_path=("pg_catalog", "pg_temp"),
-        volatility="volatile",
-        body=Block(
-            (
-                SelectInto(
-                    select(core_relation_row(reads))
-                    .select_from(reads.join(demands, demands.c.id == reads.c.demand_id))
-                    .where(reads.c.id == read, demands.c.project_id == project),
-                    ("boundary",),
-                    strict=True,
-                ),
-                Perform(func.ops.ddo_require_read_current(boundary, project)),
-                ReturnQuery(
-                    select(candidate.c.reason).order_by(
-                        candidate.c.recipient,
-                        candidate.c.input,
-                        candidate.c.origin,
-                        candidate.c.output,
-                        candidate.c.position,
-                        candidate.c.selection_name,
-                        candidate.c.selection_generation,
-                    )
-                ),
-            ),
-            (Local("boundary", reads),),
-        ),
     )

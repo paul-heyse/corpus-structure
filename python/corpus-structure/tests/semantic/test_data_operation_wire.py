@@ -464,11 +464,11 @@ def test_nested_support_and_product_member_attributes_cannot_hide_type_coercion(
                 "subject_definition": "original-source-view",
             },
             "body": ["mapping", []],
-            "choices": [{"choice_group": "g", "alternative": "a", "selected": True}],
         }
     ]
     assert validate_native_wire("retain_data_completion_intent", "input", invalid)
-    invalid["completion"]["outputs"][0]["product"]["members"][0]["choices"][0]["selected"] = "true"
+    member = invalid["completion"]["outputs"][0]["product"]["members"][0]
+    member["context"]["subject_definition"] = 1
     with pytest.raises(ValueError, match="schema"):
         validate_native_wire("retain_data_completion_intent", "input", invalid)
 
@@ -695,36 +695,13 @@ def test_member_context_is_required_and_does_not_reinterpret_domain_subject():
 
 
 @pytest.mark.parametrize(
-    "endpoint,valid",
+    "name,value",
     [
-        ({"scope": "local", "role": "object", "member_id": "member:other"}, True),
-        (
-            {
-                "scope": "external",
-                "role": "object",
-                "member_id": "member:other",
-                "product_id": "product:other",
-            },
-            True,
-        ),
-        ({"role": "object", "member_id": "member:other"}, False),
-        (
-            {"scope": "local", "role": "object", "member_id": "member:other", "product_id": None},
-            False,
-        ),
-        (
-            {
-                "scope": "local",
-                "role": "object",
-                "member_id": "member:other",
-                "product_id": "product:self",
-            },
-            False,
-        ),
-        ({"scope": "external", "role": "object", "member_id": "member:other"}, False),
+        ("endpoints", [{"scope": "local", "role": "object", "member_id": "member:other"}]),
+        ("choices", [{"choice_group": "g", "alternative": "a", "selected": True}]),
     ],
 )
-def test_endpoint_scope_is_explicit_and_local_never_embeds_a_self_product_key(endpoint, valid):
+def test_product_members_refuse_retired_envelope_reference_metadata(name, value):
     member = {
         "member_id": "member:x",
         "kind_contract": "kind:member",
@@ -734,34 +711,20 @@ def test_endpoint_scope_is_explicit_and_local_never_embeds_a_self_product_key(en
             "analyzed_scope": {},
             "subject_definition": "original-source-view",
         },
-        "body": ["mapping", [["endpoints", ["sequence", []]]]],
-        "endpoints": [endpoint],
+        "body": ["mapping", []],
     }
-    from corpus_structure.semantic.data_operation_values import semantic_value
-
-    member["body"] = semantic_value({"endpoints": [endpoint]})
-    if valid:
-        assert validate_native_wire(
-            "retain_data_completion_intent",
-            "input",
-            member_completion(member, domain_body={"endpoints": [endpoint]}),
-        )
-    else:
-        with pytest.raises(ValueError):
-            validate_native_wire(
-                "retain_data_completion_intent", "input", member_completion(member)
-            )
+    member[name] = value
+    with pytest.raises(ValueError, match="Additional properties are not allowed"):
+        validate_native_wire("retain_data_completion_intent", "input", member_completion(member))
 
 
-def test_member_context_and_endpoint_discriminator_remain_typed_in_effective_fields():
+def test_member_context_remains_typed_in_effective_fields():
     model = wire_model(captured())
     context = next(
         k for k in model.kinds if k.semantic_id == KIND_PREFIX + "product_member/property/context"
     )
     assert json.loads(context.facts)["required"] is True
     assert json.loads(context.facts)["range"] == KIND_PREFIX + "member_context"
-    scope = next(k for k in model.kinds if k.semantic_id == KIND_PREFIX + "endpoint/property/scope")
-    assert json.loads(scope.facts)["range"] == "primitive:string"
 
 
 def test_frontier_and_products_views_expose_explicit_body_states():
@@ -1274,7 +1237,6 @@ def test_read_obligation_carries_required_checked_subject_definition(mutation):
         analyzed_scope={},
         parameters={},
         historical_fate=None,
-        inputs_watermark="watermark:actual",
         fate="waiting",
         request_id=None,
         generation=None,
@@ -1295,20 +1257,26 @@ def test_read_obligation_carries_required_checked_subject_definition(mutation):
             validate_wire_schema(schema, value)
 
 
-def test_waiting_fate_retains_the_inputs_watermark_in_its_closed_reason_selection():
+def test_waiting_fate_retains_its_exact_read_and_refuses_a_retired_watermark():
     payload: dict[str, ExactJSONValue] = {
         "obligation_id": "obligation:waiting",
         "fate": "awaiting-inputs",
-        "selection": {"reasons": [], "inputs_watermark": "watermark:visible-prerequisites"},
+        "selection": {"reasons": [], "read_id": "read:visible-prerequisites"},
     }
     assert validate_native_wire("record_data_fate", "input", payload) == payload
     for invalid in (0, "", None):
         malformed = copy.deepcopy(payload)
         selection = malformed["selection"]
         assert isinstance(selection, dict)
-        selection["inputs_watermark"] = invalid
+        selection["read_id"] = invalid
         with pytest.raises(ValueError):
             validate_native_wire("record_data_fate", "input", malformed)
+    retired = copy.deepcopy(payload)
+    retired_selection = retired["selection"]
+    assert isinstance(retired_selection, dict)
+    retired_selection["inputs_watermark"] = "retired"
+    with pytest.raises(ValueError, match="Additional properties"):
+        validate_native_wire("record_data_fate", "input", retired)
 
 
 def test_controlled_storage_validates_request_dependent_and_ordered_replies():
@@ -1347,9 +1315,29 @@ def test_controlled_read_page_has_required_native_fields():
 
     page = demand_result_page()
     assert page["obligations"][0]["operation_id"] == "op:A"
-    del page["obligations"][0]["inputs_watermark"]
-    with pytest.raises(ValueError, match="inputs_watermark"):
+    del page["obligations"][0]["subject_definition"]
+    with pytest.raises(ValueError, match="subject_definition"):
         validate_native_wire("read_demand_result", "output", page)
+
+
+def test_public_result_refuses_scheduler_fields_and_private_result_admits_them():
+    from semantic.demand_result_support import demand_result_page
+
+    page = demand_result_page()
+    for name, value in (
+        ("native_readiness", None),
+        ("native_settlement", None),
+        ("binding_origin_changed", False),
+        ("binding_scope_changed", False),
+        ("binding_authority_changed", False),
+    ):
+        malformed = copy.deepcopy(page)
+        malformed["obligations"][0][name] = value
+        with pytest.raises(ValueError, match="Additional properties"):
+            validate_native_wire("read_demand_result", "output", malformed)
+    private = demand_result_page(scheduler=True)
+    assert private["obligations"][0]["native_readiness"] is None
+    assert private["obligations"][0]["native_settlement"] is None
 
 
 def test_scoped_read_selection_has_explicit_private_intent_digest_contract():

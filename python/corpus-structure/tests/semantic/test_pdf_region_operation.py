@@ -3,6 +3,7 @@
 import sys
 from hashlib import sha256
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -10,6 +11,7 @@ from corpus_structure.ingest.pdf import PdfRecipe
 from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.native_requests import (
+    PreparedPdfRegionPort,
     pdf_region_inputs,
     pdf_region_operation_sources,
 )
@@ -160,8 +162,8 @@ def test_render_profile_has_exact_capture_support_and_no_legacy_publisher(
             ),
         ) as pool:
             return drive_prepared_work(
-                type(port).plan_python(
-                    controlled,
+                PreparedPdfRegionPort.plan_python(
+                    cast(PreparedPdfRegionPort, controlled),
                     (PythonRoleValue(incoming.name, kind, {}),),
                     binding=SimpleNamespace(
                         sufficient=True,

@@ -260,7 +260,15 @@ def prepare_selected_query_context(frame, occurrence, primary, *, binding, recip
 
 
 def prepare_primary_query_context(
-    frame, occurrence, rows, *, recipe, evidence, learned_dependencies=None, formal_atom_parents=None
+    frame,
+    occurrence,
+    rows,
+    *,
+    recipe,
+    evidence,
+    learned_dependencies=None,
+    construction_formal_parents=None,
+    contextual_input_parents=None,
 ):
     """Shared query12 projection over actual CPU/native primary role facts."""
     from corpus_structure.methods.contextual_query import (
@@ -301,10 +309,9 @@ def prepare_primary_query_context(
             )
         ):
             raise ValueError("query context primary lacks its genuine computational support")
-        if (
-            row.body.get("source") != frame.value["source"]
-            or canonical_bytes(row.body.get("selectors")) != canonical_bytes(frame.value["selectors"])
-        ):
+        if row.body.get("source") != frame.value["source"] or canonical_bytes(
+            row.body.get("selectors")
+        ) != canonical_bytes(frame.value["selectors"]):
             raise ValueError("query context primary belongs to another original source/scope")
         if row.product_id in products:
             raise ValueError("query context repeats a selected primary product")
@@ -316,8 +323,14 @@ def prepare_primary_query_context(
             dependencies[row.product_id] = targets
             observed_learned.add(row.product_id)
         else:
-            dependencies[row.product_id] = tuple(
-                item["product_id"] for item in row.body.get("dependencies", ())
+            dependencies[row.product_id] = (
+                tuple(
+                    dict.fromkeys(
+                        item[2] for item in (contextual_input_parents or {}).get(row.product_id, ())
+                    )
+                )
+                if "formal_member_support" in row.body
+                else tuple(item["product_id"] for item in row.body.get("dependencies", ()))
             )
         inputs.append(
             dict(
@@ -334,7 +347,9 @@ def prepare_primary_query_context(
     if observed_learned != learned_dependencies.keys():
         raise ValueError("query context includes unselected learned dependency inputs")
     inventories = SelectedCharacterizationInventories(
-        products, formal_atom_parents=formal_atom_parents
+        products,
+        construction_formal_parents=construction_formal_parents,
+        contextual_input_parents=contextual_input_parents,
     )
     reachable, pending = set(), [selected.product]
     while pending:
@@ -453,7 +468,12 @@ class SelectedQueryContextUnavailable(ValueError):
 
 
 def prepare_query_encoder_member(
-    input_basis, frame, *, learned_dependencies=None, formal_atom_parents=None
+    input_basis,
+    frame,
+    *,
+    learned_dependencies=None,
+    construction_formal_parents=None,
+    contextual_input_parents=None,
 ):
     from .data_operation_cpu_basis import cpu_basis_values
     from .data_operation_model import json_context_meaning
@@ -483,7 +503,8 @@ def prepare_query_encoder_member(
                 recipe=selection["recipe"],
                 evidence=selection["evidence"],
                 learned_dependencies=learned_dependencies,
-                formal_atom_parents=formal_atom_parents,
+                construction_formal_parents=construction_formal_parents,
+                contextual_input_parents=contextual_input_parents,
             )
         except ValueError as error:
             raise SelectedQueryContextUnavailable(str(error)) from error
@@ -568,7 +589,8 @@ class ContextualEncoderBatchPlan:
             is_learned_observation,
             learned_dependency_products,
         )
-        from .construction_formal_references import formal_atom_parents
+        from .construction_formal_references import construction_formal_parents
+        from .contextual_input_references import contextual_input_parents
         from .data_operation_values import decode_semantic_value
 
         kinds = {
@@ -578,12 +600,11 @@ class ContextualEncoderBatchPlan:
         }
         result = []
         for member, declared in zip(members, expected, strict=True):
-            binding = next(
-                (item for item in member.binding.roles if item.role == "primary"), None
-            )
+            binding = next((item for item in member.binding.roles if item.role == "primary"), None)
             actual = {} if binding is None else {item.product: item for item in binding.members}
             dependencies: dict[str, tuple[str, ...] | None] = {}
             formal_inputs = {}
+            contextual_inputs = {}
             for row in decode_semantic_value(declared["input_basis"])["roles"]:
                 if row["role"] != "primary":
                     continue
@@ -593,17 +614,28 @@ class ContextualEncoderBatchPlan:
                         dependencies[row["product_id"]] = learned_dependency_products(
                             self.prepared, kind, row["body"], actual[row["product_id"]]
                         )
-                    except (KeyError, ValueError):
+                    except KeyError, ValueError:
                         dependencies[row["product_id"]] = None
-                if row["body"].get("formal_atom_support"):
+                if row["body"].get("formal_support"):
                     try:
-                        formal_inputs[row["product_id"]] = formal_atom_parents(
+                        formal_inputs[row["product_id"]] = construction_formal_parents(
                             actual[row["product_id"]]
                         )
-                    except (KeyError, ValueError):
+                    except KeyError, ValueError:
                         formal_inputs[row["product_id"]] = ()
+                if "formal_member_support" in row["body"]:
+                    try:
+                        contextual_inputs[row["product_id"]] = contextual_input_parents(
+                            actual[row["product_id"]]
+                        )
+                    except KeyError, ValueError:
+                        contextual_inputs[row["product_id"]] = ()
             result.append(
-                dict(learned_dependencies=dependencies, formal_atom_parents=formal_inputs)
+                dict(
+                    learned_dependencies=dependencies,
+                    construction_formal_parents=formal_inputs,
+                    contextual_input_parents=contextual_inputs,
+                )
             )
         return tuple(result)
 

@@ -9,8 +9,6 @@ from typing import cast
 from sqlalchemy import text
 
 from corpus_structure.core.evidence import document_key
-from corpus_structure.schema.model_change import native_model_inputs
-from corpus_structure.semantic import migrations
 from corpus_structure.semantic._data_operation_wire import (
     WireAdmitOriginalDocumentAssetRequest,
     WireReadDemandResultRequest,
@@ -21,27 +19,21 @@ from corpus_structure.semantic.data_operation_demands import DemandPlanner, free
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_support import OriginalSourceSupportReference
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.original_documents import (
     acquire_original_document_selection,
     register_original_document,
 )
-from corpus_structure.semantic.target_installation import capture_target_installation
 from semantic.data_operation_kernel_support import ORIGINAL_DOCUMENT, admit_kernel, prepare_kernel
 from semantic.test_data_operation_original_native import _register_document
-from semantic.test_target_installation_native import install_target_root
 
 ROOT = Path(__file__).resolve().parents[4]
 TARGET = "urn:original-fact-test:consume"
 
 
 def test_native_original_readiness_tracks_exact_committed_admission_without_watermark(
-    semantic_bare_engine, tmp_path, monkeypatch
+    commit_db_engine, tmp_path
 ):
-    admin = semantic_bare_engine
-    epoch = capture_target_installation(get_metadata(), logical_sources=native_model_inputs(ROOT))
-    *_, revision_path = install_target_root(admin, epoch, tmp_path)
-    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
+    admin = commit_db_engine
     preparation = prepare_kernel(ORIGINAL_DOCUMENT, directory=tmp_path / "original-kernel")
     with admin.begin() as connection:
         kernel = admit_kernel(connection, ORIGINAL_DOCUMENT, engine=admin, preparation=preparation)
@@ -87,7 +79,7 @@ def test_native_original_readiness_tracks_exact_committed_admission_without_wate
 
     def read(demand, **pins):
         with admin.begin() as connection:
-            return DataOperationStorage(connection).read_demand_result(
+            return DataOperationStorage(connection).resume_data_demand(
                 cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"], **pins})
             )
 
@@ -103,7 +95,6 @@ def test_native_original_readiness_tracks_exact_committed_admission_without_wate
         "roles": [{"input_role": "source", "state": "missing", "identity": None}],
     }
     assert waiting["fate"] == "awaiting-inputs"
-    assert "inputs_watermark" not in waiting
     with admin.begin() as connection:
         assert (
             DemandPlanner(kernel.model, DataOperationStorage(connection)).ready(
@@ -159,7 +150,6 @@ def test_native_original_readiness_tracks_exact_committed_admission_without_wate
     }
     (ready_support,) = ready_role["identity"]["support"]
     assert ready_support["admission_id"] == admitted["admission_id"]
-    assert "inputs_watermark" not in ready
     with admin.begin() as connection:
         planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
         assert planner.ready(historical, authorization=b"{}") == ()
@@ -193,13 +183,8 @@ def test_native_original_readiness_tracks_exact_committed_admission_without_wate
         )
 
 
-def test_native_original_origin_wakes_only_matching_collection_waiter(
-    semantic_bare_engine, tmp_path, monkeypatch
-):
-    admin = semantic_bare_engine
-    epoch = capture_target_installation(get_metadata(), logical_sources=native_model_inputs(ROOT))
-    *_, revision_path = install_target_root(admin, epoch, tmp_path)
-    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
+def test_native_original_origin_wakes_only_matching_collection_waiter(commit_db_engine, tmp_path):
+    admin = commit_db_engine
 
     assert ORIGINAL_DOCUMENT.declaration_content is not None
     declaration = json.loads(ORIGINAL_DOCUMENT.declaration_content)
@@ -288,18 +273,14 @@ def test_native_original_origin_wakes_only_matching_collection_waiter(
 
     before = resume()
     assert ready(before) == ()
-    original_watermarks = {
-        str(row["subject"]): row["inputs_watermark"] for row in before["obligations"]
-    }
     for selected, other in ((second, primary), (primary, second)):
         admission = admit(selected)
         page = resume()
-        by_subject = {str(row["subject"]): row for row in page["obligations"]}
+        by_subject = {row["subject"]: row for row in page["obligations"]}
         addressed = by_subject[selected.root.subject]
         assert addressed["native_readiness"] is None
-        assert addressed["binding_original_changed"] is True
-        assert addressed["inputs_watermark"] == original_watermarks[selected.root.subject]
-        assert by_subject[other.root.subject].get("binding_original_changed", False) is False
+        assert addressed["binding_origin_changed"] is True
+        assert by_subject[other.root.subject].get("binding_origin_changed", False) is False
         (scheduled,) = ready(page)
         assert scheduled.subject == selected.root.subject
         request = json.loads(scheduled.native)

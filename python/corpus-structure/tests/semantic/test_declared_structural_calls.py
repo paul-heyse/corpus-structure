@@ -31,7 +31,6 @@ from corpus_structure.semantic.structural_products import (
     DIMENSIONS,
     DeclaredComparisonReport,
     DeclaredStructuralInput,
-    DeclaredStructuralInputPin,
     StructuralPassage,
 )
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
@@ -64,7 +63,10 @@ def test_structural_current_producers_have_closed_original_callable_and_nominal_
         assert identity.recipe
         assert operation.consumer_selection is not None
         assert operation.dependencies == ()
-        assert len(operation.output_witnesses) == (4 if name == "structure.compare/declared" else 2)
+
+    assert {
+        group.records for group in operations["structure.compare/declared"].output_witnesses
+    } == {"/inputs/sources/*", "/comparison/left_reading", "/comparison/right_reading"}
 
     (formal,) = (
         role for role in operations["structure.compare/declared"].roles if role.name == "formal"
@@ -84,7 +86,9 @@ def test_structural_current_producers_have_closed_original_callable_and_nominal_
         "text.formal_evidence/source-native"
     }
     condition = model.operation("structure.condition_qualification/declared")
-    (attachment,) = condition.reference_targets
+    (attachment,) = (
+        target for target in condition.reference_targets if target.input_role == "report"
+    )
     assert (attachment.path, attachment.input_role, attachment.variant) == (
         "/condition_qualification/attachment",
         "report",
@@ -283,7 +287,7 @@ def test_native_condition_target_requires_the_actual_bound_report_member(product
 
     model, _, _ = compiled()
     operation = model.operation("structure.condition_qualification/declared")
-    (target,) = operation.reference_targets
+    (target,) = (target for target in operation.reference_targets if target.input_role == "report")
     conn = product_connection
     metadata = get_metadata()
     kinds = metadata.tables["sem.data_kind_contract"]
@@ -494,19 +498,7 @@ def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witn
         )
         for ref, source in zip(refs, sources, strict=True)
     )
-    current = DeclaredComparisonReport.model_validate(
-        {
-            **value.model_dump(mode="python"),
-            "sources_input": tuple(
-                DeclaredStructuralInputPin.from_bound(member, project="p")
-                for member in source_members
-            ),
-            "reports_input": tuple(
-                DeclaredStructuralInputPin.from_bound(member, project="p")
-                for member in report_members
-            ),
-        }
-    )
+    current = DeclaredComparisonReport.model_validate(value.model_dump(mode="python"))
     assert current.comparison.left_reading.product_id == "report:left"
     assert current.comparison.left_reading.contribution_id == refs[0].contribution_id
     assert {row.dimension for row in current.comparison.dimensions} == set(DIMENSIONS)
@@ -547,6 +539,10 @@ def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witn
     outputs = {"result": (current.model_dump(mode="json"),)}
     validate_output_witnesses(model.operation("structure.compare/declared"), outputs, selected)
     forged = copy.deepcopy(outputs)
-    forged["result"][0]["sources_input"][1]["original_source"] = "original:A"
+    forged["result"][0]["inputs"]["sources"][1]["original_source"] = "original:A"
+    with pytest.raises(ValueError, match="no complete selected input"):
+        validate_output_witnesses(model.operation("structure.compare/declared"), forged, selected)
+    forged = copy.deepcopy(outputs)
+    forged["result"][0]["comparison"]["right_reading"]["product_id"] = "report:left"
     with pytest.raises(ValueError, match="no complete selected input"):
         validate_output_witnesses(model.operation("structure.compare/declared"), forged, selected)

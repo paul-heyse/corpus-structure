@@ -420,6 +420,68 @@ def test_original_prepared_entrypoint_emits_typed_body_and_native_members(profil
     )
 
 
+@pytest.mark.parametrize("spawned", [False, True])
+def test_formal_start_is_frozen_in_the_ordinary_binding(profile, spawned):
+    import json
+    from types import SimpleNamespace
+    from typing import cast
+
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.core.work import drive_prepared_work
+    from corpus_structure.semantic.cpu_execution import CPUExecutionScope
+    from corpus_structure.semantic.data_operation_bindings import BindingResult
+    from corpus_structure.semantic.data_operation_ports import PythonRoleValue
+    from corpus_structure.semantic.data_operation_values import semantic_value
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.source_products import source_subject
+
+    source = selected(
+        profile,
+        "x + y",
+        items=[dict(self_ref="#/texts/0", label="formula", text="x + y", orig="x + y", prov=[])],
+    )
+    port = admitted_port(profile)
+    role = next(role for role in port.operation.roles if role.direction == "input")
+    kind = next(
+        item.key
+        for item in profile.model.identities
+        if (item.owner, item.domain) == (role.kind, "kind")
+    )
+    binding = SimpleNamespace(
+        sufficient=True,
+        operation=port.operation.semantic_id,
+        subject=source_subject(source.value["source"]),
+        parameters=canonical_bytes(semantic_value({"math_start": "relation"})),
+        subject_context=_publication_context(source),
+    )
+    values = (PythonRoleValue(role.name, kind, source),)
+    expected = profile.run(
+        source,
+        FormalEvidenceOptions(math_start="relation"),
+        subject_context=binding.subject_context,
+    )
+    if spawned:
+        cpu = CPUExecutionScope(profile.prepared, CharacterizationExecutionPolicy(workers=1))
+        try:
+            completion = drive_prepared_work(
+                port.plan_python(
+                    values,
+                    binding=binding,
+                    execution_owner=SimpleNamespace(cpu=cpu, reservation=None),
+                ),
+                lambda: None,
+            )
+        finally:
+            cpu.close()
+    else:
+        completion = port.invoke_python(values, binding=cast(BindingResult, binding))
+    assert json.loads(completion.outputs[0].content) == json.loads(expected.content)
+    assert completion.rule_attestations
+    binding.parameters = canonical_bytes(semantic_value({"math_start": "undeclared-start"}))
+    with pytest.raises(ValueError):
+        port.invoke_python(values, binding=cast(BindingResult, binding))
+
+
 def test_prepared_formal_profile_rejects_changed_source_assets_and_nominal_input(
     profile, monkeypatch
 ):
@@ -559,7 +621,10 @@ def test_formal_nominal_packet_kinds_compile_to_native_publication_contract(prof
         )
 
 
-def test_prepared_formal_reused_port_runs_independent_requests_in_owned_child_main_threads(profile):
+@pytest.mark.parametrize("pool_release", ["formal", "another"])
+def test_prepared_formal_reused_port_runs_independent_requests_in_owned_child_main_threads(
+    profile, pool_release
+):
     from concurrent.futures import ThreadPoolExecutor
     from types import SimpleNamespace
 
@@ -589,11 +654,19 @@ def test_prepared_formal_reused_port_runs_independent_requests_in_owned_child_ma
         max_owned_bytes=96 * 1024**2,
     )
     budget = OwnedByteBudget(policy.max_owned_bytes)
-    cpu = CPUExecutionScope(port.profile.prepared, policy, budget=budget, retain_schema=False)
+    cpu_prepared = port.profile.prepared
+    if pool_release == "another":
+        core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+        cpu_prepared = prepare_release(
+            SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
+        )
+        assert cpu_prepared.release_id != port.profile.prepared.release_id
+    cpu = CPUExecutionScope(cpu_prepared, policy, budget=budget, retain_schema=False)
     credits = []
     try:
         cpu.prepare()
         capsule_bytes = budget.used_bytes
+        assert capsule_bytes == 0
         for _ in values:
             credits.append(budget.admit(policy.max_packet_bytes + policy.max_reply_bytes))
         admitted = budget.used_bytes
@@ -1185,15 +1258,16 @@ def test_target_threshold_reader_keeps_genuine_semantic_members_and_refuses_fore
     assert field.typed.unit == "USD" and field.typed.basis == "annual gross revenue"
     assert (
         field.typed.primary_formal is not None
-        and field.typed.primary_formal.product_id == product.semantic_id
+        and field.typed.primary_formal["role"] == "formal"
+        and field.typed.primary_formal["occurrence"] == "0"
     )
     assert (
         field.typed.primary_basis is not None
-        and field.typed.primary_basis.product_id == product.semantic_id
+        and field.typed.primary_basis["role"] == "formal"
+        and field.typed.primary_basis["occurrence"] == "0"
     )
     assert all(
-        "layer" not in value
-        for value in (field.typed.primary_formal.values(), field.typed.primary_basis.values())
+        "layer" not in value for value in (field.typed.primary_formal, field.typed.primary_basis)
     )
     with pytest.raises(ValueError, match="another original source"):
         threshold_readings(

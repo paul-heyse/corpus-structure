@@ -1066,7 +1066,9 @@ def native_operation_calls(
     result = []
     for item in protocol:
         name = item["name"]
-        selected_nominals = nominals if name == "read_demand_result" else ordinary_nominals
+        selected_nominals = (
+            nominals if name in {"read_demand_result", "resume_data_demand"} else ordinary_nominals
+        )
         owner = "data." + name
         if owner not in owners:
             continue

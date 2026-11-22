@@ -12,25 +12,12 @@ from semantic.data_operation_kernel_support import STORAGE
 
 
 @pytest.fixture
-def current_service_kernel(semantic_bare_engine, tmp_path, monkeypatch):
-    from pathlib import Path
-
-    from corpus_structure.schema.model_change import native_model_inputs
-    from corpus_structure.semantic import migrations
-    from corpus_structure.semantic.metadata import get_metadata
-    from corpus_structure.semantic.target_installation import capture_target_installation
+def current_service_kernel(commit_db_engine, tmp_path):
     from semantic.data_operation_kernel_support import admit_kernel, prepare_kernel
-    from semantic.test_target_installation_native import install_target_root
 
-    admin = semantic_bare_engine
-    epoch = capture_target_installation(
-        get_metadata(), logical_sources=native_model_inputs(Path(__file__).resolve().parents[4])
-    )
-    *_, revision_path = install_target_root(admin, epoch, tmp_path)
-    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
     preparation = prepare_kernel(STORAGE, directory=tmp_path / "service-kernel")
-    with admin.begin() as connection:
-        return admit_kernel(connection, STORAGE, engine=admin, preparation=preparation)
+    with commit_db_engine.begin() as connection:
+        return admit_kernel(connection, STORAGE, engine=commit_db_engine, preparation=preparation)
 
 
 def test_service_read_preserves_full_native_continuation(monkeypatch):

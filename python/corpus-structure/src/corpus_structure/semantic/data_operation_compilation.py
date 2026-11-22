@@ -1270,7 +1270,10 @@ def compile_data_operations(
                         "original-source identity requires an allowed original support origin",
                     )
                 source_set = data.get("source_set")
-                if (source_set is not None) != (data.get("source") == "frozen-source-set"):
+                if (data.get("source") == "frozen-source-set" and source_set is None) or (
+                    source_set is not None
+                    and data.get("source") not in {"frozen-source-set", "original-source"}
+                ):
                     _fail(semantic_id, "frozen source-set policy requires its explicit named set")
                 if source_set is not None:
                     source_set = _text(source_set, semantic_id + "/source_set")
@@ -1301,6 +1304,7 @@ def compile_data_operations(
                 direction != "input"
                 or support is None
                 or support.source_set is None
+                or support.source != "frozen-source-set"
                 or record.get("subject_field") is not None
             ):
                 _fail(

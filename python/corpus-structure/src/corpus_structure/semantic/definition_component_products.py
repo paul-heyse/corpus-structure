@@ -113,10 +113,9 @@ def project_definition_components(
     from .source_products import FrozenNativeSource
     from .structural_products import (
         DeclaredDefinitionComponentsProduct,
-        DeclaredDefinitionComponentsReport,
+        DeclaredLearnedDefinitionComponentsReport,
         DeclaredLocatedDefinitionComponent,
         DeclaredStructuralInput,
-        DeclaredStructuralInputPin,
         DefinitionRoleCandidate,
         DefinitionStage,
         definition_component_packets,
@@ -204,7 +203,9 @@ def project_definition_components(
             "The actual retained provider inspection contains unavailable or unexamined source coverage; empty components establish no absence there.",
         )
     )
-    report = DeclaredDefinitionComponentsReport(
+    from .data_product_reference import SemanticReference
+
+    report = DeclaredLearnedDefinitionComponentsReport(
         inputs=DeclaredStructuralInput(
             question="What terms and defining content are explicitly attached in these source blocks?",
             scope="selected-native-blocks",
@@ -212,7 +213,7 @@ def project_definition_components(
             policy_id="definition.located_gliner_v1",
             sources=tuple(sources),
             passages=tuple(passages),
-            dependencies=(member("observation").product, member("candidates").product),
+            dependencies=(),
             coverage_limits=limits,
         ),
         members=definition_component_packets(
@@ -222,12 +223,7 @@ def project_definition_components(
             role_candidates=tuple(proposals),
             stages=tuple(stages),
         ),
-        sources_input=(
-            DeclaredStructuralInputPin.from_bound(member("source"), project=context.project_id),
-        ),
-        reports_input=(
-            DeclaredStructuralInputPin.from_bound(member("candidates"), project=context.project_id),
-        ),
+        candidates_input=SemanticReference.whole("candidates").whole_value(),
     )
     check_active()
     return definition_component_report_values(report)
@@ -445,7 +441,6 @@ def project_named_definition_components(
         DeclaredNamedDefinitionComponentsReport,
         DeclaredNamedDefinitionWitness,
         DeclaredStructuralInput,
-        DeclaredStructuralInputPin,
         DefinitionStage,
         LocatedDefinitionSpan,
         definition_component_packets,
@@ -640,6 +635,8 @@ def project_named_definition_components(
                 ),
             )
         )
+    from .data_product_reference import SemanticReference
+
     report = DeclaredNamedDefinitionComponentsReport(
         inputs=DeclaredStructuralInput(
             question="Which retained named cues explicitly bind terms and defining text or native displays?",
@@ -648,7 +645,7 @@ def project_named_definition_components(
             policy_id="definition-scope-1",
             sources=tuple(sources),
             passages=tuple(passages),
-            dependencies=(member("annotations").product, member("constructions").product),
+            dependencies=(),
             coverage_limits=tuple(limits),
         ),
         members=definition_component_packets(
@@ -663,14 +660,7 @@ def project_named_definition_components(
             )
             for identity in sorted(recorded_witnesses)
         ),
-        sources_input=(
-            DeclaredStructuralInputPin.from_bound(member("source"), project=context.project_id),
-        ),
-        reports_input=(
-            DeclaredStructuralInputPin.from_bound(
-                member("constructions"), project=context.project_id
-            ),
-        ),
+        constructions_input=SemanticReference.whole("constructions").whole_value(),
     )
     check_active()
     return definition_component_report_values(report)

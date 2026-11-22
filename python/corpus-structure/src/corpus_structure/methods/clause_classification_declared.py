@@ -262,26 +262,26 @@ class ClauseClassificationOperation:
         "output_witnesses": [
             {
                 "output_role": "result",
-                "records": "/sources_input/*",
+                "records": "/inputs/sources/*",
                 "input_role": "source",
                 "comparisons": [
                     {
-                        "output_field": "product_id",
-                        "input": {
-                            "role": "source",
-                            "projection": "selected-input",
-                            "field": "product",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "reference",
+                        "output_field": "source",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
                             "field": "reference",
                         },
                         "encoding": "json",
+                    },
+                    {
+                        "output_field": "source_product",
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": "product",
+                        },
+                        "encoding": "value",
                     },
                     {
                         "output_field": "kind_contract",
@@ -336,6 +336,42 @@ class ClauseClassificationOperation:
                             "field": "analyzed_scope",
                         },
                         "encoding": "context-meaning-json",
+                    },
+                    {
+                        "output_field": "document",
+                        "input": {
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/document",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "projection_digest",
+                        "input": {
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/projection",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "section_pointer",
+                        "input": {
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/section_pointer",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "membership",
+                        "input": {
+                            "role": "source",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+                            "field": "/source/membership",
+                        },
+                        "encoding": "value",
                     },
                 ],
             },

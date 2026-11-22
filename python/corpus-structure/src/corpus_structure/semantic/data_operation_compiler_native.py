@@ -1202,68 +1202,6 @@ def _lowering_program(model, subject_scopes):
     )
 
 
-def _relower_program(model):
-    finalizations, definitions, artifacts, runtimes = (
-        model.tables[name]
-        for name in (
-            "sem.release_finalization",
-            "sem.data_operation_definition",
-            "sem.artifact",
-            "sem.runtime_binding",
-        )
-    )
-    release = core_variable("p_release", finalizations.c.release_id.type)
-    projection, result = core_variable("projection", JSONB()), core_variable("result", JSONB())
-    return _program(
-        "sem",
-        "relower_admitted_data_operation_release",
-        (Parameter("p_release", pg_type("text")),),
-        (
-            _refuse(
-                or_(
-                    not_(_exists(finalizations, finalizations.c.release_id == release)),
-                    not_(_exists(definitions, definitions.c.release_id == release)),
-                ),
-                "re-lowering requires an already admitted finalized release",
-                "23514",
-            ),
-            SelectInto(
-                select(_decode(artifacts.c.content)).where(
-                    artifacts.c.release_id == release,
-                    artifacts.c.artifact_name == "data_operation_native_definitions.json",
-                    _hash(artifacts.c.content) == artifacts.c.content_digest,
-                ),
-                ("projection",),
-                True,
-            ),
-            Assign(
-                "result",
-                func.sem.ddo_lower_data_operation_definitions(
-                    projection.concat(_object("release_id", release)), False
-                ),
-            ),
-            Sql(
-                runtimes.update()
-                .values(
-                    execution_profile=_decode(runtimes.c.manifest_bytes)["execution_profile"].astext
-                )
-                .where(runtimes.c.release_id == release, runtimes.c.execution_profile.is_(None))
-            ),
-            _refuse(
-                _exists(
-                    runtimes,
-                    runtimes.c.release_id == release,
-                    func.nullif(runtimes.c.execution_profile, "").is_(None),
-                ),
-                "admitted runtime lacks an execution profile",
-                "23514",
-            ),
-            Return(result),
-        ),
-        (Local("projection", pg_type("jsonb")), Local("result", pg_type("jsonb"))),
-    )
-
-
 def data_operation_native_descriptor_program(
     source_digest: str, closures: ProgramClosures
 ) -> ProgramDeclaration:
@@ -1520,7 +1458,6 @@ def compiler_native_programs(
         *_classify_programs(model),
         _lowering_program(model, tuple(subject_scopes)),
         admit,
-        _relower_program(model),
         _binding_facts_proof(model),
     )
 

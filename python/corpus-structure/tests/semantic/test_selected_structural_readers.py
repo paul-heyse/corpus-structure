@@ -166,6 +166,38 @@ def test_source_coordinates_separate_projection_omission_outside_selection_and_b
         selected_source_state(selected.model_copy(update={"end": 20}), source)
 
 
+def test_artifact_journey_uses_public_source_and_projected_citation_without_contribution_copy():
+    selected = opportunity()
+    layer = SelectedJourneyLayer(layer="artifact", root=ROOT)
+    record = dict(
+        occurrence_id="occurrence:actual",
+        contribution_id="artifact:actual",
+        citations=[
+            dict(
+                source_ref=selected.source.identity,
+                source_pointer=selected.pointer,
+                start=17,
+                end=25,
+                text="term def",
+            )
+        ],
+    )
+    body = dict(
+        inputs=dict(sources=[selected.source.model_dump(mode="json", exclude_none=True)]),
+        artifact_identity=dict(records=[record], route_counts=[], pairs=[]),
+    )
+    matched, details = selected_journey_layer(layer, selected, body, ((17, 21),))
+    assert matched and details["occurrences"] == [record]
+    assert selected_journey_layer(layer, selected, body, ((26, 30),))[0] is False
+    foreign = selected.source.model_copy(update={"kind_contract": "kind:foreign"})
+    assert (
+        selected_journey_layer(
+            layer, selected.model_copy(update={"source": foreign}), body, ((17, 21),)
+        )[0]
+        is False
+    )
+
+
 def test_dossier_journey_binds_exact_native_comparison_address_and_side():
     selected = opportunity()
     reference = dict(product_id="comparison:actual", member_id=None, kind_contract="kind:actual")

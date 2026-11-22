@@ -496,7 +496,9 @@ def _verify_annotation_carrier(result, source, configuration):
         verify_annotation_sentence_membership(block)
     manifest = annotation_manifest(
         checked,
-        kind_contract=manifest_contract(result.prepared, result.model, "DdoSourceAnnotationManifest"),
+        kind_contract=manifest_contract(
+            result.prepared, result.model, "DdoSourceAnnotationManifest"
+        ),
     )
     verify_annotation_coverage(checked, selected["selectors"], manifest)
     return result

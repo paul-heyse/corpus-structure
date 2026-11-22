@@ -13,7 +13,7 @@ from corpus_structure.semantic.structural_products import (
     LocatedDefinitionSpan,
 )
 
-CHAIN_VERSION = "definition-declaration-chain-2"
+CHAIN_VERSION = "definition-declaration-chain-3"
 _LABEL_NUMBER = re.compile(r"[0-9]+(?:\.[0-9]+)*")
 
 
@@ -75,7 +75,9 @@ def _declaration_chain_from_sentences(candidates, passage):
         _require(len(positions) == 1)
         uses.append(
             DeclarationChainBinding(
-                frame=declarations.reference.identity, subject_token=subject, use_token=positions[0]
+                frame=declarations.reference.member_id,
+                subject_token=subject,
+                use_token=positions[0],
             )
         )
     _require(tuple(sorted(row.use_token for row in uses)) in construct["relative_uses"])
@@ -105,9 +107,9 @@ def _declaration_chain_from_sentences(candidates, passage):
             naming.positions[named["subject_end"] - 1][1],
         ),
         bindings=tuple(uses),
-        construction_frame=construction.reference.identity,
+        construction_frame=construction.reference.member_id,
         construction_subject_token=construct["subject"],
-        naming_frame=naming.reference.identity,
+        naming_frame=naming.reference.member_id,
         naming_antecedent_token=named["antecedent"],
     )
 
@@ -119,26 +121,30 @@ def primary_declaration_component_products(products, source, passage, *, source_
     )
     from corpus_structure.semantic.structural_products import (
         DeclaredDeclarationChainWitness,
-        DeclaredPrimaryReference,
         declared_definition_component,
     )
 
-    sentences, evidence = declaration_sentences_products(products, source, passage)
+    sentences, _evidence = declaration_sentences_products(products, source, passage)
     chain = _declaration_chain_from_sentences(sentences, passage)
-    return declared_definition_component(
+    component = declared_definition_component(
         term=chain.term,
         content=chain.content,
         interpretation="definition",
         basis="declaration_chain",
         declaration_chain=DeclaredDeclarationChainWitness(
             version=CHAIN_VERSION,
-            primary_evidence=tuple(
-                DeclaredPrimaryReference(**reference.values()) for reference in evidence
-            ),
             scope_digest=sha256(
                 canonical_bytes(
                     {
-                        "source": source_pin,
+                        "source": {
+                            key: source_pin[key]
+                            for key in (
+                                "document",
+                                "projection_digest",
+                                "section_pointer",
+                                "membership",
+                            )
+                        },
                         "passage": [passage.start, passage.end],
                         "policy": "primary-declaration-roles-1",
                     }
@@ -156,3 +162,5 @@ def primary_declaration_component_products(products, source, passage, *, source_
         evidence=(passage.passage_id,),
         reason="Exact retained native declaration roles and primary voice interpretations support this local definition chain; domain admission remains separate.",
     )
+
+    return component, tuple(sentence.reference for sentence in sentences)

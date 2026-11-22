@@ -413,17 +413,26 @@ def _capture_source(kernel, directory, sections, *, source_uri="independent-orig
 
 
 def build_pdf_source(
-    scenario, admin, writer, directory, *, purpose_engine, source_uri="independent-original.pdf"
+    scenario,
+    admin,
+    writer,
+    directory,
+    *,
+    purpose_engine,
+    source_uri="independent-original.pdf",
+    kernel_stage=None,
 ):
     from pdf_controlled_support import controlled_pdf_converter
 
-    recipe = scenario.bind(directory)
-    stage = build_kernel(recipe, admin, writer, directory, purpose_engine=purpose_engine)
+    stage = kernel_stage
+    if stage is None:
+        recipe = scenario.bind(directory)
+        stage = build_kernel(recipe, admin, writer, directory, purpose_engine=purpose_engine)
     kernel = Kernel(
         admin,
         stage.preparation,
         stage.identities,
-        recipe,
+        stage.recipe,
         SimpleNamespace(purpose=purpose_engine),
     )
     with controlled_pdf_converter(scenario.content):

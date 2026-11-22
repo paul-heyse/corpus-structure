@@ -320,7 +320,7 @@ class DeclaredStructuralInput(StructuralValue):
     policy_id: Nonempty
     sources: tuple[DeclaredStructuralSource, ...] = Field(min_length=1)
     passages: tuple[StructuralPassage, ...] = Field(min_length=1)
-    dependencies: tuple[Nonempty, ...] = Field(min_length=1)
+    dependencies: tuple[Nonempty, ...]
     exclusions: tuple[StructuralExclusion, ...] = ()
     coverage_limits: tuple[Nonempty, ...] = ()
 
@@ -348,10 +348,10 @@ class DeclaredTypedPremise(StructuralValue):
     unit: str | None = None
     basis: str | None = None
     basis_evidence: LocatedDefinitionSpan | None = None
-    primary_formal: DeclaredPrimaryReference | None = Field(
+    primary_formal: SemanticOccurrenceMemberReference | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
-    primary_basis: DeclaredPrimaryReference | None = Field(
+    primary_basis: SemanticOccurrenceMemberReference | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
 
@@ -370,7 +370,7 @@ class DeclaredClauseField(StructuralValue):
     contribution_id: Nonempty | None = None
     literal: ComparisonLiteral | None = None
     condition: dict[str, Any] | None = None
-    primary_formal: DeclaredPrimaryReference | None = Field(
+    primary_formal: SemanticOccurrenceMemberReference | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
 
@@ -384,7 +384,7 @@ class DeclaredClauseFieldGroup(StructuralValue):
     grouping: Literal["singleton", "conjunction", "disjunction", "unresolved"] | None = None
     members: tuple[DeclaredClauseField, ...] = ()
     witnesses: tuple[LocatedDefinitionSpan, ...] = ()
-    primary_witnesses: tuple[DeclaredPrimaryReference, ...] = Field(
+    primary_witnesses: tuple[SemanticOccurrenceMemberReference, ...] = Field(
         default=(), exclude_if=lambda value: not value
     )
 
@@ -429,7 +429,7 @@ class DeclaredRevisionSuccession(StructuralValue):
     newer_id: Nonempty
     evidence: LocatedDefinitionSpan
     older_evidence: LocatedDefinitionSpan
-    primary_witnesses: tuple[DeclaredPrimaryReference, ...] = Field(
+    primary_witnesses: tuple[SemanticOccurrenceMemberReference, ...] = Field(
         default=(), exclude_if=lambda value: not value
     )
 
@@ -547,28 +547,6 @@ class DeclaredConditionQualificationProduct(StructuralValue):
     host_predicate: tuple[ConditionRoleCitation, ...] = Field(min_length=1)
 
 
-class DeclaredPrimaryReference(StructuralValue):
-    product_id: Nonempty
-    member_id: Nonempty
-
-    @property
-    def product(self):
-        from .data_product_reference import DataProductReference
-
-        return DataProductReference(self.product_id)
-
-    @property
-    def local_id(self):
-        return self.member_id
-
-    def values(self):
-        return self.model_dump(mode="json")
-
-    @property
-    def identity(self):
-        return "member:" + sha256(canonical_bytes(self.values())).hexdigest()
-
-
 class DeclaredDefinitionBasisWitness(StructuralValue):
     annotation_product: SemanticWholeReference
     block_id: Nonempty
@@ -586,10 +564,7 @@ class DeclaredDefinitionBasisWitness(StructuralValue):
 
 
 class DeclaredDeclarationChainWitness(StructuralValue):
-    version: Literal["definition-declaration-chain-2"] = "definition-declaration-chain-2"
-    primary_evidence: tuple[DeclaredPrimaryReference, ...] = Field(
-        default=(), exclude_if=lambda value: not value
-    )
+    version: Literal["definition-declaration-chain-3"] = "definition-declaration-chain-3"
     scope_digest: Digest
     label: LocatedDefinitionSpan
     bindings: tuple[DeclarationChainBinding, ...] = Field(min_length=1, max_length=4)
@@ -600,8 +575,6 @@ class DeclaredDeclarationChainWitness(StructuralValue):
 
     @model_validator(mode="after")
     def distinct_roles(self) -> Self:
-        if not self.primary_evidence:
-            raise ValueError("declared chain requires genuine primary semantic evidence")
         return _declaration_role_invariants(self)
 
 
@@ -742,10 +715,6 @@ class DeclaredSourceArtifactOccurrence(StructuralValue):
     occurrence_role: Literal["caption", "reference"]
     scope: str = Field(min_length=1)
     source_pointer: str = Field(min_length=1)
-    dependencies: tuple[str, ...] = Field(min_length=1)
-    primary_node: DeclaredPrimaryReference | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
 
     @model_validator(mode="after")
     def provenance(self) -> Self:
@@ -756,7 +725,7 @@ class DeclaredArtifactReferenceDesignator(StructuralValue):
     target_code: str
     target_numbering: str
     cue: ArtifactAliasSpan
-    primary_node: DeclaredPrimaryReference | None = Field(
+    primary_node: SemanticOccurrenceMemberReference | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
 
@@ -765,12 +734,11 @@ class DeclaredArtifactRecord(StructuralValue):
     contribution_id: str = Field(min_length=1)
     occurrence_id: str = Field(min_length=1)
     artifact: DeclaredSourceArtifactOccurrence
-    source_contribution: dict[str, JsonValue]
     citations: tuple[ArtifactCitation, ...] = Field(min_length=1)
     numbering: ArtifactSourceLabel = Field(default_factory=ArtifactSourceLabel)
     revision: ArtifactSourceLabel = Field(default_factory=ArtifactSourceLabel)
     explicit_reference: DeclaredArtifactReferenceDesignator | None = None
-    primary_node: DeclaredPrimaryReference | None = Field(
+    primary_node: SemanticOccurrenceMemberReference | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
 
@@ -788,7 +756,7 @@ class DeclaredArtifactNomination(StructuralValue):
     relationship: SemanticOccurrenceMemberReference
     endpoints: tuple[DeclaredArtifactNominationEndpoint, DeclaredArtifactNominationEndpoint]
     origin_cue: ArtifactAliasSpan
-    primary_node: DeclaredPrimaryReference | None = Field(
+    primary_node: SemanticOccurrenceMemberReference | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
 
@@ -817,7 +785,7 @@ class DeclaredArtifactDeclaredEndpoint(StructuralValue):
     record_id: str
     citation: ArtifactCitation
     work_cue: ArtifactCitation | None = Field(default=None, exclude_if=lambda value: value is None)
-    work_primary_node: DeclaredPrimaryReference | None = Field(
+    work_primary_node: SemanticOccurrenceMemberReference | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
 
@@ -828,7 +796,7 @@ class DeclaredArtifactDeclaredRelationship(StructuralValue):
     origin: ArtifactCitation
     targets: tuple[DeclaredArtifactDeclaredEndpoint, ...]
     outcome: Literal["witnessed_candidate", "ambiguous", "no_compatible_candidate"]
-    primary_node: DeclaredPrimaryReference | None = Field(
+    primary_node: SemanticOccurrenceMemberReference | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
 
@@ -909,13 +877,10 @@ class DeclaredComparisonReport(DeclaredStructuralProductReport):
     clause_classification: None = None
     definition: None = None
     definition_components: None = None
-    formal_input: tuple[DeclaredStructuralInputPin, ...] = ()
     kind: Literal["qualified_comparison"] = "qualified_comparison"
     comparison: DeclaredComparisonProduct
     dossier: None = None
     condition_qualification: None = None
-    sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
-    reports_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
 
 
 class DeclaredDossierReport(DeclaredStructuralProductReport):
@@ -939,7 +904,6 @@ class DeclaredConditionReport(DeclaredStructuralProductReport):
     condition_qualification: DeclaredConditionQualificationProduct
     comparison: None = None
     dossier: None = None
-    source_input: DeclaredStructuralInputPin
 
 
 class DeclaredDefinitionComponentContext(StructuralValue):
@@ -973,8 +937,6 @@ class DeclaredDefinitionComponentsReport(DeclaredStructuralProductReport):
     kind: Literal["definition_components"] = "definition_components"
     definition_components: DeclaredDefinitionComponentsProduct
     members: tuple[DeclaredDefinitionComponentPacket, ...]
-    sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
-    reports_input: tuple[DeclaredStructuralInputPin, ...] = ()
 
     @property
     def components(self) -> tuple[DeclaredLocatedDefinitionComponent, ...]:
@@ -1028,6 +990,8 @@ class DeclaredNamedDefinitionWitness(StructuralValue):
 
 
 class DeclaredNamedDefinitionComponentsReport(DeclaredDefinitionComponentsReport):
+    model_config = ConfigDict(json_schema_extra={})
+    constructions_input: SemanticWholeReference
     witnesses: tuple[DeclaredNamedDefinitionWitness, ...]
 
     @model_validator(mode="after")
@@ -1046,10 +1010,73 @@ class DeclaredNamedDefinitionComponentsReport(DeclaredDefinitionComponentsReport
         return self
 
 
+class DeclaredLearnedDefinitionComponentsReport(DeclaredDefinitionComponentsReport):
+    model_config = ConfigDict(json_schema_extra={})
+    candidates_input: SemanticWholeReference
+
+
+class DeclaredDefinitionSyntaxSupport(StructuralValue):
+    component_id: Digest
+    sentence_position: Annotated[int, Field(strict=True, ge=0, le=2)]
+    target: SemanticOccurrenceMemberReference
+
+
+class DeclaredSyntaxDefinitionComponentsReport(DeclaredDefinitionComponentsReport):
+    model_config = ConfigDict(json_schema_extra={})
+    syntax_support: tuple[DeclaredDefinitionSyntaxSupport, ...] = Field(min_length=3)
+
+    @model_validator(mode="after")
+    def exact_syntax_support(self) -> Self:
+        by_component = {}
+        seen = set()
+        for support in self.syntax_support:
+            reference = read_semantic_reference(support.target)
+            key = support.component_id, support.sentence_position, reference
+            if reference.role != "syntax" or key in seen:
+                raise ValueError("definition syntax support repeats or changes its producing role")
+            seen.add(key)
+            by_component.setdefault(support.component_id, {}).setdefault(
+                support.sentence_position, set()
+            ).add(reference.member_id)
+        for component in self.components:
+            chain = component.declaration_chain
+            positions = by_component.pop(component.component_id, {})
+            if (
+                chain is None
+                or set(positions) != {0, 1, 2}
+                or (
+                    positions[0] != {binding.frame for binding in chain.bindings}
+                    or positions[1] != {chain.construction_frame}
+                    or positions[2] != {chain.naming_frame}
+                )
+            ):
+                raise ValueError(
+                    "definition syntax support differs from its actual declaration chain"
+                )
+        if by_component:
+            raise ValueError("definition syntax support cites an absent component")
+        return self
+
+
+DEFINITION_COMPONENT_KINDS = tuple(
+    "urn:corpus:structural:" + report.__name__
+    for report in (
+        DeclaredDefinitionComponentsReport,
+        DeclaredNamedDefinitionComponentsReport,
+        DeclaredLearnedDefinitionComponentsReport,
+        DeclaredSyntaxDefinitionComponentsReport,
+    )
+)
+
+
 def read_definition_components_report(value):
     report = (
         DeclaredNamedDefinitionComponentsReport
         if "witnesses" in value
+        else DeclaredSyntaxDefinitionComponentsReport
+        if "syntax_support" in value
+        else DeclaredLearnedDefinitionComponentsReport
+        if "candidates_input" in value
         else DeclaredDefinitionComponentsReport
     )
     return report.model_validate(value)
@@ -1091,7 +1118,6 @@ class DeclaredClauseReport(DeclaredStructuralProductReport):
     dossier: None = None
     kind: Literal["clause_classification"] = "clause_classification"
     clause_classification: DeclaredClauseClassificationProduct
-    sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
     predicate_input: SemanticWholeReference
 
 
@@ -1254,10 +1280,6 @@ def _structural_report_invariants(value: Any) -> Any:
         for component in value.components:
             cited.update(component.evidence)
             chain = component.declaration_chain
-            if chain is not None and any(
-                ref.product_id not in value.inputs.dependencies for ref in chain.primary_evidence
-            ):
-                raise ValueError("definition chain lacks its exact primary product dependency")
             for span in (
                 component.term,
                 component.content,

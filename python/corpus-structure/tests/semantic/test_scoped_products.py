@@ -110,7 +110,7 @@ def test_native_scoped_kernel_keeps_actual_artifact_source_and_formal_addresses(
     )
     assert artifacts[0]["pin"] == frame.pin.values()
     assert all(
-        "primary_products" in operation and "primary_layers" not in operation
+        "primary_products" not in operation and "primary_layers" not in operation
         for operation in (result["operation"], *result["extra_operations"])
     )
     assert b"source_view_id" not in canonical_bytes(result) and b"task_id" not in canonical_bytes(

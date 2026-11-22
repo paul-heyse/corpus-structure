@@ -155,7 +155,7 @@ def test_constructed_separator_and_epsilon_extents_preserve_projection_authority
         (),
     )
     body["annotation_support"] = []
-    body["formal_atom_support"] = []
+    body["formal_support"] = []
     checked = validate_construction_product(
         construction.prepared,
         construction.model,
@@ -742,7 +742,8 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(
     member = BoundRoleMember(
         product=product.semantic_id,
         kind_contract=next(
-            row.key for row in construction.model.identities
+            row.key
+            for row in construction.model.identities
             if row.owner == product_kind and row.domain == "kind"
         ),
         subject=context.subject,
@@ -762,15 +763,18 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(
         "corpus_structure.semantic.construction_products.verify_interpreted_annotation_support",
         repeated,
     )
-    assert acquired_construction_product(
-        construction.prepared,
-        construction.model,
-        product.value,
-        source,
-        (primary, rebound),
-        subject_context=context,
-        member=member,
-    ).content == product.content
+    assert (
+        acquired_construction_product(
+            construction.prepared,
+            construction.model,
+            product.value,
+            source,
+            (primary, rebound),
+            subject_context=context,
+            member=member,
+        ).content
+        == product.content
+    )
     with pytest.raises(ValueError, match="exact retained dependency closure"):
         acquired_construction_product(
             construction.prepared,
@@ -892,11 +896,9 @@ def test_target_source_owned_atoms_preserve_exact_inline_formula_extent(profiles
     edges = atoms[0]["external_premises"]
     assert {edge["product_id"] for edge in edges} == {primary.semantic_id, independent.semantic_id}
     (retained_atom,) = {edge["member_id"] for edge in edges}
-    assert [row["target"]["occurrence"] for row in product.value["formal_atom_support"]] == [
-        "0", "1"
-    ]
+    assert [row["target"]["occurrence"] for row in product.value["formal_support"]] == ["0", "1"]
     assert all(
-        row["target"]["member_id"] == retained_atom for row in product.value["formal_atom_support"]
+        row["target"]["member_id"] == retained_atom for row in product.value["formal_support"]
     )
     assert not any(
         packet["body"].get("external_premises")

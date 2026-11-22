@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from corpus_structure.ingest.annotations import AnnotationProduct
 from corpus_structure.semantic.contributions import (
-    contribution_identity,
+    contribution_identity_and_evidence,
     occurrence_identity,
     operation_identity,
 )
@@ -39,7 +39,14 @@ def predicate_qualifier_refusal(
     if PREDICATE_QUALIFIER_CLASS not in prepared.index.definitions:
         return MISSING_QUALIFIER
     try:
-        prepared.validate_json(PREDICATE_QUALIFIER_CLASS, canonical_bytes(qualifier))
+        from corpus_structure.semantic.contribution_input_references import (
+            split_contribution_evidence,
+        )
+
+        meaning, _evidence = split_contribution_evidence(
+            dict(semantic_type="structural.predicate_qualifier", component=dict(qualifier))
+        )
+        prepared.validate_json(PREDICATE_QUALIFIER_CLASS, canonical_bytes(meaning["component"]))
     except ValidationError:
         return INCOMPATIBLE_QUALIFIER
     return None
@@ -237,6 +244,7 @@ def publish_predicate_evidence(
     qualifier_preflight: QualifierPreflight | None = None,
     primary_products=(),
     formal_products=(),
+    evidence_collector=None,
 ):
     """Bind each role to exact native pieces before constructing frame/attachment identities."""
     import json
@@ -311,7 +319,12 @@ def publish_predicate_evidence(
             row["component"] = component
         if value is not None:
             row["value"] = source_value(value)
-        key = contribution_identity(row)
+        key, primary_evidence = contribution_identity_and_evidence(row)
+        if evidence_collector is not None:
+            for field, position, reference in primary_evidence:
+                evidence_collector[
+                    key, field, position, reference["product_id"], reference["member_id"]
+                ] = reference
         if key not in row_cache:
             row["contribution_id"] = key
             row_cache[key] = row
@@ -871,24 +884,6 @@ def publish_predicate_evidence(
                     if annotation_origin_task_id is not None
                     else {}
                 ),
-                **(
-                    {
-                        "primary_products": tuple(
-                            {"product_id": product.semantic_id} for product in primary_products
-                        )
-                    }
-                    if primary_products
-                    else {
-                        "primary_layers": [
-                            pin.values()
-                            for pin in dict.fromkeys(
-                                pin
-                                for annotation, _ in results
-                                for pin in annotation.primary_layers
-                            )
-                        ]
-                    }
-                ),
                 computation_dependencies=tuple(dict.fromkeys((dependency, *retained))),
             )
         )
@@ -902,6 +897,7 @@ class PredicateEvidence:
     contributions: tuple[dict[str, Any], ...]
     operations: tuple[dict[str, Any], ...]
     coordinate_texts: tuple[dict[str, Any], ...]
+    primary_evidence: tuple[tuple[str, str, int, dict[str, str]], ...] = ()
 
     @property
     def inspection_complete(self) -> bool:
@@ -950,7 +946,7 @@ def declared_predicate_evidence(
     results = predicate_results(
         frame, annotations, value["pieces"], items, primary_products=primary_products
     )
-    products, coordinates = [], {}
+    products, coordinates, primary_evidence = [], {}, {}
     operations = publish_predicate_evidence(
         frame,
         context,
@@ -965,6 +961,21 @@ def declared_predicate_evidence(
         qualifier_preflight=qualifier_preflight,
         primary_products=primary_products,
         formal_products=formal_products,
+        evidence_collector=primary_evidence,
     )
     check_active()
-    return PredicateEvidence(tuple(products), operations, tuple(coordinates.values()))
+    return PredicateEvidence(
+        tuple(products),
+        operations,
+        tuple(coordinates.values()),
+        tuple(
+            (identifier, field, position, reference)
+            for (
+                identifier,
+                field,
+                position,
+                _product,
+                _member,
+            ), reference in primary_evidence.items()
+        ),
+    )

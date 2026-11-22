@@ -244,6 +244,49 @@ Twenty-six existing identities passed in `1be4a2f8a3554d01af9ebaac4f1d74c3`. The
 test passed after a test-fixture correction (`f57a12efaeef45cda8153c648e53ca8a`). The
 rich support carrier still describes the exact selected support occurrences.
 
+**Comparison source and reading custody · Tested by selected scope · 2026-11-22.** Comparison
+publishes its source coordinates and exact left and right readings once. The native witnesses
+check those fields against the selected source and report roles. The former source, report and
+formal input rosters are removed. Dossier readback compares the genuine public source pins
+against the bound frames. The selected 67-case suite passed (`uv run ci test`,
+`06d58876b59f41d1b2d1ef69959d75e9`), including independent refusal of substituted source context
+and a copied report ID. Native publication and final-root readback remain in the integration suite.
+
+**Original role addresses · Implemented and scoped controls Tested · 2026-11-22.** The
+contextual evaluator cites original positions in its formal, construction and supporting roles.
+It validates complete selected input uses and admitted packed alternatives before composing
+the output graph. Definition component evidence follows its nominal producer and the original
+source witness, including the source member. Artifact records, nominations, relationships and
+targets cite original construction members. Comparison's primary formal atoms, bases and
+witnesses cite original formal members. The native target declarations and common resolver
+carry the address contracts into selected reads and detached replay. The focused definition,
+artifact and contextual preparation checks passed (`uv run ci test`,
+`fa4e8cb7484c40b5bdb20676a5a48f60`). The comparison role checks passed by selected scope
+(`f48d111b265c4248831e3b726ade9c7b`, `df2cf4b129ae4a23808d061195883e9f`).
+Installed provider evidence remains part of the integration suite.
+
+**Contribution and construction support · Implemented and scoped controls Tested · 2026-11-22.**
+Construction places formal premises and external choices in one role-addressed support relation,
+including grammar atoms and typed non-atom findings. Packed alternatives keep their own original
+slots and share the same replay with ordinary members. Predicate and scoped relation reports
+carry their primary evidence separately from the domain member identity. Equal contributions from
+independent producers retain every distinct evidence target. A scoped report that carries a
+predicate member cites the exact original predicate report member. The scoped worker projects
+that member's earlier evidence through its original ledger when needed. Removal of copied primary
+coordinates changes current contribution identities. SBX-19 compares the same new contract when
+it evaluates analytical replacements. Scoped construction and contribution tests passed
+(`uv run ci test`, `06db75fe76e340668bd76cd33ad0a57c`, `89ca8742e3ad41a599a4fbd8bc0d2c41`).
+
+**Rich reference disposition · Inspected and scoped controls Tested · 2026-11-22.** Rich
+selected members carry exact support occurrences as part of equality. Consolidation retains the
+closed original input population so admission can distinguish that population from a legitimate
+reacquired use of the same episode. Occurrence, statement and reading references retain authored
+attribution and the actual per-reading decisions. Keep those roles and the native comparison
+with the independently admitted original consolidation and authorization population. Six
+support-normalization, CPU ingress and reference controls passed (`uv run ci test`,
+`b7e8e72a623a404cba7e0aed352d7933`). Final-root qualification includes changed populations,
+legitimate reacquisition and detached selected-use replay.
+
 **Definition component addresses · Tested by selected identity · 2026-11-22.** Definition
 component producers now publish components as admitted members. Statement admission,
 evaluation, applicability, dossier preparation and selected extraction read that one member
@@ -281,6 +324,16 @@ A rank change among other members of a current unordered selection does not chan
 in the original binding. Exercise this case alongside same-member overlap, multiple exact uses
 and unauthorized substitution before retiring the rosters.
 [ADR-0151](../../adr/0151-sbx-discovered-formal-inputs.md) · [Native position owner](../../../python/corpus-structure/src/corpus_structure/semantic/binding_support_native.py)
+
+**Independent retained analyses · Implemented, qualification open · 2026-11-22.** The
+formal producer freezes `math_start` in its request. Construction can bind its ordinary
+discovered formal population or an explicitly supplied `construction-formal-evidence` set under
+the same original source and analyzed scope. An explicit empty set stays empty. The selected
+pure binding controls passed (`uv run ci test`, `9c5ab2ab9d2e4407a6f531c8d450d3b9`). Direct and
+spawned formal execution passed the four selected controls (`fb1ddaa369e14a4c94464d883d3f033e`).
+The integrated two-report test checks overlapping local member keys, producer position zero,
+original role positions, exact live and detached custody, and explicit empty selection.
+[ADR-0153](../../adr/0153-sbx-exact-named-formal-inputs.md)
 
 **Primary construction formal set · Tested by selected identity · 2026-11-22.** Native
 attachment supplies ledger addresses from the exact frozen request. Construction publishes
@@ -895,6 +948,17 @@ generation must never advance current coverage. Keep settlement in the existing 
 [Publication settlement](../../../python/corpus-structure/src/corpus_structure/semantic/data_derivation_native.py#L653) ·
 [Durable recovery](../../adr/0140-durable-recovery-and-exact-stop.md)
 
+**Native delivery · Tested by selected identity · 2026-11-22.** Committed origin changes carry
+exact sparse wake references. A cross-demand producer can commit while its pinned recipient is
+invisible to its fan-out. The same transaction retains the origin's native identity and
+visibility boundary. Ordinary resume consults a bounded visibility suffix only for possible
+missed recipients. The registered checks passed both commit orders, with no sparse pointer at
+the missed recipient, an unchanged resume that performed no new binding, and a later exact
+bind when the remaining input arrived. Original and population enrollment use the existing
+demand lock and immediate foreign keys. The registered publication, scalar and collection
+checks establish the other bounded readiness and observation behavior of that checkpoint.
+[Managed results](cutover-and-qualification.md#development-reset-through-sbx-09)
+
 Process affected immediate recipients in bounded sets through the existing executor's claims,
 admission, retry and settlement. Coalesce repeated notifications for the same current binding
 and generation while retaining every relevant reason. At a join, settle the combined key
@@ -944,24 +1008,23 @@ check. Keep the computational digest comparison body-free.
 [Exact-pin readiness control](../../../python/corpus-structure/tests/semantic/test_data_operation_pinned_reuse_native.py#L538) ·
 [Native attachment](../../../python/corpus-structure/src/corpus_structure/semantic/request_attachment_native.py#L1778)
 
-**Projection migration · Scheduled · 2026-11-22.** The shared native demand page computes
-fallback watermark state when native readiness is absent. Grading reacquires exact obligations
-and uses through that page, and export serializes its full native bytes. Give scheduling fields
-a scheduler-owned projection. Preserve pinned identity and authorization, historical grade census
-and completion, and public status, visual and interpretation answers when removing scheduler
-material from shared reads. Test a genuine detached publication-to-export replay and preserve
-already sealed pages under their recorded reader schema.
+**Projection migration · Implemented · 2026-11-22.** Writer and evaluator resume acquires the
+private scheduler result. The public demand page retains pinned identity, authorization, use
+state and product disclosure for grading, status, visual and interpretation readers. Export
+records the public wire contract. Replay validates already sealed pages under their recorded
+contract. The final root exercises the public/private split with the genuine finite and rich
+publication-to-export journey.
 
-Migrate the planner's waiting gate to exact native readiness and scoped coverage. Finish normal
-resume delivery for prerequisite fulfillment, original and population discovery, attachment,
-closure, proof and trust changes, including first match without a prior address. Retire recursive
-ancestry expansion, watermark hashing, obsolete wire fields and replaced repeated discovery
-sweeps with their last consumers. SBX-21 checks their retirement. SBX-11 supplies keyed reads and
-SBX-12 preserves exact pinned and detached evidence. An uncovered consumer keeps its required
-wake or observation contract open. [Post-pilot review I04](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I04) ·
-[Watermark call](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_projections.py#L2559) ·
-[Record-grade read](../../../python/corpus-structure/src/corpus_structure/semantic/record_grade_native.py#L447) ·
-[Export](../../../python/corpus-structure/src/corpus_structure/serve/demand_export.py#L208)
+The planner's waiting gate uses the authenticated read cut and exact native readiness. Ordinary
+resume covers prerequisite settlement, discovery and population changes, attachment, closure,
+proof and trust changes. The prior recursive input fingerprint, repeated readiness scans and
+their public and private wire fields are retired in source. Final-root tests exercise the
+replacement through ordinary execution resume. SBX-21 checks retirement. SBX-11 supplies keyed
+reads and SBX-12 preserves exact pinned and detached evidence.
+[Post-pilot review I04](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I04) ·
+[Native wake owner](../../../python/corpus-structure/src/corpus_structure/semantic/obligation_wake_native.py) ·
+[Record-grade read](../../../python/corpus-structure/src/corpus_structure/semantic/record_grade_native.py) ·
+[Export](../../../python/corpus-structure/src/corpus_structure/serve/demand_export.py)
 
 **Finite comparison · Conditional.** If selector semantics remain uncertain, compare the same
 captured typed role/occurrence/generation relation with independent expected multisets using
@@ -972,21 +1035,13 @@ behaviors. Native PostgreSQL retains enrollment, trust, generation and transacti
 Use a small literal expected relation when it settles the same question. [Finite probe](../../design_review/evidence/2026-11-22_sbx09-review/README.md) ·
 [DuckDB recursive CTEs](https://duckdb.org/docs/2.0/sql/query_syntax/with)
 
-**Current consumers · inspected 2026-11-22.** The planner saves the remaining page watermark in
-waiting-use selection and skips an unchanged `awaiting-inputs`, `awaiting-population` or
-`awaiting-discovery` obligation. The remaining fingerprint covers fulfilled prerequisites and
-base discovery populations. The native page separately supplies exact-pin, original, selected
-population, local-input and authority changes. The executor repeats pinned, bounded sweeps to
-see later publication and drive discovery from the producing episode. Keep each wait route until
-its governed origin can wake the exact affected binding through resume, including a first match without
-a prior address. The record-grade census also participates in native cut acquisition and
-completion, so moving scheduler wakeups does not replace its historical cut and completion
-authority. Demand result consumers for status, visual evidence and interpretation still
-need their existing pinned page answers while the scheduler moves to native readiness.
-[Waiting-use gate](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_demands.py#L739) ·
-[Watermark components](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_projections.py#L2005) ·
-[Discovery sweep](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py#L2327) ·
-[Record-grade completion](../../../python/corpus-structure/src/corpus_structure/semantic/record_grade_native.py#L1439)
+Waiting uses retain the exact read identity. An unchanged `awaiting-inputs`,
+`awaiting-population` or `awaiting-discovery` use stays idle until the private projection reports
+an affected binding or an applicable readiness result. Discovery validates the exact admitted
+use and complete closure through its native owner. The record-grade census retains its
+historical cut acquisition and completion authority.
+[Waiting-use gate](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_demands.py) ·
+[Record-grade completion](../../../python/corpus-structure/src/corpus_structure/semantic/record_grade_native.py)
 
 **Order within the package.** Settle the origin, selector and identity design together.
 Confirm direct keyed replay versus a transactional reference per origin from the authoritative

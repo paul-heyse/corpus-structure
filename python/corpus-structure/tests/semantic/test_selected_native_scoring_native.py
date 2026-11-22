@@ -44,7 +44,7 @@ from semantic.current_pdf_source_support import (
 from semantic.data_operation_kernel_support import CapturedKernelInputs, split_captured_operations
 from semantic.structural_admission_native_support import request
 from semantic.structural_production_native_support import produce_source_reports
-from semantic.test_sentence_partition_chain_native import _private_source
+from semantic.test_sentence_partition_chain_native import _registered_source
 
 TEXT = "Ada acts."
 SENTENCES = "segment.sentences/source-native"
@@ -79,11 +79,9 @@ def scoring_recipe(directory):
 @pytest.mark.gpu
 @pytest.mark.provider_evidence
 def test_native_whole_block_questions_keep_exact_custody_and_missing_populations(
-    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+    commit_db_engine, native_settings, tmp_path, monkeypatch
 ):
-    with _private_source(
-        semantic_bare_engine, native_settings, tmp_path, monkeypatch, TEXT
-    ) as source:
+    with _registered_source(commit_db_engine, native_settings, tmp_path, TEXT) as source:
         kernel = admit_current_target(
             source, scoring_recipe(tmp_path / "recipe"), tmp_path / "target"
         )

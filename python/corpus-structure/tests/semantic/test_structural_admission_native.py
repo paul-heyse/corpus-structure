@@ -35,7 +35,7 @@ from semantic.structural_admission_native_support import (
     source_products,
 )
 from semantic.structural_native_fixture import TEXT
-from semantic.test_sentence_partition_chain_native import _private_source
+from semantic.test_sentence_partition_chain_native import _registered_source
 
 
 def test_controlled_structural_fixture_has_complete_checked_source_and_independent_expectation(
@@ -55,7 +55,6 @@ def test_controlled_structural_fixture_has_complete_checked_source_and_independe
     from corpus_structure.semantic.structural_admission import structural_statement
     from corpus_structure.semantic.structural_products import (
         DeclaredStructuralInput,
-        DeclaredStructuralInputPin,
     )
     from semantic.data_operation_kernel_support import prepare_kernel
     from semantic.structural_native_fixture import source_values
@@ -106,9 +105,6 @@ def test_controlled_structural_fixture_has_complete_checked_source_and_independe
             value.value,
             frame.pin.values(),
             context,
-            DeclaredStructuralInputPin.from_bound(member, project=PROJECT).model_dump(
-                mode="python"
-            ),
         )
         report = values["predicates"]
         reading = next(
@@ -212,7 +208,7 @@ def _passes(kernel, report, expected):
 
 
 @pytest.fixture
-def structural_native_journey(semantic_bare_engine, native_settings, tmp_path, monkeypatch):
+def structural_native_journey(commit_db_engine, native_settings, tmp_path, monkeypatch):
     from corpus_structure.ingest.pdf_worker import PdfWorker
     from corpus_structure.semantic.effect_policy import ApprovedEffect
     from corpus_structure.serve.interpretation_authoring import author_interpretations
@@ -220,9 +216,7 @@ def structural_native_journey(semantic_bare_engine, native_settings, tmp_path, m
     def unexpected_conversion(*_args, **_kwargs):
         raise AssertionError("structural admission consumer reached its captured PDF converter")
 
-    with _private_source(
-        semantic_bare_engine, native_settings, tmp_path, monkeypatch, TEXT, TEXT
-    ) as source:
+    with _registered_source(commit_db_engine, native_settings, tmp_path, TEXT, TEXT) as source:
         monkeypatch.setattr(PdfWorker, "stream", unexpected_conversion)
         target = recipe(tmp_path)
         target = replace(

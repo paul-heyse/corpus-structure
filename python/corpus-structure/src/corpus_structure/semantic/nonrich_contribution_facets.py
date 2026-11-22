@@ -20,8 +20,10 @@ from .structural_products import (
     DeclaredDefinitionApplicabilityReport,
     DeclaredDefinitionComponentsReport,
     DeclaredDossierReport,
+    DeclaredLearnedDefinitionComponentsReport,
     DeclaredNamedDefinitionComponentsReport,
     DeclaredStructuralProductReport,
+    DeclaredSyntaxDefinitionComponentsReport,
 )
 
 _STRUCTURAL = {
@@ -34,6 +36,8 @@ _STRUCTURAL = {
         DeclaredDefinitionApplicabilityReport,
         DeclaredDefinitionComponentsReport,
         DeclaredNamedDefinitionComponentsReport,
+        DeclaredLearnedDefinitionComponentsReport,
+        DeclaredSyntaxDefinitionComponentsReport,
         DeclaredDossierReport,
     )
 }

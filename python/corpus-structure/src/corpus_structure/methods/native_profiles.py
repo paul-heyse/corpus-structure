@@ -446,7 +446,9 @@ class NativeSelection:
         assets = self.assets.resolve()
         profile = self.native.wire
         selected = dict(profile=profile, fingerprint=self.native.fingerprint, assets=str(assets))
-        files = tuple(verified_file(path, digest) for path, digest in native_asset_files(profile, assets))
+        files = tuple(
+            verified_file(path, digest) for path, digest in native_asset_files(profile, assets)
+        )
         return selected, files
 
     def execution_custody(self):

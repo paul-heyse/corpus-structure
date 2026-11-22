@@ -234,7 +234,8 @@ def test_frozen_typed_parameters_survive_jsonb_display_loss():
 
 
 @pytest.mark.parametrize("state", ["committed", "known-uncommitted", "unavailable"])
-def test_resume_preserves_exact_completion_observation_separate_from_frontier(state):
+@pytest.mark.parametrize("settlement", [False, True])
+def test_resume_preserves_exact_completion_observation_separate_from_frontier(state, settlement):
     from corpus_structure.semantic.data_operation_demands import DemandPlanner
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 
@@ -252,7 +253,6 @@ def test_resume_preserves_exact_completion_observation_separate_from_frontier(st
         "parameters": {},
         "fate": "attached",
         "historical_fate": "attached",
-        "inputs_watermark": "watermark:one",
         "native_readiness": None,
         "native_settlement": None,
     }
@@ -331,12 +331,19 @@ def test_resume_preserves_exact_completion_observation_separate_from_frontier(st
         },
     }
     observation = observations[state]
+    scope_observation = {"read_id": "read:one", "scope": {}, "selections": []}
     storage = WireCheckedStorage(
-        {"read_demand_result": snapshot, "inspect_data_completion": observation}
+        {
+            "resume_data_demand": snapshot,
+            "inspect_data_completion": observation,
+            "read_demand_settlement": scope_observation,
+        }
     )
-    resumed = DemandPlanner(compiled, cast(DataOperationStorage, storage)).resume("demand:one")
-    assert storage.calls == [
-        ("read_demand_result", {"demand_id": "demand:one", "limit": 100}),
+    resumed = DemandPlanner(compiled, cast(DataOperationStorage, storage)).resume(
+        "demand:one", settlement=settlement
+    )
+    expected_calls = [
+        ("resume_data_demand", {"demand_id": "demand:one", "limit": 100}),
         (
             "inspect_data_completion",
             {
@@ -347,6 +354,12 @@ def test_resume_preserves_exact_completion_observation_separate_from_frontier(st
             },
         ),
     ]
+    if settlement:
+        expected_calls.append(("read_demand_settlement", {"read_id": "read:one"}))
+        assert resumed["scheduler_settlement"] == scope_observation
+    else:
+        assert "scheduler_settlement" not in resumed
+    assert storage.calls == expected_calls
     assert resumed["completion_inspections"] == {"intent:old": observation}
     assert "completion_inspections" not in snapshot
 
@@ -417,7 +430,8 @@ def test_ready_request_retains_native_execution_disposition(native, expected):
         assert ready.retained_intent_id == native["retained_intent_id"]
 
 
-def test_frozen_source_sets_are_explicit_selected_operation_scope():
+@pytest.mark.parametrize("source_policy", ["frozen-source-set", "original-source"])
+def test_frozen_source_sets_are_explicit_selected_operation_scope(source_policy):
     from dataclasses import replace
 
     from corpus_structure.semantic.data_operation_model import (
@@ -443,7 +457,7 @@ def test_frozen_source_sets_are_explicit_selected_operation_scope():
         "required",
         InputSupport(
             "exact",
-            "frozen-source-set",
+            source_policy,
             InputCoverage("source", "whole"),
             identity_requirements=("episode",),
             source_set="inputs",
@@ -462,8 +476,11 @@ def test_frozen_source_sets_are_explicit_selected_operation_scope():
         ),
     )
     scope = FrozenSourceSet.unqualified("inputs", (entry,))
-    with pytest.raises(ValueError, match=r"lacks.*source set"):
-        freeze(compiled)
+    if source_policy == "frozen-source-set":
+        with pytest.raises(ValueError, match=r"lacks.*source set"):
+            freeze(compiled)
+    else:
+        assert "source_sets" not in freeze(compiled).record
     frozen = freeze(compiled, source_sets=(scope,))
     assert (
         frozen.record["source_sets"]["inputs"]["entries"][0]["original_source"] == "source:foreign"

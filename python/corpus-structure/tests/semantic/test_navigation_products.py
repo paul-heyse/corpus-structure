@@ -12,6 +12,7 @@ from corpus_structure.semantic.constructions.navigation import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.original_documents import original_document_subject
 from corpus_structure.semantic.source_products import FrozenNativeSource, native_projection_identity
+from semantic.artifact_identity_support import reference_for
 
 
 def source(text="Table 2.1 (aliases: none).", label="caption"):
@@ -184,7 +185,13 @@ def test_native_artifact_discovery_keeps_known_absence_and_actual_semantic_witne
 
     selected, frame, original, inputs, navigation = artifact_case()
     (record,) = native_artifact_records(
-        frame, selected, inputs, original.identity, "work:book", navigation
+        frame,
+        selected,
+        inputs,
+        original.identity,
+        "work:book",
+        navigation,
+        reference_for=reference_for,
     )
     assert record.artifact.controlled_code == "2.1" and record.artifact.artifact_kind == "table"
     assert record.artifact.alias_state == "known_empty" and record.artifact.aliases == ()
@@ -192,10 +199,12 @@ def test_native_artifact_discovery_keeps_known_absence_and_actual_semantic_witne
     assert record.artifact.alias_absence.text == "aliases: none"
     assert record.citations[0].text == "Table 2.1"
     assert record.primary_node is not None
-    assert record.primary_node.product_id == "product:navigation"
-    assert record.primary_node == record.artifact.primary_node
+    assert (
+        record.primary_node["role"] == "constructions" and record.primary_node["occurrence"] == "0"
+    )
+    assert "primary_node" not in record.artifact.model_dump()
     assert b"task_id" not in canonical_bytes(record.model_dump(mode="json"))
-    assert b"source_view_id" not in canonical_bytes(record.source_contribution)
+    assert "source_contribution" not in record.model_dump()
 
 
 def test_native_artifact_discovery_retains_unknown_aliases_and_requires_complete_navigation():
@@ -203,7 +212,13 @@ def test_native_artifact_discovery_retains_unknown_aliases_and_requires_complete
 
     selected, frame, original, inputs, navigation = artifact_case("Table 2.1.")
     (record,) = native_artifact_records(
-        frame, selected, inputs, original.identity, "work:book", navigation
+        frame,
+        selected,
+        inputs,
+        original.identity,
+        "work:book",
+        navigation,
+        reference_for=reference_for,
     )
     assert record.artifact.alias_state == "unknown" and record.artifact.alias_absence is None
     with pytest.raises(ValueError, match="missing or incomplete"):
@@ -214,4 +229,5 @@ def test_native_artifact_discovery_retains_unknown_aliases_and_requires_complete
             original.identity,
             "work:book",
             NativeNavigationIndex((), selected),
+            reference_for=reference_for,
         )

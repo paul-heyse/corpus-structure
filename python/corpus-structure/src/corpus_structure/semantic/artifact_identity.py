@@ -185,8 +185,6 @@ class ArtifactOccurrenceValue(Protocol):
     def aliases(self) -> tuple[str, ...]: ...
     @property
     def occurrence_role(self) -> str: ...
-    @property
-    def dependencies(self) -> tuple[str, ...]: ...
 
 
 class ArtifactDesignatorValue(Protocol):
@@ -386,7 +384,6 @@ def pair_candidates(
         a, b = by_id[left], by_id[right]
         if a.occurrence_id == b.occurrence_id:
             continue
-        av, bv = a.artifact, b.artifact
         numbering = label_relation(a.numbering, b.numbering)
         # This is one pair proposal, not an equivalence or connected-component universe.
         # Reusing the existing guard cannot authorize an unexamined transitive bridge.
@@ -416,8 +413,6 @@ def pair_candidates(
                         {
                             left,
                             right,
-                            *av.dependencies,
-                            *bv.dependencies,
                             *external.get((left, right), ()),
                         }
                     )
@@ -619,8 +614,6 @@ def source_artifact_invariants(value: Any) -> Any:
         raise ValueError("known empty aliases require explicit source evidence")
     if (value.revision is not None) != (value.revision_state == "observed"):
         raise ValueError("only observed revisions carry an interpreted revision")
-    if len(set(value.dependencies)) != len(value.dependencies):
-        raise ValueError("artifact dependencies repeat")
     return value
 
 
@@ -639,7 +632,6 @@ def artifact_identity_invariants(value: Any) -> Any:
     if (
         any(
             record.primary_node is None
-            or record.artifact.primary_node != record.primary_node
             or (
                 record.explicit_reference is not None
                 and record.explicit_reference.primary_node is None

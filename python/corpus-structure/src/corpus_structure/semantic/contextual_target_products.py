@@ -110,7 +110,7 @@ def component_target_population(report, *, original_source, kind_contract):
 
     selected = read_definition_components_report(report)
     if not original_source or any(
-        source.original_source != original_source for source in selected.sources_input
+        source.original_source != original_source for source in selected.inputs.sources
     ):
         raise ValueError("component targets require their actual original source")
     targets, meanings = [], {}
@@ -135,7 +135,7 @@ def component_target_values(report, component, *, original_source):
     original native support. It is not part of numerical target identity.
     """
     if not original_source or any(
-        pin.original_source != original_source for pin in report.sources_input
+        pin.original_source != original_source for pin in report.inputs.sources
     ):
         raise ValueError("component target differs from its actual original source")
     passages = {value.passage_id: value for value in report.inputs.passages}

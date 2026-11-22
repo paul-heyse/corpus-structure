@@ -50,7 +50,16 @@ def declared_formal_layers(products, source):
                     **product.inventory(),
                     "source": body["source"],
                     "selectors": body["selectors"],
-                    "dependencies": body.get("dependencies", []),
+                    "dependencies": (
+                        [
+                            {"product_id": parent}
+                            for parent in dict.fromkeys(
+                                item[2] for item in product.contextual_input_parents
+                            )
+                        ]
+                        if "formal_member_support" in body
+                        else body.get("dependencies", [])
+                    ),
                 }
             ),
         )
@@ -67,34 +76,54 @@ def formal_member_reference(product: DataProductReference, identifier):
 class SelectedCharacterizationInventories(Mapping):
     """Lazy pinned native product inventories; disk owns the full required closure."""
 
-    def __init__(self, products, *, index=None, cut=None, formal_atom_parents=None):
+    def __init__(
+        self,
+        products,
+        *,
+        index=None,
+        cut=None,
+        construction_formal_parents=None,
+        contextual_input_parents=None,
+    ):
         self.products = products
         self.index = index
         self.cut = cut
-        self.formal_atom_parents = formal_atom_parents or {}
+        self.construction_formal_parents = construction_formal_parents or {}
+        self.contextual_input_parents = contextual_input_parents or {}
 
     def __getitem__(self, reference):
         if not isinstance(reference, DataProductReference):
             raise KeyError(reference)
         record = self.products[reference.product_id]
         body = decode_semantic_value(record["canonical_body"])
+        contextual_parents = self.contextual_input_parents.get(reference.product_id, ())
         if not isinstance(body, dict) or not {"source", "selectors", "members"} <= body.keys():
             raise ValueError("selected primary dependency is not a declared characterization")
         if self.index is not None:
-            from .construction_formal_references import expand_selected_formal_atom_support
+            from .construction_formal_references import expand_selected_construction_formal_support
+            from .contextual_input_references import expand_selected_contextual_inputs
             from .contextual_proxy_references import expand_selected_contextual_proxies
 
             body = expand_selected_contextual_proxies(
                 body, self.index, self.cut, reference.product_id
             )
-            body = expand_selected_formal_atom_support(
+            body = expand_selected_construction_formal_support(
                 body, self.index, self.cut, reference.product_id
             )
-        elif body.get("formal_atom_support"):
-            from .construction_formal_references import project_formal_atom_support
+            body, contextual_parents = expand_selected_contextual_inputs(
+                body, self.index, self.cut, reference.product_id, with_parents=True
+            )
+        elif body.get("formal_support"):
+            from .construction_formal_references import project_construction_formal_support
 
-            body = project_formal_atom_support(
-                body, self.formal_atom_parents.get(reference.product_id, ())
+            body = project_construction_formal_support(
+                body, self.construction_formal_parents.get(reference.product_id, ())
+            )
+        if self.index is None and "formal_member_support" in body:
+            from .contextual_input_references import project_contextual_input_support
+
+            body = project_contextual_input_support(
+                body, self.contextual_input_parents.get(reference.product_id, ())
             )
         names = dict(
             occurrence="occurrences",
@@ -119,7 +148,14 @@ class SelectedCharacterizationInventories(Mapping):
         inventory.update(
             source=body["source"],
             selectors=body["selectors"],
-            dependencies=body.get("dependencies", []),
+            dependencies=(
+                [
+                    {"product_id": parent}
+                    for parent in dict.fromkeys(item[2] for item in contextual_parents)
+                ]
+                if "formal_member_support" in body
+                else body.get("dependencies", [])
+            ),
             annotation_support=body.get("annotation_support", []),
         )
         return DeclaredFormalInventory(reference, json_bytes(inventory))

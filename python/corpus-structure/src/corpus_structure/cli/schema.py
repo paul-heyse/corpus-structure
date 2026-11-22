@@ -45,7 +45,6 @@ if TYPE_CHECKING:
     from sqlalchemy import MetaData
 
     from corpus_structure.cli.managed import Invocation
-    from corpus_structure.schema.data_steps import FrozenDataStep
     from corpus_structure.semantic.native_objects import NativeIdentity
     from corpus_structure.semantic.target_installation import TargetInstallation
 
@@ -491,7 +490,6 @@ def author_native_candidate(
     logical_sources: dict[str, bytes] | None = None,
     retire: frozenset[NativeIdentity] = frozenset(),
     recreate: frozenset[NativeIdentity] = frozenset(),
-    data_steps: tuple[FrozenDataStep, ...] = (),
     installation: TargetInstallation | None = None,
     reviewed_delta: NativeProgramDelta | None = None,
 ) -> tuple[NativeCandidateResult, dict[str, bytes]]:
@@ -602,7 +600,7 @@ def author_native_candidate(
                         "fresh root has no predecessor effects to retire or recreate"
                     )
                 script, authoring = prepare_target_candidate(
-                    conn, installation, owned_authoring=True, data_steps=data_steps
+                    conn, installation, owned_authoring=True
                 )
             else:
                 frozen = current_native_state(conn)
@@ -613,8 +611,6 @@ def author_native_candidate(
                     retire=retire,
                     recreate=recreate,
                     owned_authoring=True,
-                    data_steps=data_steps,
-                    predecessor_revision=predecessor,
                 )
             upgrade_ops = script.upgrade_ops
             if upgrade_ops is None:

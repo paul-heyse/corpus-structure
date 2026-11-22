@@ -550,7 +550,18 @@ def binding_branches(metadata):
 
     def source_matches(roledef, header):
         return or_(
-            and_(source_filter.is_(None), roledef["support"]["source_set"].astext.is_(None)),
+            and_(
+                source_filter.is_(None),
+                or_(
+                    roledef["support"]["source_set"].astext.is_(None),
+                    and_(
+                        roledef["support"]["source"].astext == "original-source",
+                        ~func.coalesce(selection["source_sets"], _json({})).has_key(
+                            roledef["support"]["source_set"].astext
+                        ),
+                    ),
+                ),
+            ),
             func.ops.ddo_binding_source(
                 roledef, header, source, func.coalesce(selection["source_sets"], _json({}))
             ),
@@ -1790,7 +1801,15 @@ def record_grade_selected_outputs(metadata):
 
 
 def _origin_role_matches(
-    role, header, projected_kind, projected_scope, origin, bounded, *, allow_body_predicate=True
+    role,
+    header,
+    projected_kind,
+    projected_scope,
+    origin,
+    bounded,
+    *,
+    allow_body_predicate=True,
+    selection=None,
 ):
     """Use binding's immutable role, source and qualified-context association."""
     subject_matches = func.ops.ddo_binding_subject(
@@ -1820,7 +1839,12 @@ def _origin_role_matches(
                     role,
                     header,
                     bounded.c.original_source,
-                    func.coalesce(_var("d.selection", JSONB)["source_sets"], _json({})),
+                    func.coalesce(
+                        (selection if selection is not None else _var("d.selection", JSONB))[
+                            "source_sets"
+                        ],
+                        _json({}),
+                    ),
                 ),
             ),
         ),
@@ -1828,449 +1852,40 @@ def _origin_role_matches(
     )
 
 
-def _original_admission_changed(metadata, bounded, latest, wait_read):
-    """Use native original receipts to wake matching roles, including their first fact."""
-    definitions = metadata.tables["sem.data_operation_definition"].alias("original_definition")
-    roles = _items(definitions.c.input_roles, "original_role")
-    admissions = metadata.tables["ops.original_source_admission"].alias("original_fact")
-    products = metadata.tables["kb.data_product"].alias("original_product")
-    kinds = metadata.tables["sem.data_kind_contract"].alias("original_kind")
-    header = _obj(
-        product=admissions.c.product_id,
-        member=cast(null(), Text),
-        subject=admissions.c.subject,
-        subject_definition=products.c.subject_definition,
-        original_source=admissions.c.original_source,
-        analyzed_scope=admissions.c.analyzed_scope,
-    )
+def _population_shortfall_candidate(model, obligation, operation, release, boundary):
+    """Indexed receipt/declaration prefilter; never opens admitted candidate facts."""
+    populations = model.tables["ops.data_population"]
+    definitions = model.tables["sem.data_operation_definition"].alias("shortfall_definition")
+    roles = _items(definitions.c.input_roles, "shortfall_role")
     return (
         select(1)
         .select_from(
-            definitions.join(wait_read, wait_read.c.id == latest.c.selection["read_id"].astext)
-            .join(roles, literal(True))
-            .join(admissions, admissions.c.demand_id == wait_read.c.demand_id)
-            .join(products, products.c.id == admissions.c.product_id)
-            .join(kinds, kinds.c.kind_contract == products.c.kind_contract)
-        )
-        .where(
-            definitions.c.release_id == _var("d.release_id", Text),
-            definitions.c.operation_id == bounded.c.operation_id,
-            wait_read.c.demand_id == _var("d.id", Text),
-            admissions.c.project_id == _var("d.project_id", Text),
-            _var("boundary.access_universes", JSONB).bool_op("?")(kinds.c.universe),
-            _visible(admissions),
-            ~func.ops.ddo_read_visible(
-                admissions.c.created_at, admissions.c.created_xid, wait_read.table_valued()
-            ),
-            _origin_role_matches(
-                roles.c.value,
-                header,
-                products.c.kind_contract,
-                admissions.c.analyzed_scope,
-                _fact_origin(admissions),
-                bounded,
-                allow_body_predicate=False,
-            ),
-        )
-        .correlate(bounded, latest)
-        .exists()
-    )
-
-
-def _selected_population_changed(metadata, bounded, latest, wait_read, validity):
-    """Observe a newly visible valid selection owned by the exact waiting obligation."""
-    populations = metadata.tables["ops.data_population"].alias("selected_population_event")
-    return (
-        select(1)
-        .select_from(wait_read.join(populations, populations.c.demand_id == wait_read.c.demand_id))
-        .where(
-            wait_read.c.id == latest.c.selection["read_id"].astext,
-            wait_read.c.demand_id == _var("d.id", Text),
-            populations.c.selected_obligation_id == bounded.c.id,
-            _visible(populations),
-            ~func.ops.ddo_read_visible(
-                populations.c.created_at, populations.c.created_xid, wait_read.table_valued()
-            ),
-            _set_valid(validity, "population", populations.c.id),
-        )
-        .correlate(bounded, latest)
-        .exists()
-    )
-
-
-def _exact_pin_changed(metadata, bounded, latest, wait_read):
-    """Match newly visible fulfilled uses to an exact pin at the waiting read."""
-    selection = _var("d.selection", JSONB)
-    definitions = metadata.tables["sem.data_operation_definition"].alias("pin_definition")
-    roles = _items(definitions.c.input_roles, "pin_role")
-    source_set = selection["source_sets"][roles.c.value["support"]["source_set"].astext]
-    entries = _items(func.coalesce(source_set["entries"], _json([])), "source_pin")
-    products = metadata.tables["kb.data_product"].alias("pin_product")
-    members = metadata.tables["kb.data_product_member"].alias("pin_member")
-    outputs = metadata.tables["ops.data_derivation_output"].alias("pin_output")
-    episodes = metadata.tables["ops.data_derivation"].alias("pin_episode")
-    uses = metadata.tables["ops.demand_use"].alias("pin_use")
-    selected_member = entries.c.value["member"].astext
-    projected_kind = func.coalesce(members.c.kind_contract, products.c.kind_contract)
-    projected_subject = func.coalesce(members.c.subject, products.c.subject)
-    projected_scope = func.coalesce(members.c.analyzed_scope, products.c.analyzed_scope)
-    projected_body = case(
-        (
-            roles.c.value["subject_field"].astext.is_not(None),
-            func.coalesce(members.c.body, products.c.canonical_body),
-        ),
-        else_=null(),
-    )
-    emitting = _obj(
-        member_id=outputs.c.member_id,
-        role=outputs.c.role,
-        position=outputs.c.position,
-        multiplicity=outputs.c.multiplicity,
-    )
-    header = _obj(
-        product=products.c.id,
-        member=selected_member,
-        subject=projected_subject,
-        subject_definition=func.coalesce(
-            members.c.subject_definition, products.c.subject_definition
-        ),
-        original_source=products.c.original_source,
-        analyzed_scope=projected_scope,
-        meaning_body=projected_body,
-        support_references=func.jsonb_build_array(
-            _obj(
-                kind=literal("computation"),
-                derivation_id=episodes.c.id,
-                admission_use_id=uses.c.id,
-            )
-        ),
-        support_evidence=_obj(producer_output=emitting),
-    )
-    # A matching event prompts binding, which checks live validity and authority.
-    role_matches = _origin_role_matches(
-        roles.c.value, header, projected_kind, projected_scope, literal("computation"), bounded
-    )
-    return (
-        select(1)
-        .select_from(
-            definitions.join(wait_read, wait_read.c.id == latest.c.selection["read_id"].astext)
-            .join(roles, literal(True))
-            .join(entries, literal(True))
-            .join(products, products.c.id == entries.c.value["product"].astext)
-            .outerjoin(
-                members,
-                and_(members.c.product_id == products.c.id, members.c.member_id == selected_member),
-            )
-            .join(
-                outputs,
+            populations.join(
+                definitions,
                 and_(
-                    outputs.c.product_id == products.c.id,
-                    or_(
-                        and_(selected_member.is_(None), outputs.c.member_id.is_(None)),
-                        and_(
-                            selected_member.is_not(None),
-                            or_(
-                                outputs.c.member_id.is_(None),
-                                outputs.c.member_id == selected_member,
-                            ),
-                        ),
-                    ),
+                    definitions.c.operation_id == operation,
+                    definitions.c.release_id == release,
                 ),
+            ).join(
+                roles,
+                roles.c.value["name"].astext == populations.c.evidence["selection"]["role"].astext,
             )
-            .join(episodes, episodes.c.id == outputs.c.derivation_id)
-            .join(uses, uses.c.derivation_id == episodes.c.id)
         )
         .where(
-            definitions.c.release_id == _var("d.release_id", Text),
-            definitions.c.operation_id == bounded.c.operation_id,
-            wait_read.c.demand_id == _var("d.id", Text),
-            products.c.project_id == _var("d.project_id", Text),
-            or_(selected_member.is_(None), members.c.member_id.is_not(None)),
-            uses.c.fate == "fulfilled",
-            _visible(uses),
-            ~func.ops.ddo_read_visible(
-                uses.c.created_at, uses.c.created_xid, wait_read.table_valued()
-            ),
-            role_matches,
-            func.ops.ddo_source_set_proof_matches(
-                source_set,
-                products.c.id,
-                selected_member,
-                episodes.c.id,
-                uses.c.id,
-                emitting,
+            populations.c.selected_obligation_id == obligation,
+            populations.c.complete,
+            cast(roles.c.value["minimum"].astext, BigInteger())
+            > func.jsonb_array_length(populations.c.members),
+            func.ops.ddo_read_visible(
+                populations.c.created_at, populations.c.created_xid, boundary
             ),
         )
-        .correlate(bounded, latest)
+        .correlate_except(populations, definitions, roles)
         .exists()
     )
 
 
-def _local_input_changed(metadata, bounded, latest, wait_read):
-    """Detect exact same-demand candidate arrivals and departures since the wait."""
-    selection = _var("d.selection", JSONB)
-    selected = _items(selection["operations"], "local_input_operation")
-    definitions = metadata.tables["sem.data_operation_definition"].alias("local_input_definition")
-    roles = _items(definitions.c.input_roles, "local_input_role")
-    uses = metadata.tables["ops.demand_use"].alias("local_input_use")
-    later = metadata.tables["ops.demand_use"].alias("local_input_later")
-    episodes = metadata.tables["ops.data_derivation"].alias("local_input_episode")
-    outputs = metadata.tables["ops.data_derivation_output"].alias("local_input_output")
-    products = metadata.tables["kb.data_product"].alias("local_input_product")
-    members = metadata.tables["kb.data_product_member"].alias("local_input_member")
-
-    def visible_at_wait(row):
-        return func.ops.ddo_read_visible(
-            row.c.created_at, row.c.created_xid, wait_read.table_valued()
-        )
-
-    def superseded(visible):
-        return (
-            select(1)
-            .select_from(later)
-            .where(
-                later.c.obligation_id == uses.c.obligation_id,
-                or_(
-                    later.c.created_at > uses.c.created_at,
-                    and_(later.c.created_at == uses.c.created_at, later.c.id > uses.c.id),
-                ),
-                visible,
-            )
-            .correlate(uses, wait_read)
-            .exists()
-        )
-
-    was_candidate = and_(visible_at_wait(uses), ~superseded(visible_at_wait(later)))
-    is_candidate = ~superseded(_visible(later))
-    projected = union_all(
-        select(
-            cast(null(), Text).label("member_id"),
-            products.c.kind_contract.label("kind_contract"),
-            products.c.subject.label("subject"),
-            products.c.subject_definition.label("subject_definition"),
-            products.c.original_source.label("original_source"),
-            products.c.analyzed_scope.label("analyzed_scope"),
-            products.c.canonical_body.label("meaning_body"),
-        )
-        .where(outputs.c.member_id.is_(None))
-        .correlate(products, outputs),
-        select(
-            members.c.member_id,
-            members.c.kind_contract,
-            members.c.subject,
-            members.c.subject_definition,
-            members.c.original_source,
-            members.c.analyzed_scope,
-            members.c.body,
-        )
-        .where(
-            members.c.product_id == products.c.id,
-            or_(outputs.c.member_id.is_(None), members.c.member_id == outputs.c.member_id),
-        )
-        .correlate(products, outputs),
-    ).lateral("local_input_projection")
-    emitting = _obj(
-        member_id=outputs.c.member_id,
-        role=outputs.c.role,
-        position=outputs.c.position,
-        multiplicity=outputs.c.multiplicity,
-    )
-    header = _obj(
-        product=products.c.id,
-        member=projected.c.member_id,
-        subject=projected.c.subject,
-        subject_definition=projected.c.subject_definition,
-        original_source=projected.c.original_source,
-        analyzed_scope=projected.c.analyzed_scope,
-        meaning_body=projected.c.meaning_body,
-        support_references=func.jsonb_build_array(
-            _obj(
-                kind=literal("computation"),
-                derivation_id=episodes.c.id,
-                admission_use_id=uses.c.id,
-            )
-        ),
-        support_evidence=_obj(producer_output=emitting),
-    )
-    return (
-        select(1)
-        .select_from(
-            definitions.join(wait_read, wait_read.c.id == latest.c.selection["read_id"].astext)
-            .join(
-                selected,
-                and_(
-                    selected.c.value["operation"].astext == bounded.c.operation_id,
-                    func.jsonb_array_length(selected.c.value["dependencies"]) == 0,
-                ),
-            )
-            .join(roles, literal(True))
-            .join(uses, uses.c.demand_id == _var("d.id", Text))
-            .join(episodes, episodes.c.id == uses.c.derivation_id)
-            .join(outputs, outputs.c.derivation_id == episodes.c.id)
-            .join(products, products.c.id == outputs.c.product_id)
-            .join(projected, literal(True))
-        )
-        .where(
-            definitions.c.release_id == _var("d.release_id", Text),
-            definitions.c.operation_id == bounded.c.operation_id,
-            wait_read.c.demand_id == _var("d.id", Text),
-            roles.c.value["support"]["source_set"].astext.is_(None),
-            products.c.project_id == _var("d.project_id", Text),
-            uses.c.fate == "fulfilled",
-            _visible(uses),
-            was_candidate.is_distinct_from(is_candidate),
-            # Access checks raise on refusal, so unrelated kinds or qualified
-            # contexts must be filtered before either authorization executes.
-            case(
-                (
-                    _origin_role_matches(
-                        roles.c.value,
-                        header,
-                        projected.c.kind_contract,
-                        projected.c.analyzed_scope,
-                        literal("computation"),
-                        bounded,
-                    ),
-                    case(
-                        (
-                            and_(
-                                _kind_disclosed(metadata, products.c.kind_contract),
-                                _kind_disclosed(metadata, projected.c.kind_contract),
-                            ),
-                            and_(
-                                func.ops.ddo_kind_access(products.c.kind_contract),
-                                func.ops.ddo_body_access(
-                                    projected.c.kind_contract, projected.c.meaning_body
-                                ),
-                            ),
-                        ),
-                        else_=literal(False),
-                    ),
-                ),
-                else_=literal(False),
-            ),
-        )
-        .correlate(bounded, latest)
-        .exists()
-    )
-
-
-def _inputs_watermarks(metadata, bounded):
-    """Retain the fingerprint only for readiness origins without a native owner."""
-    owner = bounded
-    bounded = (
-        select(bounded).where(bounded.c.native_readiness.is_(None)).cte("watermark_obligations")
-    )
-    uses = metadata.tables["ops.demand_use"]
-    obligations = metadata.tables["ops.data_obligation"].alias("prerequisite_obligation")
-    populations = metadata.tables["ops.data_population"]
-    selected = _items(_var("d.selection", JSONB)["operations"], "watermark_selected")
-    dependencies = (
-        func.jsonb_array_elements_text(selected.c.value["dependencies"])
-        .table_valued(column("value", Text()))
-        .render_derived(name="watermark_dependency")
-    )
-    prerequisites = (
-        select(bounded.c.id.label("obligation_id"), dependencies.c.value.label("operation_id"))
-        .select_from(
-            bounded.join(
-                selected, selected.c.value["operation"].astext == bounded.c.operation_id
-            ).join(dependencies, literal(True))
-        )
-        .cte("watermark_prerequisites", recursive=True)
-    )
-    prerequisites = prerequisites.union(
-        select(prerequisites.c.obligation_id, dependencies.c.value).select_from(
-            prerequisites.join(
-                selected, selected.c.value["operation"].astext == prerequisites.c.operation_id
-            ).join(dependencies, literal(True))
-        )
-    )
-    fulfilled = (
-        select(
-            bounded.c.id.label("obligation_id"),
-            literal("use").label("kind"),
-            uses.c.id.label("identity"),
-            uses.c.created_at,
-        )
-        .select_from(
-            bounded.join(prerequisites, prerequisites.c.obligation_id == bounded.c.id)
-            .join(
-                obligations,
-                and_(
-                    obligations.c.demand_id == _var("d.id", Text),
-                    obligations.c.operation_id == prerequisites.c.operation_id,
-                    obligations.c.original_source.is_not_distinct_from(bounded.c.original_source),
-                ),
-            )
-            .join(uses, uses.c.obligation_id == obligations.c.id)
-        )
-        .where(uses.c.fate == "fulfilled", _visible(uses))
-    )
-    discovery = _items(_var("d.selection", JSONB)["discovery"], "watermark_discovery")
-    relevant_population = exists(
-        select(1)
-        .select_from(discovery)
-        .where(
-            discovery.c.value["population"].astext == populations.c.name,
-            or_(
-                discovery.c.value["target"].astext == bounded.c.operation_id,
-                exists(
-                    select(1)
-                    .select_from(prerequisites)
-                    .where(
-                        prerequisites.c.obligation_id == bounded.c.id,
-                        prerequisites.c.operation_id == discovery.c.value["target"].astext,
-                    )
-                ),
-            ),
-        )
-    )
-    population_rows = (
-        select(
-            bounded.c.id.label("obligation_id"),
-            literal("population").label("kind"),
-            populations.c.id.label("identity"),
-            populations.c.created_at,
-        )
-        .select_from(bounded.join(populations, populations.c.demand_id == _var("d.id", Text)))
-        .where(
-            populations.c.selected_obligation_id.is_(None),
-            relevant_population,
-            _visible(populations),
-        )
-    )
-    # A use can be visible through several local prerequisites or outputs.
-    # Hash its actual identity once, independent of output multiplicity.
-    visible = union(fulfilled, population_rows).cte("watermark_visible")
-    identities = (
-        select(
-            visible.c.obligation_id,
-            _aggregate(
-                _obj(kind=visible.c.kind, identity=visible.c.identity),
-                visible.c.kind,
-                visible.c.identity,
-            ).label("identities"),
-        )
-        .group_by(visible.c.obligation_id)
-        .cte("watermark_identities")
-        .prefix_with("MATERIALIZED")
-    )
-    facts = (
-        select(identities.c.identities)
-        .where(identities.c.obligation_id == owner.c.id)
-        .correlate(owner)
-        .scalar_subquery()
-    )
-    return func.ops.ddo_digest(
-        _obj(
-            visible=func.coalesce(facts, _json([])),
-            source_sets=_var("d.selection", JSONB)["source_sets"],
-        )
-    )
-
-
-def read_page(metadata):
+def read_page(metadata, *, scheduler=False):
     """One pure atomic page under already acquired native pins."""
     from sqlalchemy import case
 
@@ -2301,9 +1916,32 @@ def read_page(metadata):
     bounded = (
         select(
             bounded,
-            func.ops.ddo_obligation_readiness(
-                bounded.c.id, _var("boundary.id", Text), type_=JSONB()
+            (
+                func.ops.ddo_obligation_readiness(
+                    bounded.c.id, _var("boundary.id", Text), type_=JSONB()
+                )
+                if scheduler
+                else cast(literal(None), JSONB())
             ).label("native_readiness"),
+            (
+                case(
+                    (
+                        _population_shortfall_candidate(
+                            metadata,
+                            bounded.c.id,
+                            bounded.c.operation_id,
+                            _var("d.release_id", Text),
+                            boundary,
+                        ),
+                        func.ops.ddo_population_binding_unavailable(
+                            bounded.c.id, _var("boundary.id", Text), type_=Boolean()
+                        ),
+                    ),
+                    else_=False,
+                )
+                if scheduler
+                else literal(False)
+            ).label("binding_unavailable"),
         )
         .cte("ready_obligations")
         .prefix_with("MATERIALIZED")
@@ -2311,11 +1949,16 @@ def read_page(metadata):
     bounded = (
         select(
             bounded,
-            func.ops.ddo_obligation_settlement(
-                bounded.c.id,
-                _var("boundary.id", Text),
-                bounded.c.native_readiness,
-                type_=JSONB(),
+            (
+                func.ops.ddo_obligation_settlement(
+                    bounded.c.id,
+                    _var("boundary.id", Text),
+                    bounded.c.native_readiness,
+                    bounded.c.binding_unavailable,
+                    type_=JSONB(),
+                )
+                if scheduler
+                else cast(literal(None), JSONB())
             ).label("native_settlement"),
         )
         .cte("bounded")
@@ -2544,7 +2187,6 @@ def read_page(metadata):
         .correlate(latest)
         .scalar_subquery()
     )
-    inputs_watermark = _inputs_watermarks(metadata, bounded)
     wait_read = metadata.tables["ops.data_demand_read"].alias("wait_read")
     authority_changed = (
         select(
@@ -2561,6 +2203,40 @@ def read_page(metadata):
         )
         .correlate(latest)
         .scalar_subquery()
+    )
+    scope_settlement = _items(bounded.c.native_settlement, "binding_scope_settlement")
+    scalar_scope_changed = and_(
+        bounded.c.native_readiness["ready"].astext == "true",
+        select(1)
+        .select_from(scope_settlement)
+        .where(
+            scope_settlement.c.value["state"].astext == "pending",
+        )
+        .correlate(bounded)
+        .exists(),
+    )
+    from .publication_delivery_native import _superseded
+
+    heads = metadata.tables["ops.data_demand_selection"]
+    binding_read = metadata.tables["ops.data_demand_read"].alias("binding_named_read")
+    named_scope_changed = (
+        select(1)
+        .select_from(
+            heads.join(binding_read, binding_read.c.id == latest.c.selection["read_id"].astext)
+        )
+        .where(
+            heads.c.demand_id == demand,
+            ~_superseded(heads),
+            binding_read.c.demand_id == demand,
+            ~func.ops.ddo_read_visible(
+                heads.c.created_at, heads.c.created_xid, binding_read.table_valued()
+            ),
+        )
+        .correlate(latest)
+        .exists()
+    )
+    scope_changed = or_(
+        scalar_scope_changed, and_(bounded.c.native_readiness.is_(None), named_scope_changed)
     )
     obligation_body = (
         func.to_jsonb(bounded.table_valued())
@@ -2585,6 +2261,15 @@ def read_page(metadata):
                         literal("unavailable"),
                     ),
                     (awaiting_external(latest), literal("awaiting-external")),
+                    (
+                        or_(
+                            bounded.c.binding_unavailable,
+                            bounded.c.native_readiness.contains(
+                                _json({"roles": [{"state": "unavailable"}]})
+                            ),
+                        ),
+                        literal("unavailable"),
+                    ),
                     (
                         and_(
                             latest.c.id.is_(None),
@@ -2611,39 +2296,33 @@ def read_page(metadata):
         )
         .op("||")(
             case(
-                (bounded.c.native_readiness.is_not(None), _json({})),
-                else_=_obj(inputs_watermark=inputs_watermark),
-            )
-        )
-        .op("||")(
-            case(
                 (
                     and_(
-                        ~_var("boundary.public_disclosure", Boolean),
-                        latest.c.fate.in_(
-                            ("awaiting-inputs", "awaiting-population", "awaiting-discovery")
+                        literal(scheduler),
+                        or_(
+                            latest.c.fate.in_(
+                                ("awaiting-inputs", "awaiting-population", "awaiting-discovery")
+                            ),
+                            and_(literal(scheduler), latest.c.fate == "fulfilled"),
                         ),
                     ),
                     _obj(
+                        binding_scope_changed=func.coalesce(scope_changed, False),
+                        binding_origin_changed=func.ops.ddo_obligation_wake_changed(
+                            bounded.c.id,
+                            latest.c.selection["read_id"].astext,
+                            _var("boundary.id", Text),
+                        ),
                         binding_authority_changed=func.coalesce(authority_changed, True),
-                        binding_local_input_changed=_local_input_changed(
-                            metadata, bounded, latest, wait_read
-                        ),
-                        binding_original_changed=_original_admission_changed(
-                            metadata, bounded, latest, wait_read
-                        ),
-                        binding_pin_changed=_exact_pin_changed(
-                            metadata, bounded, latest, wait_read
-                        ),
-                        binding_population_changed=_selected_population_changed(
-                            metadata, bounded, latest, wait_read, validity
-                        ),
                     ),
                 ),
                 else_=_json({}),
             )
         )
     )
+    if not scheduler:
+        for field in ("native_readiness", "native_settlement", "binding_unavailable"):
+            obligation_body = obligation_body.op("-")(literal(field))
     result_obligations = (
         select(_aggregate(obligation_body, bounded.c.id))
         .select_from(bounded.outerjoin(latest, literal(True)))
