@@ -229,16 +229,35 @@ values. The export now composes the leaf with the existing native completion def
 including its tag-directed value schema. All twenty leaf controls passed (`uv run ci test`,
 `8a3e46010d7a44acae7b2dee881c4d5b`). The exact contract validated three selected execution
 evidence rows from the retained same-span archive and four from witnessed retrieval.
-Fresh full replay remains required.
+The next fresh replay reached captured product meaning validation (`ae054eb03db94283b6d01725c3ce113d`,
+interrupted). The generated native schema now dispatches on the field name or recursive tag before
+validating its payload. Required fields check presence by name after the item schema accounts for
+payload validity. Sixteen projection controls passed (`uv run ci test`,
+`93a691c437e148009661f0cfd04daf74`), including valid deep nesting, invalid tags and missing fields.
+Fresh full replay on products emitted with the new schema remains required.
 
 **Artifact sources · Tested by selected identity · 2026-11-22.** Artifacts verify their
 exact source pins through the original binding and reference witness. The redundant
 source and report rosters are gone. The nineteen passing identities in
 `964cbda823c848449920eed08ac40adc` and the exact compiled profile retry
 `22576b9e004c4f2e855c3402f819b521` cover this slice (`uv run ci test`). Nomination
-references still need multivalued addressing. Learned observation dependencies are still
-consumed by enriched composition to establish complete ownership. Their retirement requires
-the composer to obtain that closure from the authenticated producing bindings.
+references need a captured occurrence key on the scoped report. The nomination set can
+include two reports with the same source pin and the same contribution member. The
+producer must declare a key that distinguishes both selected occurrences before native
+and detached resolution can follow the member.
+
+**Learned dependency custody · Tested · 2026-11-22.** Learned observation bodies and
+manifests no longer copy dependency rosters. The concrete Maverick and D1 candidate manifests
+name their required whole roles. Enriched composition and selected-context encoding obtain
+those inputs from the exact producing use and require the selected closure. A declared
+dependency-free kind has an empty set. An undeclared or unavailable input refuses affected
+work. The CPU worker receives the acquired dependencies as sealed arguments for each logical
+item. The 30 ordinary and private native controls passed (`uv run ci test --native-host private`,
+`340cee91aaf348eca6c90d1aef34ed22`). An exact nested disclosure control passed
+(`d885635ee7bd402085351bece202ebda`), as did the independent per-item batch control
+(`15497e3ff1224cb1b6b023f5a0bf79f3`). All 29 final composition and contextual encoder controls
+passed (`1431268ff2304ca88c15fe11c077c78c`). Actual Maverick and D1 provider publication followed
+by selected query and detached read remains open.
 
 **Named-definition cutover · 2026-11-21.** The named producer publishes a nominal refinement
 of definition components. Each witness belongs to the producing report and is keyed by the
@@ -432,6 +451,14 @@ watermarks and the old pinned read when a selected receipt was committed. The or
 attached the selected holder and left its peer waiting (`uv run ci test --native-host private`,
 `14146e1598e1404cbc300283ea8fdaeb`). Base discovery closures and uncovered dependency wake routes
 remain with the scheduling watermark.
+
+**Local unpinned wake · Tested · 2026-11-22.** The native read compares eligible dependency-free
+same-demand inputs against the waiting cut. The focused private PostgreSQL and SQL projection
+controls showed an unrelated publication leaves the obligation waiting, a matching publication wakes
+it once, and a later producer fate wakes it once when the candidate disappears. Both transitions
+leave the scheduling watermark unchanged (`uv run ci test --native-host private`,
+`355750c8b2b542509328604615716461`). Fulfilled prerequisite and base discovery routes still use the
+watermark.
 
 **Actual canonical adoption · Tested · 2026-11-22.** Two genuine annotation captures
 with different batch sizes prepare distinct releases and annotation recipes with the same

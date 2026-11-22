@@ -257,6 +257,11 @@ failed release correspondence before provider execution (`2bfa687618314088bd140b
 The actual learned-definition journey also stopped at that comparison on the old registered
 root (`uv run ci test --native-host private --providers-only`,
 `e528f0a381604f5a9c8039dcd8649749`).
+The same journey passed on a private root authored from the captured checkout
+(`a26f03bf6d004cc4bd3b46854bede4ae`). The real GLiNER provider retained its actual attempt and
+exchange receipts, and the downstream component report consumed the exact selected source and
+candidate episode. The unchanged repeat produced zero receipts. Integrated provider qualification
+still needs the final registered root.
 
 **Owns.** An authenticated slice per family-specific port, built at admission; the two checks per
 computation; one descriptor per prepared port; the family `verify` hooks that re-read assets per

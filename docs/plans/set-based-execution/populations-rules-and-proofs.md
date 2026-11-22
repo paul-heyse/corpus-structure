@@ -572,7 +572,11 @@ scoped-relation construction inputs require the declared geometry, topology and 
 consumers read. The retained construction check no longer replays the established selected
 dependency membership. The focused declaration selection passed (`uv run ci test`,
 `e62817278eb546bf9cc36f0c4de8db83`). The independent navigation proof attempt failed to close
-its captured determinant (`6ebce29ae5ef47f3bc2595daf0528106`). Navigation and the full
+its captured determinant (`6ebce29ae5ef47f3bc2595daf0528106`). The construction producer now
+separately attests its intrinsic navigation fields from the admitted members. Contextual binding
+requires this proof, while exact token and annotation-partition custody still runs at ingress.
+All six affected compilation and construction/contextual controls passed on the revised checker
+(`uv run ci test`, `de8fa4fa92bd428e81eb8e6961cba369`). The cross-input navigation proof and full
 role-addressed dependency conversion remain open.
 
 Supply the applicable establishment and support facts at the native binding boundary for
