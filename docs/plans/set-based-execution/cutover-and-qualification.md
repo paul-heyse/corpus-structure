@@ -382,6 +382,16 @@ drain and completed identities (`bf30fdd0217546aeb8727bf7db6df3a4` and
 contract inspection, contribution delivery and diagnostic controls
 (`e0edd69594b44670aa39074a43cbba75`).
 
+**Current main qualification · Tested by selected scope · 2026-11-22.**
+Main integrates the registered codec root (`dd9971966`) and regenerated report schema product.
+`just turn-end` and `uv run ci check` passed, including types, docs, dependency pins and
+Clippy (`6b1970f98ed0481e8489afb6acc12406`). The ordinary retry runs against that source
+(`f02c6b33e0d14cd4b77b97c5a3394854`), along with actual annotation and canonical cases
+(`267e776231a74518b001f5d387fbb0dd`), finite and rich replay and both dossier cases
+(`1a1f7a3b8abc4d989d0d77f6b678cead`), and the affected characterization controls
+(`9a40ecca090e424ba4bb0f52a238975f`). The codec-root event fixture and M1 result remain in
+qualification. Development readback still identifies the original N29 database.
+
 Keep one authentic cross-boundary producer, publication and export journey. Reader-only checks
 can consume its authenticated artifacts while their producer, prepared release, wire and authority
 premises remain applicable. Give these checks independent expected meaning, malformed-input and
