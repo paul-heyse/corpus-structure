@@ -1069,37 +1069,27 @@ class NativeDemandExecutor:
         for role, members in selected.values:
             if retained_roles[role].state == "known-absent":
                 continue
-            decoded = tuple(member.value() for member in members)
+            contract = identities[roles[role].kind, "kind"]
             if roles[role].collection == "scalar":
                 if (
-                    not decoded
+                    not members
                     and retained_roles[role].state == "present"
                     and roles[role].minimum == 0
                     and roles[role].presence == "optional"
                 ):
                     continue
-                if len(decoded) != 1:
+                if len(members) != 1:
                     raise PortRefusal(
                         "scalar input requires one admitted member: "
-                        f"{ready.operation}/{role} has {len(decoded)}"
+                        f"{ready.operation}/{role} has {len(members)}"
                     )
-                value = decoded[0]
+                values.append(HydratedRoleValue._from_bound_scalar(role, contract, members[0]))
             else:
                 value = tuple(
-                    member.partitioned.value() if member.partitioned is not None else item
-                    for member, item in zip(members, decoded, strict=True)
+                    member.partitioned.value() if member.partitioned is not None else member.value()
+                    for member in members
                 )
-            values.append(
-                HydratedRoleValue(
-                    role,
-                    identities[roles[role].kind, "kind"],
-                    value,
-                    partitioned=members[0].partitioned
-                    if roles[role].collection == "scalar"
-                    else None,
-                    selected=members[0] if roles[role].collection == "scalar" else None,
-                )
-            )
+                values.append(HydratedRoleValue(role, contract, value))
         return tuple(values)
 
     def _retain_answer(self, ready, claim, answer, port, owner, *, physical=None):

@@ -186,7 +186,17 @@ class HydratedRoleValue(PythonRoleValue):
 
     def __post_init__(self):
         if self.selected is not None:
-            HydratedRoleValue._require_selected(self)
+            selected = HydratedRoleValue._require_selected(self)
+            if selected.member.kind_contract != self.kind_contract:
+                raise PortRefusal("direct hydrated scalar differs from its nominal role")
+
+    @classmethod
+    def _from_bound_scalar(cls, role, kind_contract, selected):
+        """Retain a concrete member already checked by the native hydration owner."""
+        wrapped = cls(role, kind_contract, selected.value(), partitioned=selected.partitioned)
+        object.__setattr__(wrapped, "selected", selected)
+        cls._require_selected(wrapped)
+        return wrapped
 
     def _require_selected(self, binding=None):
         from .data_operation_consumers import SelectedConsumerValue
@@ -196,8 +206,7 @@ class HydratedRoleValue(PythonRoleValue):
             raise PortRefusal("hydrated scalar lacks its acquired selected member")
         SelectedConsumerValue._require_acquired(selected)
         if (
-            selected.member.kind_contract != self.kind_contract
-            or selected.member.multiplicity != 1
+            selected.member.multiplicity != 1
             or selected.value() is not self.value
             or selected.partitioned is not self.partitioned
         ):
