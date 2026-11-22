@@ -463,7 +463,6 @@ class PreparedCanonicalPort:
                 self.identity.recipe,
                 self.profile.input_projection.fingerprint,
                 binding.parameters.decode(),
-                binding.inference,
             )
         bound = self._signature.bind(
             inventory=inventory,
