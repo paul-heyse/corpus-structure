@@ -1,7 +1,11 @@
 """Partition addresses and content can survive an independently known block move."""
 
 from dataclasses import replace
+from datetime import date
+from decimal import Decimal
 from typing import Any, cast
+
+import pytest
 
 from corpus_structure.semantic.canonical_sentences import (
     _memoized_canonical_local_rows,
@@ -9,10 +13,14 @@ from corpus_structure.semantic.canonical_sentences import (
 )
 from corpus_structure.semantic.data_operation_identity import canonical_identity
 from corpus_structure.semantic.data_operation_model import InputReadProjection, ProjectedCollection
+from corpus_structure.semantic.data_operation_partitions import partition_packet
 from corpus_structure.semantic.data_operation_projection_values import (
     input_projection_digest,
     materialize_whole_input_projection,
 )
+from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
+from corpus_structure.semantic.data_product_reference import SemanticReference
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.sentence_partitions import (
     SentenceBlock,
     annotation_blocks,
@@ -115,9 +123,7 @@ def test_block_movement_keeps_local_geometry_and_canonical_reference():
     assert "lower" not in token
 
 
-def test_canonical_memo_observes_local_rows_and_address_but_assembles_current_placement():
-    from corpus_structure.semantic.data_operation_values import decode_semantic_value
-
+def test_canonical_memo_reuses_renamed_local_rows_and_assembles_current_references():
     header = {
         "source": {"document": "native", "projection": "one", "section_pointer": "#/texts/0"},
         "selectors": [],
@@ -144,8 +150,8 @@ def test_canonical_memo_observes_local_rows_and_address_but_assembles_current_pl
     first = project(left, right)
     second = project(changed, moved)
     after = _memoized_canonical_local_rows.cache_info()
-    assert after.misses - before.misses == 3
-    assert after.hits - before.hits == 1
+    assert after.misses - before.misses == 2
+    assert after.hits - before.hits == 2
     assert second == project(changed, moved, memo_basis=None)
     assert second[1]["partition_digest"] == first[0]["partition_digest"]
     assert second[1]["placement"] == {"start": 4, "end": 8}
@@ -153,7 +159,66 @@ def test_canonical_memo_observes_local_rows_and_address_but_assembles_current_pl
 
     third = project({**moved, "partition_key": "renamed"}, memo_basis=basis)
     assert third[0]["partition_digest"] != second[1]["partition_digest"]
-    assert _memoized_canonical_local_rows.cache_info().misses == after.misses + 1
+    renamed = _memoized_canonical_local_rows.cache_info()
+    assert renamed.hits == after.hits + 1
+    assert renamed.misses == after.misses
+    assert all(
+        row["annotation"]["partition_key"] == "renamed"
+        for row in decode_semantic_value(third[0]["body"])
+    )
+    assert project(moved, memo_basis=("project:other", *basis[1:])) == [second[1]]
+    assert _memoized_canonical_local_rows.cache_info().misses == renamed.misses + 1
+
+
+def test_canonical_memo_keeps_typed_row_bytes_and_splices_only_current_addresses():
+    packet = _annotation(0, key="p")
+    records = decode_semantic_value(packet["body"])
+    records[0]["typed_fixture"] = {
+        "text": '["partition_key",null]',
+        "partition_key": None,
+        "date": date(2026, 11, 21),
+        "decimal": Decimal("12345.00123"),
+    }
+    projected = {**packet, "body": semantic_value(records)}
+    header = {
+        "source": {"document": "native", "projection": "one", "section_pointer": "#/texts/0"},
+        "selectors": [],
+        "block_coverage": [],
+        "coverage": [],
+    }
+    projection = {"families": [], "manifest_contract": "kind:manifest"}
+    basis = ("project:typed-memo-control", "recipe:memo-control")
+
+    def project(key, memo_basis):
+        return canonical_partition_values(
+            {"header": header, "collections": {"rows": [{**projected, "partition_key": key}]}},
+            projection,
+            memo_basis=memo_basis,
+        )["partitions"][0]
+
+    def expected(key):
+        rows = [
+            row
+            | {
+                "annotation": SemanticReference.item(
+                    "inventory", "rows", key, (row["record_type"], row["ordinal"])
+                ).values()
+            }
+            for row in records
+        ]
+        return partition_packet("rows", key, 0, 0, 4, rows)
+
+    assert canonical_bytes(project("p", basis)) == canonical_bytes(expected("p"))
+    renamed = 'ä/["partition_key",null]/\\"'
+    assert canonical_bytes(project(renamed, basis)) == canonical_bytes(expected(renamed))
+    assert canonical_bytes(project(renamed, None)) == canonical_bytes(expected(renamed))
+    retained = _memoized_canonical_local_rows(basis, canonical_bytes(projected["body"]))
+    prior = expected("p")
+    assert len(retained) <= len(
+        canonical_bytes({"body": prior["body"], "partition_digest": prior["partition_digest"]})
+    )
+    with pytest.raises(ValueError, match="invalid canonical partition key"):
+        project("", basis)
 
 
 def test_renumbered_repeated_blocks_keep_separate_current_addresses():

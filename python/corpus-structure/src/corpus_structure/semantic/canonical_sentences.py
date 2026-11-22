@@ -122,10 +122,15 @@ def canonical_projection_spec(model, container_kind):
     return dict(families=list(SPACY_FAMILIES[:2]), manifest_contract=ids[owner, "kind"])
 
 
-def _canonical_local_rows(key: str, body: bytes) -> bytes:
-    """Render the role-relative rows for one block, in local coordinates."""
-    from .data_operation_partitions import partition_packet
-    from .data_operation_values import decode_semantic_value
+_ADDRESS_SLOT = canonical_bytes(("partition_key", None))
+_OFFSET_BYTES = 8
+
+
+def _canonical_local_rows(body: bytes) -> bytes:
+    """Prepare local rows and the exact address offsets in their canonical frame."""
+    from .data_operation_identity import canonical_identity
+    from .data_operation_value_codec import tagged_mapping_field
+    from .data_operation_values import decode_semantic_value, semantic_value
     from .data_product_reference import SemanticReference
     from .sentence_partitions import COLLECTION
 
@@ -135,25 +140,65 @@ def _canonical_local_rows(key: str, body: bytes) -> bytes:
             "annotation": SemanticReference.item(
                 "inventory",
                 COLLECTION,
-                key,
+                "_",
                 (row["record_type"], row["ordinal"]),
                 occurrence=None,
             ).values()
         }
         for row in decode_semantic_value(json.loads(body))
     )
-    packet = partition_packet(COLLECTION, key, 0, 0, 0, rows)
-    return canonical_bytes({"body": packet["body"], "partition_digest": packet["partition_digest"]})
+    frame = json.loads(canonical_identity("partition", None).canonical_input)
+    body_value = semantic_value(rows)
+    for row in body_value[1]:
+        reference = tagged_mapping_field(row, "annotation")
+        slot = next(field for field in reference[1] if field[0] == "partition_key")
+        slot[1] = None
+    frame[-1] = body_value
+
+    # The semantic codec represents null as a tagged array. The only raw
+    # nulls in this frame are the address fields inserted just above.
+    encoded = canonical_bytes(frame)
+    offsets = bytearray()
+    stop = 0
+    for _ in rows:
+        offset = encoded.find(_ADDRESS_SLOT, stop)
+        if offset < 0:
+            raise ValueError("canonical partition has a missing annotation address slot")
+        offsets.extend(offset.to_bytes(_OFFSET_BYTES))
+        stop = offset + len(_ADDRESS_SLOT)
+    if encoded.find(_ADDRESS_SLOT, stop) >= 0:
+        raise ValueError("canonical partition has excess annotation address slots")
+    return len(offsets).to_bytes(_OFFSET_BYTES) + bytes(offsets) + encoded
 
 
 @declare(
     "canonical-partition-rows",
     "runtime_bytes",
-    key=lambda basis, key, body: (*basis, key, sha256(body).digest()),
+    key=lambda basis, body: (*basis, sha256(body).digest()),
     weight=lambda result: len(result),
 )
-def _memoized_canonical_local_rows(basis: tuple[str, ...], key: str, body: bytes) -> bytes:
-    return _canonical_local_rows(key, body)
+def _memoized_canonical_local_rows(basis: tuple[str, ...], body: bytes) -> bytes:
+    return _canonical_local_rows(body)
+
+
+def _address_canonical_local_rows(template: bytes, key: str) -> bytes:
+    """Render this occurrence at precomputed slots, using the ordinary value codec."""
+    from .data_operation_values import semantic_value
+
+    if type(key) is not str or not key:
+        raise ValueError("invalid canonical partition key")
+    address = canonical_bytes(("partition_key", semantic_value(key)))
+    view = memoryview(template)
+    frame_start = _OFFSET_BYTES + int.from_bytes(view[:_OFFSET_BYTES])
+    frame = view[frame_start:]
+    fragments = []
+    start = 0
+    for slot in range(_OFFSET_BYTES, frame_start, _OFFSET_BYTES):
+        offset = int.from_bytes(view[slot : slot + _OFFSET_BYTES])
+        fragments.extend((frame[start:offset], address))
+        start = offset + len(_ADDRESS_SLOT)
+    fragments.append(frame[start:])
+    return b"".join(fragments)
 
 
 def canonical_partition_values(
@@ -164,6 +209,7 @@ def canonical_partition_values(
     *,
     check_active=lambda: None,
 ) -> dict:
+    from .data_operation_identity import CanonicalIdentity
     from .sentence_partitions import COLLECTION
     from .value_codec import decimal_digit_limit
 
@@ -184,18 +230,20 @@ def canonical_partition_values(
         check_active()
         key = part["partition_key"]
         meaning = canonical_bytes(part["body"])
-        rows = (
-            _canonical_local_rows(key, meaning)
+        template = (
+            _canonical_local_rows(meaning)
             if memo_basis is None
-            else _memoized_canonical_local_rows(memo_basis, key, meaning)
+            else _memoized_canonical_local_rows(memo_basis, meaning)
         )
+        frame = _address_canonical_local_rows(template, key)
         packets.append(
             {
                 "collection": COLLECTION,
                 "partition_key": key,
                 "ordinal": part["ordinal"],
                 "placement": part["placement"],
-                **json.loads(rows),
+                "body": json.loads(frame)[-1],
+                "partition_digest": CanonicalIdentity("partition", frame).key,
             }
         )
     return {"header": append_manifest(body, projection["manifest_contract"]), "partitions": packets}
@@ -244,17 +292,22 @@ def _canonical_codec_runtime():
 
 
 _RESULT_HELPERS = {
-    "canonical_sentences": ("_canonical_local_rows", "CanonicalProduct.from_projection"),
+    "canonical_sentences": (
+        "_canonical_local_rows",
+        "_address_canonical_local_rows",
+        "CanonicalProduct.from_projection",
+    ),
     "characterization_manifests": ("append_manifest", "compact_manifest"),
     "data_operation_identity": ("canonical_identity", "CanonicalIdentity.__post_init__"),
     "data_operation_json": ("json_bytes", "canonical_json_bytes"),
-    "data_operation_partitions": ("partition_packet", "partition_header"),
+    "data_operation_partitions": ("partition_header",),
     "data_operation_projection_values": ("_whole_input", "materialize_whole_input_projection"),
     "data_operation_value_codec": (
         "decode_semantic_value",
         "_decode_semantic_value",
         "native_semantic_value",
         "semantic_value",
+        "tagged_mapping_field",
     ),
     "data_operation_values": ("decode_semantic_value", "semantic_value"),
     "data_product_reference": (
