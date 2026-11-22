@@ -1,5 +1,6 @@
 """Projection interpretation counterexamples; protocol examples establish no native authenticity."""
 
+import json
 from copy import deepcopy
 from hashlib import sha256
 from typing import Any
@@ -135,13 +136,23 @@ def test_projection_keeps_selected_completion_facts_and_explicit_hidden_cohort()
 
 
 def test_detached_execution_contract_validates_its_explicit_schema_dialect():
-    from jsonschema import Draft202012Validator, ValidationError
+    from jsonschema import Draft7Validator, ValidationError
+
+    from corpus_structure.semantic.selected_support_contract import ambient_support_contract
 
     schema = execution_evidence_leaf_schema()
-    assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    Draft202012Validator.check_schema(schema)
+    assert schema["$schema"] == "http://json-schema.org/draft-07/schema#"
+    Draft7Validator.check_schema(schema)
+    captured = json.loads(ambient_support_contract("ops.data_execution_evidence_leaf"))["schema"]
+    Draft7Validator.check_schema(captured)
+    work_member = captured["definitions"]["ProviderExecutionReceipt"]["properties"]["work_members"][
+        "items"
+    ]
+    Draft7Validator(work_member).validate(["member", 0, 1])
+    with pytest.raises(ValidationError):
+        Draft7Validator(work_member).validate(["member", 0, 1, 2])
     value, _ = protocol_example()
-    validator = Draft202012Validator(schema)
+    validator = Draft7Validator(schema)
     validator.validate(value)
     value["member_ordinal"] = -1
     with pytest.raises(ValidationError):
@@ -159,12 +170,12 @@ def test_detached_execution_contract_validates_its_explicit_schema_dialect():
     ],
 )
 def test_detached_digest_contract_refuses_trailing_newline(field):
-    from jsonschema import Draft202012Validator, ValidationError
+    from jsonschema import Draft7Validator, ValidationError
 
     value, _ = protocol_example()
     value[field] = "a" * 64 + "\n"
     with pytest.raises(ValidationError):
-        Draft202012Validator(execution_evidence_leaf_schema()).validate(value)
+        Draft7Validator(execution_evidence_leaf_schema()).validate(value)
 
 
 @pytest.mark.parametrize(

@@ -98,11 +98,10 @@ class NativeExecutionEvidenceLeaf(BaseModel):
 
 
 def execution_evidence_leaf_schema():
-    """The detached assertion contract uses Pydantic's explicit JSON Schema dialect."""
-    return {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        **NativeExecutionEvidenceLeaf.model_json_schema(),
-    }
+    """Use the dialect of the selected native completion nested in the leaf."""
+    from .data_operation_wire import NativeJsonSchema
+
+    return NativeExecutionEvidenceLeaf.model_json_schema(schema_generator=NativeJsonSchema)
 
 
 def validate_execution_evidence_leaf(
