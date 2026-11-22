@@ -9,12 +9,44 @@ import pytest
 
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
-from corpus_structure.semantic import native_host_reacquisition
+from corpus_structure.semantic import file_custody, native_host_reacquisition
 from corpus_structure.semantic.data_operation_runtime import RuntimeBinding, RuntimeBindingError
 from corpus_structure.semantic.file_custody import FileCustodyError
 from corpus_structure.semantic.hanlp_products import hanlp_execution_custody
 from corpus_structure.semantic.sentence_products import sentence_execution_custody
 from corpus_structure.semantic.types import PreparedRelease, SourceArtifact
+
+
+def test_sentence_custody_retains_asset_identity_after_metadata_safety_window(
+    monkeypatch, tmp_path
+):
+    config = SentenceConfig()
+    tokenizer = tmp_path / "tokenizer"
+    tokenizer.write_bytes(b"verified tokenizer")
+    selection = NativeSelection(
+        NativeProfile(
+            "spacy",
+            {"lock_sha256": "current"},
+            {"files": {"tokenizer": sha256(tokenizer.read_bytes()).hexdigest()}},
+            config.model_dump(mode="json"),
+            "float32",
+            "cupy",
+        ),
+        tmp_path,
+    )
+    stat = tokenizer.stat()
+    initial = max(stat.st_ctime_ns, stat.st_mtime_ns)
+    monkeypatch.setattr(file_custody, "time_ns", lambda: initial)
+    assert selection.declaration()["asset_custody"][0][3] is True
+    captured = sentence_execution_custody(config, selection=selection)
+
+    monkeypatch.setattr(file_custody, "time_ns", lambda: initial + 10_000_000_000)
+    assert selection.declaration()["asset_custody"][0][3] is False
+    assert sentence_execution_custody(config, selection=selection) == captured
+
+    tokenizer.write_bytes(b"changed tokenizer")
+    with pytest.raises(FileCustodyError, match="tokenizer"):
+        sentence_execution_custody(config, selection=selection)
 
 
 @pytest.mark.parametrize("mixed_environment", [False, True])

@@ -447,11 +447,6 @@ def validate_source_annotations(
     configuration=None,
     partitions=None,
 ):
-    from corpus_structure.methods.sentence_evidence import verify_annotation_source
-
-    from .characterization_manifests import manifest_contract
-    from .native_source_view import thaw_native
-
     raw = dict(value)
     if set(raw) == {"header", "partitions"}:
         if partitions is not None:
@@ -463,6 +458,30 @@ def validate_source_annotations(
     result = SourceAnnotations(
         canonical_bytes(raw), prepared, model, partitions, receipts, subject_context
     )
+    return _verify_annotation_carrier(result, source, configuration)
+
+
+def verify_source_annotation_carrier(prepared, model, annotations: SourceAnnotations, source):
+    """Reuse the acquired blocks while verifying their standalone source correspondence."""
+    configuration = annotations.configuration
+    if annotations.prepared is not prepared or annotations.model is not model:
+        annotations = SourceAnnotations(
+            annotations.content,
+            prepared,
+            model,
+            annotations.partitions,
+            annotations.execution_receipts,
+            annotations.subject_context,
+        )
+    return _verify_annotation_carrier(annotations, source, configuration)
+
+
+def _verify_annotation_carrier(result, source, configuration):
+    from corpus_structure.methods.sentence_evidence import verify_annotation_source
+
+    from .characterization_manifests import manifest_contract
+    from .native_source_view import thaw_native
+
     checked = thaw_native(result.value)
     selected = source.value
     frozen_configuration = result.configuration
@@ -476,7 +495,8 @@ def validate_source_annotations(
     for block in blocks:
         verify_annotation_sentence_membership(block)
     manifest = annotation_manifest(
-        checked, kind_contract=manifest_contract(prepared, model, "DdoSourceAnnotationManifest")
+        checked,
+        kind_contract=manifest_contract(result.prepared, result.model, "DdoSourceAnnotationManifest"),
     )
     verify_annotation_coverage(checked, selected["selectors"], manifest)
     return result
@@ -981,11 +1001,11 @@ def sentence_execution_custody(
         "sentences/execution-custody",
         canonical_bytes(
             {
-                "version": "spacy-execution-custody-v1",
+                "version": "spacy-execution-custody-v2",
                 "configuration": (configuration or SentenceConfig(exclude=("ner",))).model_dump(
                     mode="json"
                 ),
-                "selection": selection.declaration(),
+                "selection": selection.execution_custody(),
                 "provider_profile": sentence_provider_attestation(selection),
                 "files": [
                     (str(path.relative_to(root.parent)), path.read_bytes().hex()) for path in paths

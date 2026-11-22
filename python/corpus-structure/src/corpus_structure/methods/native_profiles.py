@@ -440,19 +440,23 @@ class NativeSelection:
     def identity(self):
         return self.native.fingerprint, str(self.assets.absolute())
 
-    def declaration(self):
+    def _acquire(self):
         from corpus_structure.semantic.file_custody import verified_file
 
         assets = self.assets.resolve()
-        return dict(
-            profile=self.native.wire,
-            fingerprint=self.native.fingerprint,
-            assets=str(assets),
-            asset_custody=tuple(
-                verified_file(path, digest).receipt()
-                for path, digest in native_asset_files(self.native.wire, assets)
-            ),
-        )
+        profile = self.native.wire
+        selected = dict(profile=profile, fingerprint=self.native.fingerprint, assets=str(assets))
+        files = tuple(verified_file(path, digest) for path, digest in native_asset_files(profile, assets))
+        return selected, files
+
+    def execution_custody(self):
+        """Authenticate the installed assets and retain their stable selection facts."""
+        selected, _ = self._acquire()
+        return selected
+
+    def declaration(self):
+        selected, files = self._acquire()
+        return {**selected, "asset_custody": tuple(record.receipt() for record in files)}
 
 
 def shared_host_environment(selections: Iterable[NativeSelection]) -> tuple[Path, Path, Path]:

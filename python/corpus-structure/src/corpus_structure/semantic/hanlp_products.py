@@ -750,7 +750,7 @@ def hanlp_execution_custody(selection=None):
         canonical_bytes(
             dict(
                 files=[(path.name, path.read_bytes().hex()) for path in paths],
-                selection=selection.declaration() if selection is not None else None,
+                selection=selection.execution_custody() if selection is not None else None,
                 provider_profile=hanlp_provider_attestation(selection),
             )
         ),
