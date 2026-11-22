@@ -245,16 +245,12 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
     def recipient(frontier):
         return next(row for row in frontier["obligations"] if row["operation_id"] == CONSUMER)
 
-    def dispatch(frontier, selection, use_id):
+    def routes(frontier):
         with admin.begin() as connection:
             connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_writer")
             planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
-            return planner.ready_for_fulfilled_use(
-                frontier,
-                selection_name=selection.name,
-                selection_generation=selection.generation,
-                use_id=use_id,
-                authorization=b"{}",
+            return planner._fulfilled_use_recipients(
+                frontier, [row["obligation_id"] for row in frontier["obligations"]]
             )
 
     with admin.begin() as connection:
@@ -266,9 +262,15 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
     frontier_b = snapshot(b)
     target_a = recipient(frontier_a)
     assert target_a.get("request_id") is None
-    assert dispatch(frontier_a, generation_a, use_a) == ((), ())
-    assert dispatch(frontier_b, generation_b, use_a) == ((), ())
-    ready, reasons = dispatch(frontier_a, restored_a, use_a)
+    assert routes(snapshot(c)) == ()
+    (other_reason,) = routes(frontier_b)
+    assert other_reason["use_id"] != use_a
+    assert other_reason["selection_name"] == generation_b.name
+    reasons = routes(frontier_a)
+    with admin.begin() as connection:
+        connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_writer")
+        planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+        ready = planner.ready(frontier_a, authorization=b"{}")
     assert [item.operation for item in ready] == [CONSUMER]
     assert [item.obligation for item in ready] == [target_a["obligation_id"]]
     assert len(reasons) == 1
@@ -334,9 +336,10 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
         )
     frontier_reused = snapshot(reused)
     assert recipient(frontier_reused).get("request_id") is None
-    ready, reasons = dispatch(frontier_reused, reused_selection, reuse_id)
-    assert [item.operation for item in ready] == [CONSUMER]
-    assert len(reasons) == 1 and reasons[0]["use_id"] == reuse_id
+    (reuse_reason,) = routes(frontier_reused)
+    assert reuse_reason["recipient_operation"] == CONSUMER
+    assert reuse_reason["use_id"] == reuse_id
+    assert reuse_reason["selection_name"] == reused_selection.name
     current_reused = snapshot(reused)
     extra_obligation = next(
         row for row in current_reused["obligations"] if row["operation_id"] == extra

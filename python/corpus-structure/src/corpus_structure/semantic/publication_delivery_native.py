@@ -1,15 +1,32 @@
 """Record pending receipt origins from the exact uses created by publication."""
 
-from sqlalchemy import Column, Text, and_, any_, case, cast, column, func, or_, select, true
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    Text,
+    and_,
+    any_,
+    case,
+    cast,
+    column,
+    func,
+    literal,
+    or_,
+    select,
+    true,
+)
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, insert
 
 from .data_operation_projections import _custody_body_eligible
 from .native_program import (
+    Assign,
     Block,
+    ForQuery,
     Local,
     NativeRoutine,
     Parameter,
     Perform,
+    Return,
     ReturnQuery,
     SelectInto,
     column_type,
@@ -157,12 +174,159 @@ def reconcile_publication_delivery(model, project, name, generation):
     return _record_pending(model, project, name, generation, origins.c.receipt_id, origins)
 
 
+def settle_pending_discovery(model):
+    """Close newly fulfilled, current discovery populations at the native owner."""
+    demands = model.tables["ops.data_demand"]
+    reads = model.tables["ops.data_demand_read"]
+    obligations = model.tables["ops.data_obligation"]
+    uses = model.tables["ops.demand_use"]
+    populations = model.tables["ops.data_population"]
+    products = model.tables["kb.data_product"]
+    kinds = model.tables["sem.data_kind_contract"].alias("discovery_output_kind")
+    outputs = model.tables["ops.data_derivation_output"]
+    read = core_variable("p_read", reads.c.id.type)
+    page = core_variable("p_page", ARRAY(Text()))
+    boundary = core_variable("boundary", JSONB())
+    demand_id = core_variable("boundary", reads.c.demand_id.type, "demand_id")
+    universes = core_variable("boundary", reads.c.access_universes.type, "access_universes")
+    project = core_variable("project", demands.c.project_id.type)
+    payload = core_variable("payload", JSONB())
+    processed = core_variable("processed", BigInteger())
+    declarations = (
+        func.jsonb_array_elements(demands.c.selection["discovery"])
+        .table_valued(column("value", JSONB()))
+        .render_derived(name="discovery_declaration")
+        .lateral()
+    )
+    selected = declarations.c.value
+    name = selected["population"].astext
+    later = uses.alias("later_discovery_use")
+    superseded = (
+        select(1)
+        .select_from(later)
+        .where(
+            later.c.obligation_id == uses.c.obligation_id,
+            or_(
+                later.c.created_at > uses.c.created_at,
+                and_(later.c.created_at == uses.c.created_at, later.c.id > uses.c.id),
+            ),
+            func.ops.ddo_read_visible(later.c.created_at, later.c.created_xid, boundary),
+        )
+        .correlate(uses)
+        .exists()
+    )
+    closed = (
+        select(1)
+        .select_from(populations)
+        .where(
+            populations.c.demand_id == demand_id,
+            populations.c.name == name,
+            populations.c.evidence["product_id"].astext == outputs.c.product_id,
+            populations.c.evidence["derivation_id"].astext == uses.c.derivation_id,
+            populations.c.evidence["member_role"].astext == outputs.c.role,
+            ~populations.c.evidence.has_key("selection"),
+            func.ops.ddo_read_visible(
+                populations.c.created_at, populations.c.created_xid, boundary
+            ),
+        )
+        .correlate(declarations, uses, outputs)
+        .exists()
+    )
+    pending = (
+        select(
+            func.jsonb_build_object(
+                "demand_id",
+                demand_id,
+                "name",
+                name,
+                "product_id",
+                outputs.c.product_id,
+                "derivation_id",
+                uses.c.derivation_id,
+                "member_role",
+                outputs.c.role,
+            ).label("discovery_payload")
+        )
+        .select_from(
+            demands.join(obligations, obligations.c.demand_id == demands.c.id)
+            .join(uses, uses.c.obligation_id == obligations.c.id)
+            .join(declarations, selected["producer"].astext == obligations.c.operation_id)
+            .join(
+                outputs,
+                and_(
+                    outputs.c.derivation_id == uses.c.derivation_id,
+                    outputs.c.role == selected["output_role"].astext,
+                ),
+            )
+            .join(products, products.c.id == outputs.c.product_id)
+            .join(kinds, kinds.c.kind_contract == products.c.kind_contract)
+        )
+        .where(
+            demands.c.id == demand_id,
+            func.ops.ddo_demand_active(demand_id),
+            obligations.c.id == any_(page),
+            func.ops.ddo_read_visible(
+                obligations.c.created_at, obligations.c.created_xid, boundary
+            ),
+            uses.c.fate == "fulfilled",
+            func.ops.ddo_read_visible(uses.c.created_at, uses.c.created_xid, boundary),
+            ~superseded,
+            ~closed,
+            func.coalesce(universes.bool_op("?")(kinds.c.universe), False),
+            _custody_body_eligible(model, products.c.kind_contract, products.c.canonical_body),
+            func.ops.ddo_node_valid("use", uses.c.id, boundary),
+        )
+        .distinct()
+        .order_by("discovery_payload")
+    )
+    return NativeRoutine(
+        "ops",
+        "ddo_settle_pending_discovery",
+        parameters=(
+            Parameter("p_read", column_type(reads.c.id)),
+            Parameter("p_page", column_type(Column("page", ARRAY(Text())))),
+        ),
+        returns=pg_type("bigint"),
+        body=Block(
+            (
+                SelectInto(
+                    select(core_relation_row(reads)).where(reads.c.id == read),
+                    ("boundary",),
+                    strict=True,
+                ),
+                SelectInto(
+                    select(demands.c.project_id).where(demands.c.id == demand_id),
+                    ("project",),
+                    strict=True,
+                ),
+                Perform(func.ops.ddo_require_read_current(boundary, project)),
+                ForQuery(
+                    ("payload",),
+                    pending,
+                    (
+                        Perform(func.ops.close_data_population(payload)),
+                        Assign("processed", processed + 1),
+                    ),
+                ),
+                Return(processed),
+            ),
+            (
+                Local("boundary", reads),
+                Local("project", pg_type("text")),
+                Local("payload", pg_type("jsonb")),
+                Local("processed", pg_type("bigint"), literal(0)),
+            ),
+        ),
+        search_path=("pg_catalog", "pg_temp"),
+        security_definer=True,
+    )
+
+
 def fulfilled_use_recipients(model):
     """Find direct scalar-role candidates within a current exact named demand.
 
-    The current named enrollment and fulfilled uses are the two durable facts.
-    A NULL origin visits their intersection for this page, including uses
-    attached by reuse and publication concurrent with enrollment.
+    Join the current named enrollment to durable fulfilled uses on this page.
+    This includes uses attached by reuse and publication concurrent with enrollment.
     """
     history = model.tables["ops.data_demand_selection"]
     demands = model.tables["ops.data_demand"]
@@ -180,14 +344,9 @@ def fulfilled_use_recipients(model):
     product = model.tables["kb.data_product"]
     fields = (
         ("p_project", history.c.project_id),
-        ("p_name", history.c.name),
-        ("p_generation", history.c.generation),
         ("p_read", reads.c.id),
-        ("p_use", uses.c.id),
     )
-    project, name, generation, read, use = (
-        core_variable(parameter, field.type) for parameter, field in fields
-    )
+    project, read = (core_variable(parameter, field.type) for parameter, field in fields)
     page = core_variable("p_page", ARRAY(Text()))
     boundary = core_variable("boundary", JSONB())
     demand_id = core_variable("boundary", reads.c.demand_id.type, "demand_id")
@@ -314,12 +473,9 @@ def fulfilled_use_recipients(model):
         )
         .where(
             history.c.project_id == project,
-            or_(name.is_(None), history.c.name == name),
-            or_(generation.is_(None), history.c.generation == generation),
             history.c.demand_id == demand_id,
             ~_superseded(history),
             func.ops.ddo_demand_active(demands.c.id),
-            or_(use.is_(None), uses.c.id == use),
             uses.c.fate == "fulfilled",
             func.ops.ddo_read_visible(uses.c.created_at, uses.c.created_xid, boundary),
             recipient.c.id == any_(page),

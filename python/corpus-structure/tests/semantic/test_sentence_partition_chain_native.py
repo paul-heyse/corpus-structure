@@ -296,14 +296,7 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
         ]
         with kernel.purpose("write").begin() as connection:
             planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
-            ready, reasons = planner.ready_for_fulfilled_use(
-                frontier,
-                selection_name=selection.name,
-                selection_generation=selection.generation,
-                use_id=annotation_use["use_id"],
-                authorization=b"{}",
-            )
-        assert ready == ()
+            reasons = planner._fulfilled_use_recipients(frontier, [consumer["obligation_id"]])
         assert reasons == (
             {
                 "selection_name": selection.name,
