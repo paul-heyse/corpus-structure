@@ -13,7 +13,7 @@ import json
 from bisect import bisect_left
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 from functools import cached_property
 from hashlib import sha256
 from pathlib import Path
@@ -248,7 +248,9 @@ def _restore_selected_annotation_rows(source, value, rows):
     from .declared_record_sources import DeclaredNativeFrameSource
 
     selected = source.value
-    if value["source"] != selected["source"] or tuple(value["selectors"]) != tuple(selected["selectors"]):
+    if value["source"] != selected["source"] or tuple(value["selectors"]) != tuple(
+        selected["selectors"]
+    ):
         raise ValueError("retained annotations differ from their exact original source/scope")
     if not rows:
         return ()
@@ -937,6 +939,10 @@ def sentence_execution_custody(
     )
 
 
+def _sentence_asset_entries():
+    return execute_sentence_profile, PreparedSentenceProfile.run, validate_source_annotations
+
+
 def sentence_profile_assets(
     configuration: SentenceConfig | None = None, *, selection=None
 ) -> SourceArtifact:
@@ -950,7 +956,7 @@ def sentence_profile_assets(
     root = Path(__file__).parents[1]
     return code_asset(
         "sentences/profile-assets",
-        (execute_sentence_profile, PreparedSentenceProfile.run, validate_source_annotations),
+        _sentence_asset_entries(),
         (
             ("sentence-annotations", _MODEL),
             ("source-products", root / "model/semantic/data-operation-source.yaml"),
@@ -1028,6 +1034,8 @@ class PreparedSentencePort:
     host: NativeHostGroup | None = None
     custody: tuple[SourceArtifact, ...] = ()
     sources: Any = None
+    _verification: Any = field(init=False, repr=False, compare=False)
+    _basis: tuple = field(init=False, repr=False, compare=False)
 
     @property
     def logical_signature(self):
@@ -1041,7 +1049,133 @@ class PreparedSentencePort:
             return_annotation=SourceAnnotations,
         )
 
-    def _verify(self) -> None:
+    def __post_init__(self):
+        from corpus_structure.ingest import annotations
+        from corpus_structure.methods import sentence_evidence as endpoint
+
+        from .data_operation_ports import PortRefusal
+        from .data_operation_prepared_products import (
+            _verify_prepared_callable,
+            authenticated_prepared_product,
+        )
+        from .file_custody import verified_file
+        from .operation_code_assets import code_asset_sources
+        from .python_operation_sources import PythonSourceCollection
+
+        required, sources, assets = self._admit()
+        captured = {source.module: source for source in required.sources}
+        for source in code_asset_sources(_sentence_asset_entries()).sources:
+            previous = captured.get(source.module)
+            if previous is not None and previous.content != source.content:
+                raise PortRefusal("sentence code asset differs from captured source")
+            captured[source.module] = source
+        required = PythonSourceCollection(tuple(captured.values()))
+        actual = {source.module: source for source in sources.sources}
+        for source in required.sources:
+            previous = actual.get(source.module)
+            if previous is not None and previous.content != source.content:
+                raise PortRefusal("sentence code asset differs from admitted source")
+            actual[source.module] = source
+        functions = (
+            (
+                "corpus_structure.methods.sentence_evidence.SentenceEvidenceOperation.run",
+                endpoint.SentenceEvidenceOperation.run,
+            ),
+            (
+                "corpus_structure.semantic.sentence_products.execute_sentence_profile",
+                execute_sentence_profile,
+            ),
+            (
+                "corpus_structure.semantic.sentence_products.PreparedSentenceProfile.run",
+                self.profile.run.__func__,
+            ),
+            *(
+                ("corpus_structure.semantic.sentence_products." + function.__name__, function)
+                for function in (
+                    _blocks,
+                    _detach_annotation_block,
+                    validate_source_annotations,
+                    _validate_annotation_blocks,
+                    verify_annotation_block_source,
+                    verify_annotation_sentence_membership,
+                    verify_annotation_coverage,
+                )
+            ),
+            *(
+                ("corpus_structure.ingest.annotations." + function.__name__, function)
+                for function in (
+                    annotations.annotation_availability,
+                    annotations.native_token_columns,
+                )
+            ),
+            *(
+                (
+                    "corpus_structure.semantic.sentence_products.PreparedSentencePort." + name,
+                    getattr(type(self), name),
+                )
+                for name in ("__post_init__", "_admit", "invoke_python", "plan_python")
+            ),
+        )
+        for owner, function in functions:
+            _verify_prepared_callable(owner, function)
+            if (
+                Path(inspect.getfile(function)).resolve()
+                != Path(actual[function.__module__].filename).resolve()
+            ):
+                raise PortRefusal("sentence callable differs from its acquired source origin")
+        verification = authenticated_prepared_product(
+            PythonSourceCollection(tuple(actual.values())), functions, required_sources=required
+        )
+        files = {record.path.resolve(): record for record in verification.files}
+        root = Path(__file__).parents[1]
+        expected = {asset.name: json.loads(asset.content) for asset in assets}
+        for name, encoded in expected["sentences/execution-custody"]["files"]:
+            record = verified_file(root / name, sha256(bytes.fromhex(encoded)).hexdigest())
+            if (
+                record.path.resolve() in files
+                and files[record.path.resolve()].digest != record.digest
+            ):
+                raise PortRefusal("sentence runtime custody disagrees with its semantic source")
+            files[record.path.resolve()] = record
+        paths = {
+            "sentence-annotations": _MODEL,
+            "source-products": root / "model/semantic/data-operation-source.yaml",
+        }
+        for name, encoded in expected["sentences/profile-assets"]["assets"]:
+            record = verified_file(paths[name], sha256(bytes.fromhex(encoded)).hexdigest())
+            files[record.path.resolve()] = record
+        verification.files = tuple(files.values())
+        object.__setattr__(self, "_verification", verification)
+        object.__setattr__(
+            self,
+            "_basis",
+            tuple(
+                (name, getattr(self, name))
+                for name in (
+                    "identity",
+                    "operation",
+                    "profile",
+                    "authorize",
+                    "host",
+                    "custody",
+                    "sources",
+                    "_verification",
+                )
+            ),
+        )
+
+    def _verify(self):
+        from .data_operation_ports import PortRefusal
+
+        if any(getattr(self, name) is not value for name, value in self._basis):
+            raise PortRefusal("sentence correspondence changed after acquisition")
+        try:
+            self._verification.check()
+        except ValueError as error:
+            raise PortRefusal("sentence acquired custody changed: " + str(error)) from error
+        self.authorize(self.identity)
+
+    def _admit(self):
         from dataclasses import asdict
 
         from .data_operation_ports import PortRefusal
@@ -1061,7 +1195,9 @@ class PreparedSentencePort:
             capabilities=canonical_bytes(asdict(operation.capabilities)),
             eligibility=ids[operation.semantic_id, "eligibility"],
         )
-        required_sources = sentence_operation_sources(self.profile.configuration)
+        required_sources = sentence_operation_sources(
+            self.profile.configuration, selection=self.profile.selection
+        )
         sources = self.sources if self.sources is not None else required_sources
         actual_sources = {source.module: source for source in sources.sources}
         if any(
@@ -1089,12 +1225,13 @@ class PreparedSentencePort:
         retained = {artifact.name: artifact for artifact in self.custody}
         if len(retained) != len(self.custody):
             raise PortRefusal("sentence acquired custody repeats a boundary asset")
-        for actual in (
+        actual_assets = (
             sentence_profile_assets(self.profile.configuration, selection=self.profile.selection),
             sentence_execution_custody(
                 self.profile.configuration, selection=self.profile.selection
             ),
-        ):
+        )
+        for actual in actual_assets:
             captured = retained.get(actual.name)
             if captured != actual:
                 raise PreparedProductRefusal(
@@ -1118,70 +1255,12 @@ class PreparedSentencePort:
             raise PortRefusal(
                 "sentence capability differs from admitted source/operation correspondence"
             )
-        # Prepared opaque resources are not closed Python functions, but their
-        # original endpoint and resource bridge still require actual loaded-code
-        # correspondence, not only a matching on-disk file.
-        from types import CodeType
-
         from corpus_structure.methods import sentence_evidence as endpoint
 
-        def declared(content, filename, *path):
-            code = compile(content, filename, "exec", dont_inherit=True)
-            for name in path:
-                code = next(
-                    item
-                    for item in code.co_consts
-                    if isinstance(item, CodeType) and item.co_name == name
-                )
-            return code
-
-        source = actual_sources[endpoint.__name__]
-        runtime = inspect.getattr_static(endpoint.SentenceEvidenceOperation, "run")
-        if (
-            not inspect.isfunction(runtime)
-            or runtime.__code__
-            != declared(source.content, source.filename, "SentenceEvidenceOperation", "run")
-            or runtime.__globals__ is not endpoint.__dict__
-        ):
-            raise PortRefusal("loaded sentence endpoint differs from acquired implementation")
-        if (
-            endpoint.execute_sentence_profile is not execute_sentence_profile
-            or execute_sentence_profile.__code__
-            != declared(Path(__file__).read_bytes(), __file__, "execute_sentence_profile")
-        ):
+        if endpoint.execute_sentence_profile is not execute_sentence_profile:
             raise PortRefusal(
                 "loaded sentence resource bridge differs from acquired implementation"
             )
-        if self.profile.run.__func__.__code__ != declared(
-            Path(__file__).read_bytes(), __file__, "PreparedSentenceProfile", "run"
-        ):
-            raise PortRefusal(
-                "loaded sentence resource algorithm differs from acquired implementation"
-            )
-        from corpus_structure.ingest import annotations
-
-        for function in (
-            _blocks,
-            _detach_annotation_block,
-            validate_source_annotations,
-            _validate_annotation_blocks,
-            verify_annotation_block_source,
-            verify_annotation_sentence_membership,
-            verify_annotation_coverage,
-        ):
-            if function.__code__ != declared(
-                Path(__file__).read_bytes(), __file__, function.__name__
-            ):
-                raise PortRefusal("loaded sentence semantic algorithm differs from acquired source")
-        for function in (annotations.annotation_availability, annotations.native_token_columns):
-            if (
-                function.__code__
-                != declared(
-                    Path(annotations.__file__).read_bytes(), annotations.__file__, function.__name__
-                )
-                or function.__globals__ is not annotations.__dict__
-            ):
-                raise PortRefusal("loaded native annotation columns differ from acquired source")
         contracts = {item.name: item.digest for item in sources.boundary_contracts}
         boundaries = (
             *operation.assets,
@@ -1203,6 +1282,7 @@ class PreparedSentencePort:
         ):
             raise PortRefusal("sentence capability has another acquired resource boundary")
         self.authorize(self.identity)
+        return required_sources, sources, actual_assets
 
     def _source(self, values, binding):
         from .data_operation_ports import PortRefusal, PythonRoleValue
@@ -1328,7 +1408,6 @@ class PreparedSentencePort:
         from corpus_structure.core.method import PreparedWork
         from corpus_structure.methods.sentence_evidence import SentenceEvidenceOperation
 
-        self._verify()
         source = self._source(values, binding)
         check_active()
 
@@ -1343,7 +1422,6 @@ class PreparedSentencePort:
 
         (completion,) = yield (PreparedWork(lambda: execution_owner.submit_python(compute)),)
         check_active()
-        self._verify()
         return completion
 
     def invoke_python(
@@ -1418,5 +1496,4 @@ def resolve_sentence_port(
         custody,
         sources,
     )
-    port._verify()
     return port

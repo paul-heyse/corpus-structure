@@ -376,7 +376,7 @@ def test_admitted_prepared_sentence_port_emits_typed_empty_inventory_and_refuses
     with pytest.raises(PortRefusal, match="nominal"):
         port.invoke_python((PythonRoleValue("source", "another-kind", source),))
     monkeypatch.setattr(SentenceEvidenceOperation, "run", lambda *_: None)
-    with pytest.raises(PortRefusal, match="loaded sentence endpoint"):
+    with pytest.raises(PortRefusal, match="authenticated runtime slice changed"):
         port.invoke_python((value,))
 
 
@@ -490,10 +490,18 @@ def test_declared_canonical_projection_has_actual_independent_member_contracts(p
     assert value["rows"]["item_count"] == 0 and result.outputs[0].partitions == ()
 
 
-def test_prepared_sentence_plan_uses_invocation_work_and_host_owner(profile):
+def test_prepared_sentence_plan_uses_invocation_work_and_host_owner(profile, monkeypatch):
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue
 
     port = admitted_port(profile)
+    checks = []
+    verify = port._verification.check
+
+    def checked():
+        checks.append(None)
+        verify()
+
+    monkeypatch.setattr(port._verification, "check", checked)
     source = selected(profile, "")
     kind = next(
         identity.key
@@ -507,11 +515,13 @@ def test_prepared_sentence_plan_uses_invocation_work_and_host_owner(profile):
     plan = port.plan_python((PythonRoleValue("source", kind, source),), execution_owner=owner)
     (work,) = next(plan)
     work.try_submit()
-    assert len(pending) == 1
+    assert len(pending) == 1 and not checks
     result = pending[0]()
+    assert len(checks) == 2
     with pytest.raises(StopIteration) as complete:
         plan.send((result,))
     assert complete.value.value is result
+    assert len(checks) == 2
     assert port.native_selections[0].native.provider == "spacy"
 
 

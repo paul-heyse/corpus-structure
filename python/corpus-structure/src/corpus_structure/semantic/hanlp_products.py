@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import ast
 import json
+from collections.abc import Mapping
 from contextlib import nullcontext
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -59,7 +60,9 @@ def canonical_hanlp_rows(source, canonical):
     from .sentence_partitions import COLLECTION, blocks_from_packets
 
     selected, header = source.value, json.loads(canonical.content)
-    if any(header[key] != selected[key] for key in ("source", "selectors")):
+    if header["source"] != selected["source"] or tuple(header["selectors"]) != tuple(
+        selected["selectors"]
+    ):
         raise ValueError("HanLP canonical source/selector scope differs from original source")
     packets = tuple(json.loads(packet) for packet in canonical.partitions)
     if partition_header(packets) != header[COLLECTION]:
@@ -630,8 +633,31 @@ def prepare_hanlp_selection(assets=None):
     return pm2_selection("hanlp", assets, actual["runtime_identity"], actual["assets"])
 
 
-def hanlp_profile_assets(selection):
+def _hanlp_asset_paths():
     from corpus_structure.methods import pm2_hanlp, pm2_hanlp_products
+
+    return {
+        "model": _MODEL,
+        "manifests": Path(__file__).with_name("characterization_manifests.py"),
+        "provider": Path(pm2_hanlp.__file__),
+        "native_validation": Path(pm2_hanlp_products.__file__),
+    }
+
+
+def _hanlp_execution_paths():
+    root = Path(__file__).parent
+    return (
+        Path(__file__),
+        root / "data_operation_prepared_products.py",
+        root / "data_operation_ports.py",
+        root / "sentence_partitions.py",
+        root.parent / "methods/native_profiles.py",
+        root.parent / "methods/native_host.py",
+        root.parent / "core/process_lifetime.py",
+    )
+
+
+def hanlp_profile_assets(selection):
     from corpus_structure.methods.native_evidence_layers import HANLP_FAMILIES, HANLP_SCHEMES
     from corpus_structure.methods.native_profiles import hanlp_observation_policy
 
@@ -643,6 +669,7 @@ def hanlp_profile_assets(selection):
         "PreparedHanlpProfile",
         "hanlp_vocabulary_namespace",
     }
+    paths = _hanlp_asset_paths()
     module = ast.parse(Path(__file__).read_bytes())
     definitions = [
         (node.name, ast.dump(node, include_attributes=False))
@@ -654,13 +681,7 @@ def hanlp_profile_assets(selection):
         canonical_bytes(
             dict(
                 definitions=definitions,
-                model=_MODEL.read_bytes().hex(),
-                manifests=Path(__file__)
-                .with_name("characterization_manifests.py")
-                .read_bytes()
-                .hex(),
-                provider=Path(pm2_hanlp.__file__).read_bytes().hex(),
-                native_validation=Path(pm2_hanlp_products.__file__).read_bytes().hex(),
+                **{name: path.read_bytes().hex() for name, path in paths.items()},
                 families=HANLP_FAMILIES,
                 schemes=HANLP_SCHEMES,
                 profile=json.loads(
@@ -694,16 +715,7 @@ def hanlp_provider_attestation(selection):
 
 
 def hanlp_execution_custody(selection=None):
-    root = Path(__file__).parent
-    paths = (
-        Path(__file__),
-        root / "data_operation_prepared_products.py",
-        root / "data_operation_ports.py",
-        root / "sentence_partitions.py",
-        root.parent / "methods/native_profiles.py",
-        root.parent / "methods/native_host.py",
-        root.parent / "core/process_lifetime.py",
-    )
+    paths = _hanlp_execution_paths()
     return SourceArtifact(
         "hanlp/execution-custody",
         canonical_bytes(
@@ -781,89 +793,169 @@ class PreparedHanlpPort:
     custody: tuple
     sources: Any
     host: Any = None
+    _verification: Any = field(init=False, repr=False, compare=False)
+    _basis: tuple = field(init=False, repr=False, compare=False)
+    _asset_paths: tuple = field(init=False, repr=False, compare=False)
 
     @property
     def native_selections(self):
         return (self.profile.selection,)
 
-    def _verify(self):
+    def __post_init__(self):
         from corpus_structure.methods.hanlp_evidence import HanlpEvidenceOperation
         from corpus_structure.methods.native_evidence import _native_heads
         from corpus_structure.methods.pm2_hanlp_products import _constituency, _dependency_graph
 
-        from .data_operation_prepared_products import verify_prepared_product
+        from .data_operation_ports import PortRefusal
+        from .data_operation_prepared_products import (
+            authenticated_prepared_product,
+            verify_prepared_product,
+        )
         from .data_operation_provider_profiles import operation_profile
+        from .file_custody import verified_file
 
         profile = operation_profile(self.operation, self.sources.boundary_contracts)
         if (
             profile is None
             or profile["identity"] != hanlp_provider_attestation(self.profile.selection)["identity"]
         ):
-            raise ValueError("acquired HanLP provider differs from captured semantic profile")
+            raise PortRefusal("acquired HanLP provider differs from captured semantic profile")
+        required = hanlp_operation_sources(self.profile.selection, include_dependencies=False)
+        assets = tuple(
+            asset
+            for asset in required.boundary_contracts
+            if asset.name
+            in {
+                "hanlp/profile-assets",
+                "hanlp/execution-custody",
+            }
+        )
+        functions = (
+            (self.operation.callable_surfaces[0].declaration, HanlpEvidenceOperation.run),
+            (
+                "corpus_structure.semantic.hanlp_products.execute_hanlp_profile",
+                execute_hanlp_profile,
+            ),
+            (
+                "corpus_structure.semantic.hanlp_products.PreparedHanlpProfile.run",
+                PreparedHanlpProfile.run,
+            ),
+            (
+                "corpus_structure.semantic.hanlp_products.detach_hanlp_sentence",
+                detach_hanlp_sentence,
+            ),
+            (
+                "corpus_structure.semantic.hanlp_products.canonical_hanlp_rows",
+                canonical_hanlp_rows,
+            ),
+            (
+                "corpus_structure.semantic.hanlp_products.verify_hanlp_sentence_alignment",
+                verify_hanlp_sentence_alignment,
+            ),
+            (
+                "corpus_structure.semantic.hanlp_products.hanlp_coverage_outcome",
+                hanlp_coverage_outcome,
+            ),
+            (
+                "corpus_structure.semantic.hanlp_products.partition_hanlp_product",
+                partition_hanlp_product,
+            ),
+            (
+                "corpus_structure.semantic.hanlp_products.admitted_hanlp_rows",
+                admitted_hanlp_rows,
+            ),
+            (
+                "corpus_structure.semantic.hanlp_products.hanlp_admission_batches",
+                hanlp_admission_batches,
+            ),
+            (
+                "corpus_structure.semantic.hanlp_products.hanlp_sentence_batches",
+                hanlp_sentence_batches,
+            ),
+            ("corpus_structure.methods.native_evidence._native_heads", _native_heads),
+            (
+                "corpus_structure.methods.pm2_hanlp_products._dependency_graph",
+                _dependency_graph,
+            ),
+            ("corpus_structure.methods.pm2_hanlp_products._constituency", _constituency),
+            *(
+                (
+                    "corpus_structure.semantic.hanlp_products.PreparedHanlpPort." + name,
+                    getattr(type(self), name),
+                )
+                for name in ("__post_init__", "invoke_python", "plan_python")
+            ),
+        )
         verify_prepared_product(
             self.identity,
             self.profile.model,
             self.operation,
             self.sources,
             self.custody,
-            assets=(
-                hanlp_profile_assets(self.profile.selection),
-                hanlp_execution_custody(self.profile.selection),
-            ),
-            functions=(
-                (self.operation.callable_surfaces[0].declaration, HanlpEvidenceOperation.run),
-                (
-                    "corpus_structure.semantic.hanlp_products.execute_hanlp_profile",
-                    execute_hanlp_profile,
-                ),
-                (
-                    "corpus_structure.semantic.hanlp_products.PreparedHanlpProfile.run",
-                    PreparedHanlpProfile.run,
-                ),
-                (
-                    "corpus_structure.semantic.hanlp_products.detach_hanlp_sentence",
-                    detach_hanlp_sentence,
-                ),
-                (
-                    "corpus_structure.semantic.hanlp_products.canonical_hanlp_rows",
-                    canonical_hanlp_rows,
-                ),
-                (
-                    "corpus_structure.semantic.hanlp_products.verify_hanlp_sentence_alignment",
-                    verify_hanlp_sentence_alignment,
-                ),
-                (
-                    "corpus_structure.semantic.hanlp_products.hanlp_coverage_outcome",
-                    hanlp_coverage_outcome,
-                ),
-                (
-                    "corpus_structure.semantic.hanlp_products.partition_hanlp_product",
-                    partition_hanlp_product,
-                ),
-                (
-                    "corpus_structure.semantic.hanlp_products.admitted_hanlp_rows",
-                    admitted_hanlp_rows,
-                ),
-                (
-                    "corpus_structure.semantic.hanlp_products.hanlp_admission_batches",
-                    hanlp_admission_batches,
-                ),
-                (
-                    "corpus_structure.semantic.hanlp_products.hanlp_sentence_batches",
-                    hanlp_sentence_batches,
-                ),
-                ("corpus_structure.methods.native_evidence._native_heads", _native_heads),
-                (
-                    "corpus_structure.methods.pm2_hanlp_products._dependency_graph",
-                    _dependency_graph,
-                ),
-                ("corpus_structure.methods.pm2_hanlp_products._constituency", _constituency),
-            ),
+            assets=assets,
+            functions=functions,
             authorize=self.authorize,
-            required_sources=hanlp_operation_sources(
-                self.profile.selection, include_dependencies=False
+            required_sources=required,
+        )
+        verification = authenticated_prepared_product(
+            self.sources, functions, required_sources=required
+        )
+        files = {record.path.resolve(): record for record in verification.files}
+        captured = {asset.name: json.loads(asset.content) for asset in assets}
+        paths = _hanlp_asset_paths()
+        for name, path in paths.items():
+            record = verified_file(
+                path, sha256(bytes.fromhex(captured["hanlp/profile-assets"][name])).hexdigest()
+            )
+            if (
+                record.path.resolve() in files
+                and files[record.path.resolve()].digest != record.digest
+            ):
+                raise PortRefusal("HanLP asset disagrees with captured source")
+            files[record.path.resolve()] = record
+        runtime = {path.name: path for path in _hanlp_execution_paths()}
+        for name, encoded in captured["hanlp/execution-custody"]["files"]:
+            record = verified_file(runtime[name], sha256(bytes.fromhex(encoded)).hexdigest())
+            if (
+                record.path.resolve() in files
+                and files[record.path.resolve()].digest != record.digest
+            ):
+                raise PortRefusal("HanLP runtime custody disagrees with captured source")
+            files[record.path.resolve()] = record
+        verification.files = tuple(files.values())
+        object.__setattr__(self, "_verification", verification)
+        object.__setattr__(self, "_asset_paths", tuple(paths.items()))
+        object.__setattr__(
+            self,
+            "_basis",
+            tuple(
+                (name, getattr(self, name))
+                for name in (
+                    "identity",
+                    "operation",
+                    "profile",
+                    "authorize",
+                    "custody",
+                    "sources",
+                    "host",
+                    "_verification",
+                    "_asset_paths",
+                )
             ),
         )
+
+    def _verify(self):
+        from .data_operation_ports import PortRefusal
+
+        if any(getattr(self, name) is not value for name, value in self._basis):
+            raise PortRefusal("HanLP correspondence changed after acquisition")
+        if tuple(_hanlp_asset_paths().items()) != self._asset_paths:
+            raise PortRefusal("HanLP resource locations changed after acquisition")
+        try:
+            self._verification.check()
+        except ValueError as error:
+            raise PortRefusal("HanLP acquired custody changed: " + str(error)) from error
+        self.authorize(self.identity)
 
     def _inputs(self, values, binding):
         from corpus_structure.semantic.input_values import _untrusted_value
@@ -882,8 +974,12 @@ class PreparedHanlpPort:
         selected = {value.role: value for value in values}
         if any(selected[role.name].kind_contract != ids[role.kind, "kind"] for role in roles):
             raise PortRefusal("HanLP input nominal contract differs")
+        actual_source = selected["source"].value
         source = FrozenNativeSource.acquire(
-            self.profile.prepared, _untrusted_value(selected["source"].value)
+            self.profile.prepared,
+            actual_source
+            if isinstance(actual_source, (FrozenNativeSource, Mapping))
+            else _untrusted_value(actual_source),
         )
         supplied = selected["canonical"]
         if supplied.partitioned is None:
@@ -1006,7 +1102,6 @@ class PreparedHanlpPort:
         from corpus_structure.core.method import PreparedWork
         from corpus_structure.methods.hanlp_evidence import HanlpEvidenceOperation
 
-        self._verify()
         source, canonical = self._inputs(values, binding)
 
         def compute():
@@ -1019,7 +1114,6 @@ class PreparedHanlpPort:
 
         (completion,) = yield (PreparedWork(lambda: execution_owner.submit_python(compute)),)
         check_active()
-        self._verify()
         return completion
 
 
@@ -1081,5 +1175,4 @@ def resolve_hanlp_port(
         sources if sources is not None else hanlp_operation_sources(selection),
         host,
     )
-    port._verify()
     return port

@@ -333,7 +333,7 @@ def test_current_hanlp_preserves_borrowed_host_cancellation_and_provider_failure
 
 
 @pytest.mark.gpu
-def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profile):
+def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profile, monkeypatch):
     source, canonical, _, _ = inputs(profile)
     from corpus_structure.semantic.data_operation_admission import PreparedCapabilityIdentity
     from corpus_structure.semantic.data_operation_partitions import PartitionedInput
@@ -386,6 +386,14 @@ def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profi
         sources=sources,
         selection=profile.selection,
     )
+    checks = []
+    check = port._verification.check
+
+    def counted_check():
+        checks.append(None)
+        return check()
+
+    monkeypatch.setattr(port._verification, "check", counted_check)
     values = tuple(
         PythonRoleValue(
             role.name,
@@ -397,6 +405,7 @@ def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profi
         if role.direction == "input"
     )
     completion = port.invoke_python(values)
+    assert len(checks) == 2
     value = json.loads(completion.outputs[0].content)
     assert value["outcome"] == "complete"
     assert value["canonical_input"] == SemanticReference.whole("canonical").values()

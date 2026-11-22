@@ -18,6 +18,21 @@ def _producing_code(entries: tuple[Callable, ...]):
     )
 
 
+def code_asset_sources(entries: tuple[Callable, ...]):
+    """The file observations already retained by this code asset's actual basis."""
+    from .python_operation_sources import PythonSource, PythonSourceCollection
+
+    code = _producing_code(entries)
+    selected = code.determining_modules if code.complete else code.modules
+    root = Path(__file__).parents[1]
+    return PythonSourceCollection(
+        tuple(
+            PythonSource(source.module, source.content, str(root / source.filename))
+            for source in selected
+        )
+    )
+
+
 def code_asset(
     name: str,
     entries: tuple[Callable, ...],
