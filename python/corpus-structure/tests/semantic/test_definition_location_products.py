@@ -25,6 +25,7 @@ from corpus_structure.semantic.structural_products import (
     declared_definition_component,
 )
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
+from semantic.definition_component_members_support import unadmitted_component_members
 
 
 @pytest.fixture(scope="module")
@@ -94,8 +95,8 @@ def population(prepared):
             passages=(passage,),
             dependencies=("native:upstream",),
         ),
+        members=unadmitted_component_members((component,)),
         definition_components=DeclaredDefinitionComponentsProduct(
-            components=(component,),
             stages=(),
             role_candidates=(
                 DefinitionRoleCandidate(
@@ -190,13 +191,7 @@ def test_independent_content_role_stays_proposal_and_changed_attachment_stays_di
             "content": dict(passage_id="definition", start=9, end=14, text="other"),
         }
     )
-    other = report.model_copy(
-        update={
-            "definition_components": report.definition_components.model_copy(
-                update={"components": (changed,)}
-            )
-        }
-    )
+    other = report.model_copy(update={"members": unadmitted_component_members((changed,))})
     second, _, _ = definition_location_values(
         frame,
         other,

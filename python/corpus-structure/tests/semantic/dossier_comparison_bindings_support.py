@@ -23,12 +23,16 @@ from corpus_structure.semantic.structural_products import (
     DeclaredClauseReading,
     DeclaredComparisonReport,
     DeclaredDefinitionComponentsProduct,
+    DeclaredDefinitionComponentsReport,
     DeclaredDossierComparisonSelection,
     DeclaredStructuralInputPin,
-    DeclaredStructuralProductReport,
     Dimension,
     LocatedDefinitionSpan,
     declared_definition_component,
+)
+from semantic.definition_component_members_support import (
+    unadmitted_component_members,
+    unadmitted_component_source,
 )
 from semantic.structural_products_support import input_from_passages, native_source
 
@@ -92,10 +96,12 @@ def fixture(value=None, *, exception=True, root_on_left=False, primary_layers=No
         evidence=(root_passage.passage_id,),
         reason="Located definition component fixture.",
     )
-    definition = DeclaredStructuralProductReport(
+    definition = DeclaredDefinitionComponentsReport(
         kind="definition_components",
         inputs=value,
-        definition_components=DeclaredDefinitionComponentsProduct(components=(root,), stages=()),
+        members=unadmitted_component_members((root,)),
+        sources_input=(unadmitted_component_source(),),
+        definition_components=DeclaredDefinitionComponentsProduct(stages=()),
     )
     root_ref = DeclaredComponentRef(
         **custody(sources[root_passage.source_ref], 30),

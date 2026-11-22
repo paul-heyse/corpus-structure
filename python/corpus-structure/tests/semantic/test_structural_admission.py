@@ -6,10 +6,15 @@ import pytest
 
 from corpus_structure.semantic.structural_admission import structural_claim_id, structural_statement
 from corpus_structure.semantic.structural_products import (
+    DeclaredDefinitionComponentsReport,
     DeclaredDossierMember,
     DeclaredStructuralProductReport,
     LocatedDefinitionSpan,
     declared_definition_component,
+)
+from semantic.definition_component_members_support import (
+    unadmitted_component_members,
+    unadmitted_component_source,
 )
 from semantic.structural_admission_support import (
     definition as definition,
@@ -102,12 +107,12 @@ def test_definition_attachment_fact_identity_excludes_interpretation_proof_and_r
     from corpus_structure.semantic.structural_products import DeclaredDefinitionComponentsProduct
 
     component = fixture_component()
-    report = DeclaredStructuralProductReport(
+    report = DeclaredDefinitionComponentsReport(
         kind="definition_components",
         inputs=inputs(),
-        definition_components=DeclaredDefinitionComponentsProduct(
-            components=(component,), stages=()
-        ),
+        members=unadmitted_component_members((component,)),
+        sources_input=(unadmitted_component_source(),),
+        definition_components=DeclaredDefinitionComponentsProduct(stages=()),
     )
     meaning = component.model_dump(exclude={"component_id"})
     meaning.update(basis="matched_cue", alternatives=("another-private-proposal",))
@@ -117,9 +122,7 @@ def test_definition_attachment_fact_identity_excludes_interpretation_proof_and_r
             "inputs": report.inputs.model_copy(
                 update={"inventory_id": "new-inventory", "policy_id": "new-nomination-policy"}
             ),
-            "definition_components": DeclaredDefinitionComponentsProduct(
-                components=(revised,), stages=()
-            ),
+            "members": unadmitted_component_members((revised,)),
         }
     )
     assert report.product_id != after.product_id

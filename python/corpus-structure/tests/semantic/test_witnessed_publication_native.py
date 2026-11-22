@@ -32,9 +32,12 @@ def test_exact_component_admits_without_whole_applicability(current_pdf_source_f
         kernel = admit_current_target(source, recipe(tmp_path / "recipe"), tmp_path / "consumer")
         _, original, products, _ = produce_source_reports(source, kernel, NAMED, text=literal)
         (report,) = selected_for_source(
-            kernel, products, "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport", original
+            kernel,
+            products,
+            "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport",
+            original,
         )
-        (component,) = report.body["definition_components"]["components"]
+        (component,) = [packet["body"] for packet in report.body["members"]]
         # Span meaning is independent literal expectation; native primary block and
         # product addresses supply only the selected physical scope/custody identity.
         passage = next(

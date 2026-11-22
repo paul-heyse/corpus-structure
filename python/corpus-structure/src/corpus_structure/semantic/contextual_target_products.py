@@ -114,7 +114,7 @@ def component_target_population(report, *, original_source, kind_contract):
     ):
         raise ValueError("component targets require their actual original source")
     targets, meanings = [], {}
-    for component in selected.definition_components.components:
+    for component in selected.components:
         target, meaning = component_target_values(
             selected, component, original_source=original_source
         )

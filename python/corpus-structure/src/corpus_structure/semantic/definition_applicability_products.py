@@ -256,7 +256,7 @@ def selected_definition_applicability(
         raise ValueError("usage passage exceeds its exact analyzed original source scope")
     matches = tuple(
         component
-        for component in component_report.definition_components.components
+        for component in component_report.components
         if component.component_id == component_reference.component_id
     )
     if len(matches) != 1 or component_reference.structural_id != component_report.product_id:

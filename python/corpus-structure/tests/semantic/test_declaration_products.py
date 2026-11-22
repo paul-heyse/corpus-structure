@@ -33,6 +33,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.sentence_partitions import SentenceBlock, blocks_from_packets
 from corpus_structure.semantic.source_products import native_projection_identity, source_subject
 from corpus_structure.semantic.structural_products import StructuralPassage
+from semantic.definition_component_members_support import unadmitted_component_members
 
 # Each native UD/SRL fact is authored independently of the consumer's checks.
 _ROWS = (
@@ -490,9 +491,8 @@ def applicability_case():
     )
     report = DeclaredDefinitionComponentsReport(
         inputs=inputs,
-        definition_components=DeclaredDefinitionComponentsProduct(
-            components=(component,), stages=()
-        ),
+        members=unadmitted_component_members((component,)),
+        definition_components=DeclaredDefinitionComponentsProduct(stages=()),
         sources_input=(source_pin,),
     )
     context = {

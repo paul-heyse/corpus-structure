@@ -636,7 +636,6 @@ def declared_definition_component(**meaning) -> DeclaredLocatedDefinitionCompone
 
 
 class DeclaredDefinitionComponentsProduct(StructuralValue):
-    components: tuple[DeclaredLocatedDefinitionComponent, ...]
     stages: tuple[DefinitionStage, ...]
     role_candidates: tuple[DefinitionRoleCandidate, ...] | None = None
 
@@ -943,6 +942,26 @@ class DeclaredConditionReport(DeclaredStructuralProductReport):
     source_input: DeclaredStructuralInputPin
 
 
+class DeclaredDefinitionComponentContext(StructuralValue):
+    subject: Nonempty
+    subject_definition: Nonempty
+    original_source: Nonempty | None
+    analyzed_scope: JsonValue
+
+
+class DeclaredDefinitionComponentPacket(StructuralValue):
+    member_id: Digest
+    kind_contract: Nonempty
+    context: DeclaredDefinitionComponentContext
+    body: DeclaredLocatedDefinitionComponent
+
+    @model_validator(mode="after")
+    def component_address(self) -> Self:
+        if self.member_id != self.body.component_id:
+            raise ValueError("definition component member address differs from its body")
+        return self
+
+
 class DeclaredDefinitionComponentsReport(DeclaredStructuralProductReport):
     artifact_identity: None = None
     clause_classification: None = None
@@ -953,8 +972,54 @@ class DeclaredDefinitionComponentsReport(DeclaredStructuralProductReport):
     model_config = ConfigDict(json_schema_extra={"x-ddo-definition-variant": "components"})
     kind: Literal["definition_components"] = "definition_components"
     definition_components: DeclaredDefinitionComponentsProduct
+    members: tuple[DeclaredDefinitionComponentPacket, ...]
     sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
     reports_input: tuple[DeclaredStructuralInputPin, ...] = ()
+
+    @property
+    def components(self) -> tuple[DeclaredLocatedDefinitionComponent, ...]:
+        return tuple(packet.body for packet in self.members)
+
+    @model_validator(mode="after")
+    def unique_members(self) -> Self:
+        if len({packet.member_id for packet in self.members}) != len(self.members):
+            raise ValueError("duplicate definition component member")
+        return self
+
+
+def definition_component_packets(prepared, context, components):
+    from .data_operation_admission import bound_data_operation_model
+    from .data_operation_json import json_loads
+
+    model = bound_data_operation_model(prepared)
+    (contract,) = (
+        identity.key
+        for identity in model.identities
+        if (identity.owner, identity.domain)
+        == ("urn:corpus:structural:DeclaredLocatedDefinitionComponent", "kind")
+    )
+    packet_context = DeclaredDefinitionComponentContext(
+        subject=context.subject,
+        subject_definition=context.subject_definition,
+        original_source=context.original_source,
+        analyzed_scope=json_loads(context.analyzed_scope),
+    )
+    return tuple(
+        DeclaredDefinitionComponentPacket(
+            member_id=component.component_id,
+            kind_contract=contract,
+            context=packet_context,
+            body=component,
+        )
+        for component in components
+    )
+
+
+def definition_component_report_values(report: DeclaredDefinitionComponentsReport):
+    value = report.model_dump(mode="json", exclude_none=True)
+    for fields, packet in zip(value["members"], report.members, strict=True):
+        fields["context"] = packet.context.model_dump(mode="json")
+    return value
 
 
 class DeclaredNamedDefinitionWitness(StructuralValue):
@@ -967,7 +1032,7 @@ class DeclaredNamedDefinitionComponentsReport(DeclaredDefinitionComponentsReport
 
     @model_validator(mode="after")
     def witness_membership(self) -> Self:
-        components = {row.component_id: row for row in self.definition_components.components}
+        components = {row.component_id: row for row in self.components}
         ids = [row.component_id for row in self.witnesses]
         if len(ids) != len(set(ids)) or any(identity not in components for identity in ids):
             raise ValueError("named witness requires a unique report component")
@@ -1049,8 +1114,6 @@ def _definition_component_invariants(value: Any) -> Any:
 
 
 def _definition_components_invariants(value: Any) -> Any:
-    if len({c.component_id for c in value.components}) != len(value.components):
-        raise ValueError("duplicate definition component")
     roles = value.role_candidates or ()
     if len({(r.envelope, r.role, r.index) for r in roles}) != len(roles):
         raise ValueError("duplicate definition role envelope index")
@@ -1171,6 +1234,8 @@ def _structural_report_invariants(value: Any) -> Any:
                 raise ValueError("clause model context crosses its exact focus")
             cited.add(passage.passage_id)
     if value.definition_components:
+        if not isinstance(value, DeclaredDefinitionComponentsReport):
+            raise ValueError("definition components require their admitted member report")
         by_id = {p.passage_id: p for p in value.inputs.passages}
         for candidate in value.definition_components.role_candidates or ():
             span = candidate.span
@@ -1182,7 +1247,7 @@ def _structural_report_invariants(value: Any) -> Any:
             ):
                 raise ValueError("definition role differs from original passage")
             cited.add(span.passage_id)
-        for component in value.definition_components.components:
+        for component in value.components:
             cited.update(component.evidence)
             chain = component.declaration_chain
             if chain is not None and any(

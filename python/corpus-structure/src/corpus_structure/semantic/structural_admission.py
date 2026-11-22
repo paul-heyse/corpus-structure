@@ -94,9 +94,7 @@ def structural_statement(
     if report.definition_components is not None:
         if component_id is None:
             raise ValueError("definition publication requires one exact component selector")
-        selected = [
-            c for c in report.definition_components.components if c.component_id == component_id
-        ]
+        selected = [c for c in report.components if c.component_id == component_id]
         if len(selected) != 1:
             raise ValueError("selected definition component is missing or duplicated")
         component = selected[0]

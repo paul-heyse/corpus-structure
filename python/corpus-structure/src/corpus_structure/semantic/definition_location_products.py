@@ -127,7 +127,7 @@ def definition_location_values(frame, report, reference, selection, *, check_act
     pin = frame.pin.values()
     passages = {row.passage_id: row for row in report.inputs.passages}
     sources = {row.identity: row for row in report.inputs.sources}
-    components = {row.component_id: row for row in report.definition_components.components}
+    components = {row.component_id: row for row in report.components}
     candidates = {
         (row.role, row.envelope, row.index): row
         for row in report.definition_components.role_candidates or ()

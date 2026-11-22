@@ -294,9 +294,7 @@ def component_event_features(
     """Existing finite arithmetic over actual selected term/core-content endpoints."""
     from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 
-    components = [
-        row for row in report.definition_components.components if row.component_id == component_id
-    ]
+    components = [row for row in report.components if row.component_id == component_id]
     if len(components) != 1:
         raise ValueError("event component is absent or repeated in the selected whole report")
     component = components[0]

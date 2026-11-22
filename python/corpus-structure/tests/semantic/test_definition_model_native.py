@@ -228,7 +228,20 @@ def test_current_named_definition_preserves_source_cue_and_refuses_changed_cpu_b
             original,
         )
         assert report.body["sources_input"][0]["member_id"] == original.row["member_id"]
-        components = report.body["definition_components"]["components"]
+        packets = report.body["members"]
+        assert packets and "components" not in report.body["definition_components"]
+        with kernel.engine.connect() as connection:
+            admitted = connection.execute(
+                text(
+                    "SELECT member_id, kind_contract FROM kb.data_product_member "
+                    "WHERE product_id = :product_id"
+                ),
+                {"product_id": report.row["product_id"]},
+            ).all()
+        assert set(admitted) == {
+            (packet["body"]["component_id"], packet["kind_contract"]) for packet in packets
+        }
+        components = [packet["body"] for packet in packets]
         (matched,) = [
             component
             for component in components

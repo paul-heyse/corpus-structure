@@ -176,7 +176,7 @@ def test_actual_definition_demand_retains_provider_pair_and_exact_component_sour
         assert decoded["window"] == window
         assert {
             component["component_id"]: component
-            for component in report["definition_components"]["components"]
+            for component in [packet["body"] for packet in report["members"]]
         } == {component["component_id"]: component for component in decoded["components"]}
         (operation,) = candidates["operations"]
         assert operation["report_digest"] == sha256(canonical_bytes(captured)).hexdigest()

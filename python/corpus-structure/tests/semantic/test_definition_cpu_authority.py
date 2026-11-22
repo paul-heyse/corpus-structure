@@ -420,7 +420,7 @@ def test_component_cpu_retains_selected_source_member_and_requires_whole_primary
             invoke(roles)
     else:
         result = invoke(roles)
-        assert result["definition_components"]["components"] == []
+        assert [packet["body"] for packet in result["members"]] == []
         assert {stage["outcome"] for stage in result["definition_components"]["stages"]} == {
             "unavailable"
         }

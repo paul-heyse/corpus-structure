@@ -936,7 +936,7 @@ def dossier_root(reference, retained):
             continue
         report = read_structural_product_report(payload["report"])
         if report.product_id == ref.structural_id and report.definition_components is not None:
-            for component in report.definition_components.components:
+            for component in report.components:
                 if component.component_id == reference.component_id:
                     return component
     raise ValueError("dossier root does not resolve in the exact selected predecessor")
@@ -1156,7 +1156,7 @@ def derive_dossier_members(
             return "usage" if interpretation == "explanation" else "definition"
 
         if report.definition_components:
-            for c in report.definition_components.components:
+            for c in report.components:
                 if root is not None and c.component_id != root.component_id:
                     continue
                 roles.extend(

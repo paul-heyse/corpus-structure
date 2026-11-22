@@ -158,9 +158,7 @@ def test_public_source_membership_identity_excludes_execution_custody_aliases():
     )
     upstream = components(inputs, span=target_citation.span)
     inputs, predecessor, root_payload = retained(upstream)
-    component = next(
-        c for c in upstream.definition_components.components if c.interpretation == "unresolved"
-    )
+    component = next(c for c in upstream.components if c.interpretation == "unresolved")
     root = component_reference(upstream, component)
     assert dossier_root(root, ((predecessor, root_payload),)) == component
     member = derive_declared_contribution_members(inputs, reference, payload, root=component)[0]

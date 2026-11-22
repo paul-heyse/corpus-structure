@@ -119,6 +119,8 @@ def project_definition_components(
         DeclaredStructuralInputPin,
         DefinitionRoleCandidate,
         DefinitionStage,
+        definition_component_packets,
+        definition_component_report_values,
     )
 
     def member(name):
@@ -213,8 +215,10 @@ def project_definition_components(
             dependencies=(member("observation").product, member("candidates").product),
             coverage_limits=limits,
         ),
+        members=definition_component_packets(
+            prepared, context, tuple(components[key] for key in sorted(components))
+        ),
         definition_components=DeclaredDefinitionComponentsProduct(
-            components=tuple(components[key] for key in sorted(components)),
             role_candidates=tuple(proposals),
             stages=tuple(stages),
         ),
@@ -226,7 +230,7 @@ def project_definition_components(
         ),
     )
     check_active()
-    return report.model_dump(mode="json", exclude_none=True)
+    return definition_component_report_values(report)
 
 
 def execute_definition_components(receiver, source, observation, candidates):
@@ -444,6 +448,8 @@ def project_named_definition_components(
         DeclaredStructuralInputPin,
         DefinitionStage,
         LocatedDefinitionSpan,
+        definition_component_packets,
+        definition_component_report_values,
     )
 
     def member(name):
@@ -645,8 +651,10 @@ def project_named_definition_components(
             dependencies=(member("annotations").product, member("constructions").product),
             coverage_limits=tuple(limits),
         ),
+        members=definition_component_packets(
+            prepared, context, tuple(found[key] for key in sorted(found))
+        ),
         definition_components=DeclaredDefinitionComponentsProduct(
-            components=tuple(found[key] for key in sorted(found)),
             stages=tuple(stages),
         ),
         witnesses=tuple(
@@ -665,7 +673,7 @@ def project_named_definition_components(
         ),
     )
     check_active()
-    return report.model_dump(mode="json", exclude_none=True)
+    return definition_component_report_values(report)
 
 
 def execute_named_definition_components(receiver, source, annotations, constructions):

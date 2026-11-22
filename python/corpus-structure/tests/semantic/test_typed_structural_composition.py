@@ -24,6 +24,7 @@ from corpus_structure.semantic.structural_products import (
     LocatedDefinitionSpan,
 )
 from corpus_structure.serve.structural_products import dossier_representation_page
+from semantic.definition_component_members_support import unadmitted_component_members
 from semantic.structural_formal_support import formal_reading_sets
 from semantic.structural_products_support import inputs, root_references
 from semantic.typed_structural_composition_support import (
@@ -273,9 +274,8 @@ def test_dossier_derives_only_actual_predecessor_roles_and_exact_protected_suppo
     predecessor = DeclaredDefinitionComponentsReport(
         kind="definition_components",
         inputs=value,
-        definition_components=DeclaredDefinitionComponentsProduct(
-            components=(component,), stages=()
-        ),
+        members=unadmitted_component_members((component,)),
+        definition_components=DeclaredDefinitionComponentsProduct(stages=()),
         sources_input=(
             DeclaredStructuralInputPin(
                 product_id=value.sources[0].source_product,

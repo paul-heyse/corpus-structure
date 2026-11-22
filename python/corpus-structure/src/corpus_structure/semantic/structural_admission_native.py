@@ -648,9 +648,7 @@ def _structural_statement_routines():
     statement = core_variable("statement", JSONB())
     component = core_variable("component", JSONB())
     citations_value = core_variable("citations", JSONB())
-    component_items = _items(
-        _field(_field(report, "definition_components"), "components")[1], "components_"
-    )
+    component_items = _items(_field(report, "members")[1], "components_")
     condition_steps: list[Statement] = []
     for role in ("qualifier", "host_predicate"):
         role_items = _items(_field(component, role)[1], role + "_", ordinal=True)
@@ -725,9 +723,8 @@ def _structural_statement_routines():
                 variant == "definition_components",
                 (
                     SelectInto(
-                        select(component_items.c.value).where(
-                            _field(component_items.c.value, "component_id")[1].astext
-                            == component_id
+                        select(_field(component_items.c.value, "body")).where(
+                            _field(component_items.c.value, "member_id")[1].astext == component_id
                         ),
                         ("component",),
                         strict=True,

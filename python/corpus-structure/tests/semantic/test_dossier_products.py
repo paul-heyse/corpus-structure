@@ -17,6 +17,7 @@ from corpus_structure.semantic.structural_products import (
     StructuralPassage,
     declared_definition_component,
 )
+from semantic.definition_component_members_support import unadmitted_component_members
 
 
 def _predecessor():
@@ -73,8 +74,8 @@ def _predecessor():
             passages=(passage,),
             dependencies=("primary:actual",),
         ),
+        members=unadmitted_component_members((component,)),
         definition_components=DeclaredDefinitionComponentsProduct(
-            components=(component,),
             stages=(
                 dict(
                     passage_id="definition",

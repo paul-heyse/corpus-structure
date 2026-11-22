@@ -20,11 +20,18 @@ def prepared_workflow(tmp_path_factory):
 
 def test_current_definition_workflow_has_actual_source_and_consumer_contracts(prepared_workflow):
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
     from semantic.contextual_native_fixture import COMPONENTS, CUES
 
     model = bound_data_operation_model(prepared_workflow)
     assert model.operation(CUES).capabilities.prepared_factory is not None
     assert model.operation(COMPONENTS).capabilities.prepared_factory is not None
+    component_role = next(
+        role for role in model.operation(COMPONENTS).roles if role.direction == "output"
+    )
+    assert derive_member_kinds(model, component_role.kind) == (
+        "urn:corpus:structural:DeclaredLocatedDefinitionComponent",
+    )
     applicability = model.operation("structure.definition_applicability/declared")
     assert {role.name for role in applicability.roles if role.direction == "input"} == {
         "source",
@@ -274,7 +281,7 @@ def test_finite_matcher_retains_distinct_same_span_carriers_and_actual_component
         component_basis, prepared=prepared_workflow, check_active=lambda: None
     )
     report = cpu_authority_value(canonical_bytes(reply), expected_basis=component_basis)
-    (component,) = report["definition_components"]["components"]
+    (component,) = [packet["body"] for packet in report["members"]]
     assert component["interpretation"] == "definition" and component["basis"] == "matched_cue"
     assert (component["term"]["start"], component["term"]["end"], component["term"]["text"]) == (
         2,

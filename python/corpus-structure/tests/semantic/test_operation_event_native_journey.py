@@ -161,7 +161,7 @@ def framed_operation_event(published_pdf_source_factory, tmp_path_factory):
         )
         judgments = []
         for number, (original, report) in enumerate(zip(originals, reports, strict=True)):
-            (component,) = report.body["definition_components"]["components"]
+            (component,) = [packet["body"] for packet in report.body["members"]]
             # Independent literal endpoint checks are separate from assigned C labels.
             expected = (
                 ("variance", "spread")
@@ -350,7 +350,7 @@ def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private
     score_operation = "urn:corpus:operation:score-operation-event"
     source = case["originals"][0]
     report = case["reports"][0]
-    component_id = report.body["definition_components"]["components"][0]["component_id"]
+    component_id = report.body["members"][0]["body"]["component_id"]
     pending = request(
         kernel,
         (OPERATION, score_operation),
@@ -506,9 +506,7 @@ def test_authored_same_kind_parameters_cannot_supply_declared_native_scorer(
             DemandOperationSelection(
                 operation=OPERATION,
                 parameters=dict(
-                    component_id=report.body["definition_components"]["components"][0][
-                        "component_id"
-                    ],
+                    component_id=report.body["members"][0]["body"]["component_id"],
                     event=changed.event,
                 ),
             ),

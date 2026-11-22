@@ -35,6 +35,8 @@ def source_values(prepared, model, source, pin, context, source_input):
     from corpus_structure.semantic.structural_products import (
         DeclaredDefinitionComponentsReport,
         declared_definition_component,
+        definition_component_packets,
+        definition_component_report_values,
     )
 
     if source["text"] != TEXT:
@@ -141,7 +143,7 @@ def source_values(prepared, model, source, pin, context, source_input):
         evidence=("clause",),
         reason="Captured finite literal matcher recognizes only the complete count-means-number clause; independent support remains unassessed.",
     )
-    components = DeclaredDefinitionComponentsReport.model_validate(
+    component_report = DeclaredDefinitionComponentsReport.model_validate(
         dict(
             inputs=dict(
                 question="Locate the controlled explicit count definition",
@@ -161,8 +163,8 @@ def source_values(prepared, model, source, pin, context, source_input):
                 ],
                 dependencies=[pin["source_product"]],
             ),
+            members=definition_component_packets(prepared, actual_context, (component,)),
             definition_components=dict(
-                components=[component],
                 stages=[
                     dict(
                         passage_id="clause",
@@ -174,8 +176,9 @@ def source_values(prepared, model, source, pin, context, source_input):
             ),
             sources_input=[source_input],
         )
-    ).model_dump(mode="python")
-    introductions = DeclaredDefinitionComponentsReport.model_validate(
+    )
+    components = definition_component_report_values(component_report)
+    introduction_report = DeclaredDefinitionComponentsReport.model_validate(
         {
             **components,
             "inputs": {
@@ -183,7 +186,8 @@ def source_values(prepared, model, source, pin, context, source_input):
                 "question": "Which passage introduces count as a number?",
             },
         }
-    ).model_dump(mode="python")
+    )
+    introductions = definition_component_report_values(introduction_report)
     return dict(predicates=predicates, components=components, introductions=introductions)
 
 

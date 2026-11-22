@@ -522,7 +522,7 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
         )
     )
     component = case["component"]
-    component_id = component.body["definition_components"]["components"][0]["component_id"]
+    component_id = component.body["members"][0]["body"]["component_id"]
     dossier_selection = DemandOperationSelection(
         operation=DOSSIER,
         parameters=dict(
@@ -975,7 +975,7 @@ def test_definition_admission_refuses_same_shaped_controlled_fixture_producer(
     case = structural_native_journey
     kernel, component = case["kernel"], case["component"]
     report = DeclaredDefinitionComponentsReport.model_validate(component.body)
-    selector = report.definition_components.components[0].component_id
+    selector = report.components[0].component_id
     expected = structural_statement(report, selector)
     originals, _ = original_passes(
         kernel,

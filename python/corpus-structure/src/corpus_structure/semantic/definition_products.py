@@ -110,9 +110,8 @@ class PreparedDefinitionInputs:
 
         result = []
         for member, body in zip(self.members(role), values, strict=True):
-            if (
-                body["source"] != source.value["source"]
-                or tuple(body["selectors"]) != tuple(source.value["selectors"])
+            if body["source"] != source.value["source"] or tuple(body["selectors"]) != tuple(
+                source.value["selectors"]
             ):
                 raise ValueError(
                     "definition primary product differs from exact source and analyzed scope"
@@ -153,6 +152,8 @@ class PreparedDefinitionInputs:
             DeclaredStructuralInput,
             DeclaredStructuralInputPin,
             DefinitionStage,
+            definition_component_packets,
+            definition_component_report_values,
         )
 
         self.check_active()
@@ -207,8 +208,8 @@ class PreparedDefinitionInputs:
                 passages=(passage,),
                 dependencies=dependencies,
             ),
+            members=definition_component_packets(self.prepared, self.context, (component,)),
             definition_components=DeclaredDefinitionComponentsProduct(
-                components=(component,),
                 stages=(
                     DefinitionStage(
                         passage_id=passage_id,
@@ -222,7 +223,7 @@ class PreparedDefinitionInputs:
             reports_input=primary_pins,
         )
         self.check_active()
-        return report.model_dump(mode="json", exclude_none=True)
+        return definition_component_report_values(report)
 
 
 def execute_definition_declaration(

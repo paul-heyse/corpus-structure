@@ -35,6 +35,8 @@ def source_values(prepared, model, source, pin, context, source_input):
     from corpus_structure.semantic.structural_products import (
         DeclaredDefinitionComponentsReport,
         declared_definition_component,
+        definition_component_packets,
+        definition_component_report_values,
     )
 
     if source["text"] != TEXT:
@@ -203,7 +205,7 @@ def source_values(prepared, model, source, pin, context, source_input):
         evidence=("root",),
         reason="Controlled lexical candidate; no definition interpretation is established.",
     )
-    components = DeclaredDefinitionComponentsReport.model_validate(
+    component_report = DeclaredDefinitionComponentsReport.model_validate(
         dict(
             inputs=dict(
                 question="Select an unresolved lexical root",
@@ -223,8 +225,8 @@ def source_values(prepared, model, source, pin, context, source_input):
                 ],
                 dependencies=[pin["source_product"]],
             ),
+            members=definition_component_packets(prepared, actual_context, (component,)),
             definition_components=dict(
-                components=[component],
                 stages=[
                     dict(
                         passage_id="root",
@@ -236,8 +238,10 @@ def source_values(prepared, model, source, pin, context, source_input):
             ),
             sources_input=[source_input],
         )
-    ).model_dump(mode="python")
-    return dict(predicates=predicates, components=components)
+    )
+    return dict(
+        predicates=predicates, components=definition_component_report_values(component_report)
+    )
 
 
 def execute_profile(receiver, source):

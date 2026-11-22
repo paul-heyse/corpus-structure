@@ -19,6 +19,7 @@ from corpus_structure.semantic.structural_admission_native import (
     structural_statement_native_sql,
 )
 from corpus_structure.semantic.structural_products import DIMENSIONS, DeclaredComparisonReport
+from semantic.definition_component_members_support import unadmitted_component_members
 from semantic.test_declared_structural_calls import exact_source
 
 
@@ -534,7 +535,8 @@ def finite_report(variant):
             inputs=inputs,
             sources_input=[pin],
             reports_input=[],
-            definition_components=dict(components=[component.model_dump(mode="python")], stages=[]),
+            definition_components=dict(stages=[]),
+            members=unadmitted_component_members((component,)),
         )
     ), component.component_id
 

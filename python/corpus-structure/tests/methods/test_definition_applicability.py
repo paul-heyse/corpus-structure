@@ -5,6 +5,10 @@ from itertools import pairwise
 from typing import Literal
 
 import pytest
+from semantic.definition_component_members_support import (
+    unadmitted_component_members,
+    unadmitted_component_source,
+)
 from semantic.structural_products_support import input_from_passages, root_references
 
 from corpus_structure.methods.annotation_rules import AnnotationRuleMatch, LocatedRole
@@ -32,6 +36,7 @@ from corpus_structure.semantic.structural_products import (
     ApplicabilityPremise,
     DeclaredDefinitionBasisWitness,
     DeclaredDefinitionComponentsProduct,
+    DeclaredDefinitionComponentsReport,
     DeclaredStructuralProductReport,
     StructuralPassage,
 )
@@ -162,18 +167,22 @@ def test_missing_span_attribute_is_unavailable_not_a_default_definition():
 def test_component_closure_rejects_relocated_text_and_old_report_protocol():
     value = inputs()
     c = component()
-    report = DeclaredStructuralProductReport(
+    report = DeclaredDefinitionComponentsReport(
         kind="definition_components",
         inputs=value,
-        definition_components=DeclaredDefinitionComponentsProduct(components=(c,), stages=()),
+        members=unadmitted_component_members((c,)),
+        sources_input=(unadmitted_component_source(),),
+        definition_components=DeclaredDefinitionComponentsProduct(stages=()),
     )
     with pytest.raises(ValueError):
         DeclaredStructuralProductReport.model_validate(
             {**report.model_dump(), "version": "structural-product-1"}
         )
     with pytest.raises(ValueError, match="original passage"):
-        DeclaredStructuralProductReport(
+        DeclaredDefinitionComponentsReport(
             kind="definition_components",
+            sources_input=report.sources_input,
+            members=report.members,
             inputs=value.model_copy(
                 update={
                     "passages": (

@@ -24,6 +24,7 @@ from corpus_structure.semantic.structural_products import (
     LocatedDefinitionSpan,
     declared_definition_component,
 )
+from semantic.definition_component_members_support import unadmitted_component_members
 from semantic.structural_products_support import input_from_passages, inputs
 
 OUTCOMES: tuple[DefinitionOutcome, ...] = (
@@ -64,8 +65,8 @@ def components(value: DeclaredStructuralInput | None = None, *, passage_id=None,
     return DeclaredDefinitionComponentsReport(
         inputs=value,
         sources_input=tuple(source_pin(source) for source in value.sources),
-        definition_components=DeclaredDefinitionComponentsProduct(
-            components=tuple(
+        members=unadmitted_component_members(
+            tuple(
                 declared_definition_component(
                     term=span,
                     content=span,
@@ -76,7 +77,9 @@ def components(value: DeclaredStructuralInput | None = None, *, passage_id=None,
                     reason="Same literal source, distinct original interpretations.",
                 )
                 for state in ("definition", "explanation", "unresolved")
-            ),
+            )
+        ),
+        definition_components=DeclaredDefinitionComponentsProduct(
             stages=(),
         ),
     )
@@ -97,7 +100,7 @@ def report_reference(report):
 
 
 def component_reference(report, component):
-    assert component in report.definition_components.components
+    assert component in report.components
     return DeclaredComponentRef(
         **report_reference(report).model_dump(), component_id=component.component_id
     )
@@ -129,7 +132,7 @@ def retained(report):
     statements = (
         [
             structural_statement(report, component.component_id)
-            for component in report.definition_components.components
+            for component in report.components
             if component.interpretation != "unresolved"
         ]
         if report.definition_components is not None
@@ -159,10 +162,7 @@ def applicability():
         scope="statistics",
     )
     originals = components(value, passage_id="target")
-    by_state = {
-        component.interpretation: component
-        for component in originals.definition_components.components
-    }
+    by_state = {component.interpretation: component for component in originals.components}
     component_pin = report_input_pin(originals)
     relationship_pin = component_pin.model_copy(
         update=dict(

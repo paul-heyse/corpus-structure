@@ -45,7 +45,7 @@ def test_component_interpretations_share_citation_without_collapsing_or_false_de
     # Each distinct interpretation supplies its own selected root. Sharing a
     # citation does not make these three component meanings the same root sense.
     interpretations, claims = set(), set()
-    for component in upstream.definition_components.components:
+    for component in upstream.components:
         root = component_reference(upstream, component)
         assert dossier_root(root, ((reference, payload),)) == component
         rooted_members, rooted_facets = derive_dossier_members(

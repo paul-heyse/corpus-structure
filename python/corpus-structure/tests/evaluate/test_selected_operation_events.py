@@ -4,6 +4,7 @@ from math import log1p
 
 import pytest
 from pydantic import ValidationError
+from semantic.definition_component_members_support import unadmitted_component_members
 from semantic.demand_result_support import demand_result_page
 from semantic.sentence_products_test_support import nominal_profile as nominal_profile
 from semantic.sentence_products_test_support import nominal_schema as nominal_schema
@@ -151,9 +152,8 @@ def event_value(
             ),
             dependencies=(pin.source_product,),
         ),
-        definition_components=DeclaredDefinitionComponentsProduct(
-            components=(component,), stages=()
-        ),
+        members=unadmitted_component_members((component,)),
+        definition_components=DeclaredDefinitionComponentsProduct(stages=()),
         sources_input=(
             DeclaredStructuralInputPin(
                 product_id=pin.source_product,

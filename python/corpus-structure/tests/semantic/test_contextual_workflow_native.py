@@ -161,7 +161,7 @@ def current_workflow_case(native_server, native_settings, tmp_path_factory):
         cues = {row["body"]["semantic_type"]: row["body"] for row in cue_report.body["members"]}
         component_retained, _ = execute(kernel, component_request(kernel, original, "meaning"))
         (components,) = selected(kernel, component_retained["demand_id"], kind=COMPONENT_KIND)
-        (component,) = components.body["definition_components"]["components"]
+        (component,) = [packet["body"] for packet in components.body["members"]]
         cue_products = {
             value.body["semantic_type"]: value
             for value in selected(
