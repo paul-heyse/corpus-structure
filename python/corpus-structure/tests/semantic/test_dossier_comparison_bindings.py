@@ -192,7 +192,9 @@ def test_comparison_conflict_requires_exact_applicability_and_both_authored_read
                         variant="member", role="components", member_id=root.component_id
                     ),
                     link_ref=dict(
-                        variant="member", role="relationship", member_id=selected_relationship.relationship_ref.edge_id
+                        variant="member",
+                        role="relationship",
+                        member_id=selected_relationship.relationship_ref.edge_id,
                     ),
                     component=root,
                     outcome="applicable_definition",
@@ -303,10 +305,21 @@ def test_revision_requires_original_successor_and_direction():
     value, root, root_ref, reference, payload, selected, relationships = fixture(
         value, exception=False, root_on_left=True, primary_layers=formal_reading_sets(value)
     )
+    report = read_structural_product_report(payload["report"])
+    assert report.comparison is not None and report.comparison.succession is not None
+    assert report.comparison.succession.primary_witnesses
     members, _ = derive(value, root, root_ref, reference, payload, selected[:1], relationships)
     assert [(m.role, m.citation.text) for m in members if m.role == "revision"] == [
         ("revision", "Revision R2 supersedes revision R1.")
     ]
+    # The binding retains authority and side citations. Computational witnesses
+    # remain relative to the original comparison's input ledger.
+    for member in members:
+        bound = binding(member)
+        assert bound.comparison_ref == reference and bound.side == "left"
+        assert bound.citation == span(value.passages[0], value.passages[0].text)
+        assert bound.opposite_citation == span(value.passages[1], value.passages[1].text)
+        assert "comparison" not in bound.model_dump(mode="json")
 
 
 def test_typed_source_dependency_keeps_both_endpoints_outside_computational_dependencies():

@@ -308,8 +308,12 @@ def test_complete_primary_compound_if_then_keeps_accepted_exact_witness(profile)
 def test_primary_coverage_failure_is_scoped_to_the_actual_block(profile):
     import json
 
+    from corpus_structure.semantic.characterization_manifests import (
+        append_manifest,
+        manifest_contract,
+    )
+    from corpus_structure.semantic.construction_products import validate_construction_product
     from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_FAMILY
-    from corpus_structure.semantic.identity import canonical_bytes
 
     text, product, primary = retained("Manager reviews the report.", profile)
     for start, end, unavailable in (
@@ -326,7 +330,23 @@ def test_primary_coverage_failure_is_scoped_to_the_actual_block(profile):
             ],
         )
         body["outcome"] = "partial"
-        partial = replace(primary.construction, content=canonical_bytes(body))
+        body["members"] = [
+            packet for packet in body["members"] if packet["body"]["record_type"] != "manifest"
+        ]
+        construction = primary.construction
+        partial = validate_construction_product(
+            construction.prepared,
+            construction.model,
+            append_manifest(
+                body,
+                manifest_contract(
+                    construction.prepared, construction.model, construction.manifest_name
+                ),
+            ),
+            primary.source,
+            (primary.formal, *((primary.native,) if primary.native is not None else ())),
+            subject_context=primary.context,
+        )
         result = predicate_frames(text, (product,), primary_products=(partial,))
         assert bool(result.issues) is unavailable
         assert len(result.frames) == 1

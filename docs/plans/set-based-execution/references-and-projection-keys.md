@@ -305,10 +305,18 @@ passed publication, structural reads, detached replay and exact revocation
 (`3561ac986f8142b9bcfd077e88f43451`). Its dossier input had an empty applicability predecessor
 set. Native origin controls exercised actual applicability predecessors separately.
 
-**Discovery-derived reference roles · Inspected · 2026-11-22.** The remaining construction
-and contextual dependency rosters include discovered `formal`, `constructions` and
-`supporting` occurrences. Two admitted products can share source scope and a local member ID.
-The current occurrence-bound declaration derives its label from a frozen source set.
+**Discovery-derived reference roles · Inspected · 2026-11-22.** Two admitted products can
+share source scope and a local member ID. Occurrence-bound declarations derive their labels
+from a frozen source set. Contextual meaning now takes `formal`, `constructions` and
+`supporting` as sets and recovers ordinary and packed choice references from one complete
+authorized producing use. Primary construction already addresses external premises and
+choices through its formal and annotation roles. The remaining duplicate lists are the
+primary construction and contextual native parent headers. Replace them with exact input
+acquisition from the producing ledger. Generic characterization readers still require the
+complete dependency population to follow external-choice reachability. Preserve that
+population at acquisition, including an independently observed input with no cited member.
+[Contextual roles](../../../python/corpus-structure/src/corpus_structure/semantic/contextual_input_references.py) ·
+[Characterization reader](../../../python/corpus-structure/src/corpus_structure/semantic/declared_formal_readings.py)
 
 **Accepted first use · implementation Proposed · 2026-11-22.** The operator selected an
 unordered set for independent formal inputs. Use the original derivation's role-local input
@@ -344,9 +352,8 @@ construction output (`03dc639a6a88427c94ca37857900167f`). Private native control
 emitting positions at zero, native settlement, live and detached resolution, current set rank
 changes and unauthorized substitution (`cbf3eadd35d84ba2a2df73932291220d`). An actual private CUDA
 construction with one formal report passed attachment, proof settlement and selected partition
-readback (`74eb5f706a3840898e90148d6f84a75d`). Remaining work includes the adjacent contextual
-sequence and supporting roles, whole dependency rosters, packed external-choice edges and the
-integrated installed two-report producer journey.
+readback (`74eb5f706a3840898e90148d6f84a75d`). The integrated installed two-report producer
+journey remains in qualification.
 
 **Bound contextual witness outputs · Tested by selected identity · 2026-11-22.** Published
 carrier and cue references address exact admitted contribution members through the frozen

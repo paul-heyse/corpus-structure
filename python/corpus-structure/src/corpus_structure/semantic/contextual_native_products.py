@@ -24,6 +24,12 @@ class ContextualNativeProduct(InterpretedProduct):
     kind_name: ClassVar[str] = "DdoContextualNativeProduct"
     manifest_name: ClassVar[str] = "DdoContextualManifest"
 
+    @staticmethod
+    def manifest_projection(value):
+        # Native dependency custody belongs to the parent inventory; the contextual
+        # manifest exposes only the characterized source and coverage view.
+        return {key: item for key, item in value.items() if key != "dependencies"}
+
 
 def contextual_native_values(
     source: FrozenNativeSource,
@@ -239,7 +245,10 @@ def contextual_native_values(
         ],
         **stage_contextual_proxy_support(members, proxy_roles),
     }
-    return append_manifest(value, contracts["contextual_manifest"])
+    summary = append_manifest(
+        ContextualNativeProduct.manifest_projection(value), contracts["contextual_manifest"]
+    )
+    return {**value, "members": summary["members"]}
 
 
 def execute_contextual_native(receiver, source, formal, constructions, maverick, dipo):

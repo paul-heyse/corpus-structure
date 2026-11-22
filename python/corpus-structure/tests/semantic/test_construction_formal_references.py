@@ -118,7 +118,7 @@ def test_dependency_checker_rejects_unstaged_computed_formal_pins(location, fiel
     )
 
     reference = {"product_id": "formal:original", "member_id": "formal:node"}
-    node = {"local_id": "node", "record_type": "term"}
+    node: dict[str, object] = {"local_id": "node", "record_type": "term"}
     if location == "basis":
         node["basis"] = {field: [reference]}
     elif location == "packed-choice":

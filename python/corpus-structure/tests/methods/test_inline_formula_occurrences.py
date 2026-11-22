@@ -136,7 +136,10 @@ def test_failed_capture_reports_diagnostic_without_occurrences(text, max_chars, 
 def test_unavailable_formula_diagnostics_survive_contribution_binding():
     from pathlib import Path
 
-    from corpus_structure.semantic.contributions import bind_contributions
+    from corpus_structure.semantic.contributions import (
+        bind_contributions,
+        split_contribution_evidence,
+    )
     from corpus_structure.semantic.observations import observation_inputs
     from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.types import SourceArtifact, SourceBundle
@@ -150,7 +153,7 @@ def test_unavailable_formula_diagnostics_survive_contribution_binding():
         release,
         source=frame.unit_ref,
         operations=(output["operation"], *output["extra_operations"]),
-        contributions=output["contributions"],
+        contributions=tuple(split_contribution_evidence(row)[0] for row in output["contributions"]),
         coordinate_texts=output["coordinates"],
     )
     (operation,) = [o for o in operations if o["question"] == "source_formula_occurrences"]

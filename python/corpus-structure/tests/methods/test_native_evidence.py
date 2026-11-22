@@ -7,6 +7,7 @@ import pytest
 from corpus_structure.ingest.annotations import annotate
 from corpus_structure.semantic.data_product_reference import read_semantic_reference
 from corpus_structure.semantic.sentence_partitions import blocks_from_packets
+from corpus_structure.semantic.sentence_products import source_annotation_blocks
 from methods.native_evidence_support import native_source as native_source
 from methods.native_evidence_support import retained_hanlp
 from methods.navigation_fixture import source_primary_products
@@ -70,7 +71,8 @@ def test_complete_native_constituents_raw_srl_and_conflicting_heads_survive_curr
     assert tokens[1]["lemma"] == " X"
     source_native = native_source.primary.native
     assert source_native is not None
-    source_columns = json.loads(source_native.content)["blocks"][0]["annotation"]["tokens"]
+    (source_block,) = source_annotation_blocks(source_native)
+    source_columns = source_block["annotation"]["tokens"]
     assert source_columns[0]["head"] == 0
     assert source_columns[-1]["head"] == 0
     (block,) = blocks_from_packets(tuple(json.loads(packet) for packet in canonical.partitions))

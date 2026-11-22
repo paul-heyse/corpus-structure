@@ -15,11 +15,15 @@ from corpus_structure.semantic.canonical_sentences import (
     CanonicalProduct,
     canonical_partition_values,
     canonical_projection_spec,
+    canonical_sentence_operation_sources,
 )
 from corpus_structure.semantic.characterization_manifests import manifest_contract
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.construction_products import construction_product_inputs
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+from corpus_structure.semantic.data_operation_projection_values import (
+    materialize_whole_input_projection,
+)
 from corpus_structure.semantic.formal_products import formal_operation_sources
 from corpus_structure.semantic.hanlp_products import (
     canonical_hanlp_rows,
@@ -29,6 +33,7 @@ from corpus_structure.semantic.hanlp_products import (
 )
 from corpus_structure.semantic.learned_primary import learned_primary_inputs
 from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.primary_operations import combine_primary_sources
 from corpus_structure.semantic.sentence_partitions import partition_source_annotations
 from corpus_structure.semantic.types import (
     PreparationProfile,
@@ -52,7 +57,10 @@ def profiles():
     prepared = prepare_release(
         bundle,
         data_operation_dependencies(
-            ResolvedDependencies(), python_sources=formal_operation_sources()
+            ResolvedDependencies(),
+            python_sources=combine_primary_sources(
+                formal_operation_sources(), canonical_sentence_operation_sources()
+            ),
         ),
         PreparationProfile(version="semantic-2"),
     )
@@ -108,8 +116,15 @@ def canonical_product(case):
             json.loads(native.content),
             [json.loads(piece) for piece in native.partitions],
         )
+    operation = model.operation("segment.sentences/canonical-projection")
+    inventory = next(role for role in operation.roles if role.direction == "input")
+    assert inventory.read_projection is not None
+    layout = json.loads(
+        next(kind.facts for kind in model.kinds if kind.semantic_id == inventory.kind)
+    )["collections"]
     value = canonical_partition_values(
-        {"header": header, "partitions": packets}, canonical_projection_spec(model, kind)
+        materialize_whole_input_projection(inventory.read_projection, layout, header, packets),
+        canonical_projection_spec(model, kind),
     )
     return CanonicalProduct.from_projection(
         value, prepared, model, kind, subject_context=case.primary.context

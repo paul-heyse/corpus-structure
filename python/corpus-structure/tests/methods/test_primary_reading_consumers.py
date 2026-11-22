@@ -145,13 +145,13 @@ def test_actual_native_heading_determines_policy_and_retains_examined_context(
     body = primary.construction.inventory()
     term = next(row for row in body["terms"] if row["local_id"] == frame.primary_ref.local_id)
     construction = next(row for row in body["annotations"] if row["local_id"] in term["premises"])
-    assert construction["context"]["examined"] == [
+    assert construction["context"]["examined"] == (
         dict(projection=view.projection_digest, native_pointer="#/texts/0", start=0, end=12),
         dict(projection=view.projection_digest, start=13, end=len(view.text)),
-    ]
-    assert construction["context"]["focal"] == [
-        dict(projection=view.projection_digest, start=13, end=len(view.text))
-    ]
+    )
+    assert construction["context"]["focal"] == (
+        dict(projection=view.projection_digest, start=13, end=len(view.text)),
+    )
 
 
 def test_common_native_to_primary_graph_to_domain_projection_runs_no_model(controlled, monkeypatch):
@@ -214,7 +214,21 @@ def test_version6_contribution_projection_cites_actual_primary_nodes(controlled,
     assert len(frames) == 1
     assert frames[0]["primary_node"]["product_id"] == primary.construction.semantic_id
     assert all(member["primary_node"]["member_id"] for member in frames[0]["frame_members"])
-    assert all(operation["primary_products"] for operation in evidence.operations)
+    (frame_contribution,) = [
+        row
+        for row in evidence.contributions
+        if row.get("component", {}).get("kind") == "predicate_frame"
+    ]
+    assert (
+        frame_contribution["contribution_id"],
+        "component/primary_node",
+        0,
+        frames[0]["primary_node"],
+    ) in evidence.primary_evidence
+    assert all(
+        reference["product_id"] == primary.construction.semantic_id
+        for _owner, _field, _position, reference in evidence.primary_evidence
+    )
 
 
 def test_numeric_condition_uses_exact_retained_formal_parts():

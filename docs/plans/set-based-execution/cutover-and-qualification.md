@@ -210,6 +210,33 @@ rollback-only candidate `f5b28c5b5ac240d69fb9eb857dd531ea`, and registration
 `corpus_structure_sbx09_final_qualification`. Maintenance readback verified the exact native
 descriptor, purpose-role grants and empty project, source, demand and product state.
 
+The installed-root scheduler selection passed all 12 cases (`uv run ci test`,
+`74537a95e42147058e034e91c03fd2da`). It covered pending incomplete populations, unavailable
+complete empty, filtered-empty and insufficient populations, optional minimum-zero settlement,
+and both commit orders for the cross-demand recipient.
+
+**Interrupted integrated qualification · 2026-11-22.** A host restart interrupted the
+ordinary campaign (`uv run ci test`, `a8841a637e3e452b8a7ae2cb3c2e41fc`) and the actual
+provider campaign (`uv run ci test --native-host private --providers-only`,
+`eecc4da197e94c058d05cd75a270779b`). `uv run ci results recover` refused both because the
+supervisor settlement records had not been written. Their partial logs identify contextual
+manifest and dossier compiler defects and assertions targeting superseded carrier shapes.
+Fresh managed runs qualify the repaired source. Maintenance reinspection after restart found
+the original development database at native revision `semantic_ddo_pe_n29`.
+
+**Restart checkpoint · Tested by selected scope · 2026-11-22.** The contextual manifest
+and construction fixes passed the 20 selected `uv run ci test` controls
+(`9ad1e7e5f37841a883205dc8bb948a0a`). The dossier retains its comparison reference, side and
+citations. Its existing compiler and downstream-profile controls passed in
+`4af576145aab4a90b568f1d25e187bfa`. The draft regression failed on fixture coverage and its
+replacement with a real formal witness passed (`b3b6c7a852164f488a16f44edbb63884`).
+The carrier and contribution assertions passed across their initial selection and one exact
+retry (`284bcf9ce7264e8a8ac36aecd57f8a9a`, `d0660fecc37c4d069667b90f1717af64`).
+Preview `6c069fbc7d864ce084952fcc4a7725ee`, rollback-only candidate
+`cf56a1d5cb314651913ae594c2656f0c` and registration `c4ac4de7a5c9491c8da780505cf9f550`
+passed. Only authoring provenance changed in the native artifact. The installed qualification
+target has the same SQL and descriptor. The final root follows the remaining roster retirement.
+
 Keep one authentic cross-boundary producer, publication and export journey. Reader-only checks
 can consume its authenticated artifacts while their producer, prepared release, wire and authority
 premises remain applicable. Give these checks independent expected meaning, malformed-input and

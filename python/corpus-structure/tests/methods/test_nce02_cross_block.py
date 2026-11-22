@@ -52,8 +52,8 @@ def test_explicit_list_intro_has_independent_located_hosts(case):
     view = projection(view.text, pieces=view.pieces, items=nodes)
     native_items = {item["self_ref"]: item for item in view.value["items"]}
     assert native_items[intro_node["self_ref"]]["parent"] == actual_parent
-    assert native_items[group]["children"] == [first["self_ref"], second["self_ref"]] + (
-        [first["self_ref"]] if case == "duplicate_children" else []
+    assert native_items[group]["children"] == (first["self_ref"], second["self_ref"]) + (
+        (first["self_ref"],) if case == "duplicate_children" else ()
     )
     profile = AnnotationProfile()
     prepared = prepare_declared_source(view, profile=profile, annotations_only=True)

@@ -1079,7 +1079,6 @@ def _comparison_member_roles(
             source=source,
             citation=citation,
             occurrence=occurrence,
-            comparison=comparison,
             opposite_source=sources[opposite.source_ref],
             opposite_citation=_located(opposite, opposite.text, 0),
             applicability_ref=applicability_ref,

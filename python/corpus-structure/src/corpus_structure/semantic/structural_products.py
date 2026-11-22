@@ -468,7 +468,9 @@ class DeclaredDossierComparisonSelection(StructuralValue):
 
 
 class DeclaredDossierComparisonBinding(StructuralValue):
-    comparison_ref: DeclaredStructuralRef
+    comparison_ref: DeclaredStructuralRef = Field(
+        description="Exact retained comparison; its computational references resolve in that producer's input ledger."
+    )
     side: Literal["left", "right"]
     relationship_ref: DeclaredRelationshipRef
     relationship: Literal["denotes", "defined-by", "specializes"]
@@ -476,7 +478,6 @@ class DeclaredDossierComparisonBinding(StructuralValue):
     source: DeclaredStructuralSource
     citation: LocatedDefinitionSpan
     occurrence: tuple[LocatedDefinitionSpan, ...] = Field(min_length=1)
-    comparison: DeclaredComparisonProduct
     opposite_source: DeclaredStructuralSource
     opposite_citation: LocatedDefinitionSpan
     applicability_ref: DeclaredStructuralRef | None = Field(
@@ -1555,19 +1556,12 @@ def _comparison_product_invariants(value: Any) -> Any:
 
 
 def _dossier_binding_invariants(value: Any) -> Any:
-    left, right = (value.citation, value.opposite_citation)
-    if value.side == "right":
-        left, right = right, left
-    if (
-        (left.passage_id, right.passage_id) != (value.comparison.left_id, value.comparison.right_id)
-        or value.comparison.left_reading is None
-        or any(
-            span.passage_id != value.citation.passage_id
-            or not value.citation.start <= span.start < span.end <= value.citation.end
-            for span in value.occurrence
-        )
+    if any(
+        span.passage_id != value.citation.passage_id
+        or not value.citation.start <= span.start < span.end <= value.citation.end
+        for span in value.occurrence
     ):
-        raise ValueError("comparison binding differs from its exact located sides")
+        raise ValueError("comparison binding occurrence differs from its exact located side")
     return value
 
 

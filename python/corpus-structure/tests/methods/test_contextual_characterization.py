@@ -36,7 +36,12 @@ def test_detected_unassigned_raw_subtokens_and_complete_group_candidates_survive
     tokens = canonical_tokens(native_source, context_builder(native_source))
     product = context_product(native_source, maverick=mention_reply(tokens))
     # Revalidation exercises the current nominal codec without reconstructing a legacy report.
-    _ = product.value
+    value = product.value
+    assert value["dependencies"]
+    (manifest,) = [
+        packet for packet in value["members"] if packet["body"]["record_type"] == "manifest"
+    ]
+    assert "dependencies" not in manifest["body"]
     body = product.inventory()
     mentions = [row for row in body["annotations"] if row["kind"] == "native.mention"]
     assert len(mentions) == 4
@@ -215,7 +220,8 @@ def test_contextual_evaluation_retains_one_group_candidate_per_mention(native_so
     mentions = [row for row in data["annotations"] if row["kind"] == "native.mention"]
     (cluster,) = [row for row in data["annotations"] if row["kind"] == "native.coreference_cluster"]
     prepared, model = profiles()
-    # Independently authored literal participants preserve each native mention's support.
+    # Independently authored participants share the original positioned occurrences;
+    # native hypothesis proof remains in the separately retained contextual product.
     facts = dict(
         occurrences=data["occurrences"],
         annotations=[],
@@ -245,9 +251,6 @@ def test_contextual_evaluation_retains_one_group_candidate_per_mention(native_so
                 status="interpreted",
                 occurrences=mention["occurrences"],
                 children=[],
-                external_premises=[
-                    member_reference(native.reference, mention["local_id"]).values()
-                ],
             )
             for index, mention in enumerate(mentions)
         ],
@@ -257,7 +260,7 @@ def test_contextual_evaluation_retains_one_group_candidate_per_mention(native_so
         native_source.primary.source,
         facts,
         interpreted_member_contracts(prepared, model),
-        (snapshot,),
+        (),
     )
     value["annotation_support"] = []
     value["formal_support"] = []
@@ -266,7 +269,7 @@ def test_contextual_evaluation_retains_one_group_candidate_per_mention(native_so
         model,
         value,
         native_source.primary.source,
-        (snapshot,),
+        (),
         subject_context=native_source.primary.context,
     )
     evaluator = ContextualEvaluator.from_products(

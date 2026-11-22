@@ -237,6 +237,11 @@ class InterpretedProduct:
             "interpreted evidence requires validated production or exact native acquisition"
         )
 
+    @staticmethod
+    def manifest_projection(value):
+        """Project the owning family's declared compact summary fields."""
+        return value
+
     @classmethod
     def _from_payload(cls, payload, source, prepared, model, subject_context) -> Self:
         product = object.__new__(cls)
@@ -1257,7 +1262,8 @@ def _checked_interpreted_product[Product: InterpretedProduct](
             contextual_parents = contextual_input_parents(bound_member)
         graph_value = project_contextual_input_support(checked, contextual_parents)
     packets = analytical_packets(
-        graph_value, manifest_contract(prepared, model, product_type.manifest_name)
+        product_type.manifest_projection(graph_value),
+        manifest_contract(prepared, model, product_type.manifest_name),
     )
     selected = source.value
     if bound_member is None:

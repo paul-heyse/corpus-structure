@@ -592,8 +592,10 @@ cross-input premises. Keep ingress and atomic native publication as the admissio
 [Review I02](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I02)
 
 **Remaining execution · Proposed · 2026-11-22.** Use the declared dependency-member rules and
-release-owned attachment-policy witness. Convert external premises and choices to exact producing
-roles and addressed members before freezing their fingerprints. First use the existing
+release-owned attachment-policy witness. Construction and contextual evaluation publish those
+attestations and address their external premises and packed choices through producing roles.
+Retire the two parent dependency rosters at the binding and acquisition boundary before
+qualifying the registered root. Use the existing
 establishment reader over declared role header paths and the observed output fields. Annotation
 headers carry distinct body and placement commitments. Bind each commitment only where the rule
 observes its facts. A whole-collection header is the initial conservative premise. Narrow to a
@@ -642,8 +644,8 @@ attestation and keeps the exact `supporting` input requirement. Standalone const
 checks the addressed rows and layout at its admission boundary. The focused construction,
 contextual and annotation selection passed all 45 cases (`55e2ea9c1ce44b90b668e0124ca08d01`),
 including exact retained acquisition without repeating the annotation proof and refusal when
-the retained dependency is missing. Remaining external premises, family addresses and
-registered-root qualification stay open.
+the retained dependency is missing. The final registered-root qualification exercises the
+same proof through original ledger acquisition and the current selected support.
 
 **Shared observed premises · Tested by selected identity · 2026-11-22.** Native settlement
 calculates one observed premise per admitted product, partition and matching premise specification.
@@ -759,7 +761,8 @@ normalization slice. The later topology and occurrence checks closed their captu
 codec premises. The native occurrence checker uses the acquired finite standard JSON codec and
 exact source addresses. A named CUDA construction publication resolved its exact annotation row
 (`uv run ci test --native-host private --providers-only`, `4ef3459bb032443da522db1e8f0c28b9`,
-passed). The exact cross-input witness and release-owned attachment-policy checks remain open.
+passed). The cross-input and released attachment-policy checks now have separate producer
+declarations. Their final-root verification follows the roster retirement above.
 
 **Vision.** Every existing semantic validator becomes one or more rules. Consumers accept proofs
 and no hand-off differs in stance.
