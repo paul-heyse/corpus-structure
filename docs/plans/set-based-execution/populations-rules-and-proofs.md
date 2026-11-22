@@ -373,6 +373,19 @@ share computation. Compare exact addressed results after ordinary publication an
 readback. [Shared successor scenarios](cutover-and-qualification.md#change-scenarios) ·
 [Review I01](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I01)
 
+**Installed occurrence readback · Tested · 2026-11-22.** One private current-source target
+ran native PDF source acquisition and real annotation/canonical production over controlled
+captures for stable-key movement, renumbered pointers, repeated text and split/merged blocks.
+The fixture names each capture and exact original source pin. Readback checked historical
+producing input, current addresses and literal relative and absolute spans. Equal local
+annotation bodies retained their digest across changed placements. The provider selection
+passed (`uv run ci test --native-host private --providers-only`,
+`1eb8f7c7162843dd8a93538c787bba46`). The earlier concurrent-source attempt refused custody
+(`4ef73b18ff2f4d79a9acccecf3ce56b1`). The eight sentence partition and declaration controls
+passed on the stable retry (`b0b1393a3bf04a73a4418bf5cf5e06a6`).
+This is installed current-source evidence for the selected occurrence cases. Governed
+propagation and the registered-root rerun retain their own acceptance.
+
 **Declaration ingress · Tested by selected identity · 2026-11-22.** The declaration
 kernel acquires its canonical and HanLP rows through the same immutable partition
 decoder and verifies their commitments. It resolves frozen keys through the shared

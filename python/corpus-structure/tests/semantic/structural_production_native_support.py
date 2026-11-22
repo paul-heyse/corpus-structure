@@ -92,7 +92,16 @@ def recipe(directory):
 
 
 def produce_source_reports(
-    source, kernel, target, *, text, discovered_entries=None, selection_name=None
+    source,
+    kernel,
+    target,
+    *,
+    text,
+    section_pointer="#/groups/0",
+    membership="descendants",
+    original_source=None,
+    discovered_entries=None,
+    selection_name=None,
 ):
     """One source-discovery demand owns genuine source and primary producer uses."""
     from corpus_structure.semantic.demand_results import read_demand_result
@@ -116,9 +125,13 @@ def produce_source_reports(
         item
         for item in products
         if item.row["kind_contract"] == contract
-        and item.body["text"] == text
-        and item.body["source"]["section_pointer"] == "#/groups/0"
-        and item.body["source"]["membership"] == "descendants"
+        and item.body["source"]["section_pointer"] == section_pointer
+        and item.body["source"]["membership"] == membership
+        and (
+            item.body["text"] == text
+            if original_source is None
+            else item.row["original_source"] == original_source
+        )
     ]
     assert len(originals) == 1, [
         (
@@ -130,6 +143,8 @@ def produce_source_reports(
         if isinstance(item.body, dict)
     ]
     (original,) = originals
+    if text is not None:
+        assert original.body["text"] == text
     return retained, original, products, pending
 
 

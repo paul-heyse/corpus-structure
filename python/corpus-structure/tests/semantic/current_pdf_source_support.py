@@ -330,7 +330,7 @@ class PublishedCaptureStage:
         )
 
 
-def _capture_source(kernel, directory, sections):
+def _capture_source(kernel, directory, sections, *, source_uri="independent-original.pdf"):
     from hashlib import sha256
 
     import pypdfium2 as pdfium
@@ -369,12 +369,12 @@ def _capture_source(kernel, directory, sections):
             connection,
             prepared=kernel.prepared,
             project_id=PROJECT,
-            source_uri="independent-original.pdf",
+            source_uri=source_uri,
             original_path=str(path),
             original=original,
             mime="application/pdf",
         )
-        key = document_key(PROJECT, "independent-original.pdf", sha256(original).hexdigest())
+        key = document_key(PROJECT, source_uri, sha256(original).hexdigest())
         selected = acquire_original_document_selection(
             connection, project_id=PROJECT, document_key=key
         )
@@ -412,7 +412,9 @@ def _capture_source(kernel, directory, sections):
     return demand, key, original
 
 
-def build_pdf_source(scenario, admin, writer, directory, *, purpose_engine):
+def build_pdf_source(
+    scenario, admin, writer, directory, *, purpose_engine, source_uri="independent-original.pdf"
+):
     from pdf_controlled_support import controlled_pdf_converter
 
     recipe = scenario.bind(directory)
@@ -425,7 +427,9 @@ def build_pdf_source(scenario, admin, writer, directory, *, purpose_engine):
         SimpleNamespace(purpose=purpose_engine),
     )
     with controlled_pdf_converter(scenario.content):
-        demand, document, original = _capture_source(kernel, directory, scenario.sections)
+        demand, document, original = _capture_source(
+            kernel, directory, scenario.sections, source_uri=source_uri
+        )
     return PublishedCaptureStage(stage, demand, document, original, scenario.sections)
 
 

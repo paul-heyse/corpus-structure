@@ -40,6 +40,8 @@ from semantic.current_pdf_source_support import (
     current_consumer_request,
     current_pdf_recipe,
     section_content,
+    selected_current_sources,
+    source_entry,
 )
 from semantic.data_operation_kernel_support import (
     CapturedKernelInputs,
@@ -112,21 +114,10 @@ def _recipe(directory, *, target="canonical", sentence_configuration=None):
 
 
 @contextmanager
-def _private_source(
-    admin, native_settings, tmp_path, monkeypatch, text, *other_texts, scenario=None
-):
+def _private_pdf_captures(admin, native_settings, tmp_path, monkeypatch):
     epoch = capture_target_installation(get_metadata(), logical_sources=native_model_inputs(ROOT))
     *_, revision_path = install_target_root(admin, epoch, tmp_path)
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
-    inputs = tmp_path / "capture"
-    inputs.mkdir()
-    if scenario is None:
-        texts = (text, *other_texts)
-        scenario = PdfSourceScenario(
-            section_content(tuple(("text", value, value, None) for value in texts)),
-            tuple(f"#/groups/{index}" for index in range(len(texts))),
-            False,
-        )
     with ExitStack() as resources:
         purposes = {}
 
@@ -137,8 +128,169 @@ def _private_source(
                 purposes[name] = engine
             return purposes[name]
 
-        stage = build_pdf_source(scenario, admin, purpose("write"), inputs, purpose_engine=purpose)
-        yield stage.acquired(SimpleNamespace(admin=admin, purpose=purpose))
+        def capture(scenario, name="capture", *, source_uri="independent-original.pdf"):
+            inputs = tmp_path / name
+            inputs.mkdir()
+            stage = build_pdf_source(
+                scenario,
+                admin,
+                purpose("write"),
+                inputs,
+                purpose_engine=purpose,
+                source_uri=source_uri,
+            )
+            return stage.acquired(SimpleNamespace(admin=admin, purpose=purpose))
+
+        yield capture
+
+
+@contextmanager
+def _private_source(
+    admin, native_settings, tmp_path, monkeypatch, text, *other_texts, scenario=None
+):
+    if scenario is None:
+        texts = (text, *other_texts)
+        scenario = PdfSourceScenario(
+            section_content(tuple(("text", value, value, None) for value in texts)),
+            tuple(f"#/groups/{index}" for index in range(len(texts))),
+            False,
+        )
+    with _private_pdf_captures(admin, native_settings, tmp_path, monkeypatch) as capture:
+        yield capture(scenario)
+
+
+@pytest.mark.gpu
+@pytest.mark.provider_evidence
+def test_actual_population_readback_binds_moved_renamed_and_split_occurrences(
+    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+):
+    operation = "segment.sentences/canonical-projection"
+    namespace = "https://corpus-structure.dev/semantic/data-operation-sentences/"
+    ada, bob = "Ada acts.", "Bob waits."
+
+    def scenario(texts, *, reverse=False):
+        content = section_content(
+            tuple(("text", value, value, None) for value in texts), one_section=True
+        )
+        if reverse:
+            document = json.loads(content.document_json)
+            document["groups"][0]["children"].reverse()
+            content = replace(content, document_json=json.dumps(document).encode())
+        return PdfSourceScenario(content, ("#/groups/0",), False)
+
+    def read_occurrences(source, kernel, expected):
+        (pin,) = [
+            header
+            for header, body in selected_current_sources(source)
+            if body["source"]["section_pointer"] == "#/groups/0"
+            and body["source"]["membership"] == "descendants"
+        ]
+        retained, original, products, _ = produce_source_reports(
+            source,
+            kernel,
+            operation,
+            text=None,
+            original_source=pin["original_source"],
+            discovered_entries=(source_entry(pin),),
+        )
+        (annotations,) = selected_for_source(
+            kernel, products, namespace + "DdoSourceAnnotations", original
+        )
+        (canonical,) = selected_for_source(
+            kernel, products, namespace + "DdoCanonicalSentences", original
+        )
+        with kernel.purpose("read").begin() as connection:
+            page = read_demand_result(
+                connection, retained["demand_id"], project_id=PROJECT, limit=1000
+            )
+            support = tuple(stream_selected_support(connection, page, whole_read=True))
+        (producing_input,) = [
+            row["record"]
+            for row in support
+            if row["relation"] == "ops.data_derivation_input"
+            and row["record"]["derivation_id"] == canonical.row["derivation_id"]
+            and row["record"]["role"] == "inventory"
+        ]
+        assert producing_input["product_id"] == annotations.row["product_id"]
+        assert producing_input["member_id"] == annotations.row["member_id"]
+
+        def partitions(product):
+            return sorted(
+                (
+                    entry["record"]
+                    for entry in support
+                    if entry["relation"] == "kb.data_product_partition"
+                    and entry["record"]["product_id"] == product.row["product_id"]
+                ),
+                key=lambda row: row["ordinal"],
+            )
+
+        text = original.body["text"]
+        cursor = 0
+        digest_and_start = {}
+        for anno, projected, (pointer, expected_text, sentence_spans) in zip(
+            partitions(annotations), partitions(canonical), expected, strict=True
+        ):
+            start = text.index(expected_text, cursor)
+            cursor = start + len(expected_text)
+            assert anno["partition_key"] == projected["partition_key"] == pointer
+            assert anno["placement"] == projected["placement"] == {"start": start, "end": cursor}
+            canonical_rows = decode_semantic_value(projected["body"])
+            assert [
+                (row["start"], row["end"])
+                for row in canonical_rows
+                if row["record_type"] == "sentence"
+            ] == sentence_spans
+            assert [text[start + begin : start + end] for begin, end in sentence_spans] == [
+                expected_text[begin:end] for begin, end in sentence_spans
+            ]
+            assert all(
+                row["annotation"]["role"] == "inventory"
+                and row["annotation"]["partition_key"] == pointer
+                and row["annotation"]["item_key"]
+                == [
+                    {"kind": "text", "text": row["record_type"]},
+                    {"kind": "integer", "integer": row["ordinal"]},
+                ]
+                for row in canonical_rows
+            )
+            digest_and_start[pointer] = (anno["partition_digest"], start)
+        return digest_and_start
+
+    with _private_pdf_captures(
+        semantic_bare_engine, native_settings, tmp_path, monkeypatch
+    ) as capture:
+        base_source = capture(scenario((ada,)), "base", source_uri="base.pdf")
+        moved_source = capture(scenario((ada, bob), reverse=True), "moved", source_uri="moved.pdf")
+        split_source = capture(scenario((bob, ada, ada)), "split", source_uri="split.pdf")
+        merged_source = capture(scenario((bob, f"{ada} {ada}")), "merged", source_uri="merged.pdf")
+        kernel = admit_current_target(
+            base_source, _recipe(tmp_path / "recipe"), tmp_path / "target"
+        )
+        base = read_occurrences(base_source, kernel, [("#/texts/0", ada, [(0, 9)])])
+        moved = read_occurrences(
+            moved_source, kernel, [("#/texts/1", bob, [(0, 10)]), ("#/texts/0", ada, [(0, 9)])]
+        )
+        split = read_occurrences(
+            split_source,
+            kernel,
+            [
+                ("#/texts/0", bob, [(0, 10)]),
+                ("#/texts/1", ada, [(0, 9)]),
+                ("#/texts/2", ada, [(0, 9)]),
+            ],
+        )
+        merged = read_occurrences(
+            merged_source,
+            kernel,
+            [("#/texts/0", bob, [(0, 10)]), ("#/texts/1", f"{ada} {ada}", [(0, 9), (10, 19)])],
+        )
+        assert base["#/texts/0"][0] == moved["#/texts/0"][0]
+        assert base["#/texts/0"][1] < moved["#/texts/0"][1]
+        assert moved["#/texts/1"][0] == split["#/texts/0"][0]
+        assert split["#/texts/1"][0] == split["#/texts/2"][0] == base["#/texts/0"][0]
+        assert split["#/texts/1"][1] != split["#/texts/2"][1]
+        assert merged["#/texts/1"][0] != split["#/texts/1"][0]
 
 
 @pytest.mark.gpu
