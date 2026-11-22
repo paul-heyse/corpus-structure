@@ -39,7 +39,7 @@ from .constructions.declarations import FAMILIES, GRAMMAR_FAMILIES
 from .constructions.layers import ConstructionLayer, ConstructionSource
 from .constructions.math_scope import Binders, NativeDomainRule
 from .data_operation_identity import body_identity, contextual_product_identity
-from .data_operation_model import EffectiveDataOperationModel, SubjectContext
+from .data_operation_model import BoundRoleMember, EffectiveDataOperationModel, SubjectContext
 from .data_product_reference import (
     DataProductReference,
     SemanticReference,
@@ -931,13 +931,44 @@ def validate_interpreted_product(
     product_type=ConstructionProduct,
     subject_context=None,
 ):
+    return _checked_interpreted_product(
+        prepared,
+        model,
+        value,
+        source,
+        formal,
+        product_type=product_type,
+        subject_context=subject_context,
+    )
+
+
+def _checked_interpreted_product(
+    prepared,
+    model,
+    value,
+    source,
+    formal,
+    *,
+    product_type=ConstructionProduct,
+    subject_context=None,
+    bound_member=None,
+):
     typed = prepared.validate_json(product_type.kind_name, canonical_bytes(value))
     checked = typed.model_dump(mode="json", exclude_unset=True)
     packets = analytical_packets(
         checked, manifest_contract(prepared, model, product_type.manifest_name)
     )
     selected = source.value
-    verify_interpreted_literal_source(checked, selected)
+    product = product_type(canonical_bytes(checked), prepared, model, subject_context)
+    if bound_member is None:
+        verify_interpreted_literal_source(checked, selected)
+    elif (
+        bound_member.member is not None
+        or product.semantic_id != bound_member.product
+        or checked["source"] != selected["source"]
+        or tuple(checked["selectors"]) != tuple(selected["selectors"])
+    ):
+        raise ValueError("construction body differs from its exact selected native product/source")
     selected_products = tuple((product.semantic_id, product.content) for product in formal)
     expected_dependencies = [
         DataProductReference(product_id).values() for product_id, _ in selected_products
@@ -963,7 +994,8 @@ def validate_interpreted_product(
     for occurrence in inventory["occurrences"]:
         if occurrence["local_id"] != occurrence_id(selected["source"], occurrence["extents"]):
             raise ValueError("construction occurrence changes original source identity")
-    verify_interpreted_positioned_geometry(packets, selected)
+    if bound_member is None:
+        verify_interpreted_positioned_geometry(packets, selected)
     dependencies = {product_id: json.loads(content) for product_id, content in selected_products}
     external = {
         (product_id, packet["member_id"]): packet["body"]
@@ -1009,38 +1041,53 @@ def validate_interpreted_product(
 
     validate_navigation_evidence({**indexes, "annotations": indexes["annotations"] | navigation})
     validate_inventory_graph(inventory, indexes, all_nodes, choices, validate_basis)
-    verify_interpreted_body_coverage(checked["coverage"], checked["outcome"], inventory)
-    verify_interpreted_source_coverage(checked["coverage"], selected)
-    return product_type(canonical_bytes(checked), prepared, model, subject_context)
+    if bound_member is None:
+        verify_interpreted_body_coverage(checked["coverage"], checked["outcome"], inventory)
+        verify_interpreted_source_coverage(checked["coverage"], selected)
+    return product
 
 
-def validate_construction_product(prepared, model, value, source, formal, *, subject_context=None):
+def _construction_dependencies(value, formal):
     available = {product.semantic_id: product for product in formal}
     requested = [row["product_id"] for row in value.get("dependencies", ())]
     if len(set(requested)) != len(requested) or any(key not in available for key in requested):
         raise ValueError("construction lacks its exact retained dependency closure")
-    selected = tuple(available[key] for key in requested)
+    return tuple(available[key] for key in requested)
+
+
+def validate_construction_product(prepared, model, value, source, formal, *, subject_context=None):
     return validate_interpreted_product(
-        prepared, model, value, source, selected, subject_context=subject_context
+        prepared,
+        model,
+        value,
+        source,
+        _construction_dependencies(value, formal),
+        subject_context=subject_context,
     )
 
 
-def retained_construction_product(
+def acquired_construction_product(
     prepared,
     model,
     value,
     source,
     formal,
     *,
-    subject_context=None,
-    member=None,
+    subject_context: SubjectContext,
+    member: BoundRoleMember,
 ):
-    product = validate_construction_product(
-        prepared, model, value, source, formal, subject_context=subject_context
+    """Read the exact whole construction after native binding established its required rules."""
+    if type(member) is not BoundRoleMember:
+        raise TypeError("selected construction requires its acquired native binding member")
+    return _checked_interpreted_product(
+        prepared,
+        model,
+        value,
+        source,
+        _construction_dependencies(value, formal),
+        subject_context=subject_context,
+        bound_member=member,
     )
-    if member is not None and product.semantic_id != member.product:
-        raise ValueError("construction body differs from its exact selected native product")
-    return product
 
 
 @dataclass(frozen=True)
@@ -1150,7 +1197,7 @@ class PreparedContextualProfile:
             ):
                 raise ValueError("context support belongs to another original source")
         checked = tuple(
-            retained_construction_product(
+            validate_construction_product(
                 self.prepared,
                 self.model,
                 json.loads(product.content),

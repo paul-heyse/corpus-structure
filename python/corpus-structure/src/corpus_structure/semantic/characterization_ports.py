@@ -21,10 +21,10 @@ from .construction_products import (
     ContextualMeaningProduct,
     PreparedConstructionProfile,
     PreparedContextualProfile,
+    acquired_construction_product,
     construction_product_values,
     contextual_product_values,
     interpreted_member_contracts,
-    retained_construction_product,
     validate_construction_product,
 )
 from .data_operation_model import SubjectContext
@@ -765,24 +765,32 @@ class PreparedCharacterizationPort(ABC):
                 raise PortRefusal("construction requires its selected annotation row partitions")
             return _ConstructionInputs(source, formal, native)
         supporting = self._retained(roles["supporting"], binding, "supporting")
-        constructions = tuple(
-            self._selected_product(
-                retained_construction_product(
+        constructions = []
+        for index, value in enumerate(roles["constructions"]):
+            body = _body(self.prepared, "DdoPrimaryConstructionProduct", value)
+            context = self._context(binding, "constructions", index, value)
+            if binding is None:
+                product = validate_construction_product(
                     self.prepared,
                     self.model,
-                    _body(self.prepared, "DdoPrimaryConstructionProduct", value),
+                    body,
                     source,
                     (*formal, *supporting),
-                    subject_context=self._context(binding, "constructions", index, value),
+                    subject_context=context,
+                )
+                product._publication_context()
+            else:
+                product = acquired_construction_product(
+                    self.prepared,
+                    self.model,
+                    body,
+                    source,
+                    (*formal, *supporting),
+                    subject_context=context,
                     member=self._member(binding, "constructions", index),
-                ),
-                binding,
-                "constructions",
-                index,
-            )
-            for index, value in enumerate(roles["constructions"])
-        )
-        return _ContextualInputs(source, formal, constructions, supporting)
+                )
+            constructions.append(product)
+        return _ContextualInputs(source, formal, tuple(constructions), supporting)
 
     def _completion(self, product, binding=None, *, source=None):
         if product is None:

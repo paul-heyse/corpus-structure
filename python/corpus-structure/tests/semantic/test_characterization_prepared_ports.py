@@ -547,7 +547,8 @@ def test_interpreted_body_coverage_refuses_empty_family_with_analytical_members(
         verify_interpreted_body_coverage(coverage, "complete", inventory)
 
 
-def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired):
+def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired, monkeypatch):
+    from corpus_structure.semantic import construction_products
     from corpus_structure.semantic.construction_products import (
         PreparedConstructionProfile,
         PreparedContextualProfile,
@@ -555,6 +556,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired)
         verify_interpreted_positioned_geometry,
         verify_interpreted_source_coverage,
     )
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember
 
     _, _, prepared, model, formal = acquired
     source = selected(formal, "All samples are finite.")
@@ -657,6 +659,50 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired)
     extent["synthetic"] = True
     with pytest.raises(ValueError, match="changes original positioned source"):
         verify_interpreted_positioned_geometry((packet,), source.value)
+
+    member = BoundRoleMember(
+        product=construction.semantic_id,
+        kind_contract=next(
+            item.key
+            for item in model.identities
+            if item.owner == prepared.index.definitions[construction.kind_name].iri
+            and item.domain == "kind"
+        ),
+        subject=context.subject,
+        subject_definition=context.subject_definition,
+        original_source=context.original_source,
+        analyzed_scope=context.analyzed_scope,
+        coverage=b"{}",
+        support_episodes=(),
+        support_evidence=b"{}",
+        support_references=(),
+    )
+    payload = construction.value.model_dump(mode="json", exclude_unset=True)
+
+    def repeated(*args, **kwargs):
+        pytest.fail("selected construction repeated an established source or coverage rule")
+
+    for checker in (
+        "verify_interpreted_literal_source",
+        "verify_interpreted_positioned_geometry",
+        "verify_interpreted_body_coverage",
+        "verify_interpreted_source_coverage",
+    ):
+        monkeypatch.setattr(construction_products, checker, repeated)
+    selected_product = construction_products.acquired_construction_product(
+        prepared, model, payload, source, (primary,), subject_context=context, member=member
+    )
+    assert selected_product.semantic_id == construction.semantic_id
+    with pytest.raises(ValueError, match="exact selected native product/source"):
+        construction_products.acquired_construction_product(
+            prepared,
+            model,
+            payload,
+            selected(formal, "No sample is finite."),
+            (primary,),
+            subject_context=context,
+            member=member,
+        )
 
 
 def test_primary_support_uses_real_annotation_rows_and_preserves_formal_premises():
