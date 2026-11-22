@@ -2145,7 +2145,6 @@ def _inputs_watermarks(metadata, bounded):
             visible=func.coalesce(facts, _json([])),
             source_sets=_var("d.selection", JSONB)["source_sets"],
             original_sources=_var("d.selection", JSONB)["original_sources"],
-            trust=_var("boundary.trust_snapshot", JSONB),
         )
     )
 
@@ -2412,6 +2411,23 @@ def read_page(metadata):
         .scalar_subquery()
     )
     inputs_watermark = _inputs_watermarks(metadata, bounded)
+    wait_read = metadata.tables["ops.data_demand_read"].alias("wait_read")
+    authority_changed = (
+        select(
+            or_(
+                wait_read.c.trust_snapshot.is_distinct_from(_var("boundary.trust_snapshot", JSONB)),
+                wait_read.c.access_universes.is_distinct_from(
+                    _var("boundary.access_universes", JSONB)
+                ),
+            )
+        )
+        .where(
+            wait_read.c.id == latest.c.selection["read_id"].astext,
+            wait_read.c.demand_id == demand,
+        )
+        .correlate(latest)
+        .scalar_subquery()
+    )
     obligation_body = (
         func.to_jsonb(bounded.table_valued())
         .op("-")(literal("created_at"))
@@ -2454,6 +2470,20 @@ def read_page(metadata):
             case(
                 (bounded.c.original_readiness.is_not(None), _json({})),
                 else_=_obj(inputs_watermark=inputs_watermark),
+            )
+        )
+        .op("||")(
+            case(
+                (
+                    and_(
+                        ~_var("boundary.public_disclosure", Boolean),
+                        latest.c.fate.in_(
+                            ("awaiting-inputs", "awaiting-population", "awaiting-discovery")
+                        ),
+                    ),
+                    _obj(binding_authority_changed=func.coalesce(authority_changed, True)),
+                ),
+                else_=_json({}),
             )
         )
     )

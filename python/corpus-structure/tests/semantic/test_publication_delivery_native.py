@@ -12,6 +12,7 @@ from corpus_structure.semantic import migrations
 from corpus_structure.semantic._data_operation_wire import (
     WirePublishDataDerivationRequest,
     WireRecordDataFateRequest,
+    WireRevokeDataSupportRequest,
 )
 from corpus_structure.semantic.canonical_sentences import canonical_sentence_operation_sources
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
@@ -370,10 +371,30 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
 
     remember_wait(snapshot(demand))
     assert routes(snapshot(demand), after_wait=True) == ()
-    publish(kernel, fence, intent)
+    published = publish(kernel, fence, intent)
     seen = snapshot(demand)
     (pending_reason,) = routes(seen, after_wait=True)
     assert pending_reason["successor_fate"] == "pending"
     remember_wait(seen)
-    assert routes(snapshot(demand), after_wait=True) == ()
-    assert routes(snapshot(demand)) == (pending_reason,)
+    settled_wait = snapshot(demand)
+    assert routes(settled_wait, after_wait=True) == ()
+    assert routes(settled_wait) == (pending_reason,)
+    assert recipient(settled_wait)["binding_authority_changed"] is False
+    with admin.begin() as connection:
+        DataOperationStorage(connection).revoke_data_support(
+            cast(
+                WireRevokeDataSupportRequest,
+                {
+                    "project_id": PROJECT,
+                    "original_source": "source:test",
+                    "selector_kind": "derivation",
+                    "selector": published["derivation_id"],
+                    "reason": "retired selected producer episode",
+                },
+            )
+        )
+    revoked = snapshot(demand)
+    assert recipient(revoked)["binding_authority_changed"] is True
+    assert routes(revoked) == ()
+    remember_wait(revoked)
+    assert recipient(snapshot(demand))["binding_authority_changed"] is False

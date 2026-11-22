@@ -1101,6 +1101,7 @@ definitions:
     properties:
       original_readiness:
         anyOf: [{$ref: '#/definitions/original_obligation_readiness'}, {type: 'null'}]
+      binding_authority_changed: {type: boolean}
       inputs_watermark: {type: string, minLength: 1}
       id:
         $ref: '#/definitions/identifier'

@@ -32,6 +32,7 @@ def original_obligation_readiness(model):
         other_fields = other_fields.op("-")(field)
     covered = and_(
         func.ops.ddo_demand_active(demands.c.id),
+        ~reads.c.public_disclosure,
         func.jsonb_array_length(definitions.c.input_roles) == 1,
         role["minimum"].astext == "1",
         role["maximum"].astext == "1",

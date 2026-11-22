@@ -796,12 +796,16 @@ class DemandPlanner:
                 original_readiness is None
                 and not retained
                 and obligation["obligation_id"] not in woken_obligations
+                and not obligation.get("binding_authority_changed")
                 and previous is not None
                 and previous["fate"]
                 in {"awaiting-inputs", "awaiting-population", "awaiting-discovery"}
                 and previous["selection"].get("inputs_watermark") == obligation["inputs_watermark"]
             ):
                 continue
+            wait_observation = {"read_id": snapshot["read_id"]}
+            if "inputs_watermark" in obligation:
+                wait_observation["inputs_watermark"] = obligation["inputs_watermark"]
             operation = selected[obligation["operation_id"]]
             discovery_roles = {
                 relation["target_role"]: relation["population"]
@@ -993,8 +997,7 @@ class DemandPlanner:
                             "obligation_id": obligation["obligation_id"],
                             "fate": "awaiting-population",
                             "selection": {
-                                "inputs_watermark": obligation["inputs_watermark"],
-                                "read_id": snapshot["read_id"],
+                                **wait_observation,
                                 "reasons": [
                                     asdict(
                                         BindingReason(
@@ -1068,8 +1071,7 @@ class DemandPlanner:
                             "obligation_id": obligation["obligation_id"],
                             "fate": recordable_binding_fate(binding.status),
                             "selection": {
-                                "inputs_watermark": obligation["inputs_watermark"],
-                                "read_id": snapshot["read_id"],
+                                **wait_observation,
                                 "reasons": [asdict(reason) for reason in binding.reasons],
                             },
                         },
