@@ -13,6 +13,10 @@ from typing import Any, ClassVar
 from corpus_structure.caches import declare
 
 from .characterization import characterization_profiles
+from .characterization_manifests import (
+    learned_dependency_products,
+    learned_manifest_input_roles,
+)
 from .data_operation_identity import body_identity, contextual_product_identity
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
 from .data_operation_partitions import partition_header
@@ -83,6 +87,7 @@ class RetainedCharacterizationProduct:
     selected_product: str | None
     selected_member: str | None
     partitions: tuple[bytes, ...] | None
+    learned_dependencies: tuple[str, ...] | None
     _payload: ClassVar[_CharacterizationPayload]
 
     def __init__(self, *args, **kwargs):
@@ -90,7 +95,16 @@ class RetainedCharacterizationProduct:
 
     @classmethod
     def _from_payload(
-        cls, payload, prepared, model, kind, context, partitions, selection=(None, None)
+        cls,
+        payload,
+        prepared,
+        model,
+        kind,
+        context,
+        partitions,
+        selection=(None, None),
+        *,
+        learned_dependencies=None,
     ):
         result = object.__new__(cls)
         object.__setattr__(result, "content", payload.content)
@@ -102,6 +116,7 @@ class RetainedCharacterizationProduct:
         object.__setattr__(result, "partitions", partitions)
         object.__setattr__(result, "selected_product", selection[0])
         object.__setattr__(result, "selected_member", selection[1])
+        object.__setattr__(result, "learned_dependencies", learned_dependencies)
         return result
 
     @classmethod
@@ -159,12 +174,12 @@ class RetainedCharacterizationProduct:
     def with_context(self, context, *, member=None):
         self._require_acquired()
         selection = (self.selected_product, self.selected_member)
+        dependencies = self.learned_dependencies if context == self.subject_context else None
         if member is not None:
             from .data_operation_model import BoundRoleMember
 
             if (
                 type(member) is not BoundRoleMember
-                or member.member is None
                 or member.kind_contract != self._kind_contract
                 or context is None
                 or context.subject != member.subject
@@ -173,9 +188,23 @@ class RetainedCharacterizationProduct:
                 or context.analyzed_scope != member.analyzed_scope
             ):
                 raise ValueError("retained characterization requires its exact selected member")
+            if member.member is None and contextual_product_identity(
+                kind=self._kind_contract, context=context, body=self._payload.body_digest
+            ).key != member.product:
+                raise ValueError("family body differs from its selected native product identity")
             selection = (member.product, member.member)
+            dependencies = learned_dependency_products(
+                self.prepared, self.kind, self.value, member
+            )
         return self._from_payload(
-            self._payload, self.prepared, self.model, self.kind, context, self.partitions, selection
+            self._payload,
+            self.prepared,
+            self.model,
+            self.kind,
+            context,
+            self.partitions,
+            selection,
+            learned_dependencies=dependencies,
         )
 
     def _publication_context(self):
@@ -373,6 +402,22 @@ def ordered_composition_inputs(sources, products):
     return ordered_sources, ordered_products
 
 
+def require_learned_composition_inputs(products):
+    selected = {product.semantic_id for product in products}
+    for product in products:
+        if type(product) is not RetainedCharacterizationProduct:
+            if (
+                product.value.get("standing") == "native_provider_observation"
+                or product.value.get("record_type") == "manifest"
+            ):
+                raise ValueError("combined view requires acquired characterization manifests")
+            continue
+        if learned_manifest_input_roles(product.prepared, product.kind) and (
+            product.learned_dependencies is None or not set(product.learned_dependencies) <= selected
+        ):
+            raise ValueError("combined view is missing an exact selected learned dependency")
+
+
 def compose_enriched_document_values(
     sources,
     products,
@@ -492,6 +537,7 @@ def compose_enriched_document(
 ):
     """Compose exact retained inputs with original local offsets and source identities."""
     sources = tuple(FrozenNativeSource.acquire(prepared, source) for source in sources)
+    require_learned_composition_inputs(products)
     value = compose_enriched_document_values(
         sources,
         products,

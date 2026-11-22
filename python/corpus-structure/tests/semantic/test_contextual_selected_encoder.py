@@ -96,10 +96,37 @@ def test_requested_context_refuses_wrong_member_source_dependency_and_missing_po
         prepare_selected_query_context(
             frame, occurrence, changed, binding=binding, recipe=recipe, evidence=evidence.values()
         )
+    changed = deepcopy(primary)
+    changed[0]["standing"] = "native_provider_observation"
+    with pytest.raises(ValueError, match="exact authorized learned producing inputs"):
+        prepare_selected_query_context(
+            frame, occurrence, changed, binding=binding, recipe=recipe, evidence=evidence.values()
+        )
     with pytest.raises(ValueError, match="binding"):
         prepare_selected_query_context(
             frame, occurrence, (), binding=binding, recipe=recipe, evidence=evidence.values()
         )
+
+
+def test_encoder_packet_distinguishes_declared_empty_and_unavailable_learned_closures():
+    from corpus_structure.semantic import contextual_encoder_batch as batch
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
+
+    members, _ = _query_members(selected=True)
+    for member in members:
+        basis = decode_semantic_value(member["input_basis"])
+        primary = next(row for row in basis["roles"] if row["role"] == "primary")
+        primary["body"]["standing"] = "native_provider_observation"
+        member["input_basis"] = semantic_value(basis)
+    packet = batch.encoder_packet(
+        members,
+        "retrieve.contextual_query/selected-context",
+        member_metadata=({"product:primary": ()}, {"product:primary": None}),
+    )
+    prepared, failures = batch.prepare_encoder_members(packet, batch.unpack_encoder_packet(packet))
+    assert len(prepared) == 1
+    assert set(failures) == {1}
+    assert failures[1]["encoder_member_failure"]["code"] == "selected-context-unavailable"
 
 
 @pytest.mark.parametrize("failure", ["missing", "empty"])

@@ -346,7 +346,6 @@ def extract_definition_products(
             }
         ],
         "outcome": status,
-        "dependencies": [],
     }
     value["members"] = [
         compact_manifest(

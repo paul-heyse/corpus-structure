@@ -35,6 +35,8 @@ _FILES = (
     "semantic/contextual_cpu.py",
     "semantic/characterization.py",
     "semantic/data_product_reference.py",
+    "semantic/characterization_manifests.py",
+    "semantic/reference_resolution.py",
 )
 
 
@@ -256,7 +258,9 @@ def prepare_selected_query_context(frame, occurrence, primary, *, binding, recip
     )
 
 
-def prepare_primary_query_context(frame, occurrence, rows, *, recipe, evidence):
+def prepare_primary_query_context(
+    frame, occurrence, rows, *, recipe, evidence, learned_dependencies=None
+):
     """Shared query12 projection over actual CPU/native primary role facts."""
     from corpus_structure.methods.contextual_query import (
         DeclaredQueryContextBinding,
@@ -283,7 +287,9 @@ def prepare_primary_query_context(frame, occurrence, rows, *, recipe, evidence):
     selection = DeclaredQueryContextSelection(
         recipe, (DeclaredQueryContextBinding(occurrence["occurrence_id"], selected),)
     )
-    products, inputs = {}, []
+    products, inputs, dependencies = {}, [], {}
+    learned_dependencies = learned_dependencies or {}
+    observed_learned = set()
     for row in rows:
         if (
             row.role != "primary"
@@ -299,7 +305,19 @@ def prepare_primary_query_context(frame, occurrence, rows, *, recipe, evidence):
             or canonical_bytes(row.body.get("selectors")) != canonical_bytes(frame.value["selectors"])
         ):
             raise ValueError("query context primary belongs to another original source/scope")
+        if row.product_id in products:
+            raise ValueError("query context repeats a selected primary product")
         products[row.product_id] = dict(canonical_body=semantic_value(row.body))
+        if row.body.get("standing") == "native_provider_observation":
+            targets = learned_dependencies.get(row.product_id)
+            if targets is None:
+                raise ValueError("query context lacks exact authorized learned producing inputs")
+            dependencies[row.product_id] = targets
+            observed_learned.add(row.product_id)
+        else:
+            dependencies[row.product_id] = tuple(
+                item["product_id"] for item in row.body.get("dependencies", ())
+            )
         inputs.append(
             dict(
                 product_id=row.product_id,
@@ -312,6 +330,8 @@ def prepare_primary_query_context(frame, occurrence, rows, *, recipe, evidence):
                 analyzed_scope_meaning=json_context_meaning(row.context.analyzed_scope).decode(),
             )
         )
+    if observed_learned != learned_dependencies.keys():
+        raise ValueError("query context includes unselected learned dependency inputs")
     inventories = SelectedCharacterizationInventories(products)
     reachable, pending = set(), [selected.product]
     while pending:
@@ -321,10 +341,7 @@ def prepare_primary_query_context(frame, occurrence, rows, *, recipe, evidence):
         if product not in inventories:
             raise ValueError("query context lacks its exact selected dependency closure")
         reachable.add(product)
-        pending.extend(
-            DataProductReference(row["product_id"])
-            for row in inventories[product].payload.get("dependencies", ())
-        )
+        pending.extend(DataProductReference(key) for key in dependencies[product.product_id])
     if reachable != {DataProductReference(product) for product in products}:
         raise ValueError("query context includes unrelated primary products")
     located = resolve_query_contexts(
@@ -432,7 +449,7 @@ class SelectedQueryContextUnavailable(ValueError):
     """An exact selected primary population cannot supply the requested context."""
 
 
-def prepare_query_encoder_member(input_basis, frame):
+def prepare_query_encoder_member(input_basis, frame, *, learned_dependencies=None):
     from .data_operation_cpu_basis import cpu_basis_values
     from .data_operation_model import json_context_meaning
     from .data_operation_values import decode_semantic_value
@@ -460,6 +477,7 @@ def prepare_query_encoder_member(input_basis, frame):
                 roles["primary"],
                 recipe=selection["recipe"],
                 evidence=selection["evidence"],
+                learned_dependencies=learned_dependencies,
             )
         except ValueError as error:
             raise SelectedQueryContextUnavailable(str(error)) from error
@@ -532,15 +550,51 @@ class ContextualEncoderBatchPlan:
         )
 
         expected = self.port.batch_expected_members(members)
-        packet = encoder_packet(expected, self.operation)
+        packet = encoder_packet(
+            expected, self.operation, member_metadata=self.member_metadata(members, expected)
+        )
         prepared, _ = prepare_encoder_members(packet, unpack_encoder_packet(packet))
         return encoder_input_bytes(tuple(member.item for member in prepared))
 
-    def plan(self, members, *, check_active, execution_owner):
+    def member_metadata(self, members, expected):
+        """Resolve each logical item's learned closure from its acquired role members."""
+        from .characterization_manifests import (
+            is_learned_observation,
+            learned_dependency_products,
+        )
+        from .data_operation_values import decode_semantic_value
+
+        kinds = {
+            identity.key: identity.owner
+            for identity in self.port.model.identities
+            if identity.domain == "kind"
+        }
+        result = []
+        for member, declared in zip(members, expected, strict=True):
+            binding = next(
+                (item for item in member.binding.roles if item.role == "primary"), None
+            )
+            actual = {} if binding is None else {item.product: item for item in binding.members}
+            dependencies: dict[str, tuple[str, ...] | None] = {}
+            for row in decode_semantic_value(declared["input_basis"])["roles"]:
+                if row["role"] != "primary":
+                    continue
+                kind = kinds[row["kind_contract"]]
+                if is_learned_observation(self.prepared, kind):
+                    try:
+                        dependencies[row["product_id"]] = learned_dependency_products(
+                            self.prepared, kind, row["body"], actual[row["product_id"]]
+                        )
+                    except (KeyError, ValueError):
+                        dependencies[row["product_id"]] = None
+            result.append(dependencies)
+        return tuple(result)
+
+    def plan(self, members, *, check_active, execution_owner, member_metadata):
         from .contextual_encoder_batch import encoder_packet, execute_encoder_batch
         from .data_operation_prepared_call import PreparedBatchCallResult
 
-        packet = encoder_packet(members, self.operation)
+        packet = encoder_packet(members, self.operation, member_metadata=member_metadata)
         bound = inspect.signature(execute_encoder_batch).bind(
             packet=packet,
             profile_record=asdict(self.selection.profile),
@@ -631,6 +685,10 @@ def resolve_contextual_encoder_port(
                 "corpus_structure.semantic.contextual_encoder.ContextualEncoderBatchPlan.order_key",
                 plan.order_key,
             ),
+            (
+                "corpus_structure.semantic.contextual_encoder.ContextualEncoderBatchPlan.member_metadata",
+                plan.member_metadata,
+            ),
         ),
         requires_prepared_schema=True,
         retain_cpu_reply=True,
@@ -639,6 +697,7 @@ def resolve_contextual_encoder_port(
         batch_max_input_bytes=selection.profile.max_input_bytes,
         batch_input_bytes=plan.input_bytes,
         batch_order_key=plan.order_key,
+        batch_metadata=plan.member_metadata,
     )
     plan.port = port
     return port

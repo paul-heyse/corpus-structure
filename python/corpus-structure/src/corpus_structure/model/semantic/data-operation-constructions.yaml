@@ -384,6 +384,8 @@ classes:
     is_a: DdoConstructionMember
     mixins:
     - DdoCharacterizedProduct
+    attributes:
+      dependencies: {range: DdoSemanticProductReference, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
   DdoContextualMember:
     is_a: DdoInterpretedMember
     abstract: true
@@ -398,6 +400,8 @@ classes:
     is_a: DdoContextualMember
     mixins:
     - DdoCharacterizedProduct
+    attributes:
+      dependencies: {range: DdoSemanticProductReference, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
 
   DdoSemanticNavigationToken:
     is_a: SourceRecordProduct

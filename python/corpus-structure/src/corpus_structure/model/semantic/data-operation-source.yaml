@@ -209,12 +209,6 @@ classes:
       outcome:
         required: true
         pattern: '^(complete|partial|failed)$(?![\s\S])'
-      dependencies:
-        range: DdoSemanticProductReference
-        inlined: true
-        multivalued: true
-        value_presence: PRESENT
-        minimum_cardinality: 0
   DdoCharacterizationCoverage:
     is_a: SourceRecordProduct
     description: A family standing over explicitly eligible, examined and unexamined

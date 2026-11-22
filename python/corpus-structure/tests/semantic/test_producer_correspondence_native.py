@@ -266,7 +266,12 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
             (
                 {
                     "reference_targets": [
-                        {"output_role": "result", "input_role": "source"},
+                        {
+                            "output_role": "result",
+                            "path": "/members/*/body/source_input",
+                            "input_role": "source",
+                            "variant": "product",
+                        },
                         {"output_role": "result", "input_role": "protected"},
                         {
                             "output_role": "result",

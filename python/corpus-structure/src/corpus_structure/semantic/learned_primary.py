@@ -42,6 +42,7 @@ _FILES = (
     "semantic/declared_candidate_products.py",
     "semantic/declared_record_sources.py",
     "semantic/characterization_manifests.py",
+    "semantic/data_product_reference.py",
     "semantic/sentence_products.py",
     "methods/pm2_result.py",
     "methods/pm2_source.py",
@@ -102,9 +103,10 @@ def learned_d1_evidence(
 def learned_primary_inputs(bundle):
     import yaml
 
+    from .data_product_reference import reference_inputs
     from .declared_candidate_products import candidate_inspection_inputs
 
-    bundle = candidate_inspection_inputs(bundle)
+    bundle = candidate_inspection_inputs(reference_inputs(bundle))
     name, root = "data_operation_learned", "data_operation_learned_root"
     existing = {source.name: source.content for source in bundle.sources}
     if name in existing:
@@ -992,12 +994,10 @@ class PreparedLearnedPrimary:
             }
             for family in covered_families
         ]
-        dependencies = [
-            {"product_id": member.product}
-            for role in binding.roles
-            if role.role != "source"
-            for member in role.members
-        ]
+        from .characterization_manifests import learned_manifest_input_roles
+        from .data_product_reference import SemanticReference
+
+        kind = "Ddo" + self.nominal_name + "Observations"
         value = {
             "source": source.value["source"],
             "selectors": source.value["selectors"],
@@ -1008,18 +1008,17 @@ class PreparedLearnedPrimary:
             "observations": observations,
             "coverage": family_coverage,
             "outcome": status,
-            "dependencies": dependencies,
         }
-        value["members"] = [
-            compact_manifest(
-                value,
-                manifest_contract(
-                    self.prepared, self.model, "Ddo" + self.nominal_name + "Manifest"
-                ),
-            )
-        ]
+        manifest_kind = "Ddo" + self.nominal_name + "Manifest"
+        manifest = compact_manifest(
+            value, manifest_contract(self.prepared, self.model, manifest_kind)
+        )
+        kind_uri = self.prepared.index.definitions[kind].iri
+        for role in learned_manifest_input_roles(self.prepared, kind_uri):
+            manifest["body"][role + "_input"] = SemanticReference.whole(role).whole_value()
+        value["members"] = [manifest]
         observation = self.prepared.validate_json(
-            "Ddo" + self.nominal_name + "Observations", canonical_bytes(value)
+            kind, canonical_bytes(value)
         ).model_dump(mode="python", exclude_unset=True)
         report = candidate_inspection_report(
             self.prepared,

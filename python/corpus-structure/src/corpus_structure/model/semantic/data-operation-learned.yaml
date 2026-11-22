@@ -9,6 +9,7 @@ imports:
 - data_operation_source_discovery
 - data_operation_candidate_inspection
 - data_operation_constructions
+- data_operation_references
 classes:
   DdoLearnedObservation:
     is_a: DdoCharacterizationEnvelope
@@ -35,15 +36,10 @@ classes:
       outcome:
         required: true
         pattern: '^(complete|partial)$(?![\s\S])'
-      dependencies:
-        range: DdoSemanticProductReference
-        inlined_as_list: true
-        multivalued: true
-        value_presence: PRESENT
-        minimum_cardinality: 0
   DdoMaverickManifest:
     is_a: DdoCharacterizedProduct
-    attributes: {}
+    attributes:
+      annotations_input: {range: DdoSemanticReference, inlined: true, required: true}
   DdoMaverickManifestPacket:
     is_a: SourceRecordProduct
     attributes:
@@ -127,7 +123,10 @@ classes:
         maximum_cardinality: 1
   DdoD1CandidatesManifest:
     is_a: DdoCharacterizedProduct
-    attributes: {}
+    attributes:
+      formal_input: {range: DdoSemanticReference, inlined: true, required: true}
+      constructions_input: {range: DdoSemanticReference, inlined: true, required: true}
+      contextual_input: {range: DdoSemanticReference, inlined: true, required: true}
   DdoD1CandidatesManifestPacket:
     is_a: SourceRecordProduct
     attributes:

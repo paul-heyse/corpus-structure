@@ -154,6 +154,14 @@ class MaverickPrimaryOperation:
                 "role": "native-policy-source-mapping-and-private-projection",
             }
         ],
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/members/*/body/annotations_input",
+                "input_role": "annotations",
+                "variant": "product",
+            },
+        ],
         "output_witnesses": [
             {
                 "output_role": "result",
@@ -1772,6 +1780,26 @@ class D1CandidatesPrimaryOperation:
                 "contract": "learned/profile-assets",
                 "role": "native-policy-source-mapping-and-private-projection",
             }
+        ],
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/members/*/body/formal_input",
+                "input_role": "formal",
+                "variant": "product",
+            },
+            {
+                "output_role": "result",
+                "path": "/members/*/body/constructions_input",
+                "input_role": "constructions",
+                "variant": "product",
+            },
+            {
+                "output_role": "result",
+                "path": "/members/*/body/contextual_input",
+                "input_role": "contextual",
+                "variant": "product",
+            },
         ],
         "output_witnesses": [
             {

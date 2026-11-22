@@ -14,7 +14,7 @@ from .data_operation_json import json_bytes
 from .data_operation_values import decode_semantic_value, semantic_value
 from .identity import canonical_bytes
 
-PACKET_VERSION = "contextual-encoder-packet-1"
+PACKET_VERSION = "contextual-encoder-packet-2"
 MEMBER_FAILURE_VERSION = "contextual-encoder-member-failure-1"
 MEMBER_FAILURE_CODES = frozenset(
     {
@@ -57,12 +57,15 @@ def _frame_record(source):
     return dict(body=_digest(semantic_value(body)), pin=semantic_value(pin), version=4)
 
 
-def encoder_packet(members, operation):
+def encoder_packet(members, operation, *, member_metadata=None):
     """Carry each role body once; frame references never carry another source body."""
     from .data_operation_cpu_basis import _batch_members
 
     bodies, frames, population = {}, {}, []
-    for member in _batch_members(members):
+    members = _batch_members(members)
+    if member_metadata is None:
+        member_metadata = ({},) * len(members)
+    for member, learned_dependencies in zip(members, member_metadata, strict=True):
         basis = decode_semantic_value(member["input_basis"])
         frame = None
         for row in basis["roles"]:
@@ -81,6 +84,7 @@ def encoder_packet(members, operation):
                 input_basis=semantic_value(basis),
                 input_basis_digest=_digest(member["input_basis"]),
                 frame=frame,
+                learned_dependencies=learned_dependencies,
             )
         )
     return dict(
@@ -131,9 +135,24 @@ def unpack_encoder_packet(packet):
             "input_basis",
             "input_basis_digest",
             "frame",
+            "learned_dependencies",
         }:
             raise ValueError("encoder packet member contract changed")
         basis = decode_semantic_value(member["input_basis"])
+        dependencies = member["learned_dependencies"]
+        if not isinstance(dependencies, dict) or any(
+            type(product) is not str
+            or not product
+            or (
+                targets is not None
+                and (
+                    not isinstance(targets, (tuple, list))
+                    or any(type(target) is not str or not target for target in targets)
+                )
+            )
+            for product, targets in dependencies.items()
+        ):
+            raise ValueError("encoder packet learned dependencies differ from its member contract")
         frame = None
         for row in basis["roles"]:
             reference = row["body"]
@@ -153,6 +172,9 @@ def unpack_encoder_packet(packet):
             _digest(restored) != member["input_basis_digest"]
             or frame != member["frame"]
             or (frame is not None and frame not in packet["frames"])
+            or dependencies.keys() - {
+                row["product_id"] for row in basis["roles"] if row["role"] == "primary"
+            }
         ):
             raise ValueError("encoder packet member basis/frame correspondence changed")
         if frame is not None:
@@ -257,7 +279,11 @@ def prepare_encoder_members(packet, members, *, check_active=lambda: None):
                 failures[position] = member_failure("source-coordinate-mismatch", error)
                 continue
             try:
-                item, metadata = prepare_query_encoder_member(member["input_basis"], frame)
+                item, metadata = prepare_query_encoder_member(
+                    member["input_basis"],
+                    frame,
+                    learned_dependencies=packet["members"][position]["learned_dependencies"],
+                )
             except SelectedQueryContextUnavailable as error:
                 failures[position] = member_failure("selected-context-unavailable", error)
                 continue

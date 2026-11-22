@@ -37,6 +37,7 @@ from .enriched_document_products import (
     compose_enriched_document,
     compose_enriched_document_values,
     ordered_composition_inputs,
+    require_learned_composition_inputs,
 )
 from .formal_products import (
     FormalEvidenceProduct,
@@ -92,6 +93,7 @@ def _execution_custody() -> SourceArtifact:
         "sentence_products.py",
         "declared_record_sources.py",
         "data_product_reference.py",
+        "reference_resolution.py",
         "data_operation_cpu.py",
         "data_operation_prepared_products.py",
         "cpu_receipts.py",
@@ -586,33 +588,6 @@ class PreparedCharacterizationPort(ABC):
             raise PortRefusal("characterization ingress differs from acquired binding")
         return result
 
-    def _selected_product(self, product, binding, role_name, index):
-        """Restore the exact publication address from an admitted role member."""
-        from .data_operation_ports import PortRefusal
-
-        if binding is None:
-            product._publication_context()
-            return product
-        if binding.subject_context is None:
-            raise PortRefusal("product references require an explicit acquired subject context")
-        role = next(role for role in binding.roles if role.role == role_name)
-        members = tuple(member for member in role.members for _ in range(member.multiplicity))
-        member = members[index]
-        if member.member is not None:
-            raise PortRefusal("whole family product cannot substitute for a selected member")
-        context = SubjectContext(
-            binding.subject_context.project_id,
-            member.subject,
-            member.original_source,
-            member.analyzed_scope,
-            subject_definition=member.subject_definition,
-        )
-        if product.subject_context != context:
-            product = product.with_context(context)
-        if product.semantic_id != member.product:
-            raise PortRefusal("family body differs from its selected native product identity")
-        return product
-
     @staticmethod
     def _member(binding, role_name, index):
         if binding is None:
@@ -677,6 +652,8 @@ class PreparedCharacterizationPort(ABC):
                     raise PortRefusal("heterogeneous inputs require their actual native kind lineage")
                 value._require_acquired()
             return tuple(raw)
+        if binding.subject_context is None:
+            raise PortRefusal("product references require an explicit acquired subject context")
         selected = next(role for role in binding.roles if role.role == name)
         members = tuple(member for member in selected.members for _ in range(member.multiplicity))
         if len(members) != len(raw):
@@ -703,20 +680,14 @@ class PreparedCharacterizationPort(ABC):
                 if partitioned
                 else None,
             )
-            if member.member is not None:
-                from .data_operation_model import SubjectContext
-
-                context = SubjectContext(
-                    binding.subject_context.project_id,
-                    member.subject,
-                    member.original_source,
-                    member.analyzed_scope,
-                    subject_definition=member.subject_definition,
-                )
-                product = product.with_context(context, member=member)
-                products.append(product)
-            else:
-                products.append(self._selected_product(product, binding, name, len(products)))
+            context = SubjectContext(
+                binding.subject_context.project_id,
+                member.subject,
+                member.original_source,
+                member.analyzed_scope,
+                subject_definition=member.subject_definition,
+            )
+            products.append(product.with_context(context, member=member))
         return tuple(products)
 
     def _inputs(self, values, binding):
@@ -996,6 +967,7 @@ class PreparedCharacterizationPort(ABC):
         if isinstance(inputs, _DocumentInputs):
             from .characterization import characterization_profiles
 
+            require_learned_composition_inputs(inputs.products)
             arguments = dict(
                 sources=inputs.sources,
                 products=tuple(

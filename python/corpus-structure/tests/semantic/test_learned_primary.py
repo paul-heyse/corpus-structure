@@ -104,6 +104,18 @@ def test_learned_profile_captures_actual_provider_factories_and_private_outputs(
             "candidates",
         }
         assert len(operation.output_witnesses) == 3
+    assert {
+        operation: tuple((target.input_role, target.path) for target in model.operation(operation).reference_targets)
+        for operation in sorted(expected)
+        if model.operation(operation).reference_targets
+    } == {
+        "text.maverick/source-native": (("annotations", "/members/*/body/annotations_input"),),
+        "text.d1_candidates/source-native": (
+            ("formal", "/members/*/body/formal_input"),
+            ("constructions", "/members/*/body/constructions_input"),
+            ("contextual", "/members/*/body/contextual_input"),
+        ),
+    }
     assert model.operation("text.maverick/source-native").dependencies == (
         "segment.sentences/source-native",
     )
@@ -234,7 +246,7 @@ def _assert_contextual_native_cpu_bracket(inputs, prepared, model, monkeypatch):
     )
 
     def observation(provider, nominal):
-        return append_manifest(
+        product = append_manifest(
             {
                 "source": source.value["source"],
                 "selectors": source.value["selectors"],
@@ -245,10 +257,17 @@ def _assert_contextual_native_cpu_bracket(inputs, prepared, model, monkeypatch):
                 "observations": [],
                 "coverage": [],
                 "outcome": "complete",
-                "dependencies": [],
             },
             manifest_contract(prepared, model, "Ddo" + nominal + "Manifest"),
         )
+        if nominal == "Maverick":
+            (manifest,) = product["members"]
+            manifest["body"]["annotations_input"] = {"variant": "product", "role": "annotations"}
+        return product
+
+    _assert_learned_view_closure(
+        prepared, model, source, context, observation("maverick", "Maverick")["members"][0]
+    )
 
     values = tuple(
         PythonRoleValue(role, roles[role], value)
@@ -309,6 +328,87 @@ def _assert_contextual_native_cpu_bracket(inputs, prepared, model, monkeypatch):
         assert json.loads(completion.cpu_execution_evidence)["pid"] != os.getpid()
     finally:
         cpu.close()
+
+
+def _assert_learned_view_closure(prepared, model, source, context, maverick):
+    from types import SimpleNamespace
+
+    import pytest
+
+    from corpus_structure.semantic.characterization_manifests import compact_manifest
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember
+    from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+    from corpus_structure.semantic.enriched_document_products import (
+        EnrichedDocumentReadings,
+        RetainedCharacterizationProduct,
+        compose_enriched_document,
+    )
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    def nominal(name):
+        kind = prepared.index.definitions[name].iri
+        contract = next(
+            row.key for row in model.identities if row.owner == kind and row.domain == "kind"
+        )
+        return kind, contract
+
+    def selected_member(product, member, contract, *, dependencies=None):
+        support = () if dependencies is None else (
+            ComputationalSupportReference(derivation_id="controlled:learned-producer"),
+        )
+        return BoundRoleMember(
+            product, contract, context.subject, context.original_source, context.analyzed_scope,
+            coverage=b"{}", subject_definition=context.subject_definition,
+            support_episodes=tuple(row.derivation_id for row in support),
+            support_references=support, member=member,
+            support_evidence=canonical_bytes({} if dependencies is None else {
+                "producer_contract": {
+                    "version": "selected-producer-contract-v1",
+                    "derivation_id": "controlled:learned-producer",
+                    "release_id": "controlled:release",
+                    "runtime_id": "controlled:runtime",
+                    "publication_receipt": True,
+                    "cpu_receipt": False,
+                    "admitted_effects": [],
+                    "validity_families": [],
+                    "reference_inputs": dependencies,
+                },
+            }),
+        )
+
+    kind, contract = nominal("DdoSourceAnnotationManifest")
+    packet = compact_manifest(
+        {"source": source.value["source"], "selectors": source.value["selectors"],
+         "coverage": [], "outcome": "complete"}, contract
+    )
+    annotations = RetainedCharacterizationProduct.acquire(
+        prepared, model, kind, canonical_bytes(packet["body"])
+    ).with_context(context, member=selected_member("controlled:annotations", packet["member_id"], contract))
+    kind, contract = nominal("DdoMaverickManifest")
+    bare = RetainedCharacterizationProduct.acquire(
+        prepared, model, kind, canonical_bytes(maverick["body"]), subject_context=context
+    )
+    untyped = SimpleNamespace(semantic_id=bare.semantic_id, value={"record_type": "manifest"})
+    with pytest.raises(ValueError, match="requires acquired characterization manifests"):
+        compose_enriched_document(prepared, model, (source,), (untyped,))
+    with pytest.raises(ValueError, match="exact selected learned dependency"):
+        compose_enriched_document(prepared, model, (source,), (annotations, bare))
+    with pytest.raises(ValueError, match="exactly one producing input occurrence"):
+        bare.with_context(context, member=selected_member(
+            "controlled:maverick", maverick["member_id"], contract, dependencies=[]
+        ))
+    learned = bare.with_context(context, member=selected_member(
+        "controlled:maverick", maverick["member_id"], contract, dependencies=[{
+            "role": "annotations",
+            "product_id": annotations.semantic_id,
+            "kind_contract": nominal("DdoSourceAnnotations")[1],
+        }]
+    ))
+    with pytest.raises(ValueError, match="exact selected learned dependency"):
+        compose_enriched_document(prepared, model, (source,), (learned,))
+    products = (annotations, learned)
+    view = compose_enriched_document(prepared, model, (source,), products)
+    assert EnrichedDocumentReadings(view, products).sources()[0].value == source.value
 
 
 def test_explicit_learned_focus_keeps_context_and_unknown_remainder_separate():

@@ -68,6 +68,7 @@ class PreparedOriginalCallPort:
     batch_max_input_bytes: int | None = None
     batch_input_bytes: Callable[..., int] | None = None
     batch_order_key: Callable[..., tuple] | None = None
+    batch_metadata: Callable[..., tuple] | None = None
     _port: ResolvedPythonPort = field(init=False, repr=False)
 
     def __post_init__(self):
@@ -95,6 +96,7 @@ class PreparedOriginalCallPort:
                 self.batch_max_input_bytes,
                 self.batch_input_bytes,
                 self.batch_order_key,
+                self.batch_metadata,
             )
         ):
             raise PortRefusal("prepared batch hooks require an explicit batch operation")
@@ -179,6 +181,7 @@ class PreparedOriginalCallPort:
                 "batch_max_input_bytes",
                 "batch_input_bytes",
                 "batch_order_key",
+                "batch_metadata",
             )
         )
         self._verify()
@@ -362,8 +365,13 @@ class PreparedOriginalCallPort:
             raise PortRefusal("prepared batch requires distinct ordered logical members")
         self._verify()
         expected = self.batch_expected_members(members)
+        metadata = (
+            {}
+            if self.batch_metadata is None
+            else {"member_metadata": self.batch_metadata(members, expected)}
+        )
         result = yield from self.physical_plan(
-            tuple(expected), check_active=check_active, execution_owner=execution_owner
+            tuple(expected), check_active=check_active, execution_owner=execution_owner, **metadata
         )
         if not isinstance(result, PreparedBatchCallResult):
             raise PortRefusal("prepared batch requires its actual whole reply/receipt")
