@@ -251,16 +251,9 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
             if obligations[use["obligation_id"]]["operation_id"] == producer
         ]
         assert discovered["fate"] == "fulfilled"
-        (product,) = discovered["products"]
-        derivation = discovered["derivation_id"]
-        assert derivation is not None
         with kernel.purpose("write").begin() as connection:
-            DemandPlanner(kernel.model, DataOperationStorage(connection)).expand_discovery(
-                snapshot,
-                population="selected-source-views",
-                product=product["product_id"],
-                derivation=derivation,
-            )
+            planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+            assert planner.settle_pending_discovery(snapshot)
         with kernel.purpose("write").begin() as connection:
             snapshot = DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(demand)
         (population,) = [

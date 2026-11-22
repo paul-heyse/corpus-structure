@@ -137,7 +137,7 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
 
         def observe_recipients(planner, snapshot, page, **options):
             reasons = find_recipients(planner, snapshot, page, **options)
-            if not options:
+            if options.get("after_wait"):
                 observed_routes.extend(reasons)
             return reasons
 

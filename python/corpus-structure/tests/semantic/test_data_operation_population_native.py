@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from typing import cast
 from typing import cast as typing_cast
 
 import pytest
@@ -146,16 +145,6 @@ def test_native_discovery_children_closed_fanin_and_pinned_resume(ddo_kernel):
     demand, consumer, _parent = discover(ddo_kernel)
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        snapshot = planner.resume(demand["demand_id"])
-        producing_use = next(use for use in snapshot["uses"] if use["products"])
-    with ddo_kernel["engine"].begin() as connection:
-        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        planner.expand_discovery(
-            snapshot,
-            population="all-items",
-            product=producing_use["products"][0]["product_id"],
-            derivation=cast(str, producing_use["derivation_id"]),
-        )
         current = planner.resume(demand["demand_id"])
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
@@ -218,20 +207,10 @@ def test_native_empty_partial_populations_do_not_invent_closed_children(
 ):
     from corpus_structure.semantic.data_operation_demands import DemandPlanner
 
-    demand, _, _parent = discover(ddo_kernel, complete=complete, values=values)
+    demand, _, population = discover(ddo_kernel, complete=complete, values=values)
+    assert population["complete"] is complete and len(population["members"]) == len(values)
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        snapshot = planner.resume(demand["demand_id"])
-        producing_use = next(use for use in snapshot["uses"] if use["products"])
-    with ddo_kernel["engine"].begin() as connection:
-        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        population = planner.expand_discovery(
-            snapshot,
-            population="all-items",
-            product=producing_use["products"][0]["product_id"],
-            derivation=cast(str, producing_use["derivation_id"]),
-        )
-        assert population["complete"] is complete and len(population["members"]) == len(values)
         current = planner.resume(demand["demand_id"])
         children = [row for row in current["obligations"] if row["operation_id"] == "urn:child"]
         assert {row["subject"] for row in children} == {f"item:{value}" for value in values}
@@ -261,16 +240,6 @@ def test_discovery_same_local_subject_distinct_contexts_reach_child_publication(
     }
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        snapshot = planner.resume(demand["demand_id"])
-        producer = next(use for use in snapshot["uses"] if use["products"])
-    with ddo_kernel["engine"].begin() as connection:
-        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        planner.expand_discovery(
-            snapshot,
-            population="all-items",
-            product=producer["products"][0]["product_id"],
-            derivation=cast(str, producer["derivation_id"]),
-        )
         snapshot = planner.resume(demand["demand_id"])
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))

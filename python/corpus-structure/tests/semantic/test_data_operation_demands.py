@@ -10,7 +10,6 @@ from typing import Any, cast
 import pytest
 
 from corpus_structure.semantic._data_operation_wire import (
-    WireReadDemandResultResult,
     WireRootSubject,
 )
 from corpus_structure.semantic.data_operation_demands import (
@@ -647,8 +646,6 @@ def test_root_duplicate_check_uses_json_numeric_meaning_and_keeps_boolean_distin
 
 
 def test_one_frozen_discovery_population_fans_out_distinct_child_targets_once():
-    from corpus_structure.semantic.data_operation_demands import DemandPlanner
-
     compiled = model(
         operation("op:discover", profile="discovery"),
         operation("op:result"),
@@ -663,58 +660,6 @@ def test_one_frozen_discovery_population_fans_out_distinct_child_targets_once():
     intent = freeze(compiled, discovery=relations).record
     assert set(intent["root_operations"]) == {"op:discover", "op:result"}
 
-    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-    from semantic.data_operation_binding_support import WireCheckedStorage
-
-    storage = WireCheckedStorage(
-        {
-            "close_data_population": {
-                "population_id": "one-authentic-population",
-                "inserted_obligations": 3,
-                "name": "children",
-                "semantic_key": "population:children",
-                "complete": True,
-                "evidence": dict(
-                    admission_use_id="use:discovery",
-                    derivation_id="source-episode",
-                    member_role="result",
-                    population_id="one-authentic-population",
-                    product_id="source-population-product",
-                    trust_snapshot={},
-                ),
-                "members": [
-                    dict(
-                        member_id="child:one",
-                        subject="child",
-                        subject_definition="document",
-                        original_source="source:one",
-                        analyzed_scope={"part": 1},
-                    )
-                ],
-            },
-        }
-    )
-    DemandPlanner(compiled, cast(DataOperationStorage, storage)).expand_discovery(
-        cast(WireReadDemandResultResult, {"demand_id": "demand", "intent": intent}),
-        population="children",
-        product="source-population-product",
-        derivation="source-episode",
-    )
-    assert sum(name == "close_data_population" for name, _ in storage.calls) == 1
-    # Native closure owns the frozen target/dependency expansion. Python sends
-    # one closure, never reconstructs that authority with scalar inserts.
-    assert storage.calls == [
-        (
-            "close_data_population",
-            {
-                "demand_id": "demand",
-                "name": "children",
-                "product_id": "source-population-product",
-                "derivation_id": "source-episode",
-                "member_role": "result",
-            },
-        )
-    ]
     with pytest.raises(ValueError, match="source projection"):
         freeze(
             compiled,

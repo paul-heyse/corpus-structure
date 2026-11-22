@@ -20,7 +20,6 @@ from sqlalchemy import text
 from corpus_structure.semantic._data_operation_wire import (
     DataOperationCalls,
     WireAttachDataRequestsRequest,
-    WireCloseDataPopulationRequest,
     WireOperationId,
     WireReadDemandResultRequest,
     WireRegisterDataDemandRequest,
@@ -515,6 +514,7 @@ def discover(
     additional_roots=(),
 ):
     from corpus_structure.semantic.data_operation_demands import (
+        DemandPlanner,
         DiscoverySelection,
         RootSubject,
         freeze_demand,
@@ -704,42 +704,16 @@ def discover(
                 },
             )
         )
-    receipt = publish(ddo_kernel, fence, intent)
+    publish(ddo_kernel, fence, intent)
     with ddo_kernel["engine"].begin() as connection:
-        storage = DataOperationStorage(connection)
-        products = storage.read_demand_result(
-            typing_cast(
-                WireReadDemandResultRequest, {"demand_id": demand["demand_id"], "view": "products"}
-            )
+        snapshot = DemandPlanner(ddo_kernel.model, DataOperationStorage(connection)).resume(
+            demand["demand_id"]
         )
-        product = next(use["products"][0] for use in products["uses"] if use["products"])
     with ddo_kernel["engine"].begin() as connection:
-        storage = DataOperationStorage(connection)
-        parent = storage.close_data_population(
-            typing_cast(
-                WireCloseDataPopulationRequest,
-                {
-                    "demand_id": demand["demand_id"],
-                    "name": "all-items",
-                    "product_id": product["product_id"],
-                    "derivation_id": receipt["derivation_id"],
-                    "member_role": "result",
-                },
-            )
-        )
-        if ambiguous:
-            storage.close_data_population(
-                typing_cast(
-                    WireCloseDataPopulationRequest,
-                    {
-                        "demand_id": demand["demand_id"],
-                        "name": "other-items",
-                        "product_id": product["product_id"],
-                        "derivation_id": receipt["derivation_id"],
-                        "member_role": "result",
-                    },
-                )
-            )
+        planner = DemandPlanner(ddo_kernel.model, DataOperationStorage(connection))
+        assert planner.settle_pending_discovery(snapshot)
+        current = planner.resume(demand["demand_id"])
+    (parent,) = (row for row in current["populations"] if row["name"] == "all-items")
     return demand, consumer, parent
 
 

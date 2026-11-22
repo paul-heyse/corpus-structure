@@ -83,19 +83,6 @@ def test_native_context_fanin_waits_for_new_child_products_and_preserves_pinned_
         for page in (1, 2)
     ]
     demand, consumer, parent = discover(ddo_kernel, values=(5, 15), member_contexts=contexts)
-    with ddo_kernel["engine"].begin() as connection:
-        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        snapshot = planner.resume(demand["demand_id"])
-        use = next(use for use in snapshot["uses"] if use["products"])
-        assert use["derivation_id"] is not None
-    with ddo_kernel["engine"].begin() as connection:
-        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        planner.expand_discovery(
-            snapshot,
-            population="all-items",
-            product=use["products"][0]["product_id"],
-            derivation=use["derivation_id"],
-        )
     children = _frontier(ddo_kernel, demand)
     assert len(children) == 2 and all(child.operation == "urn:child" for child in children)
     assert {
@@ -207,18 +194,13 @@ def test_native_one_discovery_population_fans_out_without_duplicate_custody(ddo_
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         snapshot = planner.resume(demand["demand_id"])
-        use = next(use for use in snapshot["uses"] if use["products"])
-        assert use["derivation_id"] is not None
+        assert [row["population_id"] for row in snapshot["populations"]] == [
+            parent["population_id"]
+        ]
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        for _ in range(2):
-            closed = planner.expand_discovery(
-                snapshot,
-                population="all-items",
-                product=use["products"][0]["product_id"],
-                derivation=use["derivation_id"],
-            )
-            assert closed["population_id"] == parent["population_id"]
+        assert not planner.settle_pending_discovery(snapshot)
+        assert not planner.settle_pending_discovery(snapshot)
         assert (
             connection.scalar(
                 text("SELECT count(*) FROM ops.data_population WHERE demand_id=:demand"),

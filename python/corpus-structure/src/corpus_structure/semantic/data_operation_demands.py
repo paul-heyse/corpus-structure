@@ -21,14 +21,11 @@ from corpus_structure.semantic._data_operation_wire import (
     WireAdmitOriginalDocumentAssetRequest,
     WireAttachDataRequestsItem,
     WireAttachDataRequestsRequest,
-    WireCloseDataPopulationResult,
     WireDemandId,
     WireDemandIntent,
-    WireDerivationId,
     WireInspectDataCompletionRequest,
     WireInspectDataCompletionResult,
     WireObligationId,
-    WireProductId,
     WireReadDemandResultRequest,
     WireReadDemandResultResult,
     WireReadIdentity,
@@ -556,34 +553,6 @@ class DemandPlanner:
             else:
                 raise ValueError("unknown original source admission reference")
         return result
-
-    def expand_discovery(
-        self,
-        snapshot: WireReadDemandResultResult,
-        *,
-        population: str,
-        product: str,
-        derivation: str,
-    ) -> WireCloseDataPopulationResult:
-        """Expand only native-authenticated members of a declared discovery output."""
-        frozen = snapshot["intent"]
-        relations = [item for item in frozen["discovery"] if item["population"] == population]
-        if (
-            not relations
-            or len({(item["producer"], item["output_role"]) for item in relations}) != 1
-        ):
-            raise ValueError("discovery population lacks one frozen source projection")
-        relation = relations[0]
-        closed = self.storage.close_data_population(
-            {
-                "demand_id": snapshot["demand_id"],
-                "name": population,
-                "product_id": WireProductId(product),
-                "derivation_id": WireDerivationId(derivation),
-                "member_role": relation["output_role"],
-            }
-        )
-        return closed
 
     def resume(
         self,

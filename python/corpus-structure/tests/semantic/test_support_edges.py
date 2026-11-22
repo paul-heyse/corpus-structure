@@ -105,7 +105,6 @@ def test_changed_population_member_reuses_unchanged_child_results(
     semantic_bare_engine, fresh_target_epoch, tmp_path, monkeypatch
 ):
     from dataclasses import replace
-    from typing import cast as type_cast
 
     from corpus_structure.semantic import migrations
     from corpus_structure.semantic.data_operation_demands import DemandPlanner
@@ -161,25 +160,6 @@ def test_changed_population_member_reuses_unchanged_child_results(
     def children(kernel, demand):
         with engine.begin() as connection:
             planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
-            snapshot = planner.resume(demand["demand_id"])
-            producer = next(
-                use
-                for use in snapshot["uses"]
-                if use["products"]
-                and any(
-                    row["obligation_id"] == use["obligation_id"]
-                    and row["operation_id"] == "urn:discover"
-                    for row in snapshot["obligations"]
-                )
-            )
-        with engine.begin() as connection:
-            planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
-            planner.expand_discovery(
-                snapshot,
-                population="all-items",
-                product=producer["products"][0]["product_id"],
-                derivation=type_cast(str, producer["derivation_id"]),
-            )
             snapshot = planner.resume(demand["demand_id"])
         with engine.begin() as connection:
             planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
