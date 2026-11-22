@@ -204,9 +204,7 @@ def support_edge_queries(
     # A value use relies on its authenticated selection. The producing episode
     # retains historical support but cannot rehabilitate the current selection.
     choice = (
-        case((substitute, 2), else_=1)
-        if profile == "validity" or selected_support
-        else literal(0)
+        case((substitute, 2), else_=1) if profile == "validity" or selected_support else literal(0)
     )
     null_text = cast(literal(None), Text())
 

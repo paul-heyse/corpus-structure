@@ -322,12 +322,18 @@ def _assert_selected_substitution_scope(
                     ),
                 )
             )
-            assert connection.scalar(
-                text("SELECT ops.ddo_node_valid('episode',:episode)"), {"episode": old_child}
-            ) is True
-            assert connection.scalar(
-                text("SELECT ops.ddo_node_valid('use',:use)"), {"use": chosen["use_id"]}
-            ) is False
+            assert (
+                connection.scalar(
+                    text("SELECT ops.ddo_node_valid('episode',:episode)"), {"episode": old_child}
+                )
+                is True
+            )
+            assert (
+                connection.scalar(
+                    text("SELECT ops.ddo_node_valid('use',:use)"), {"use": chosen["use_id"]}
+                )
+                is False
+            )
             current_revocation.rollback()
         DataOperationStorage(connection).revoke_data_support(
             type_cast(

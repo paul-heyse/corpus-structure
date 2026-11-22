@@ -174,9 +174,8 @@ def operation_determinant_changes(
             changes[name] = ("removed",)
             continue
         reasons: list[OperationChange] = []
-        if (
-            old[name].recipe != new[name].recipe
-            or old_ids.get((name, "recipe")) != new_ids.get((name, "recipe"))
+        if old[name].recipe != new[name].recipe or old_ids.get((name, "recipe")) != new_ids.get(
+            (name, "recipe")
         ):
             reasons.append("recipe")
         if old[name].eligibility != new[name].eligibility:

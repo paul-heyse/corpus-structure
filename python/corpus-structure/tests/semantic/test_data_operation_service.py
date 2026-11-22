@@ -195,7 +195,7 @@ def test_native_named_selection_advancement_replays_exact_history_and_fences_can
 
     with pytest.raises(DBAPIError) as denied, writer.begin() as connection:
         advance(connection, first, None, 0)
-    assert denied.value.orig.sqlstate == "42501"
+    assert getattr(denied.value.orig, "sqlstate", None) == "42501"
 
     for demand in (foreign, "missing-demand"):
         with (
@@ -225,7 +225,7 @@ def test_native_named_selection_advancement_replays_exact_history_and_fences_can
             competing = executor.submit(contending, third, first, 1)
             with pytest.raises(DBAPIError) as blocked:
                 competing.result()
-            assert blocked.value.orig.sqlstate == "55P03"
+            assert getattr(blocked.value.orig, "sqlstate", None) == "55P03"
 
         with admission.begin() as connection:
             assert advance(connection, second, first, 1) == second_transition
@@ -249,7 +249,7 @@ def test_native_named_selection_advancement_replays_exact_history_and_fences_can
             pending = executor.submit(contending, third, first, 3)
             with pytest.raises(DBAPIError) as blocked:
                 pending.result()
-            assert blocked.value.orig.sqlstate == "55P03"
+            assert getattr(blocked.value.orig, "sqlstate", None) == "55P03"
 
     with (
         pytest.raises(DBAPIError, match="data demand is cancelled"),
