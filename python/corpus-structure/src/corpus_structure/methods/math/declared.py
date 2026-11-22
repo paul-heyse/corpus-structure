@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from collections.abc import Mapping
+from typing import Any, ClassVar
 
 from corpus_structure.semantic.declared_math_products import (
     execute_normalization,
@@ -644,7 +645,7 @@ class DeclaredMathOccurrences:
 
     def run(
         self,
-        source: dict,
+        source: Mapping[str, Any],
         formal: dict,
         inherited: tuple[dict, ...] = (),
         ancestor_sources: tuple[dict, ...] = (),
@@ -866,7 +867,7 @@ class DeclaredMathNormalization:
     def __init__(self, profile):
         self.profile = profile
 
-    def run(self, source: dict, occurrences: dict) -> dict:
+    def run(self, source: Mapping[str, Any], occurrences: dict) -> dict:
         return execute_normalization(self, source, occurrences)
 
 
@@ -1485,7 +1486,7 @@ class DeclaredMathScope:
 
     def run(
         self,
-        source: dict,
+        source: Mapping[str, Any],
         occurrences: dict,
         symbolic: dict,
         constructions: dict,

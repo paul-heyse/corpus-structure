@@ -1,6 +1,5 @@
 """Retained source joins supply assessable private membership with full endpoint custody."""
 
-import copy
 import json
 
 import pytest
@@ -9,6 +8,7 @@ from pydantic import ValidationError
 from corpus_structure.methods.dossier_contributions import derive_declared_contribution_members
 from corpus_structure.methods.structural_products import select_dossier
 from corpus_structure.semantic.declared_structural_references import DeclaredContributionRef
+from corpus_structure.semantic.native_source_view import thaw_native
 from semantic.dossier_contributions_support import source_fixture as source_fixture
 from semantic.dossier_semantic_states_support import component_reference, components, retained
 
@@ -56,7 +56,7 @@ def test_reference_forbids_loose_identifiers(field):
 @pytest.mark.parametrize("corruption", ["identity", "endpoint", "source", "citation", "passage"])
 def test_source_membership_rejects_forged_closure(corruption):
     inputs, ref, payload = source_fixture()
-    payload = copy.deepcopy(payload)
+    payload = thaw_native(payload)
     if corruption == "identity":
         payload["contributions"][0]["disposition"] = "forged"
     elif corruption == "endpoint":
@@ -225,7 +225,7 @@ def test_public_source_membership_identity_excludes_execution_custody_aliases():
     assert structural_claim_id(structural_statement(different)) != structural_claim_id(before)
 
     # The same exact table projection in another original is a distinct source.
-    native = copy.deepcopy(payload["sources"][0]["projection"])
+    native = thaw_native(payload["sources"][0]["projection"])
     native["source"].update(
         document="unadmitted:other-original",
         document_subject=original_document_subject("unadmitted:other-original"),

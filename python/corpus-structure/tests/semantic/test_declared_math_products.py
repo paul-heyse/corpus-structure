@@ -14,7 +14,6 @@ from corpus_structure.semantic.data_operation_model import (
     BoundRoleMember,
     SubjectContext,
 )
-from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.declared_math_products import (
     DeclaredMathOptions,
     DeclaredMathProduct,
@@ -27,40 +26,11 @@ from corpus_structure.semantic.formal_products import (
     FormalEvidenceOptions,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.source_products import source_subject
-from semantic.declared_math_support import _inputs, _role
+from semantic.declared_math_support import _inputs, _role, selected_symbolic_fixture
 from semantic.declared_math_support import math_profile as math_profile
 from semantic.formal_products_support import selected
-
-
-def _selected_symbolic(occurrences: BoundRoleMember) -> BoundRoleMember:
-    return replace(
-        occurrences,
-        product="product:symbolic",
-        support_episodes=("symbolic-derivation",),
-        support_references=(ComputationalSupportReference(derivation_id="symbolic-derivation"),),
-        support_evidence=canonical_bytes(
-            {
-                "producer_contract": {
-                    "version": "selected-producer-contract-v1",
-                    "derivation_id": "symbolic-derivation",
-                    "release_id": "release",
-                    "runtime_id": "runtime",
-                    "publication_receipt": True,
-                    "cpu_receipt": True,
-                    "admitted_effects": [],
-                    "validity_families": [],
-                    "reference_inputs": [
-                        {
-                            "role": "occurrences",
-                            "product_id": occurrences.product,
-                            "kind_contract": occurrences.kind_contract,
-                        }
-                    ],
-                },
-            }
-        ),
-    )
 
 
 def test_math_profiles_compile_without_a_legacy_execution_binding(math_profile):
@@ -198,7 +168,7 @@ def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
         roles=(
             _role("source", (source_member,)),
             _role("occurrences", (occurrence_member,)),
-            _role("symbolic", (_selected_symbolic(occurrence_member),)),
+            _role("symbolic", (selected_symbolic_fixture(occurrence_member),)),
             _role("constructions", (replace(formal_member, product=construction.semantic_id),)),
             _role("inherited", ()),
             _role("ancestor_sources", ()),
@@ -402,7 +372,7 @@ def test_symbol_scope_uses_retained_cues_forward_and_preserves_original_formula_
         roles=(
             _role("source", (pin,)),
             _role("occurrences", (occurrence_pin,)),
-            _role("symbolic", (_selected_symbolic(occurrence_pin),)),
+            _role("symbolic", (selected_symbolic_fixture(occurrence_pin),)),
             _role("constructions", (replace(formal_pin, product="product:cues"),)),
             _role("inherited", ()),
             _role("ancestor_sources", ()),
@@ -449,7 +419,7 @@ def test_selected_math_checks_the_complete_source_address(math_profile):
         subject=member.subject,
         subject_definition=member.subject_definition,
         original_source=member.original_source,
-        analyzed_scope={"selectors": source.value["selectors"]},
+        analyzed_scope=thaw_native({"selectors": source.value["selectors"]}),
         body=semantic_value(source.value),
     )
     products = {member.product: {"project_id": "outside-statistics"}}

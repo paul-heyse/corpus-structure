@@ -4,14 +4,14 @@ SOURCE_RATIO_DECIMAL_PLACES = 6
 SOURCE_RATIO_EMPTY_FRACTION = 0.0
 
 
-def _parent(atom: dict) -> str:
+def _parent(atom) -> str | None:
     if "parent" not in atom:
         return ""
     parent = atom["parent"]
-    return parent["$ref"] if isinstance(parent, dict) else parent
+    return parent if isinstance(parent, str) or parent is None else parent["$ref"]
 
 
-def _under(pointer: str, ancestor: str, atoms: dict) -> bool:
+def _under(pointer: str | None, ancestor: str, atoms: dict) -> bool:
     seen = ()
     while pointer:
         if pointer == ancestor:
@@ -60,8 +60,8 @@ def _selected(piece: dict, selectors: list, atoms: dict) -> list:
     ]
 
 
-def source_profile_values(source: dict) -> dict:
-    atoms = {atom["self_ref"]: atom for atom in source["items"] + source["ancestors"]}
+def source_profile_values(source) -> dict:
+    atoms = {atom["self_ref"]: atom for atom in (*source["items"], *source["ancestors"])}
     selected = [(piece, _selected(piece, source["selectors"], atoms)) for piece in source["pieces"]]
     chars = sum(end - start for _, spans in selected for start, end in spans)
     math = [

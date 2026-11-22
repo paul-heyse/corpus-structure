@@ -3,6 +3,7 @@
 import json
 from dataclasses import replace
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -138,7 +139,7 @@ def test_acquired_native_source_keeps_validation_and_selector_identity(acquired,
     assert source.value is source.value
     assert source.native_items() is source.native_items()
     with pytest.raises(TypeError):
-        source.value["text"] = "caller mutation"
+        cast(Any, source.value)["text"] = "caller mutation"
     with pytest.raises(AttributeError):
         source.value["items"].clear()
     forged = object.__new__(FrozenNativeSource)

@@ -212,12 +212,12 @@ def prepare_basis(prepared, model, *, with_context=False):
         "project:one",
         "subject:empty",
         "document:empty",
-        json_bytes({"source": source["source"], "selectors": source["selectors"]}),
+        json_bytes(thaw_native({"source": source["source"], "selectors": source["selectors"]})),
         subject_definition="original-source-view",
     )
     contexts, context_annotations = (), ()
     if with_context:
-        parent = deepcopy(source)
+        parent = thaw_native(source)
         parent["ancestors"] = []
         parent["source"].update(
             section_pointer="#/groups/parent",
@@ -226,7 +226,7 @@ def prepare_basis(prepared, model, *, with_context=False):
         )
         parent["selectors"] = [{"projection": parent["source"]["projection"]}]
         parent = thaw_native(FrozenNativeSource.acquire(prepared, parent).value)
-        parent_annotations = deepcopy(annotations)
+        parent_annotations = thaw_native(annotations)
         parent_annotations.update(
             source=parent["source"],
             selectors=parent["selectors"],

@@ -8,7 +8,7 @@ from dataclasses import replace
 from typing import Any
 
 import pytest
-from semantic.declared_math_support import _inputs, _role
+from semantic.declared_math_support import _inputs, _role, selected_symbolic_fixture
 from semantic.declared_math_support import math_profile as math_profile
 from semantic.formal_products_support import selected
 
@@ -227,9 +227,7 @@ def normalize_and_scope(inputs, source, source_pin, formal_pin, original, cues):
             roles=(
                 _role("source", (source_pin,)),
                 _role("occurrences", (occurrence_pin,)),
-                _role(
-                    "symbolic", (replace(occurrence_pin, product="product:actual-normalization"),)
-                ),
+                _role("symbolic", (selected_symbolic_fixture(occurrence_pin),)),
                 _role("constructions", (replace(formal_pin, product="product:curated-cues"),)),
                 _role("inherited", ()),
                 _role("ancestor_sources", ()),

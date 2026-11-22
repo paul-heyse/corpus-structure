@@ -50,7 +50,7 @@ def thaw_native(value: Any) -> Any:
     """Explicit detached JSON representation for serializers and public mapping APIs."""
     if isinstance(value, Mapping):
         return {key: thaw_native(item) for key, item in value.items()}
-    if isinstance(value, tuple):
+    if isinstance(value, (list, tuple)):
         return [thaw_native(item) for item in value]
     return value
 

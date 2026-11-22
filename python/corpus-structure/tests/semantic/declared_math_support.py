@@ -12,6 +12,7 @@ from corpus_structure.semantic.data_operation_model import (
     ResolvedRoleBinding,
     SubjectContext,
 )
+from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.declared_math_products import (
     math_operation_declarations,
     math_operation_sources,
@@ -120,3 +121,30 @@ def _inputs(profile, source=None):
 
 def _role(name, members):
     return ResolvedRoleBinding(name, "present" if members else "known-absent", tuple(members))
+
+
+def selected_symbolic_fixture(occurrences: BoundRoleMember) -> BoundRoleMember:
+    """Literal reference-disclosure fixture; it claims no publication or CPU receipt."""
+    return replace(
+        occurrences,
+        product="product:symbolic",
+        support_episodes=("unadmitted:symbolic-reference",),
+        support_references=(ComputationalSupportReference(derivation_id="unadmitted:symbolic-reference"),),
+        support_evidence=canonical_bytes({
+            "producer_contract": {
+                "version": "selected-producer-contract-v1",
+                "derivation_id": "unadmitted:symbolic-reference",
+                "release_id": "unadmitted:release",
+                "runtime_id": "unadmitted:runtime",
+                "publication_receipt": False,
+                "cpu_receipt": False,
+                "admitted_effects": [],
+                "validity_families": [],
+                "reference_inputs": [{
+                    "role": "occurrences",
+                    "product_id": occurrences.product,
+                    "kind_contract": occurrences.kind_contract,
+                }],
+            },
+        }),
+    )
