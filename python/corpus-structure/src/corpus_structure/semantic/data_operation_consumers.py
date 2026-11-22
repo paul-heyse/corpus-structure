@@ -115,7 +115,7 @@ def hydrate_consumer_selection(
     """
     from itertools import batched
 
-    from sqlalchemy import BigInteger, and_, cast, column, func, select, values
+    from sqlalchemy import BigInteger, and_, cast, column, select, values
 
     from .data_operation_json import json_loads
     from .data_operation_jsonb import json_context_equal, json_context_value
@@ -232,7 +232,7 @@ def hydrate_consumer_selection(
                 pins.c.role_ordinal,
                 pins.c.member_ordinal,
                 relation.c.meaning_body,
-                func.data.ddo_json(relation.c.meaning_body).label("json_body"),
+                relation.c.body.label("json_body"),
             )
             .select_from(pins.join(relation, and_(*predicates)))
             .limit(len(page) + 1)
