@@ -1,6 +1,6 @@
 """Record pending receipt origins from the exact uses created by publication."""
 
-from sqlalchemy import Column, Text, and_, any_, cast, column, func, select, true
+from sqlalchemy import Column, Text, and_, any_, cast, column, func, or_, select, true
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, insert
 
 from .data_operation_projections import _custody_body_eligible
@@ -158,7 +158,12 @@ def reconcile_publication_delivery(model, project, name, generation):
 
 
 def fulfilled_use_recipients(model):
-    """Find direct scalar-role candidates within a current exact named demand."""
+    """Find direct scalar-role candidates within a current exact named demand.
+
+    The current named enrollment and fulfilled uses are the two durable facts.
+    A NULL origin visits their intersection for this page, including uses
+    attached by reuse and publication concurrent with enrollment.
+    """
     history = model.tables["ops.data_demand_selection"]
     demands = model.tables["ops.data_demand"]
     reads = model.tables["ops.data_demand_read"]
@@ -204,6 +209,11 @@ def fulfilled_use_recipients(model):
     emitted = output_role.c.value
     candidate = (
         select(
+            uses.c.id.label("origin"),
+            recipient.c.id.label("recipient"),
+            role["name"].astext.label("input"),
+            output.c.role.label("output"),
+            output.c.position.label("position"),
             func.jsonb_build_object(
                 "use_id",
                 uses.c.id,
@@ -219,7 +229,7 @@ def fulfilled_use_recipients(model):
                 recipient.c.operation_id,
                 "input_role",
                 role["name"].astext,
-            )
+            ).label("reason"),
         )
         .select_from(
             history.join(demands, demands.c.id == history.c.demand_id)
@@ -252,12 +262,12 @@ def fulfilled_use_recipients(model):
         )
         .where(
             history.c.project_id == project,
-            history.c.name == name,
-            history.c.generation == generation,
+            or_(name.is_(None), history.c.name == name),
+            or_(generation.is_(None), history.c.generation == generation),
             history.c.demand_id == demand_id,
             ~_superseded(history),
             func.ops.ddo_demand_active(demands.c.id),
-            uses.c.id == use,
+            or_(use.is_(None), uses.c.id == use),
             uses.c.fate == "fulfilled",
             func.ops.ddo_read_visible(uses.c.created_at, uses.c.created_xid, boundary),
             recipient.c.id == any_(page),
@@ -297,7 +307,8 @@ def fulfilled_use_recipients(model):
                 func.jsonb_build_array(product.c.kind_contract)
             ),
         )
-        .order_by(recipient.c.id, role["name"].astext, output.c.role, output.c.position)
+        .distinct()
+        .subquery("routed_occurrences")
     )
     returned = pg_type("jsonb")
     returned.setof = True
@@ -322,7 +333,15 @@ def fulfilled_use_recipients(model):
                     strict=True,
                 ),
                 Perform(func.ops.ddo_require_read_current(boundary, project)),
-                ReturnQuery(candidate),
+                ReturnQuery(
+                    select(candidate.c.reason).order_by(
+                        candidate.c.recipient,
+                        candidate.c.input,
+                        candidate.c.origin,
+                        candidate.c.output,
+                        candidate.c.position,
+                    )
+                ),
             ),
             (Local("boundary", reads),),
         ),

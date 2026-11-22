@@ -13,7 +13,7 @@ from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
 from pydantic import TypeAdapter
-from sqlalchemy import Text, bindparam, func, select
+from sqlalchemy import BigInteger, Text, bindparam, func, select
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 
 from corpus_structure.semantic._data_operation_wire import (
@@ -648,22 +648,12 @@ class DemandPlanner:
         The exact use may have come from publication or reuse attachment. A
         candidate permits a binding check. It does not settle the origin.
         """
-        page = [row["obligation_id"] for row in snapshot["obligations"]]
-        if not page:
-            return (), ()
-        query = select(
-            func.ops.ddo_fulfilled_use_recipients(
-                snapshot["project_id"],
-                selection_name,
-                selection_generation,
-                snapshot["read_id"],
-                use_id,
-                bindparam("dispatch_page", page, type_=ARRAY(Text())),
-                type_=JSONB(),
-            )
-        )
-        reasons = tuple(
-            cast(FulfilledUseRecipient, reason) for reason in self.storage.connection.scalars(query)
+        reasons = self._fulfilled_use_recipients(
+            snapshot,
+            [row["obligation_id"] for row in snapshot["obligations"]],
+            selection_name=selection_name,
+            selection_generation=selection_generation,
+            use_id=use_id,
         )
         if not reasons:
             return (), ()
@@ -676,6 +666,32 @@ class DemandPlanner:
                 ),
             ),
             reasons,
+        )
+
+    def _fulfilled_use_recipients(
+        self,
+        snapshot: Mapping[str, Any],
+        page: list[str],
+        *,
+        selection_name: str | None = None,
+        selection_generation: int | None = None,
+        use_id: str | None = None,
+    ) -> tuple[FulfilledUseRecipient, ...]:
+        if not page:
+            return ()
+        query = select(
+            func.ops.ddo_fulfilled_use_recipients(
+                snapshot["project_id"],
+                bindparam("dispatch_selection", selection_name, type_=Text()),
+                bindparam("dispatch_generation", selection_generation, type_=BigInteger()),
+                snapshot["read_id"],
+                bindparam("dispatch_use", use_id, type_=Text()),
+                bindparam("dispatch_page", page, type_=ARRAY(Text())),
+                type_=JSONB(),
+            )
+        )
+        return tuple(
+            cast(FulfilledUseRecipient, reason) for reason in self.storage.connection.scalars(query)
         )
 
     def ready(
@@ -693,6 +709,19 @@ class DemandPlanner:
         self.refusals = ()
         selected = {item["operation"]: item for item in snapshot["intent"]["operations"]}
         obligations = {item["obligation_id"]: item for item in snapshot["obligations"]}
+        woken = frozenset()
+        if recipient_obligations is None:
+            woken = frozenset(
+                reason["recipient_obligation"]
+                for reason in self._fulfilled_use_recipients(
+                    snapshot,
+                    [
+                        key
+                        for key, obligation in obligations.items()
+                        if obligation["fate"] == "awaiting-inputs"
+                    ],
+                )
+            )
         rebindings = {}
         for use in snapshot.get("uses", ()):
             if use.get("rebind_derivation"):
@@ -705,6 +734,7 @@ class DemandPlanner:
                 authorization=authorization,
                 excluded_requests=excluded_requests,
                 recipient_obligations=recipient_obligations,
+                woken_obligations=woken,
             )
         )
         items = []
@@ -775,6 +805,7 @@ class DemandPlanner:
         retained: bool = False,
         excluded_requests: frozenset[tuple[str, int]] = frozenset(),
         recipient_obligations: frozenset[str] | None = None,
+        woken_obligations: frozenset[str] = frozenset(),
     ):
         self.selected_population_ids = ()
         self.fulfilled_request_ids = ()
@@ -814,6 +845,7 @@ class DemandPlanner:
             if (
                 not retained
                 and recipient_obligations is None
+                and obligation["obligation_id"] not in woken_obligations
                 and previous is not None
                 and previous["fate"]
                 in {"awaiting-inputs", "awaiting-population", "awaiting-discovery"}

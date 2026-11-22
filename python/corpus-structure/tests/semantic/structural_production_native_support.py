@@ -91,7 +91,9 @@ def recipe(directory):
     )
 
 
-def produce_source_reports(source, kernel, target, *, text, discovered_entries=None):
+def produce_source_reports(
+    source, kernel, target, *, text, discovered_entries=None, selection_name=None
+):
     """One source-discovery demand owns genuine source and primary producer uses."""
     from corpus_structure.semantic.demand_results import read_demand_result
     from corpus_structure.semantic.selected_support import SelectedReadReference
@@ -100,7 +102,7 @@ def produce_source_reports(source, kernel, target, *, text, discovered_entries=N
     pending = current_consumer_request(
         source, kernel, (target,), discover=True, discovered_entries=discovered_entries
     )
-    retained, execution = execute(kernel, pending)
+    retained, execution = execute(kernel, pending, selection_name=selection_name)
     assert execution.receipt_count > 0
     with kernel.purpose("read").begin() as connection:
         page = read_demand_result(connection, retained["demand_id"], project_id=PROJECT, limit=1000)

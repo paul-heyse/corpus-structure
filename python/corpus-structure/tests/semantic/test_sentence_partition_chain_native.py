@@ -132,7 +132,19 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
         semantic_bare_engine, native_settings, tmp_path, monkeypatch, text
     ) as source:
         kernel = admit_current_target(source, _recipe(tmp_path / "recipe"), tmp_path / "target")
-        retained, original, products, _ = produce_source_reports(source, kernel, target, text=text)
+        observed_routes = []
+        find_recipients = DemandPlanner._fulfilled_use_recipients
+
+        def observe_recipients(planner, snapshot, page, **options):
+            reasons = find_recipients(planner, snapshot, page, **options)
+            if not options:
+                observed_routes.extend(reasons)
+            return reasons
+
+        monkeypatch.setattr(DemandPlanner, "_fulfilled_use_recipients", observe_recipients)
+        retained, original, products, _ = produce_source_reports(
+            source, kernel, target, text=text, selection_name="canonical-sentences"
+        )
         (annotation,) = selected_for_source(
             kernel, products, namespace + "DdoSourceAnnotations", original
         )
@@ -298,6 +310,7 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
                 "input_role": "inventory",
             },
         )
+        assert reasons[0] in observed_routes
         repeated = execute_captured_kernel_demand(kernel, demand_id)
         assert repeated.receipt_count == 0
 

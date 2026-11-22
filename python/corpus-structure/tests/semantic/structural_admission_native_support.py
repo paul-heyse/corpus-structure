@@ -201,9 +201,17 @@ def request(
 
 
 def execute(
-    kernel, pending, *, purpose: Literal["write", "evaluate"] = "write", author=False
+    kernel,
+    pending,
+    *,
+    purpose: Literal["write", "evaluate"] = "write",
+    author=False,
+    selection_name: str | None = None,
 ) -> tuple[dict[str, Any], Any]:
-    from corpus_structure.semantic.data_operation_service import create_native_demand
+    from corpus_structure.semantic.data_operation_service import (
+        advance_demand_selection,
+        create_native_demand,
+    )
     from corpus_structure.serve.interpretation_authoring import author_interpretations
 
     retained: dict[str, Any]
@@ -214,6 +222,16 @@ def execute(
     else:
         with kernel.purpose(purpose).begin() as connection:
             retained = dict(create_native_demand(connection, pending, prepared=kernel.prepared))
+    if selection_name is not None:
+        with kernel.purpose("admit").begin() as connection:
+            advance_demand_selection(
+                connection,
+                pending.project_id,
+                selection_name,
+                retained["demand_id"],
+                expected_demand_id=None,
+                expected_generation=0,
+            )
     result = execute_captured_kernel_demand(kernel, retained["demand_id"], purpose=purpose)
     return retained, result
 

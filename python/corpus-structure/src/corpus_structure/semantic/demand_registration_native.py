@@ -1249,7 +1249,7 @@ def demand_intent_programs(model: MetaData, *, protocol: bytes) -> tuple[Program
             fulfilled_use_recipients(model),
             source="data-operations:forward",
             owner=role_name("publisher"),
-            access=NativeProgramAccess(purposes=("write",)),
+            access=NativeProgramAccess(purposes=("write", "evaluate")),
         ),
         ProgramDeclaration(
             _advance_demand_selection(model),
