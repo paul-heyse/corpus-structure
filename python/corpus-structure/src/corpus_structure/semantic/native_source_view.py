@@ -58,7 +58,7 @@ def thaw_native(value: Any) -> Any:
 def matches_positioned_source_extent(pieces, ends, native_pieces, native_ends, extent):
     """Match an extent to the exact retained piece and its original native pointer."""
     start, end = extent["start"], extent["end"]
-    index = int(bisect_left(ends, end))
+    index = bisect_left(ends, end)
     if index == len(pieces):
         return False
     piece = pieces[index]
@@ -67,7 +67,7 @@ def matches_positioned_source_extent(pieces, ends, native_pieces, native_ends, e
     if "item_ref" in piece and piece["item_ref"] is not None:
         pointer = piece["item_ref"]
     else:
-        nearest = int(bisect_left(native_ends, start))
+        nearest = bisect_left(native_ends, start)
         if nearest == len(native_pieces):
             return False
         pointer = native_pieces[nearest]["item_ref"]

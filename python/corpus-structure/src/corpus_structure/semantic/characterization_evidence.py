@@ -166,7 +166,11 @@ def _decimal_spelling(value: str) -> bool:
     mantissa, exponent_mark, exponent = value.lower().partition("e")
     if exponent_mark and not _decimal_digits(_unsigned(exponent)):
         return False
-    whole, dot, fractional = str(_unsigned(mantissa)).partition(".")
+    return _decimal_mantissa(_unsigned(mantissa))
+
+
+def _decimal_mantissa(value: str) -> bool:
+    whole, dot, fractional = value.partition(".")
     if not dot:
         return _decimal_digits(whole)
     return bool(whole or fractional) and (

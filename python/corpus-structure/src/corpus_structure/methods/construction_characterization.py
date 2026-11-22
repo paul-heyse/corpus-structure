@@ -253,7 +253,7 @@ class ConstructionOperation:
             {
                 "reference": "bisect.bisect_left",
                 "contract": "characterization/source-geometry-runtime",
-                "role": "native-codec",
+                "role": "native-ordered-search",
             },
             {
                 "reference": (

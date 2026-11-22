@@ -1990,6 +1990,12 @@ class ClosedPythonSources:
                             if boundary.role == "native-integer-value":
                                 kinds.add("value")
                                 targets.append("builtins.int")
+                            elif (
+                                boundary.role == "native-ordered-search"
+                                and target == "bisect.bisect_left"
+                            ):
+                                kinds.add("value-callable")
+                                targets.append("builtins.int")
                             elif boundary.role == "native-decimal-type":
                                 kinds.add("class")
                                 targets.append(target)
@@ -2093,6 +2099,11 @@ class ClosedPythonSources:
                             if boundary := boundary_for(member):
                                 if boundary.role == "native-integer-value":
                                     return "value", ("builtins.int",)
+                                if (
+                                    boundary.role == "native-ordered-search"
+                                    and member == "bisect.bisect_left"
+                                ):
+                                    return "value-callable", ("builtins.int",)
                                 if boundary.role == "native-decimal-type":
                                     return "class", (member,)
                                 if boundary.role in {

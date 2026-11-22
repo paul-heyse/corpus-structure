@@ -46,7 +46,7 @@ def test_standard_json_keeps_canonical_utf8_and_live_custody(monkeypatch):
             acquire_standard_json_runtime()
 
     with monkeypatch.context() as patch:
-        patch.setattr(json._default_encoder, "ensure_ascii", False)
+        patch.setattr(vars(json)["_default_encoder"], "ensure_ascii", False)
         with pytest.raises(ValueError, match="standard JSON default wrapper"):
             runtime.check()
 
