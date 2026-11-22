@@ -3,6 +3,7 @@
 from sqlalchemy import Column, Text, and_, any_, cast, column, func, select, true
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, insert
 
+from .data_operation_projections import _custody_body_eligible
 from .native_program import (
     Block,
     Local,
@@ -170,7 +171,7 @@ def fulfilled_use_recipients(model):
     output = model.tables["ops.data_derivation_output"]
     derivations = model.tables["ops.data_derivation"]
     requests = model.tables["ops.data_request"]
-    kind = model.tables["sem.data_kind_contract"]
+    kind = model.tables["sem.data_kind_contract"].alias("output_kind")
     product = model.tables["kb.data_product"]
     fields = (
         ("p_project", history.c.project_id),
@@ -205,30 +206,18 @@ def fulfilled_use_recipients(model):
             func.jsonb_build_object(
                 "use_id",
                 uses.c.id,
-                "producer_obligation",
-                producer.c.id,
                 "producer_operation",
                 producer.c.operation_id,
-                "derivation_id",
-                derivations.c.id,
                 "output_role",
                 output.c.role,
                 "output_position",
                 output.c.position,
-                "product_id",
-                product.c.id,
                 "recipient_obligation",
                 recipient.c.id,
                 "recipient_operation",
                 recipient.c.operation_id,
                 "input_role",
                 role["name"].astext,
-                "subject",
-                recipient.c.subject,
-                "original_source",
-                recipient.c.original_source,
-                "analyzed_scope",
-                recipient.c.analyzed_scope,
             )
         )
         .select_from(
@@ -276,11 +265,12 @@ def fulfilled_use_recipients(model):
             selected["dependencies"].contains(func.jsonb_build_array(producer.c.operation_id)),
             product.c.project_id == project,
             kind.c.universe == "ordinary",
+            ~func.ops.ddo_policy_authority_leaf(derivations.c.id),
+            _custody_body_eligible(model, product.c.kind_contract, product.c.canonical_body),
             producer.c.subject == recipient.c.subject,
             producer.c.original_source.is_not_distinct_from(recipient.c.original_source),
             producer.c.analyzed_scope == recipient.c.analyzed_scope,
             product.c.subject == recipient.c.subject,
-            product.c.original_source.is_not_distinct_from(recipient.c.original_source),
             product.c.analyzed_scope == recipient.c.analyzed_scope,
             output.c.member_id.is_(None),
             output.c.position == 0,
@@ -291,8 +281,16 @@ def fulfilled_use_recipients(model):
             role["presence"].astext == "required",
             func.coalesce(role["subject_target"].astext, "subject") == "subject",
             role["subject_field"].astext.is_(None),
-            role["support"]["source"].astext == "same-original",
             role["support"]["source_set"].astext.is_(None),
+            func.coalesce(
+                role["support"]["origins"], func.jsonb_build_array("computation")
+            ).bool_op("?")("computation"),
+            func.ops.ddo_binding_source_address(
+                role,
+                func.jsonb_build_object("original_source", product.c.original_source),
+                recipient.c.original_source,
+                func.jsonb_build_object(),
+            ),
             role["accepted_kind_contracts"].contains(
                 func.jsonb_build_array(product.c.kind_contract)
             ),
@@ -321,7 +319,7 @@ def fulfilled_use_recipients(model):
                     ("boundary",),
                     strict=True,
                 ),
-                Perform(func.ops.ddo_require_read_current(boundary, project, True)),
+                Perform(func.ops.ddo_require_read_current(boundary, project)),
                 ReturnQuery(candidate),
             ),
             (Local("boundary", reads),),

@@ -225,9 +225,15 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
     assert reason["producer_operation"] == PRODUCER
     assert reason["output_role"] == "result" and reason["output_position"] == 0
     assert reason["input_role"] == "source"
-    assert reason["subject"] == "subject:a"
-    assert reason["original_source"] == "source:test"
-    assert reason["analyzed_scope"] == {"page": 1}
+    assert set(reason) == {
+        "use_id",
+        "producer_operation",
+        "output_role",
+        "output_position",
+        "recipient_obligation",
+        "recipient_operation",
+        "input_role",
+    }
     assert recipient(snapshot(b)).get("request_id") is None
 
     extra = "urn:ddo-test:source"

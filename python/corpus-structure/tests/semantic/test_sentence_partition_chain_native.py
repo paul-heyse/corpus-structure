@@ -12,10 +12,12 @@ from corpus_structure.schema.model_change import native_model_inputs
 from corpus_structure.semantic import migrations
 from corpus_structure.semantic.canonical_sentences import canonical_sentence_operation_sources
 from corpus_structure.semantic.composed import data_operation_dependencies
+from corpus_structure.semantic.data_operation_demands import DemandPlanner
 from corpus_structure.semantic.data_operation_identity import projected_computation_identity
 from corpus_structure.semantic.data_operation_partitions import partition_group_digests
 from corpus_structure.semantic.data_operation_projection_values import input_projection_digest
-from corpus_structure.semantic.data_operation_storage import admitted_data_read
+from corpus_structure.semantic.data_operation_service import advance_demand_selection
+from corpus_structure.semantic.data_operation_storage import DataOperationStorage, admitted_data_read
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.demand_results import read_demand_result, stream_selected_support
 from corpus_structure.semantic.metadata import get_metadata, table
@@ -239,6 +241,56 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
                 ],
             }
             for row in canonical_rows
+        )
+        # The actual canonical declaration uses original-source, and the
+        # selected read already has a settled consumer when the origin replays.
+        (inventory,) = [
+            role for role in kernel.model.operation(target).roles if role.name == "inventory"
+        ]
+        assert inventory.support is not None and inventory.support.source == "original-source"
+        with kernel.purpose("admit").begin() as connection:
+            selection = advance_demand_selection(
+                connection,
+                PROJECT,
+                "canonical-sentences",
+                demand_id,
+                expected_demand_id=None,
+                expected_generation=0,
+            )
+        with kernel.purpose("write").begin() as connection:
+            planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+            frontier = planner.resume(demand_id, limit=1000)
+        (producer,) = [
+            row
+            for row in frontier["obligations"]
+            if row["operation_id"] == "segment.sentences/source-native"
+        ]
+        (consumer,) = [row for row in frontier["obligations"] if row["operation_id"] == target]
+        (annotation_use,) = [
+            use
+            for use in frontier["uses"]
+            if use["obligation_id"] == producer["obligation_id"] and use["fate"] == "fulfilled"
+        ]
+        with kernel.purpose("write").begin() as connection:
+            planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+            ready, reasons = planner.ready_for_fulfilled_use(
+                frontier,
+                selection_name=selection.name,
+                selection_generation=selection.generation,
+                use_id=annotation_use["use_id"],
+                authorization=b"{}",
+            )
+        assert ready == ()
+        assert reasons == (
+            {
+                "use_id": annotation_use["use_id"],
+                "producer_operation": producer["operation_id"],
+                "output_role": "result",
+                "output_position": 0,
+                "recipient_obligation": consumer["obligation_id"],
+                "recipient_operation": target,
+                "input_role": "inventory",
+            },
         )
         repeated = execute_captured_kernel_demand(kernel, demand_id)
         assert repeated.receipt_count == 0
