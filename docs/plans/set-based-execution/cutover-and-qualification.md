@@ -357,7 +357,7 @@ converts nested object-free arrays in one ordered pass and uses the existing pro
 with those canonical observations. Independent native controls passed for exact proof bytes
 and changed-input refusal (`28a1116ea3e0420792292b06533557d9`), including a follow-up with
 4,096 member records under a local 60-second statement bound
-(`ed253bec603441ed8e995466a572d4ed`). Actual M1 acceptance remains on the installed codec root.
+(`ed253bec603441ed8e995466a572d4ed`).
 
 Managed codec preview `51fd211ec98b4079aa21c7129601dc35`, rollback-only candidate
 `eeb083631e6f4fbf87d456b174f84767`, and registration `69e6a4d8b90b4671856d9b7207a32e07`
@@ -365,8 +365,9 @@ passed in the isolated assembly. `uv run ci db init` installed that sole root on
 `corpus_structure_sbx09_proof_qualification` (OID `136473031`). Maintenance readback matched
 the registered descriptor and verified the purpose grants and empty data. All 16 native
 identity and rule tests and `uv run ci check` passed
-(`3e0fbdcc3dae4c3db3a5331402ca892a`, `604f40cb0e5143fe88903e794503c92f`). The actual M1
-rerun at the usual statement limit is `7c1659f02d00483a83953d1b9b5b24bd`.
+(`3e0fbdcc3dae4c3db3a5331402ca892a`, `604f40cb0e5143fe88903e794503c92f`).
+The actual M1 GLiNER candidate inspection and cohort custody case passed at the normal
+120-second statement limit (`7c1659f02d00483a83953d1b9b5b24bd`).
 
 The refreshed event suite (`c1bc745541c246ee8184a53541707d2f`) passed 85 independent worker,
 source and migration controls. Its native journey published the corrected event frame and
@@ -389,8 +390,8 @@ Clippy (`6b1970f98ed0481e8489afb6acc12406`). The ordinary retry runs against tha
 (`f02c6b33e0d14cd4b77b97c5a3394854`), along with actual annotation and canonical cases
 (`267e776231a74518b001f5d387fbb0dd`), finite and rich replay and both dossier cases
 (`1a1f7a3b8abc4d989d0d77f6b678cead`), and the affected characterization controls
-(`9a40ecca090e424ba4bb0f52a238975f`). The codec-root event fixture and M1 result remain in
-qualification. Development readback still identifies the original N29 database.
+(`9a40ecca090e424ba4bb0f52a238975f`). The codec-root event fixture remains in qualification.
+Development readback still identifies the original N29 database.
 
 Keep one authentic cross-boundary producer, publication and export journey. Reader-only checks
 can consume its authenticated artifacts while their producer, prepared release, wire and authority
