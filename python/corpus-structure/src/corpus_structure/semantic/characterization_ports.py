@@ -893,7 +893,7 @@ class PreparedCharacterizationPort(ABC):
                 check_active=check_active,
             )
         elif isinstance(inputs, _ContextualInputs):
-            product = PreparedContextualProfile(self.prepared, self.model).run(
+            product = PreparedContextualProfile(self.prepared, self.model)._evaluate(
                 inputs.source,
                 inputs.constructions,
                 inputs.formal,

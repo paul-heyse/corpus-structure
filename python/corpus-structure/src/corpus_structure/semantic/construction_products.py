@@ -1190,12 +1190,6 @@ class PreparedContextualProfile:
     ):
         source = FrozenNativeSource.acquire(self.prepared, source.value)
         FormalSourceReadings.from_products(formal, source, prepared=self.prepared, model=self.model)
-        for product in supporting:
-            if (
-                product.value.model_dump(mode="json", exclude_unset=True)["source"]
-                != source.value["source"]
-            ):
-                raise ValueError("context support belongs to another original source")
         checked = tuple(
             validate_construction_product(
                 self.prepared,
@@ -1207,8 +1201,39 @@ class PreparedContextualProfile:
             )
             for product in constructions
         )
-        products = (*formal, *supporting, *checked)
-        symbolic = tuple(product.reference for product in checked)
+        return self._evaluate(
+            source,
+            checked,
+            formal,
+            roots=roots,
+            env=env,
+            supporting=supporting,
+            check_active=check_active,
+            subject_context=subject_context,
+            max_nodes=max_nodes,
+        )
+
+    def _evaluate(
+        self,
+        source,
+        constructions,
+        formal,
+        *,
+        roots=None,
+        env=None,
+        supporting=(),
+        check_active,
+        subject_context=None,
+        max_nodes=20000,
+    ):
+        for product in supporting:
+            if (
+                product.value.model_dump(mode="json", exclude_unset=True)["source"]
+                != source.value["source"]
+            ):
+                raise ValueError("context support belongs to another original source")
+        products = (*formal, *supporting, *constructions)
+        symbolic = tuple(product.reference for product in constructions)
         snapshots = tuple(
             CharacterizationSnapshot(
                 product.semantic_id, product.content, getattr(product, "partitions", None)
