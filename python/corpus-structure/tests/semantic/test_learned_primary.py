@@ -105,7 +105,10 @@ def test_learned_profile_captures_actual_provider_factories_and_private_outputs(
         }
         assert len(operation.output_witnesses) == 3
     assert {
-        operation: tuple((target.input_role, target.path) for target in model.operation(operation).reference_targets)
+        operation: tuple(
+            (target.input_role, target.path)
+            for target in model.operation(operation).reference_targets
+        )
         for operation in sorted(expected)
         if model.operation(operation).reference_targets
     } == {
@@ -120,6 +123,10 @@ def test_learned_profile_captures_actual_provider_factories_and_private_outputs(
         (target.input_role, target.path, target.variant)
         for target in model.operation("text.contextual_native/source-native").reference_targets
     ] == [
+        ("formal", "/formal_input", "product"),
+        ("constructions", "/constructions_input", "product"),
+        ("maverick", "/maverick_input", "product"),
+        ("dipo", "/dipo_input", "product"),
         ("formal", "/formal_proxy_support/*/target", "member"),
         ("constructions", "/construction_proxy_support/*/target", "member"),
     ]
@@ -327,10 +334,13 @@ def _assert_contextual_native_cpu_bracket(inputs, prepared, model, monkeypatch):
         assert len(output.members) == 1
         body = json.loads(output.content)
         assert body["outcome"] == "partial"
-        assert body["dependencies"] == [
-            {"product_id": members[role].product}
+        assert "dependencies" not in body
+        assert {
+            role: body[role + "_input"] for role in ("formal", "constructions", "maverick", "dipo")
+        } == {
+            role: {"variant": "product", "role": role}
             for role in ("formal", "constructions", "maverick", "dipo")
-        ]
+        }
         assert canonical_bytes(body) == output.content
         assert json.loads(completion.cpu_execution_evidence)["pid"] != os.getpid()
     finally:
@@ -360,37 +370,57 @@ def _assert_learned_view_closure(prepared, model, source, context, maverick):
         return kind, contract
 
     def selected_member(product, member, contract, *, dependencies=None):
-        support = () if dependencies is None else (
-            ComputationalSupportReference(derivation_id="controlled:learned-producer"),
+        support = (
+            ()
+            if dependencies is None
+            else (ComputationalSupportReference(derivation_id="controlled:learned-producer"),)
         )
         return BoundRoleMember(
-            product, contract, context.subject, context.original_source, context.analyzed_scope,
-            coverage=b"{}", subject_definition=context.subject_definition,
+            product,
+            contract,
+            context.subject,
+            context.original_source,
+            context.analyzed_scope,
+            coverage=b"{}",
+            subject_definition=context.subject_definition,
             support_episodes=tuple(row.derivation_id for row in support),
-            support_references=support, member=member,
-            support_evidence=canonical_bytes({} if dependencies is None else {
-                "producer_contract": {
-                    "version": "selected-producer-contract-v1",
-                    "derivation_id": "controlled:learned-producer",
-                    "release_id": "controlled:release",
-                    "runtime_id": "controlled:runtime",
-                    "publication_receipt": True,
-                    "cpu_receipt": False,
-                    "admitted_effects": [],
-                    "validity_families": [],
-                    "reference_inputs": dependencies,
-                },
-            }),
+            support_references=support,
+            member=member,
+            support_evidence=canonical_bytes(
+                {}
+                if dependencies is None
+                else {
+                    "producer_contract": {
+                        "version": "selected-producer-contract-v1",
+                        "derivation_id": "controlled:learned-producer",
+                        "release_id": "controlled:release",
+                        "runtime_id": "controlled:runtime",
+                        "publication_receipt": True,
+                        "cpu_receipt": False,
+                        "admitted_effects": [],
+                        "validity_families": [],
+                        "reference_inputs": dependencies,
+                        "reference_inputs_complete": True,
+                    },
+                }
+            ),
         )
 
     kind, contract = nominal("DdoSourceAnnotationManifest")
     packet = compact_manifest(
-        {"source": source.value["source"], "selectors": source.value["selectors"],
-         "coverage": [], "outcome": "complete"}, contract
+        {
+            "source": source.value["source"],
+            "selectors": source.value["selectors"],
+            "coverage": [],
+            "outcome": "complete",
+        },
+        contract,
     )
     annotations = RetainedCharacterizationProduct.acquire(
         prepared, model, kind, canonical_bytes(packet["body"])
-    ).with_context(context, member=selected_member("controlled:annotations", packet["member_id"], contract))
+    ).with_context(
+        context, member=selected_member("controlled:annotations", packet["member_id"], contract)
+    )
     kind, contract = nominal("DdoMaverickManifest")
     bare = RetainedCharacterizationProduct.acquire(
         prepared, model, kind, canonical_bytes(maverick["body"]), subject_context=context
@@ -398,20 +428,31 @@ def _assert_learned_view_closure(prepared, model, source, context, maverick):
     untyped = SimpleNamespace(semantic_id=bare.semantic_id, value={"record_type": "manifest"})
     with pytest.raises(ValueError, match="requires acquired characterization manifests"):
         compose_enriched_document(prepared, model, (source,), (untyped,))
-    with pytest.raises(ValueError, match="exact selected learned dependency"):
+    with pytest.raises(ValueError, match="exact acquired producing input closure"):
         compose_enriched_document(prepared, model, (source,), (annotations, bare))
     with pytest.raises(ValueError, match="exactly one producing input occurrence"):
-        bare.with_context(context, member=selected_member(
-            "controlled:maverick", maverick["member_id"], contract, dependencies=[]
-        ))
-    learned = bare.with_context(context, member=selected_member(
-        "controlled:maverick", maverick["member_id"], contract, dependencies=[{
-            "role": "annotations",
-            "product_id": annotations.semantic_id,
-            "kind_contract": nominal("DdoSourceAnnotations")[1],
-        }]
-    ))
-    with pytest.raises(ValueError, match="exact selected learned dependency"):
+        bare.with_context(
+            context,
+            member=selected_member(
+                "controlled:maverick", maverick["member_id"], contract, dependencies=[]
+            ),
+        )
+    learned = bare.with_context(
+        context,
+        member=selected_member(
+            "controlled:maverick",
+            maverick["member_id"],
+            contract,
+            dependencies=[
+                {
+                    "role": "annotations",
+                    "product_id": annotations.semantic_id,
+                    "kind_contract": nominal("DdoSourceAnnotations")[1],
+                }
+            ],
+        ),
+    )
+    with pytest.raises(ValueError, match="missing an exact selected dependency"):
         compose_enriched_document(prepared, model, (source,), (learned,))
     products = (annotations, learned)
     view = compose_enriched_document(prepared, model, (source,), products)

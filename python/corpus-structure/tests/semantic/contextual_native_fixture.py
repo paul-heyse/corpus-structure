@@ -276,6 +276,38 @@ class ControlledContextualCues:
         "entrypoints": ["run"],
         "roles": [
             {
+                "name": "constructions",
+                "parameter": "constructions",
+                "direction": "input",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "set",
+                "presence": "optional",
+                "support": {
+                    "provenance": "exact",
+                    "source": "same-original",
+                    "coverage": {"role": "constructions", "description": "actual-selected-source"},
+                    "identity_requirements": ["episode"],
+                },
+            },
+            {
+                "name": "formal",
+                "parameter": "formal",
+                "direction": "input",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "set",
+                "presence": "optional",
+                "support": {
+                    "provenance": "exact",
+                    "source": "same-original",
+                    "coverage": {"role": "formal", "description": "actual-selected-source"},
+                    "identity_requirements": ["episode"],
+                },
+            },
+            {
                 "name": "source",
                 "parameter": "source",
                 "direction": "input",
@@ -320,6 +352,22 @@ class ControlledContextualCues:
         "outcomes": ["success"],
         "precision_description": "exact-original-native-pieces",
         "dependencies": [],
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/construction_support/*/target",
+                "input_role": "constructions",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/formal_support/*/target",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+        ],
         "effects": [],
         "parameters": {},
         "capabilities": {
@@ -350,7 +398,11 @@ class ControlledContextualCues:
     def __init__(self, execute):
         self.execute = execute
 
-    def run(self, source: dict) -> dict:
+    def run(
+        self, source: dict, constructions: tuple[dict, ...] = (), formal: tuple[dict, ...] = ()
+    ) -> dict:
+        if constructions or formal:
+            raise ValueError("controlled finite fixture examines only its exact source")
         return execute_cue_profile(self, source)
 
     @staticmethod
@@ -599,9 +651,14 @@ class FixtureCallPlan:
 
         if binding is None or binding.subject_context is None or not binding.sufficient:
             raise ValueError("controlled matcher requires actual sufficient native source support")
-        basis = cpu_input_basis_from_binding(
-            self.port.identity.recipe, binding, {"source": (arguments.arguments["source"],)}
-        )
+        inputs: dict[str, tuple[Any, ...]] = {"source": (arguments.arguments["source"],)}
+        for role in binding.roles:
+            if role.role == "source":
+                continue
+            if role.members:
+                raise ValueError("controlled finite matcher examines only its exact source")
+            inputs[role.role] = ()
+        basis = cpu_input_basis_from_binding(self.port.identity.recipe, binding, inputs)
         bound = inspect.signature(self.kernel, eval_str=True).bind(
             input_basis=basis, prepared=self.prepared, check_active=check_active
         )

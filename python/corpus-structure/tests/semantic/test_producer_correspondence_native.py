@@ -74,6 +74,7 @@ def test_authorized_binding_observes_producer_without_disclosing_protected_suppo
     assert all(item.publication_receipt for item in observations)
     assert all(item.cpu_receipt is False for item in observations)
     assert all(item.reference_inputs == () for item in observations)
+    assert all(item.reference_inputs_complete for item in observations)
     assert all(
         set(value["producer_contract"])
         == {
@@ -86,6 +87,7 @@ def test_authorized_binding_observes_producer_without_disclosing_protected_suppo
             "admitted_effects",
             "validity_families",
             "reference_inputs",
+            "reference_inputs_complete",
         }
         for value in evidence
     )
@@ -199,6 +201,15 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
                 "fulfilled",
                 {"inputs": [left, repeated]},
             ),
+            ("empty-use", "empty-derivation", "fulfilled", {"inputs": []}),
+            (
+                "complete-use",
+                "complete-derivation",
+                "fulfilled",
+                {"inputs": [pin("source", "original-parent")]},
+            ),
+            ("unfinished-use", "empty-derivation", "pending", {"inputs": []}),
+            ("mismatched-use", "complete-derivation", "fulfilled", {"inputs": []}),
         ],
     )
     inputs = relation(
@@ -213,6 +224,7 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
             ("occurrence_label", Text),
         ),
         [
+            ("complete-derivation", "source", 0, 1, "original-parent", None, None),
             ("historical-derivation", "source", 0, 1, "original-parent", None, None),
             ("historical-derivation", "protected", 0, 1, "protected-parent", None, None),
             ("historical-derivation", "other", 0, 1, "unrelated-parent", None, None),
@@ -262,10 +274,23 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
     )
     selected = relation(
         "selected_producer_use",
-        (("use_id", Text), ("output_role", Text)),
-        [("authentic-use", "result"), ("substituted-use", "result"), ("duplicate-use", "result")],
+        (("use_id", Text), ("output_role", Text), ("episode_id", Text)),
+        [
+            (use, "result", "historical-derivation")
+            for use in ("authentic-use", "substituted-use", "duplicate-use", "mismatched-use")
+        ]
+        + [
+            ("empty-use", "result", "empty-derivation"),
+            ("complete-use", "result", "complete-derivation"),
+            ("unfinished-use", "result", "empty-derivation"),
+            ("missing-use", "result", "empty-derivation"),
+        ],
     )
-    episodes = relation("actual_episode", (("id", Text),), [("historical-derivation",)])
+    episodes = relation(
+        "actual_episode",
+        (("id", Text),),
+        [("historical-derivation",), ("empty-derivation",), ("complete-derivation",)],
+    )
     requests = relation("actual_request", (("project_id", Text),), [("project",)])
     definitions = relation(
         "actual_definition",
@@ -331,7 +356,7 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
     )
     rows = native_rollback.connection.execute(
         select(selected.c.use_id, projection).select_from(
-            selected.join(episodes, literal(True))
+            selected.join(episodes, selected.c.episode_id == episodes.c.id)
             .join(requests, literal(True))
             .join(
                 definitions,
@@ -340,7 +365,24 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
         )
     ).all()
     observations = dict(rows)
-    authentic = observations["authentic-use"]
+    authentic = observations["authentic-use"]["reference_inputs"]
+    assert observations["empty-use"] == {
+        "reference_inputs": [],
+        "reference_inputs_complete": True,
+    }
+    assert observations["complete-use"]["reference_inputs_complete"] is True
+    assert len(observations["complete-use"]["reference_inputs"]) == 1
+    assert all(
+        observations[use]["reference_inputs_complete"] is False
+        for use in (
+            "authentic-use",
+            "substituted-use",
+            "duplicate-use",
+            "mismatched-use",
+            "unfinished-use",
+            "missing-use",
+        )
+    )
     assert len(authentic) == 6
     assert authentic[0] == {
         "role": "nominations",
@@ -358,7 +400,7 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
         "member_id": None,
         "multiplicity": 1,
     }
-    assert observations["substituted-use"] == []
+    assert observations["substituted-use"]["reference_inputs"] == []
     assert [
         (row["product_id"], row["member_id"], row["occurrence_field"], row["occurrence"])
         for row in authentic[1:-1]
@@ -381,7 +423,7 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
                     "cpu_receipt": False,
                     "admitted_effects": [],
                     "validity_families": [],
-                    "reference_inputs": observations[use],
+                    **observations[use],
                 }
             )
         )

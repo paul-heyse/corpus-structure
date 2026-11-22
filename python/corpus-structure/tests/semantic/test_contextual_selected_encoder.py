@@ -8,6 +8,8 @@ import pytest
 
 from corpus_structure.methods import contextual_embeddings as embeddings
 from corpus_structure.semantic.contextual_encoder import (
+    checked_primary_query_rows,
+    prepare_primary_query_context,
     prepare_selected_query_context,
 )
 from corpus_structure.semantic.contextual_encoder_batch import execute_encoder_batch
@@ -91,10 +93,16 @@ def test_requested_context_refuses_wrong_member_source_dependency_and_missing_po
             frame, occurrence, changed, binding=binding, recipe=recipe, evidence=evidence.values()
         )
     changed = deepcopy(primary)
-    changed[0]["dependencies"] = [dict(product_id="product:missing")]
+    changed[0]["formal_support"] = []
     with pytest.raises(ValueError, match="closure"):
-        prepare_selected_query_context(
-            frame, occurrence, changed, binding=binding, recipe=recipe, evidence=evidence.values()
+        prepare_primary_query_context(
+            frame,
+            occurrence,
+            checked_primary_query_rows(changed, binding=binding),
+            recipe=recipe,
+            evidence=evidence.values(),
+            learned_dependencies={"product:primary": ("product:missing",)},
+            construction_formal_parents={"product:primary": ()},
         )
     changed = deepcopy(primary)
     changed[0]["standing"] = "native_provider_observation"

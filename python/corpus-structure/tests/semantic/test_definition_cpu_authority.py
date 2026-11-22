@@ -319,6 +319,7 @@ def test_component_cpu_retains_selected_source_member_and_requires_whole_primary
             reference_inputs=(
                 ProducingReferenceInput("sentences", annotation.product, annotation.kind_contract),
             ),
+            reference_inputs_complete=True,
         )
         roles = tuple(
             replace(

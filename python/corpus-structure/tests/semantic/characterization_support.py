@@ -8,6 +8,7 @@ from methods.declared_primary_fixture import profiles, selected_source
 
 from corpus_structure.semantic.characterization import occurrence_id
 from corpus_structure.semantic.construction_products import (
+    _stage_construction_support,
     interpreted_member_contracts,
     interpreted_product_value,
     validate_interpreted_product,
@@ -15,6 +16,7 @@ from corpus_structure.semantic.construction_products import (
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.declared_formal_readings import declared_formal_layers
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.source_products import FrozenNativeSource
 
 
@@ -117,15 +119,19 @@ def literal_inventory(case) -> dict[str, Any]:
 
 def product_value(case, facts, dependencies=()) -> dict[str, Any]:
     profile = profiles()[1]
+    facts = thaw_native(facts)
+    try:
+        annotations, formal = _stage_construction_support(facts, dependencies)
+    except KeyError as error:
+        raise ValueError("authored external premise lacks its member address") from error
     return {
         **interpreted_product_value(
             case.source,
             facts,
             interpreted_member_contracts(profile.prepared, profile.model),
-            dependencies,
         ),
-        "annotation_support": [],
-        "formal_support": [],
+        "annotation_support": annotations,
+        "formal_support": formal,
     }
 
 

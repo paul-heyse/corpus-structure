@@ -3357,6 +3357,30 @@ class ContextualNativePrimaryOperation:
         "reference_targets": [
             {
                 "output_role": "result",
+                "path": "/formal_input",
+                "input_role": "formal",
+                "variant": "product",
+            },
+            {
+                "output_role": "result",
+                "path": "/constructions_input",
+                "input_role": "constructions",
+                "variant": "product",
+            },
+            {
+                "output_role": "result",
+                "path": "/maverick_input",
+                "input_role": "maverick",
+                "variant": "product",
+            },
+            {
+                "output_role": "result",
+                "path": "/dipo_input",
+                "input_role": "dipo",
+                "variant": "product",
+            },
+            {
+                "output_role": "result",
                 "path": "/formal_proxy_support/*/target",
                 "input_role": "formal",
                 "variant": "member",

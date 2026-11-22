@@ -29,8 +29,22 @@ def test_contextual_replay_prepares_shared_target_without_widening_member_access
             except KeyError:
                 return default
 
-    pin = dict(role="formal", product_id="parent", position=0, multiplicity=1)
-    use = dict(id="use", fate="fulfilled", derivation_id="episode", selection={"inputs": [pin]})
+    roles = ("formal", "constructions", "maverick", "dipo")
+    pins = {
+        role: dict(
+            role=role,
+            product_id="parent" if role == "formal" else role + "-parent",
+            position=0,
+            multiplicity=1,
+        )
+        for role in roles
+    }
+    use = dict(
+        id="use",
+        fate="fulfilled",
+        derivation_id="episode",
+        selection={"inputs": list(pins.values())},
+    )
     target = dict(
         output_role="result",
         path="/formal_proxy_support/*/target",
@@ -44,13 +58,31 @@ def test_contextual_replay_prepares_shared_target_without_widening_member_access
         "ops.data_request": {"request": dict(operation_id="operation")},
         "sem.data_operation_definition": {
             ("release", "operation"): dict(
-                support_contract={"reference_targets": [target]},
+                support_contract={
+                    "reference_targets": [
+                        target,
+                        *(
+                            dict(
+                                output_role="result",
+                                path="/" + role + "_input",
+                                input_role=role,
+                                input_kind="inventory",
+                                variant="product",
+                            )
+                            for role in roles
+                        ),
+                    ]
+                },
                 input_roles=[
-                    dict(name="formal", kind="inventory", accepted_kind_contracts=["kind"])
+                    dict(name=role, kind="inventory", accepted_kind_contracts=["kind"])
+                    for role in roles
                 ],
             )
         },
-        "kb.data_product": {"parent": dict(project_id="project", kind_contract="kind")},
+        "kb.data_product": {
+            pin["product_id"]: dict(project_id="project", kind_contract="kind")
+            for pin in pins.values()
+        },
         "kb.data_product_member": {
             ("parent", member): dict(
                 body=semantic_value(dict(record_type="annotation", local_id=member))
@@ -67,7 +99,7 @@ def test_contextual_replay_prepares_shared_target_without_widening_member_access
         if relation == "ops.data_derivation_output":
             return (dict(derivation_id="episode", role="result"),)
         if relation == "ops.data_derivation_input":
-            return (pin,)
+            return (pins[fields["role"]],)
         assert relation == "ops.demand_use"
         return (use,)
 
@@ -75,6 +107,7 @@ def test_contextual_replay_prepares_shared_target_without_widening_member_access
     cut = SimpleNamespace(record={"project_id": "project"})
     members = ("one", last_member)
     value = dict(
+        **{role + "_input": SemanticReference.whole(role).values() for role in roles},
         formal_proxy_support=[
             dict(
                 owner="proxy:" + member,
@@ -104,5 +137,5 @@ def test_contextual_replay_prepares_shared_target_without_widening_member_access
     assert calls["sem.data_operation_definition"] == 1
     # The graph checks scalar parents once, then the prepared path checks their
     # exact historical/current intersection once for both member references.
-    assert calls["ops.data_derivation_input:rows"] == 2
-    assert calls["kb.data_product"] == 1
+    assert calls["ops.data_derivation_input:rows"] == 9
+    assert calls["kb.data_product"] == 4

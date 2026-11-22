@@ -127,6 +127,7 @@ def contextual_recipe(directory, selection):
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
     )
+    from corpus_structure.semantic.construction_products import construction_product_inputs
     from corpus_structure.semantic.contextual_encoder import (
         contextual_encoder_declarations,
         contextual_encoder_operation_sources,
@@ -166,7 +167,9 @@ def contextual_recipe(directory, selection):
         project_id=None,
         execution_profile="source-native",
         captured_inputs=CapturedKernelInputs(
-            contextual_inputs(structural_inputs(captured.bundle)), dependencies, captured.profile
+            contextual_inputs(structural_inputs(construction_product_inputs(captured.bundle))),
+            dependencies,
+            captured.profile,
         ),
     )
 
@@ -176,6 +179,7 @@ def contextual_workflow_recipe(directory, selection):
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
     )
+    from corpus_structure.semantic.construction_products import construction_product_inputs
     from corpus_structure.semantic.contextual_encoder import (
         contextual_encoder_declarations,
         contextual_encoder_operation_sources,
@@ -223,7 +227,9 @@ def contextual_workflow_recipe(directory, selection):
         project_id=None,
         execution_profile="source-native",
         captured_inputs=CapturedKernelInputs(
-            dossier_inputs(applicability_inputs(captured.bundle)), dependencies, captured.profile
+            dossier_inputs(applicability_inputs(construction_product_inputs(captured.bundle))),
+            dependencies,
+            captured.profile,
         ),
     )
 

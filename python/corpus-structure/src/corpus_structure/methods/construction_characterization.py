@@ -63,7 +63,7 @@ class ConstructionOperation:
                 "checker_operation": "text.constructions/source-native",
                 "checker_callable": "corpus_structure.semantic.construction_products.verify_interpreted_dependency_members",
                 "parameters": {
-                    "paths": ["dependencies", "formal_support", "members"],
+                    "paths": ["formal_support", "members"],
                     "input_reads": {
                         "formal": ["members"],
                         "sentences": ["execution_profile", "block_coverage"],

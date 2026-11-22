@@ -259,10 +259,7 @@ def test_explicit_unknown_and_successful_empty_are_distinct(graph_source):
         examined=[],
         unexamined=body["coverage"][0]["eligible"],
     )
-    assert (
-        current_product(graph_source, body).value["coverage"][0]["outcome"]
-        == "unknown"
-    )
+    assert current_product(graph_source, body).value["coverage"][0]["outcome"] == "unknown"
 
 
 def test_cross_product_premises_require_exact_dependencies_and_reachable_member(graph_source):
@@ -280,7 +277,7 @@ def test_cross_product_premises_require_exact_dependencies_and_reachable_member(
         )
     ]
     value = product_value(graph_source, body, (dependency,))
-    with pytest.raises(ValueError, match="dependencies"):
+    with pytest.raises(ValueError, match="original formal input"):
         validate_product(graph_source, value)
     derived = validate_product(graph_source, value, (dependency,))
     assert derived.inventory()["annotations"][0]["vocabulary"] == "other-domain"

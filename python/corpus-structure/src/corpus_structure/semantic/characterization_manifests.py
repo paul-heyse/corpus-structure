@@ -19,6 +19,10 @@ def learned_manifest_input_roles(prepared, kind):
     if not kind.startswith(_LEARNED_KIND_PREFIX):
         return ()
     definition = prepared.index.by_iri[kind]
+    if definition.name == "DdoContextualNativeProduct":
+        from .contextual_proxy_references import CONTEXTUAL_NATIVE_INPUT_ROLES
+
+        return CONTEXTUAL_NATIVE_INPUT_ROLES
     if "DdoLearnedObservation" in definition.ancestors:
         members = next(prop for prop in definition.properties if prop.name == "members")
         packet = prepared.index.definitions[members.range]
@@ -28,8 +32,7 @@ def learned_manifest_input_roles(prepared, kind):
         return ()
     inputs = tuple(prop for prop in definition.properties if prop.range == "DdoSemanticReference")
     if any(
-        not prop.name.endswith("_input") or not prop.required or prop.multivalued
-        for prop in inputs
+        not prop.name.endswith("_input") or not prop.required or prop.multivalued for prop in inputs
     ):
         raise ValueError("learned manifest requires closed scalar dependency roles")
     return tuple(prop.name.removesuffix("_input") for prop in inputs)
@@ -46,10 +49,13 @@ def learned_dependency_products(prepared, kind, value, member):
     if member is None:
         raise ValueError("learned characterization lacks its acquired producing inputs")
     manifest = value
-    if value.get("record_type") != "manifest":
+    if (
+        value.get("record_type") != "manifest"
+        and prepared.index.by_iri[kind].name != "DdoContextualNativeProduct"
+    ):
         (packet,) = value["members"]
         manifest = packet["body"]
-    producing = selected_producing_reference_bindings(member)
+    producing = selected_producing_reference_bindings(member, require_complete=True)
     products = []
     for role in roles:
         reference = read_semantic_reference(manifest[role + "_input"])

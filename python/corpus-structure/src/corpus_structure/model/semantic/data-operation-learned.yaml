@@ -216,10 +216,10 @@ classes:
   DdoContextualNativeProduct:
     is_a: DdoInterpretedProduct
     attributes:
-      dependencies:
-        range: DdoSemanticProductReference
-        inlined: true
-        multivalued: true
+      formal_input: {range: DdoSemanticReference, required: true, inlined: true}
+      constructions_input: {range: DdoSemanticReference, required: true, inlined: true}
+      maverick_input: {range: DdoSemanticReference, required: true, inlined: true}
+      dipo_input: {range: DdoSemanticReference, required: true, inlined: true}
       formal_proxy_support:
         range: DdoContextualProxySupport
         inlined: true

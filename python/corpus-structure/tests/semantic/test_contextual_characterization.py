@@ -112,7 +112,7 @@ def symbolic_layer(case, *, conflicting=False):
     ]
     prepared, model = profiles()
     value = interpreted_product_value(
-        case.primary.source, body, interpreted_member_contracts(prepared, model), ()
+        case.primary.source, body, interpreted_member_contracts(prepared, model)
     )
     value["annotation_support"] = []
     value["formal_support"] = []
@@ -319,13 +319,28 @@ def test_selected_native_contextual_proxy_graph_keeps_role_and_exact_original():
                 "body": {"record_type": "annotation", "local_id": role, "kind": kind},
             }
         )
+    for role in ("formal", "constructions", "maverick", "dipo"):
+        value[role + "_input"] = SemanticReference.whole(role).values()
+        targets.append(
+            dict(
+                output_role="result",
+                path="/" + role + "_input",
+                input_role=role,
+                input_kind=role,
+                variant="product",
+            )
+        )
+        if role not in {pin["role"] for pin in inputs}:
+            parent = role + ":original"
+            parents[parent] = {"project_id": "project", "kind_contract": role}
+            inputs.append(dict(role=role, product_id=parent, position=0, multiplicity=1))
     use = dict(id="use", derivation_id="episode", fate="fulfilled", selection={"inputs": inputs})
     output = dict(derivation_id="episode", product_id="contextual", role="result")
     definition = {
         "support_contract": {"reference_targets": targets},
         "input_roles": [
             {"name": role, "kind": role, "accepted_kind_contracts": [role]}
-            for role, _, _ in variants
+            for role in ("formal", "constructions", "maverick", "dipo")
         ],
     }
     parents["contextual"] = {"canonical_body": semantic_value(value)}
@@ -341,7 +356,9 @@ def test_selected_native_contextual_proxy_graph_keeps_role_and_exact_original():
         "kb.data_product": parents,
         "kb.data_product_member": members,
         "kb.data_product_partition": {},
-        "sem.data_kind_contract": {role: {} for role, _, _ in variants},
+        "sem.data_kind_contract": {
+            role: {} for role in ("formal", "constructions", "maverick", "dipo")
+        },
     }
 
     def rows_for(relation, **criteria):
@@ -368,6 +385,10 @@ def test_selected_native_contextual_proxy_graph_keeps_role_and_exact_original():
         ]
 
     assert endpoints() == expected
+    assert inventories[contextual].payload["dependencies"] == [
+        {"product_id": role + ":original"}
+        for role in ("formal", "constructions", "maverick", "dipo")
+    ]
     reused = {
         **use,
         "id": "reused-use",
@@ -429,4 +450,28 @@ def test_selected_native_contextual_proxy_graph_keeps_role_and_exact_original():
             }
         )
     }
-    assert inventories[DataProductReference("empty-contextual")].payload["annotations"] == []
+    with pytest.raises(ValueError, match="unavailable in any exact selected use"):
+        _ = inventories[DataProductReference("empty-contextual")]
+    maps["ops.data_derivation_output"]["empty-output"] = {
+        **output,
+        "product_id": "empty-contextual",
+    }
+    empty = inventories[DataProductReference("empty-contextual")].payload
+    assert empty["annotations"] == []
+    assert empty["dependencies"] == inventories[contextual].payload["dependencies"]
+
+    # An empty graph still requires every native observation parent. Two
+    # partial uses cannot collectively authorize the original closure.
+    uses.clear()
+    uses["without-dipo"] = {
+        **use,
+        "id": "without-dipo",
+        "selection": {"inputs": [pin for pin in inputs if pin["role"] != "dipo"]},
+    }
+    uses["without-maverick"] = {
+        **use,
+        "id": "without-maverick",
+        "selection": {"inputs": [pin for pin in inputs if pin["role"] != "maverick"]},
+    }
+    with pytest.raises(ValueError, match="unavailable in any exact selected use"):
+        _ = inventories[DataProductReference("empty-contextual")]

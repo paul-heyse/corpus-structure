@@ -115,14 +115,19 @@ def test_declared_maverick_mapping_retains_original_contributions_and_context_hy
     )
     assert TypeAdapter(dict[str, Any]).dump_json(result)
     assert result["outcome"] == "partial"
-    assert result["dependencies"] == [
-        {"product_id": formal.semantic_id},
-        {"product_id": constructions.semantic_id},
-        {"product_id": "selected-native-maverick"},
-        {"product_id": "selected-native-dipo"},
-    ]
+    assert "dependencies" not in result
+    assert {
+        role: result[role + "_input"] for role in ("formal", "constructions", "maverick", "dipo")
+    } == {
+        role: {"variant": "product", "role": role}
+        for role in ("formal", "constructions", "maverick", "dipo")
+    }
     bodies = [packet["body"] for packet in result["members"]]
-    assert any(body.get("kind") == "native.mention" for body in bodies)
+    mentions = [body for body in bodies if body.get("kind") == "native.mention"]
+    assert mentions
+    assert {body["native_mention"]["native_run"] for body in mentions} == {
+        "selected-native-maverick:0"
+    }
     assert any(body.get("kind") == "contextual.referent_hypothesis" for body in bodies)
     assert all(
         "source_view_id" not in extent

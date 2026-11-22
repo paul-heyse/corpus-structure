@@ -307,7 +307,7 @@ def test_named_attachment_variants_survive_the_actual_retained_producer_roundtri
         [(match.variant, scope.disposition) for match, scope in scopes.items()],
     )
     assert refs and all(
-        reference.product_id == construction.semantic_id for reference in refs.values()
+        reference.product.product_id == construction.semantic_id for reference in refs.values()
     )
     policy = json.loads(
         (
@@ -789,6 +789,8 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
     with pytest.raises(ValueError, match="changes original positioned source"):
         verify_interpreted_positioned_geometry((packet,), source.value)
 
+    from semantic.construction_products_test_support import original_input_support
+
     member = BoundRoleMember(
         product=construction.semantic_id,
         kind_contract=next(
@@ -802,9 +804,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         original_source=context.original_source,
         analyzed_scope=context.analyzed_scope,
         coverage=b"{}",
-        support_episodes=(),
-        support_evidence=b"{}",
-        support_references=(),
+        **original_input_support(construction, (primary,)),
     )
     payload = construction.value
 
@@ -829,6 +829,33 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         prepared, model, payload, source, (primary,), subject_context=context, member=member
     )
     assert selected_product.semantic_id == construction.semantic_id
+    assert selected_product.dependency_products == (primary.semantic_id,)
+    partial = json.loads(member.support_evidence)
+    partial["producer_contract"]["reference_inputs_complete"] = False
+    with pytest.raises(ValueError, match="complete original input authority"):
+        construction_products.acquired_construction_product(
+            prepared,
+            model,
+            payload,
+            source,
+            (primary,),
+            subject_context=context,
+            member=replace(member, support_evidence=canonical_bytes(partial)),
+        )
+    for dependencies in (
+        (),
+        (primary.with_context(replace(context, project_id="another-project")),),
+    ):
+        with pytest.raises(ValueError, match="exact retained dependency closure"):
+            construction_products.acquired_construction_product(
+                prepared,
+                model,
+                payload,
+                source,
+                dependencies,
+                subject_context=context,
+                member=member,
+            )
     with pytest.raises(ValueError, match="exact selected native product/source"):
         construction_products.acquired_construction_product(
             prepared,

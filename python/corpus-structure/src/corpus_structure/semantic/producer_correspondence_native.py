@@ -73,7 +73,7 @@ def selected_producer_contract(metadata, selected, *, body_eligible, body_access
         effects,
         "validity_families",
         func.to_jsonb(definitions.c.validity_families),
-        "reference_inputs",
+    ).op("||")(
         _selected_reference_inputs(
             metadata, selected, episodes, requests, definitions, body_eligible, body_access
         ),
@@ -100,7 +100,7 @@ def selected_producer_contract(metadata, selected, *, body_eligible, body_access
 def _selected_reference_inputs(
     metadata, selected, episodes, requests, definitions, body_eligible, body_access
 ):
-    """Expose declared original addresses selected and disclosed by this exact current use."""
+    """Observe disclosed declared inputs and full-role completeness in one scoped aggregate."""
     inputs = metadata.tables["ops.data_derivation_input"].alias("reference_producer_input")
     uses = metadata.tables["ops.demand_use"].alias("reference_producer_use")
     products = metadata.tables["kb.data_product"].alias("reference_input_product")
@@ -121,6 +121,7 @@ def _selected_reference_inputs(
     target = targets.c.value
     declared = (
         select(
+            literal(True).label("input_declared"),
             target["occurrence_field"].astext.label("occurrence_field"),
             (target["occurrence_binding"].astext == "true").label("occurrence_binding"),
             (target["occurrence_position"].astext == "true").label("occurrence_position"),
@@ -158,9 +159,15 @@ def _selected_reference_inputs(
     field = declared.c.occurrence_field
     binding_label = declared.c.occurrence_binding
     ledger_position = declared.c.occurrence_position
+    input_declared = declared.c.input_declared.is_(True)
     disclosed = case(
         (
-            and_(exact, or_(inputs.c.member_id.is_(None), members.c.member_id.is_not(None))),
+            and_(
+                input_declared,
+                products.c.project_id == requests.c.project_id,
+                exact,
+                or_(inputs.c.member_id.is_(None), members.c.member_id.is_not(None)),
+            ),
             body_eligible(kind, body),
         ),
         else_=literal(False),
@@ -211,23 +218,36 @@ def _selected_reference_inputs(
     )
     return (
         select(
-            func.coalesce(
-                func.jsonb_agg(
-                    aggregate_order_by(
-                        record, inputs.c.role, inputs.c.position, field, binding_label, ledger_position
-                    )
+            func.jsonb_build_object(
+                "reference_inputs",
+                func.coalesce(
+                    func.jsonb_agg(
+                        aggregate_order_by(
+                            record,
+                            inputs.c.role,
+                            inputs.c.position,
+                            field,
+                            binding_label,
+                            ledger_position,
+                        )
+                    ).filter(disclosed),
+                    empty,
                 ),
-                empty,
+                "reference_inputs_complete",
+                and_(
+                    func.count(uses.c.id) > 0,
+                    func.coalesce(
+                        func.bool_and(or_(~input_declared, disclosed.is_(True))), literal(True)
+                    ),
+                ),
             )
         )
         .select_from(
-            inputs.join(
-                uses,
-                and_(
-                    uses.c.id == selected.c.use_id, uses.c.derivation_id == inputs.c.derivation_id
-                ),
+            uses.outerjoin(
+                inputs,
+                inputs.c.derivation_id == uses.c.derivation_id,
             )
-            .join(products, products.c.id == inputs.c.product_id)
+            .outerjoin(products, products.c.id == inputs.c.product_id)
             .outerjoin(
                 members,
                 and_(
@@ -235,13 +255,12 @@ def _selected_reference_inputs(
                     members.c.member_id == inputs.c.member_id,
                 ),
             )
-            .join(declared, literal(True))
+            .outerjoin(declared, literal(True))
         )
         .where(
-            inputs.c.derivation_id == episodes.c.id,
+            uses.c.id == selected.c.use_id,
+            uses.c.derivation_id == episodes.c.id,
             uses.c.fate == "fulfilled",
-            products.c.project_id == requests.c.project_id,
-            disclosed,
         )
         .correlate(selected, episodes, requests, definitions)
         .scalar_subquery()

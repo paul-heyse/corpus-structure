@@ -14,6 +14,9 @@ from corpus_structure.semantic.formal_products import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.native_source_view import thaw_native
 from semantic.construction_products_test_support import (
+    original_input_support,
+)
+from semantic.construction_products_test_support import (
     profiles as profiles,
 )
 from semantic.construction_products_test_support import (
@@ -43,6 +46,9 @@ def test_target_grammar_preserves_operators_binders_choices_and_witnesses(profil
         product.value["outcome"] == "partial"
     )  # richer native reading families are explicitly unavailable
     assert b"task_id" not in product.content and b"release_id" not in product.content
+    assert "dependencies" not in product.value
+    assert all("dependencies" not in packet["body"] for packet in product.value["members"])
+    assert product.dependency_products == (primary.semantic_id,)
     assert all(
         "source_view_id" not in extent for row in values["occurrences"] for extent in row["extents"]
     )
@@ -152,7 +158,6 @@ def test_constructed_separator_and_epsilon_extents_preserve_projection_authority
         source,
         layer.facts(),
         interpreted_member_contracts(construction.prepared, construction.model),
-        (),
     )
     body["annotation_support"] = []
     body["formal_support"] = []
@@ -751,9 +756,7 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(
         original_source=context.original_source,
         analyzed_scope=context.analyzed_scope,
         coverage=b"{}",
-        support_episodes=(),
-        support_evidence=b"{}",
-        support_references=(),
+        **original_input_support(product, (primary,), sentences=annotations),
     )
 
     def repeated(*_args, **_kwargs):

@@ -24,11 +24,19 @@ class ContextualNativeProduct(InterpretedProduct):
     kind_name: ClassVar[str] = "DdoContextualNativeProduct"
     manifest_name: ClassVar[str] = "DdoContextualManifest"
 
-    @staticmethod
-    def manifest_projection(value):
-        # Native dependency custody belongs to the parent inventory; the contextual
-        # manifest exposes only the characterized source and coverage view.
-        return {key: item for key, item in value.items() if key != "dependencies"}
+    @classmethod
+    def _from_payload(cls, payload, source, prepared, model, subject_context):
+        from .contextual_proxy_references import (
+            CONTEXTUAL_NATIVE_INPUT_ROLES,
+            require_contextual_native_inputs,
+        )
+
+        require_contextual_native_inputs(payload.value)
+        if len(payload.dependency_products) != len(CONTEXTUAL_NATIVE_INPUT_ROLES) or len(
+            set(payload.dependency_products)
+        ) != len(payload.dependency_products):
+            raise ValueError("native contextual product requires its four exact acquired inputs")
+        return super()._from_payload(payload, source, prepared, model, subject_context)
 
 
 def contextual_native_values(
@@ -49,7 +57,7 @@ def contextual_native_values(
         ContextualLayer,
     )
     from .contextual_proxy_references import contextual_proxy_roles, stage_contextual_proxy_support
-    from .data_product_reference import DataProductReference
+    from .data_product_reference import SemanticReference
     from .model_characterization import declared_model_dependencies
     from .observations import source_python
     from .source_products import source_subject
@@ -239,16 +247,13 @@ def contextual_native_values(
         "outcome": "complete"
         if all(row["outcome"] in {"complete", "empty"} for row in combined)
         else "partial",
-        "dependencies": [
-            DataProductReference(product.semantic_id).values()
-            for product in (*products, maverick, dipo)
-        ],
+        **{
+            role + "_input": SemanticReference.whole(role).values()
+            for role in ("formal", "constructions", "maverick", "dipo")
+        },
         **stage_contextual_proxy_support(members, proxy_roles),
     }
-    summary = append_manifest(
-        ContextualNativeProduct.manifest_projection(value), contracts["contextual_manifest"]
-    )
-    return {**value, "members": summary["members"]}
+    return append_manifest(value, contracts["contextual_manifest"])
 
 
 def execute_contextual_native(receiver, source, formal, constructions, maverick, dipo):

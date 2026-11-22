@@ -237,11 +237,6 @@ class InterpretedProduct:
             "interpreted evidence requires validated production or exact native acquisition"
         )
 
-    @staticmethod
-    def manifest_projection(value):
-        """Project the owning family's declared compact summary fields."""
-        return value
-
     @classmethod
     def _from_payload(cls, payload, source, prepared, model, subject_context) -> Self:
         product = object.__new__(cls)
@@ -276,12 +271,15 @@ class InterpretedProduct:
             for item in model.identities
         ):
             raise ValueError("construction product has another nominal contract")
-        if type(self) is ContextualMeaningProduct:
-            available = {product.semantic_id for product in dependencies}
-            if not set(self._payload.dependency_products) <= available:
-                raise ValueError("contextual product lacks its exact retained dependency closure")
-        else:
-            _construction_dependencies(self.value, dependencies)
+        available = {product.semantic_id for product in dependencies}
+        if not set(self.dependency_products) <= available:
+            raise ValueError("interpreted product lacks its exact retained dependency closure")
+
+    @property
+    def dependency_products(self):
+        """Exact arguments of this acquired producer origin, outside serialized meaning."""
+        self._require_acquired()
+        return self._payload.dependency_products
 
     def _publication_context(self):
         if self.subject_context is None:
@@ -658,12 +656,7 @@ def construction_product_values(
                 )
     facts = builder.facts()
     support, formal_support = _stage_construction_support(facts, formal)
-    value = interpreted_product_value(
-        source,
-        facts,
-        member_contracts,
-        (*formal, *((native,) if native is not None else ())),
-    )
+    value = interpreted_product_value(source, facts, member_contracts)
     return {
         **value,
         "annotation_support": support,
@@ -959,7 +952,7 @@ def _validated_annotation_support(value, selected, annotations, nodes, *, establ
     return navigation
 
 
-def interpreted_product_value(source, facts, member_contracts, dependencies):
+def interpreted_product_value(source, facts, member_contracts):
     """Package one actual graph inventory with original scope and genuine support."""
     selected = source.value
     facts["choice_members"] = [
@@ -978,9 +971,6 @@ def interpreted_product_value(source, facts, member_contracts, dependencies):
     value = dict(
         source=coordinate,
         selectors=selectors,
-        dependencies=[
-            DataProductReference(product.semantic_id).values() for product in dependencies
-        ],
         outcome=facts["outcome"],
         coverage=facts["coverage"],
         members=[
@@ -1102,10 +1092,6 @@ def verify_interpreted_positioned_geometry(packets, source):
 
 def verify_interpreted_dependency_members(product, nodes, dependencies, *, include_annotations):
     """Bind external graph premises and alternative choices to actual primary members."""
-    if "formal_member_support" not in product and _inventory_field(product, "dependencies", []) != [
-        {"product_id": key} for key, _ in dependencies
-    ]:
-        raise ValueError("construction product changes selected primary dependencies")
     external = {
         (product_id, packet["member_id"]): packet["body"]
         for product_id, dependency in dependencies
@@ -1224,7 +1210,7 @@ def _checked_interpreted_product[Product: InterpretedProduct](
     graph_value = checked
     parents = ()
     contextual_parents = ()
-    if product_type is ConstructionProduct and checked.get("formal_support"):
+    if product_type is ConstructionProduct:
         from .construction_formal_references import (
             construction_formal_parents,
             project_construction_formal_support,
@@ -1262,7 +1248,7 @@ def _checked_interpreted_product[Product: InterpretedProduct](
             contextual_parents = contextual_input_parents(bound_member)
         graph_value = project_contextual_input_support(checked, contextual_parents)
     packets = analytical_packets(
-        product_type.manifest_projection(graph_value),
+        graph_value,
         manifest_contract(prepared, model, product_type.manifest_name),
     )
     selected = source.value
@@ -1354,12 +1340,15 @@ def _checked_interpreted_product[Product: InterpretedProduct](
     return product_type._from_payload(payload, source, prepared, model, subject_context)
 
 
-def _construction_dependencies(value, formal):
-    available = {product.semantic_id: product for product in formal}
-    requested = [row["product_id"] for row in value.get("dependencies", ())]
-    if len(set(requested)) != len(requested) or any(key not in available for key in requested):
+def _original_construction_dependencies(member, products):
+    """Require the full original formal/annotation roles from one acquired producer."""
+    from .construction_formal_references import construction_input_parents
+
+    inputs = construction_input_parents(member)
+    available = {product.semantic_id: product for product in products}
+    if len(available) != len(products) or any(product not in available for _, _, product in inputs):
         raise ValueError("construction lacks its exact retained dependency closure")
-    return tuple(available[key] for key in requested)
+    return tuple(available[product] for _, _, product in inputs)
 
 
 def validate_construction_product(prepared, model, value, source, formal, *, subject_context=None):
@@ -1368,7 +1357,7 @@ def validate_construction_product(prepared, model, value, source, formal, *, sub
         model,
         value,
         source,
-        _construction_dependencies(value, formal),
+        tuple(formal),
         product_type=ConstructionProduct,
         subject_context=subject_context,
     )
@@ -1392,7 +1381,7 @@ def acquired_construction_product(
         model,
         value,
         source,
-        _construction_dependencies(value, formal),
+        _original_construction_dependencies(member, formal),
         product_type=ConstructionProduct,
         subject_context=subject_context,
         bound_member=member,

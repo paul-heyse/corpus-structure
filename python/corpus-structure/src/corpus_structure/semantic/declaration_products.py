@@ -137,7 +137,7 @@ def declaration_product_values(
         admitted=lambda a, b: any(start <= a < b <= end for start, end in requested),
     )
     return dict(
-        interpreted_product_value(source, layer.facts(), contracts, ()), term_support=term_support
+        interpreted_product_value(source, layer.facts(), contracts), term_support=term_support
     )
 
 

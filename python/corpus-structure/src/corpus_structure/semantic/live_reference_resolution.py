@@ -227,7 +227,7 @@ class PreparedSelectedOutputReferences:
         ) or (reference.occurrence is not None) != uses_occurrence:
             raise ValueError("reference differs from its declared slot target")
 
-    def _prepare(self, path, reference):
+    def _prepare(self, path):
         from .detached_reference_resolution import (
             reference_input_occurrence,
             reference_role_contracts,
@@ -266,7 +266,6 @@ class PreparedSelectedOutputReferences:
         )
         if not uses_occurrence and len(originals) != 1:
             raise ValueError("selected reference lacks its scalar original input")
-        self._require_slot(reference, target)
         bindings = []
         for original in originals:
             product_id, member_id = original["product_id"], original.get("member_id")
@@ -314,7 +313,7 @@ class PreparedSelectedOutputReferences:
                 )
             bindings.append(binding)
 
-        if not bindings:
+        if originals and not bindings:
             raise ValueError("original reference parent is unavailable in the exact selected use")
         producing = ProducingReferenceBindings(self.derivation_id, tuple(bindings))
         resolver = ReferenceResolver(producing, access)
@@ -322,8 +321,29 @@ class PreparedSelectedOutputReferences:
         self.targets[path] = prepared
         return prepared
 
+    def require_original_inputs(self, *, path):
+        """Authorize the complete original role through its declared output target.
+
+        Uncited inputs can still determine complete-domain interpretation. They
+        use the same original ledger and current selected authority as cited
+        members, without manufacturing a member address or reading a body.
+        """
+        target, producing, _ = self._prepare(path)
+        originals = tuple(
+            self.index.rows_for(
+                "ops.data_derivation_input",
+                derivation_id=self.derivation_id,
+                role=target["input_role"],
+            )
+        )
+        if len(producing.inputs) != len(originals):
+            raise ValueError("original input role is incomplete in the exact selected use")
+        for binding in producing.inputs:
+            self.access.authorize(binding)
+        return producing.inputs
+
     def resolve(self, reference, *, path, metadata_only=False, with_binding=False):
-        target, producing, resolver = self._prepare(path, reference)
+        target, producing, resolver = self._prepare(path)
         access = self.access
         role = target["input_role"]
         occurrence_field = target.get("occurrence_field")

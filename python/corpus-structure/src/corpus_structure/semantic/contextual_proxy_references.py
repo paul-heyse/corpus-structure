@@ -1,6 +1,7 @@
 """Declared scalar targets of contextual native graph proxies."""
 
 from functools import cache
+from typing import Any, Literal, overload
 
 from .data_product_reference import (
     DataProductMemberReference,
@@ -9,10 +10,18 @@ from .data_product_reference import (
     read_semantic_reference,
 )
 
+CONTEXTUAL_NATIVE_INPUT_ROLES = ("formal", "constructions", "maverick", "dipo")
+
 PROXY_SUPPORT = (
     ("formal", "formal_proxy_support"),
     ("constructions", "construction_proxy_support"),
 )
+
+
+def require_contextual_native_inputs(value):
+    for role in CONTEXTUAL_NATIVE_INPUT_ROLES:
+        if read_semantic_reference(value[role + "_input"]) != SemanticReference.whole(role):
+            raise ValueError("native contextual input differs from its declared whole role")
 
 
 def _is_proxy(body):
@@ -86,6 +95,8 @@ def project_contextual_proxy_graph(value, inputs):
         return value
     from .data_product_reference import DataProductReference, member_reference
 
+    require_contextual_native_inputs(value)
+
     @cache
     def addressed(role):
         return {
@@ -109,10 +120,22 @@ def project_contextual_proxy_graph(value, inputs):
     return _expand_proxy_members(value, references)
 
 
-def expand_selected_contextual_proxies(value, index, cut, product_id):
+@overload
+def expand_selected_contextual_proxies(
+    value, index, cut, product_id, *, with_parents: Literal[False] = False
+) -> dict[str, Any]: ...
+
+
+@overload
+def expand_selected_contextual_proxies(
+    value, index, cut, product_id, *, with_parents: Literal[True]
+) -> tuple[dict[str, Any], tuple[tuple[str, None, str], ...]]: ...
+
+
+def expand_selected_contextual_proxies(value, index, cut, product_id, *, with_parents=False):
     """Read one graph authorized as a whole by an exact use in the acquired cut."""
     if not any(field in value for _, field in PROXY_SUPPORT):
-        return value
+        return (value, ()) if with_parents else value
     from types import SimpleNamespace
 
     from .data_product_reference import DataProductReference, member_reference
@@ -122,9 +145,8 @@ def expand_selected_contextual_proxies(value, index, cut, product_id):
     )
 
     targets = _declared_proxy_targets(value)
-    if not targets:
-        return _expand_proxy_members(value, {})
-    roles = tuple(role for role, field in PROXY_SUPPORT if value[field])
+    roles = CONTEXTUAL_NATIVE_INPUT_ROLES
+    require_contextual_native_inputs(value)
     scope = SimpleNamespace(cut=cut, index=index)
 
     def resolve_all(output, use, parents):
@@ -138,6 +160,12 @@ def expand_selected_contextual_proxies(value, index, cut, product_id):
             output=output,
         )
         prepared = PreparedSelectedOutputReferences(scope, selected)
+        for role in roles:
+            bound = prepared.resolve(
+                SemanticReference.whole(role), path="/" + role + "_input", metadata_only=True
+            )
+            if bound.product_id != parents[role]:
+                raise ValueError("native contextual closure changes its exact original input")
         references = {}
         for owner, (target, path) in targets.items():
             body = prepared.resolve(target, path=path)
@@ -205,4 +233,6 @@ def expand_selected_contextual_proxies(value, index, cut, product_id):
         if first_refusal is not None:
             raise first_refusal
         raise ValueError("original reference parent is unavailable in any exact selected use")
-    return _expand_proxy_members(value, graph[1])
+    expanded = _expand_proxy_members(value, graph[1])
+    parents = tuple((role, None, graph[0][role]) for role in roles)
+    return (expanded, parents) if with_parents else expanded

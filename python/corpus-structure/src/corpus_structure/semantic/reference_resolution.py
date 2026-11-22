@@ -71,6 +71,8 @@ class ProducingReferenceBindings:
 
 def selected_producing_reference_bindings(
     producing: BoundRoleMember,
+    *,
+    require_complete: bool = False,
 ) -> ProducingReferenceBindings:
     """Read original bindings disclosed by this input's exact currently admitted producing use."""
     from .data_operation_json import json_bytes, native_json_loads
@@ -83,6 +85,8 @@ def selected_producing_reference_bindings(
     contract = SelectedProducerContract.model_validate_json(json_bytes(observed))
     if producing.support_episodes != (contract.derivation_id,):
         raise ValueError("producing reference contract belongs to another derivation")
+    if require_complete and not contract.reference_inputs_complete:
+        raise ValueError("producing reference contract lacks its complete original input authority")
     return ProducingReferenceBindings(contract.derivation_id, contract.reference_inputs)
 
 

@@ -316,7 +316,11 @@ def prepare_primary_query_context(
         if row.product_id in products:
             raise ValueError("query context repeats a selected primary product")
         products[row.product_id] = dict(canonical_body=semantic_value(row.body))
-        if row.body.get("standing") == "native_provider_observation":
+        if (
+            row.body.get("standing") == "native_provider_observation"
+            or "formal_proxy_support" in row.body
+            or "formal_support" in row.body
+        ):
             targets = learned_dependencies.get(row.product_id)
             if targets is None:
                 raise ValueError("query context lacks exact authorized learned producing inputs")
@@ -330,7 +334,7 @@ def prepare_primary_query_context(
                     )
                 )
                 if "formal_member_support" in row.body
-                else tuple(item["product_id"] for item in row.body.get("dependencies", ()))
+                else ()
             )
         inputs.append(
             dict(
@@ -350,6 +354,7 @@ def prepare_primary_query_context(
         products,
         construction_formal_parents=construction_formal_parents,
         contextual_input_parents=contextual_input_parents,
+        learned_dependencies=learned_dependencies,
     )
     reachable, pending = set(), [selected.product]
     while pending:
@@ -588,6 +593,7 @@ class ContextualEncoderBatchPlan:
         from .characterization_manifests import (
             is_learned_observation,
             learned_dependency_products,
+            learned_manifest_input_roles,
         )
         from .construction_formal_references import construction_formal_parents
         from .contextual_input_references import contextual_input_parents
@@ -609,20 +615,27 @@ class ContextualEncoderBatchPlan:
                 if row["role"] != "primary":
                     continue
                 kind = kinds[row["kind_contract"]]
-                if is_learned_observation(self.prepared, kind):
+                if is_learned_observation(self.prepared, kind) or learned_manifest_input_roles(
+                    self.prepared, kind
+                ):
                     try:
                         dependencies[row["product_id"]] = learned_dependency_products(
                             self.prepared, kind, row["body"], actual[row["product_id"]]
                         )
                     except KeyError, ValueError:
                         dependencies[row["product_id"]] = None
-                if row["body"].get("formal_support"):
+                if "formal_support" in row["body"]:
+                    from .construction_formal_references import construction_input_parents
+
                     try:
-                        formal_inputs[row["product_id"]] = construction_formal_parents(
-                            actual[row["product_id"]]
+                        acquired = actual[row["product_id"]]
+                        formal_inputs[row["product_id"]] = construction_formal_parents(acquired)
+                        dependencies[row["product_id"]] = tuple(
+                            dict.fromkeys(item[2] for item in construction_input_parents(acquired))
                         )
                     except KeyError, ValueError:
                         formal_inputs[row["product_id"]] = ()
+                        dependencies[row["product_id"]] = None
                 if "formal_member_support" in row["body"]:
                     try:
                         contextual_inputs[row["product_id"]] = contextual_input_parents(

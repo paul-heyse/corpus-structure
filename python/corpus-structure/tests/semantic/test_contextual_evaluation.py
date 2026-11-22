@@ -130,14 +130,17 @@ def controlled_product(release, facts, *, dependencies=None, source=None):
     """Validate literal nominal packets without claiming native/provider evidence."""
     source = select_source(release, "all x runs") if source is None else source
     dependencies = tuple((dependencies or {}).values())
+    from corpus_structure.semantic.construction_products import _stage_construction_support
+
+    facts = thaw_native(facts)
+    annotations, formal = _stage_construction_support(facts, dependencies)
     value = interpreted_product_value(
         source,
-        thaw_native(facts),
+        facts,
         interpreted_member_contracts(release.prepared, release.model),
-        dependencies,
     )
-    value["annotation_support"] = []
-    value["formal_support"] = []
+    value["annotation_support"] = annotations
+    value["formal_support"] = formal
     return validate_interpreted_product(
         release.prepared,
         release.model,
@@ -152,10 +155,7 @@ def evaluator_for(release, products, *, symbolic_products=None, source=None):
     source = select_source(release, "all x runs") if source is None else source
     return ContextualEvaluator.from_products(
         source,
-        tuple(
-            CharacterizationSnapshot(product.semantic_id, product.content)
-            for product in products.values()
-        ),
+        tuple(CharacterizationSnapshot.from_product(product) for product in products.values()),
         symbolic_products=symbolic_products,
     )
 
@@ -165,7 +165,7 @@ def evaluated_product(release, products, roots, env, *, symbolic_products=None, 
     values = tuple(products.values())
     value = contextual_product_values(
         source,
-        tuple(CharacterizationSnapshot(product.semantic_id, product.content) for product in values),
+        tuple(CharacterizationSnapshot.from_product(product) for product in values),
         tuple(products) if symbolic_products is None else symbolic_products,
         interpreted_member_contracts(release.prepared, release.model),
         roots=roots,
@@ -835,13 +835,15 @@ def test_staged_source_first_scope_builds_private_nested_terms_from_actual_quest
     assert root["status"] == child["status"] == "private_proposal"
 
 
-def test_provenance_only_symbol_layer_is_not_an_implicit_reading(release):
+def test_unused_producer_dependency_does_not_change_symbolic_meaning(release):
     old = controlled_product(release, literal_facts(release))
     old_pin = old.reference
     data = literal_facts(release)
     source = controlled_product(release, data, dependencies={old_pin: old})
     pin = source.reference
-    assert pin != old_pin
+    assert pin == old_pin
+    assert old.dependency_products == ()
+    assert source.dependency_products == (old.semantic_id,)
     assert source.inventory() == old.inventory()
     evaluator = evaluator_for(release, {old_pin: old, pin: source}, symbolic_products=(pin,))
     roots = evaluator.default_roots(environment())

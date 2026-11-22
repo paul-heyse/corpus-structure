@@ -237,6 +237,45 @@ Preview `6c069fbc7d864ce084952fcc4a7725ee`, rollback-only candidate
 passed. Only authoring provenance changed in the native artifact. The installed qualification
 target has the same SQL and descriptor. The final root follows the remaining roster retirement.
 
+The restored checkpoint passed real GLiNER definition and exact component-source readback,
+HanLP declaration and Docling missing-page recovery (`uv run ci test --native-host private
+--providers-only`, `c5fcfd2775ef4eb5802e94ca937a6f35`). An ordinary mixed selection passed
+the native streams and authentic finite and rich detached replay. Two controlled workflow
+fixtures failed preparation because their predicate reports lacked current reference-target
+declarations (`fc97df6c943343e388064c9686866fe1`). The corrected fixtures passed both focused
+preparation identities (`94509dece2884063aa60939927b0fba8`).
+
+**Terminal discovery · Tested by selected scope · 2026-11-22.** Preview
+`35ebb2b12b5f48a28505dafd23c11da6`, rollback-only candidate
+`f9aa96e4d84a4969a67915a51f31b84b` and registration `aba2ef5d3ee84bb89b5909a434f983f7`
+pass for the new model. All 11 selected `uv run ci test --native-host private` publication,
+readiness and closed-population cases passed (`6866d4acc9fb4179a67c200c9ac8d6d2`). The native
+terminal-empty controls verified publication with zero outputs, unchanged pending state before
+publication, a pending failed producer and loss of settlement when empty-result authority is
+revoked. Complete original input disclosure is qualified with the final recapture.
+
+**Complete original input authority · Tested by selected scope · 2026-11-22.** Native
+PostgreSQL controls distinguished an authorized empty closure from one with a hidden original
+input, while retaining exact partial citation resolution (`uv run ci test`,
+`f9cf6e2f06904c2880b5f253c1dac6ad`). The final-source contextual selection passed 16
+cases (`a6540965d78045908677ce65586e5745`), including real profile capture, a spawned
+contextual-native reply and refusal of an encoder input with a missing original parent.
+Typed construction, declaration and graph fixtures also passed their corrected selections
+(`e532e9d7d5014c1aa92f7416f06b7c48`, `348898273233417ca5cb6b2183bbd1a9`).
+The native workflow retries then exposed unbound callable parameters in their controlled
+producers (`4aa58fa265b3472c97ae579b810a9db3`). The fixtures now map their unused optional
+roles to explicit empty arguments and retain independent source-only assertions.
+
+**Integrated root installation · Tested · 2026-11-22.** Preview
+`7fdede4ea3a34c61920c05c45e3b8732`, rollback-only candidate
+`a1379f192094467c9eb2c2d5e6688866` and registration `ffec9f6246d843fcb68dbe691b944db0`
+passed. `uv run ci db init` installed the sole native root on
+`corpus_structure_sbx09_integrated_qualification` (OID `136240545`). Maintenance readback
+verified the exact frozen descriptor, reader/writer/evaluator grants and five empty project,
+document, original, demand and product relations. The integrated type check passed
+(`uv run ci check --only types`, `a980311531fc4f1686b0abe829daa1c7`). Broader functional,
+provider and repository qualification remains open.
+
 Keep one authentic cross-boundary producer, publication and export journey. Reader-only checks
 can consume its authenticated artifacts while their producer, prepared release, wire and authority
 premises remain applicable. Give these checks independent expected meaning, malformed-input and

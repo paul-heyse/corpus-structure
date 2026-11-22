@@ -1,23 +1,39 @@
 """Project construction's formal input references for exact working graph readers."""
 
 from types import SimpleNamespace
+from typing import Any, Literal, overload
 
 from .data_product_reference import DataProductReference, member_reference, read_semantic_reference
 
 
 def construction_formal_parents(member):
+    return tuple(
+        (occurrence, product)
+        for role, occurrence, product in construction_input_parents(member)
+        if role == "formal" and occurrence is not None
+    )
+
+
+def construction_input_parents(member):
+    """The exact formal and annotation inputs of one acquired producing origin."""
     from .reference_resolution import selected_producing_reference_bindings
 
-    bindings = selected_producing_reference_bindings(member)
-    return tuple(
-        (item.occurrence, item.product_id)
-        for item in bindings.inputs
-        if item.role == "formal"
-        and item.occurrence_position
-        and item.occurrence is not None
-        and item.member_id is None
-        and item.multiplicity == 1
-    )
+    bindings = selected_producing_reference_bindings(member, require_complete=True)
+    inputs = tuple(item for item in bindings.inputs if item.role in {"formal", "sentences"})
+    if any(
+        item.member_id is not None
+        or item.multiplicity != 1
+        or (
+            (not item.occurrence_position or item.occurrence is None)
+            if item.role == "formal"
+            else item.occurrence is not None
+        )
+        for item in inputs
+    ):
+        raise ValueError("construction input requires its exact original whole role address")
+    if len({(item.role, item.occurrence) for item in inputs}) != len(inputs):
+        raise ValueError("construction repeats an original dependency role address")
+    return tuple((item.role, item.occurrence, item.product_id) for item in inputs)
 
 
 def project_construction_formal_support(value, parents):
@@ -97,10 +113,24 @@ def project_construction_formal_support(value, parents):
     return {**value, "members": packets}
 
 
-def expand_selected_construction_formal_support(value, index, cut, product_id):
+@overload
+def expand_selected_construction_formal_support(
+    value, index, cut, product_id, *, with_parents: Literal[False] = False
+) -> dict[str, Any]: ...
+
+
+@overload
+def expand_selected_construction_formal_support(
+    value, index, cut, product_id, *, with_parents: Literal[True]
+) -> tuple[dict[str, Any], tuple[tuple[str, str | None, str], ...]]: ...
+
+
+def expand_selected_construction_formal_support(
+    value, index, cut, product_id, *, with_parents=False
+):
     """Resolve all cited addresses within one entirely authorized selected use."""
-    if not value.get("formal_support"):
-        return value
+    if "formal_support" not in value:
+        return (value, ()) if with_parents else value
     from .live_reference_resolution import PreparedSelectedOutputReferences
 
     targets = {read_semantic_reference(item["target"]) for item in value["formal_support"]}
@@ -124,6 +154,11 @@ def expand_selected_construction_formal_support(value, index, cut, product_id):
             parents = {}
             try:
                 prepared = PreparedSelectedOutputReferences(scope, selected)
+                for path in ("/formal_support/*/target", "/annotation_support/*/target"):
+                    for binding in prepared.require_original_inputs(path=path):
+                        if binding.member_id is not None or binding.multiplicity != 1:
+                            raise ValueError("construction input requires its original whole role")
+                        parents[binding.role, binding.occurrence] = binding.product_id
                 for target in targets:
                     binding, body = prepared.resolve(
                         target, path="/formal_support/*/target", with_binding=True
@@ -132,7 +167,7 @@ def expand_selected_construction_formal_support(value, index, cut, product_id):
                         raise ValueError(
                             "construction premise did not cite an actual formal member"
                         )
-                    parents[target.occurrence] = binding.product_id
+                    parents[target.role, target.occurrence] = binding.product_id
             except (KeyError, PermissionError, ValueError) as error:
                 if first_error is None:
                     first_error = error
@@ -145,4 +180,9 @@ def expand_selected_construction_formal_support(value, index, cut, product_id):
         if first_error is not None:
             raise first_error
         raise ValueError("construction premise lacks a complete selected use")
-    return project_construction_formal_support(value, result.items())
+    parents = tuple((role, occurrence, product) for (role, occurrence), product in result.items())
+    expanded = project_construction_formal_support(
+        value,
+        ((occurrence, product) for role, occurrence, product in parents if role == "formal"),
+    )
+    return (expanded, parents) if with_parents else expanded

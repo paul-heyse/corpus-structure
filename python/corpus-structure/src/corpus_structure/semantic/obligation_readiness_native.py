@@ -1099,6 +1099,7 @@ def demand_settlement(model):
     history = model.tables["ops.data_demand_selection"]
     populations = model.tables["ops.data_population"]
     outputs = model.tables["ops.data_derivation_output"]
+    episodes = model.tables["ops.data_derivation"]
     payload = core_variable("p_payload", JSONB())
     boundary = core_variable("boundary", NullType())
     read_id = core_variable("boundary", reads.c.id.type, "id")
@@ -1285,19 +1286,44 @@ def demand_settlement(model):
         outputs.c.derivation_id == producing.c.derivation_id,
         outputs.c.role == discovery.c.value["output_role"].astext,
     )
+    terminal_empty = (
+        select(1)
+        .select_from(episodes)
+        .where(
+            episodes.c.id == producing.c.derivation_id,
+            episodes.c.request_id == producing.c.request_id,
+            episodes.c.generation == producing.c.generation,
+            episodes.c.outcome == "empty",
+            ~select(1)
+            .select_from(outputs)
+            .where(outputs.c.derivation_id == episodes.c.id)
+            .correlate(episodes)
+            .exists(),
+            ~func.ops.ddo_obligation_wake_changed(
+                producer.c.id, producing.c.selection["read_id"].astext, read_id
+            ),
+        )
+        .correlate(producing, producer)
+        .exists()
+    )
     complete_producer = and_(
         producing.c.fate == "fulfilled",
         _set_valid(validity, "use", producing.c.id),
-        select(1)
-        .select_from(outputs)
-        .where(relevant_output)
-        .correlate(producing, discovery)
-        .exists(),
-        ~select(1)
-        .select_from(outputs)
-        .where(relevant_output, ~witness)
-        .correlate(producing, discovery)
-        .exists(),
+        or_(
+            terminal_empty,
+            and_(
+                select(1)
+                .select_from(outputs)
+                .where(relevant_output)
+                .correlate(producing, discovery)
+                .exists(),
+                ~select(1)
+                .select_from(outputs)
+                .where(relevant_output, ~witness)
+                .correlate(producing, discovery)
+                .exists(),
+            ),
+        ),
     )
     producer_decisions = producer.join(producing, producing.c.obligation_id == producer.c.id)
     discovery_complete = (

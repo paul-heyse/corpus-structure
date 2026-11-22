@@ -271,6 +271,38 @@ class ControlledStructuralInventory:
         "entrypoints": ["run"],
         "roles": [
             {
+                "name": "constructions",
+                "parameter": "constructions",
+                "direction": "input",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "set",
+                "presence": "optional",
+                "support": {
+                    "provenance": "exact",
+                    "source": "same-original",
+                    "coverage": {"role": "constructions", "description": "actual-selected-source"},
+                    "identity_requirements": ["episode"],
+                },
+            },
+            {
+                "name": "formal",
+                "parameter": "formal",
+                "direction": "input",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "set",
+                "presence": "optional",
+                "support": {
+                    "provenance": "exact",
+                    "source": "same-original",
+                    "coverage": {"role": "formal", "description": "actual-selected-source"},
+                    "identity_requirements": ["episode"],
+                },
+            },
+            {
                 "name": "source",
                 "parameter": "source",
                 "direction": "input",
@@ -440,6 +472,22 @@ class ControlledStructuralInventory:
         "outcomes": ["success"],
         "precision_description": "exact-original-native-pieces",
         "dependencies": [],
+        "reference_targets": [
+            {
+                "output_role": "predicates",
+                "path": "/construction_support/*/target",
+                "input_role": "constructions",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "predicates",
+                "path": "/formal_support/*/target",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+        ],
         "effects": [],
         "parameters": {},
         "capabilities": {
@@ -467,7 +515,11 @@ class ControlledStructuralInventory:
         ],
     }
 
-    def run(self, source: dict) -> dict[str, dict]:
+    def run(
+        self, source: dict, constructions: tuple[dict, ...] = (), formal: tuple[dict, ...] = ()
+    ) -> dict[str, dict]:
+        if constructions or formal:
+            raise ValueError("controlled finite fixture examines only its exact source")
         return execute_profile(self, source)
 
     @staticmethod
@@ -509,6 +561,8 @@ class InventoryPlan:
             raise ValueError(
                 "controlled inventory requires actual sufficient native source support"
             )
+        if any(role.members for role in binding.roles if role.role != "source"):
+            raise ValueError("controlled finite inventory examines only its exact source")
         (role,) = [role for role in binding.roles if role.role == "source"]
         (member,) = role.members
         context = binding.subject_context

@@ -310,13 +310,16 @@ share source scope and a local member ID. Occurrence-bound declarations derive t
 from a frozen source set. Contextual meaning now takes `formal`, `constructions` and
 `supporting` as sets and recovers ordinary and packed choice references from one complete
 authorized producing use. Primary construction already addresses external premises and
-choices through its formal and annotation roles. The remaining duplicate lists are the
-primary construction and contextual native parent headers. Replace them with exact input
-acquisition from the producing ledger. Generic characterization readers still require the
-complete dependency population to follow external-choice reachability. Preserve that
-population at acquisition, including an independently observed input with no cited member.
+choices through its formal and annotation roles. Primary construction and contextual native
+products acquire dependencies from the producing ledger. Contextual native products declare
+the four observed whole roles. Generic characterization readers acquire the complete original
+input population before following external-choice reachability. This includes an independently
+observed input with no cited member. Native producer correspondence reports whether all
+declared inputs are visible through the exact fulfilled use, without exposing withheld input
+identifiers. Complete graph readers require that authority at acquisition.
 [Contextual roles](../../../python/corpus-structure/src/corpus_structure/semantic/contextual_input_references.py) ·
-[Characterization reader](../../../python/corpus-structure/src/corpus_structure/semantic/declared_formal_readings.py)
+[Characterization reader](../../../python/corpus-structure/src/corpus_structure/semantic/declared_formal_readings.py) ·
+[Native producer correspondence](../../../python/corpus-structure/src/corpus_structure/semantic/producer_correspondence_native.py)
 
 **Accepted first use · implementation Proposed · 2026-11-22.** The operator selected an
 unordered set for independent formal inputs. Use the original derivation's role-local input
@@ -977,13 +980,14 @@ determinants preserve computation. A changed determinant can run the producer. E
 declared output after it settles ends computational propagation toward that consumer.
 Current-use attachment and readiness still settle through their native owners.
 
-**Arm and discovery adequacy · Scheduled · 2026-11-22.** Extend generation-checked attached
-scalar cuts with affected, unchanged and unavailable outcomes per relevant arm. Include an
-interrupted join with an unchanged arm and a change between edges. Discovery's prior-closure
-anti-join currently compares semantic product/derivation keys, while population validity also
-requires the exact admitted use. Test a revoked or historical closure followed by a newly
-admissible use of the same product and derivation. Distinguish incomplete, valid complete-empty,
-first-member arrival, departure and closure, with independent expected uses and recipients.
+**Arm and discovery adequacy · Implemented, qualification open · 2026-11-22.** The attached
+scalar cut accounts for the unchanged arm and fences settlement by generation. The discovery
+anti-join checks the exact admitted use and current validity of the closure. A valid terminal
+`empty` derivation can settle discovery without emitting a population product. A failed
+producer leaves discovery coverage unknown. Qualify incomplete, valid complete-empty,
+first-member arrival, departure and closure with independent expected uses and recipients.
+In particular, exercise revocation of an empty producer and replacement of a historical closure
+by a newly admissible use of the same product and derivation.
 Batch common population-close work only where the native owner preserves support locks,
 active demand, current context/recipe, output authority, completeness, duplicate contexts and
 atomic closure insertion. This investigation can choose a native set update or retain per-close

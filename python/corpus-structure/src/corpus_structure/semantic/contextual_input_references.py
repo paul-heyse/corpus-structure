@@ -88,7 +88,7 @@ def contextual_input_parents(member):
 
     return tuple(
         (item.role, item.occurrence, item.product_id)
-        for item in selected_producing_reference_bindings(member).inputs
+        for item in selected_producing_reference_bindings(member, require_complete=True).inputs
         if item.role in CONTEXTUAL_INPUT_ROLES
         and item.occurrence_position
         and item.occurrence is not None

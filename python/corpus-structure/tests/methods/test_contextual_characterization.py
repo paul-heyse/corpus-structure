@@ -37,7 +37,11 @@ def test_detected_unassigned_raw_subtokens_and_complete_group_candidates_survive
     product = context_product(native_source, maverick=mention_reply(tokens))
     # Revalidation exercises the current nominal codec without reconstructing a legacy report.
     value = product.value
-    assert value["dependencies"]
+    assert "dependencies" not in value
+    assert all(
+        value[role + "_input"] == {"variant": "product", "role": role}
+        for role in ("formal", "constructions", "maverick", "dipo")
+    )
     (manifest,) = [
         packet for packet in value["members"] if packet["body"]["record_type"] == "manifest"
     ]
@@ -260,7 +264,6 @@ def test_contextual_evaluation_retains_one_group_candidate_per_mention(native_so
         native_source.primary.source,
         facts,
         interpreted_member_contracts(prepared, model),
-        (),
     )
     value["annotation_support"] = []
     value["formal_support"] = []

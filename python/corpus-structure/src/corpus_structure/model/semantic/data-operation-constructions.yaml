@@ -164,10 +164,6 @@ classes:
     annotations:
       cs:data_universe: ordinary
     attributes:
-      dependencies:
-        range: DdoSemanticProductReference
-        inlined: true
-        multivalued: true
       members:
         range: DdoConstructionPacket
         inlined: true
@@ -446,8 +442,6 @@ classes:
     is_a: DdoConstructionMember
     mixins:
     - DdoCharacterizedProduct
-    attributes:
-      dependencies: {range: DdoSemanticProductReference, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
   DdoContextualMember:
     is_a: DdoInterpretedMember
     abstract: true

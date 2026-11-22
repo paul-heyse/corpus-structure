@@ -31,6 +31,7 @@ def recipe(directory):
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
     )
+    from corpus_structure.semantic.construction_products import construction_product_inputs
     from corpus_structure.semantic.declared_structural_admission import (
         structural_admission_kind_declarations,
         structural_admission_sources,
@@ -72,7 +73,9 @@ def recipe(directory):
         project_id=None,
         execution_profile="source-native",
         captured_inputs=CapturedKernelInputs(
-            dossier_inputs(structural_inputs(captured.bundle)), dependencies, captured.profile
+            dossier_inputs(structural_inputs(construction_product_inputs(captured.bundle))),
+            dependencies,
+            captured.profile,
         ),
     )
 

@@ -135,9 +135,7 @@ def case(recipe, *, frame=None):
         )
         for row in payload[collection]
     ]
-    body = dict(
-        source=payload["source"], selectors=payload["selectors"], members=packets, dependencies=[]
-    )
+    body = dict(source=payload["source"], selectors=payload["selectors"], members=packets)
     start = TEXT.index(focal)
     anchor = dict(
         pin=record_source_pin(frame),

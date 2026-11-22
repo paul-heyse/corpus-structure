@@ -2,15 +2,26 @@
 
 import json
 from dataclasses import replace
+from typing import cast
 
 import pytest
 
-from corpus_structure.semantic.data_operation_demands import DemandPlanner, RootSubject
+from corpus_structure.semantic._data_operation_wire import (
+    WireRegisterDataDemandRequest,
+    WireRevokeDataSupportRequest,
+)
+from corpus_structure.semantic.data_operation_demands import (
+    DemandPlanner,
+    DiscoverySelection,
+    RootSubject,
+    freeze_demand,
+)
 from corpus_structure.semantic.data_operation_service import advance_demand_selection
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.identity import canonical_bytes
 from native_test_support import principal_engine
 from semantic.data_operation_binding_support import discover
+from semantic.data_operation_demand_support import claim, publish, retain
 from semantic.data_operation_kernel_support import POPULATION, admit_kernel, prepare_kernel
 from semantic.population_completion_support import complete_ready
 
@@ -191,5 +202,95 @@ def test_native_closed_population_decision_preserves_pending_and_min_zero(
                 == scope["uncovered_count"]
                 == 0
             )
+    finally:
+        writer.dispose()
+
+
+@pytest.mark.parametrize("outcome", ["empty", "failed"])
+def test_terminal_discovery_without_outputs_requires_valid_empty_completion(
+    commit_db_engine, native_settings, tmp_path, outcome
+):
+    prepared = prepare_kernel(POPULATION, directory=tmp_path / "terminal-discovery")
+    with commit_db_engine.begin() as connection:
+        kernel = admit_kernel(connection, POPULATION, engine=commit_db_engine, preparation=prepared)
+    selection = freeze_demand(
+        kernel.model,
+        roots=(RootSubject("doc", "source:test", b'{"page":1}'),),
+        targets=("urn:discover",),
+        discovery=(DiscoverySelection("urn:discover", "result", "urn:child", "all-items"),),
+        inference="inference:test",
+        execution_profile="execution:test",
+    ).record
+    with commit_db_engine.begin() as connection:
+        registered = DataOperationStorage(connection).register_data_demand(
+            cast(
+                WireRegisterDataDemandRequest,
+                {
+                    "project_id": "ddo-test",
+                    "release_id": kernel.prepared.release_id,
+                    "runtime_id": kernel["runtime"],
+                    "root": selection["roots"],
+                    "selection": selection,
+                    "strength": "value",
+                },
+            )
+        )
+        advance_demand_selection(
+            connection,
+            "ddo-test",
+            "terminal-discovery",
+            registered["demand_id"],
+            expected_demand_id=None,
+            expected_generation=0,
+        )
+    writer = principal_engine(native_settings, "write", commit_db_engine.url.database)
+    try:
+
+        def resume():
+            with writer.begin() as connection:
+                return DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(
+                    registered["demand_id"], settlement=True
+                )
+
+        before = resume()
+        initial_scope = before["scheduler_settlement"]["selections"][0]
+        assert initial_scope["discovery_complete"] is False
+        assert initial_scope["state"] == "pending" and initial_scope["obligation_count"] == 1
+        with writer.begin() as connection:
+            (ready,) = DemandPlanner(kernel.model, DataOperationStorage(connection)).ready(
+                before, authorization=b"{}"
+            )
+        assert ready.operation == "urn:discover"
+        fence = claim(kernel, json.loads(ready.native))
+        intent = retain(kernel, fence, outputs=(), outcome=outcome)
+        retained = resume()
+        assert retained["scheduler_settlement"]["selections"][0]["discovery_complete"] is False
+        publication = publish(kernel, fence, intent)
+        completed = resume()
+        (scope,) = completed["scheduler_settlement"]["selections"]
+        assert scope["discovery_complete"] is (outcome == "empty")
+        assert scope["state"] == ("settled" if outcome == "empty" else "pending")
+        assert scope["obligation_count"] == 1
+        assert completed["populations"] == []
+        (use,) = completed["uses"]
+        assert use["derivation_id"] == publication["derivation_id"]
+        assert use["products"] == []
+        if outcome == "empty":
+            with commit_db_engine.begin() as connection:
+                DataOperationStorage(connection).revoke_data_support(
+                    cast(
+                        WireRevokeDataSupportRequest,
+                        {
+                            "project_id": "ddo-test",
+                            "original_source": "source:test",
+                            "selector_kind": "derivation",
+                            "selector": publication["derivation_id"],
+                            "reason": "terminal discovery authority withdrawn",
+                        },
+                    )
+                )
+            revoked = resume()
+            assert revoked["scheduler_settlement"]["selections"][0]["discovery_complete"] is False
+            assert revoked["scheduler_settlement"]["selections"][0]["state"] == "pending"
     finally:
         writer.dispose()

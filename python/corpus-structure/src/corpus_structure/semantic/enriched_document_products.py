@@ -91,7 +91,7 @@ class RetainedCharacterizationProduct:
     selected_member: str | None
     partitions: tuple[bytes, ...] | None
     partition_blocks: tuple[SentenceBlock, ...] | None
-    learned_dependencies: tuple[str, ...] | None
+    dependency_products: tuple[str, ...] | None
     _payload: ClassVar[_CharacterizationPayload]
 
     def __init__(self, *args, **kwargs):
@@ -108,7 +108,7 @@ class RetainedCharacterizationProduct:
         partitions,
         selection=(None, None),
         *,
-        learned_dependencies=None,
+        dependency_products=None,
         partition_blocks=None,
     ):
         result = object.__new__(cls)
@@ -122,7 +122,7 @@ class RetainedCharacterizationProduct:
         object.__setattr__(result, "partition_blocks", partition_blocks)
         object.__setattr__(result, "selected_product", selection[0])
         object.__setattr__(result, "selected_member", selection[1])
-        object.__setattr__(result, "learned_dependencies", learned_dependencies)
+        object.__setattr__(result, "dependency_products", dependency_products)
         return result
 
     @classmethod
@@ -197,7 +197,7 @@ class RetainedCharacterizationProduct:
     def with_context(self, context, *, member=None):
         self._require_acquired()
         selection = (self.selected_product, self.selected_member)
-        dependencies = self.learned_dependencies if context == self.subject_context else None
+        dependencies = self.dependency_products if context == self.subject_context else None
         if member is not None:
             from .data_operation_model import BoundRoleMember
 
@@ -211,14 +211,31 @@ class RetainedCharacterizationProduct:
                 or context.analyzed_scope != member.analyzed_scope
             ):
                 raise ValueError("retained characterization requires its exact selected member")
-            if member.member is None and contextual_product_identity(
-                kind=self._kind_contract, context=context, body=self._payload.body_digest
-            ).key != member.product:
+            if (
+                member.member is None
+                and contextual_product_identity(
+                    kind=self._kind_contract, context=context, body=self._payload.body_digest
+                ).key
+                != member.product
+            ):
                 raise ValueError("family body differs from its selected native product identity")
             selection = (member.product, member.member)
-            dependencies = learned_dependency_products(
-                self.prepared, self.kind, self.value, member
-            )
+            if "formal_support" in self.value:
+                from .construction_formal_references import construction_input_parents
+
+                dependencies = tuple(
+                    dict.fromkeys(item[2] for item in construction_input_parents(member))
+                )
+            elif "formal_member_support" in self.value:
+                from .contextual_input_references import contextual_input_parents
+
+                dependencies = tuple(
+                    dict.fromkeys(item[2] for item in contextual_input_parents(member))
+                )
+            else:
+                dependencies = learned_dependency_products(
+                    self.prepared, self.kind, self.value, member
+                )
         return self._from_payload(
             self._payload,
             self.prepared,
@@ -227,7 +244,7 @@ class RetainedCharacterizationProduct:
             context,
             self.partitions,
             selection,
-            learned_dependencies=dependencies,
+            dependency_products=dependencies,
             partition_blocks=self.partition_blocks,
         )
 
@@ -426,20 +443,35 @@ def ordered_composition_inputs(sources, products):
     return ordered_sources, ordered_products
 
 
-def require_learned_composition_inputs(products):
+def require_composition_inputs(products):
+    """Retain the complete exact input closure before entering the finite CPU kernel."""
+    from .construction_products import InterpretedProduct
+
     selected = {product.semantic_id for product in products}
     for product in products:
-        if type(product) is not RetainedCharacterizationProduct:
+        if isinstance(product, InterpretedProduct):
+            dependencies = product.dependency_products
+        elif type(product) is RetainedCharacterizationProduct:
+            value = product.value
+            requires_origin = (
+                learned_manifest_input_roles(product.prepared, product.kind)
+                or "formal_support" in value
+                or "formal_member_support" in value
+            )
+            if not requires_origin:
+                continue
+            dependencies = product.dependency_products
+            if dependencies is None:
+                raise ValueError("combined view lacks its exact acquired producing input closure")
+        else:
             if (
                 product.value.get("standing") == "native_provider_observation"
                 or product.value.get("record_type") == "manifest"
             ):
                 raise ValueError("combined view requires acquired characterization manifests")
             continue
-        if learned_manifest_input_roles(product.prepared, product.kind) and (
-            product.learned_dependencies is None or not set(product.learned_dependencies) <= selected
-        ):
-            raise ValueError("combined view is missing an exact selected learned dependency")
+        if not set(dependencies) <= selected:
+            raise ValueError("combined view is missing an exact selected dependency")
 
 
 def compose_enriched_document_values(
@@ -478,10 +510,6 @@ def compose_enriched_document_values(
         raise ValueError("source-only view cannot assert selected analytical products")
     if profile not in {"source_only", "selected_layers", "full_characterization"}:
         raise ValueError("unknown enriched document profile")
-    for _, body in owned.values():
-        declared = {DataProductReference(row["product_id"]) for row in body.get("dependencies", ())}
-        if not declared <= owned.keys():
-            raise ValueError("combined view is missing an exact selected dependency")
     by_family = {}
     for pin in active:
         body = owned[pin][1]
@@ -561,7 +589,7 @@ def compose_enriched_document(
 ):
     """Compose exact retained inputs with original local offsets and source identities."""
     sources = tuple(FrozenNativeSource.acquire(prepared, source) for source in sources)
-    require_learned_composition_inputs(products)
+    require_composition_inputs(products)
     value = compose_enriched_document_values(
         sources,
         products,

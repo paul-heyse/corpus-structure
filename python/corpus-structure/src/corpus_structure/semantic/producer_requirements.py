@@ -23,6 +23,7 @@ class SelectedProducerContract(BaseModel):
     admitted_effects: tuple[str, ...]
     validity_families: tuple[str, ...]
     reference_inputs: tuple[ProducingReferenceInput, ...] = ()
+    reference_inputs_complete: bool = False
 
 
 @dataclass(frozen=True)

@@ -37,7 +37,7 @@ from .enriched_document_products import (
     compose_enriched_document,
     compose_enriched_document_values,
     ordered_composition_inputs,
-    require_learned_composition_inputs,
+    require_composition_inputs,
 )
 from .formal_products import (
     FormalEvidenceProduct,
@@ -1033,7 +1033,7 @@ class PreparedCharacterizationPort(ABC):
         if isinstance(inputs, _DocumentInputs):
             from .characterization import characterization_profiles
 
-            require_learned_composition_inputs(inputs.products)
+            require_composition_inputs(inputs.products)
             arguments = dict(
                 sources=inputs.sources,
                 products=tuple(
