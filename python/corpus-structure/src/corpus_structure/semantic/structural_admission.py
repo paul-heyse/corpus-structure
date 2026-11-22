@@ -12,7 +12,7 @@ from typing import Any
 
 from .identity import canonical_bytes
 from .refusal_types import SemanticRefusal
-from .structural_products import DeclaredStructuralProductReport
+from .structural_products import DeclaredDefinitionComponentsReport, DeclaredStructuralProductReport
 
 POLICIES = {
     "definition_applicability": "independent-witnessed-applicability-1",
@@ -91,7 +91,7 @@ def structural_statement(
         region = member.scope.split(":", 1)[-1]
         return ",".join(sorted(physical_sources)) + ":" + region, ordered
 
-    if report.definition_components is not None:
+    if isinstance(report, DeclaredDefinitionComponentsReport):
         if component_id is None:
             raise ValueError("definition publication requires one exact component selector")
         selected = [c for c in report.components if c.component_id == component_id]
