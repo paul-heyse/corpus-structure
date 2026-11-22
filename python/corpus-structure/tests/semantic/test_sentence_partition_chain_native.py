@@ -17,7 +17,10 @@ from corpus_structure.semantic.data_operation_identity import projected_computat
 from corpus_structure.semantic.data_operation_partitions import partition_group_digests
 from corpus_structure.semantic.data_operation_projection_values import input_projection_digest
 from corpus_structure.semantic.data_operation_service import advance_demand_selection
-from corpus_structure.semantic.data_operation_storage import DataOperationStorage, admitted_data_read
+from corpus_structure.semantic.data_operation_storage import (
+    DataOperationStorage,
+    admitted_data_read,
+)
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.demand_results import read_demand_result, stream_selected_support
 from corpus_structure.semantic.metadata import get_metadata, table
