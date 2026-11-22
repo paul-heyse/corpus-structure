@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Connection
+from sqlalchemy import BigInteger, Connection, Text, bindparam, func, select
 
 from corpus_structure.semantic._data_operation_wire import (
     WireCancelDataDemandRequest,
@@ -397,3 +397,48 @@ def cancel_data_demand(
             },
         )
     )
+
+
+@dataclass(frozen=True, slots=True)
+class NamedDemandSelection:
+    project_id: str
+    name: str
+    demand_id: str
+    generation: int
+
+
+_advance_demand_selection = select(
+    func.ops.advance_demand_selection(
+        bindparam("project_id", type_=Text()),
+        bindparam("name", type_=Text()),
+        bindparam("demand_id", type_=Text()),
+        bindparam("expected_demand_id", type_=Text()),
+        bindparam("expected_generation", type_=BigInteger()),
+        type_=BigInteger(),
+    )
+)
+
+
+def advance_demand_selection(
+    connection: Connection,
+    project_id: str,
+    name: str,
+    demand_id: str,
+    *,
+    expected_demand_id: str | None,
+    expected_generation: int,
+) -> NamedDemandSelection:
+    """Advance an admitted exact demand, or recover the identical committed transition."""
+    if type(expected_generation) is not int:
+        raise ValueError("selection requires an exact integer generation")
+    generation = connection.execute(
+        _advance_demand_selection,
+        {
+            "project_id": project_id,
+            "name": name,
+            "demand_id": demand_id,
+            "expected_demand_id": expected_demand_id,
+            "expected_generation": expected_generation,
+        },
+    ).scalar_one()
+    return NamedDemandSelection(project_id, name, demand_id, generation)

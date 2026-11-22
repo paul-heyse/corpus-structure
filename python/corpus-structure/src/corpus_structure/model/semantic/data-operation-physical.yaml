@@ -169,6 +169,23 @@ classes:
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
       ph:immutability: intrinsic
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["release_id","runtime_id"],"target":"sem.runtime_binding.release_id,runtime_id"}]}
+  data_demand_selection:
+    in_subset: [ops]
+    attributes:
+      project_id: {range: string, required: true}
+      name: {range: string, required: true}
+      generation: {range: integer, required: true}
+      prior_demand_id: {range: string, required: false}
+      demand_id: {range: string, required: true}
+      created_at: {range: timestamp, required: true}
+      created_xid: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [project_id, name, generation]}
+    annotations:
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:immutability: intrinsic
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["project_id"],"target":"data.project.project_id"},{"columns":["prior_demand_id"],"target":"ops.data_demand.id"},{"columns":["demand_id"],"target":"ops.data_demand.id"}]}
+      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_data_demand_selection_positive_generation","predicate":{"op":"gt","args":[{"field":"generation"},{"value":0}]}}]}
   data_demand_cancellation:
     in_subset: [ops]
     attributes:

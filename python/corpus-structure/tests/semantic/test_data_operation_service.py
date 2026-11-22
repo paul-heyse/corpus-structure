@@ -121,6 +121,155 @@ def test_native_service_creation_read_and_cancellation_preserve_original_pins(dd
         assert service.read_data_demand(connection, demand)["state"] == "cancelled"
 
 
+def test_native_named_selection_advancement_replays_exact_history_and_fences_cancellation(
+    semantic_bare_engine, native_settings, tmp_path, monkeypatch, request
+):
+    from concurrent.futures import ThreadPoolExecutor
+    from pathlib import Path
+
+    from sqlalchemy import select
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.schema.model_change import native_model_inputs
+    from corpus_structure.semantic import migrations
+    from corpus_structure.semantic.data_operation_demands import RootSubject, freeze_demand
+    from corpus_structure.semantic.metadata import get_metadata
+    from corpus_structure.semantic.target_installation import capture_target_installation
+    from native_test_support import principal_engine
+    from semantic.data_operation_kernel_support import admit_kernel, prepare_kernel
+    from semantic.test_target_installation_native import install_target_root
+
+    admin = semantic_bare_engine
+    model = get_metadata()
+    epoch = capture_target_installation(
+        model, logical_sources=native_model_inputs(Path(__file__).resolve().parents[4])
+    )
+    *_, revision_path = install_target_root(admin, epoch, tmp_path)
+    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
+    preparation = prepare_kernel(STORAGE, directory=tmp_path / "selection-contract")
+    history = model.tables["ops.data_demand_selection"]
+    project, other_project = "ddo-test", "named-selection-other"
+    with admin.begin() as connection:
+        kernel = admit_kernel(connection, STORAGE, engine=admin, preparation=preparation)
+        connection.execute(model.tables["data.project"].insert().values(project_id=other_project))
+
+    assert admin.url.database is not None
+    writer = principal_engine(native_settings, "write", admin.url.database)
+    admission = principal_engine(native_settings, "admit", admin.url.database)
+    request.addfinalizer(writer.dispose)
+    request.addfinalizer(admission.dispose)
+
+    def register(connection, name, project_id):
+        intent = freeze_demand(
+            kernel.model,
+            roots=(RootSubject("subject:one", "source:test", b'{"page":1}'),),
+            targets=("urn:ddo-test:source",),
+            inference=name,
+            execution_profile="execution:test",
+        )
+        return service.create_data_demand(
+            connection,
+            service.CreateDataDemand(
+                project_id=project_id,
+                release_id=kernel.prepared.release_id,
+                runtime_id=kernel.runtime,
+                intent=cast(dict, intent.record),
+            ),
+        )["demand_id"]
+
+    with writer.begin() as connection:
+        first = register(connection, "selection-a", project)
+        second = register(connection, "selection-b", project)
+        third = register(connection, "selection-c", project)
+        foreign = register(connection, "selection-other", other_project)
+
+    def advance(connection, demand, prior, generation, *, name="current", project_id=project):
+        return service.advance_demand_selection(
+            connection,
+            project_id,
+            name,
+            demand,
+            expected_demand_id=prior,
+            expected_generation=generation,
+        )
+
+    with pytest.raises(DBAPIError) as denied, writer.begin() as connection:
+        advance(connection, first, None, 0)
+    assert denied.value.orig.sqlstate == "42501"
+
+    for demand in (foreign, "missing-demand"):
+        with (
+            pytest.raises(DBAPIError, match="admitted demand in its project"),
+            admission.begin() as connection,
+        ):
+            advance(connection, demand, None, 0)
+
+    with admission.begin() as connection:
+        entered = advance(connection, first, None, 0)
+        assert entered == service.NamedDemandSelection(project, "current", first, 1)
+        assert advance(connection, first, None, 0) == entered
+        assert advance(connection, foreign, None, 0, project_id=other_project).generation == 1
+
+    def contending(demand, prior, generation, *, name="current"):
+        with admission.begin() as connection:
+            connection.exec_driver_sql("SET LOCAL lock_timeout = '250ms'")
+            return advance(connection, demand, prior, generation, name=name)
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        with admission.begin() as holder:
+            second_transition = advance(holder, second, first, 1)
+            assert (
+                executor.submit(contending, second, None, 0, name="independent").result().generation
+                == 1
+            )
+            competing = executor.submit(contending, third, first, 1)
+            with pytest.raises(DBAPIError) as blocked:
+                competing.result()
+            assert blocked.value.orig.sqlstate == "55P03"
+
+        with admission.begin() as connection:
+            assert advance(connection, second, first, 1) == second_transition
+            assert advance(connection, first, second, 2).generation == 3
+
+        # The demand is the same as at generation 1. An old different transition
+        # must still refuse, and replaying the exact transition leaves head at 3.
+        with (
+            pytest.raises(DBAPIError, match="stale named demand selection token"),
+            admission.begin() as connection,
+        ):
+            advance(connection, third, first, 1)
+        with admission.begin() as connection:
+            assert advance(connection, second, first, 1) == second_transition
+
+        with writer.begin() as holder:
+            assert (
+                service.cancel_data_demand(holder, third, reason="retired successor")["state"]
+                == "cancelled"
+            )
+            pending = executor.submit(contending, third, first, 3)
+            with pytest.raises(DBAPIError) as blocked:
+                pending.result()
+            assert blocked.value.orig.sqlstate == "55P03"
+
+    with (
+        pytest.raises(DBAPIError, match="data demand is cancelled"),
+        admission.begin() as connection,
+    ):
+        advance(connection, third, first, 3)
+
+    with writer.begin() as connection:
+        service.cancel_data_demand(connection, second, reason="retired historical demand")
+    with admission.begin() as connection:
+        assert advance(connection, second, first, 1) == second_transition
+    with admin.begin() as connection:
+        rows = connection.execute(
+            select(history.c.generation, history.c.prior_demand_id, history.c.demand_id)
+            .where(history.c.project_id == project, history.c.name == "current")
+            .order_by(history.c.generation)
+        ).all()
+        assert rows == [(1, None, first), (2, first, second), (3, second, first)]
+
+
 @pytest.mark.parametrize("purpose", ["write", "evaluate"])
 def test_execution_target_observation_uses_explicit_purpose_without_switching_roles(
     monkeypatch, purpose

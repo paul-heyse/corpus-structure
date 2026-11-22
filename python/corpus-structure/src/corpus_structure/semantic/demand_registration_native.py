@@ -23,7 +23,7 @@ from sqlalchemy.dialects.postgresql import JSONB, array, insert
 from corpus_structure.schema.integrity import role_name
 
 from .data_operation_native_identity import native_identity_field
-from .native_objects import INTERNAL_PROGRAM, native_sql_script
+from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess, native_sql_script
 from .native_program import (
     Assign,
     Block,
@@ -39,6 +39,7 @@ from .native_program import (
     Return,
     SelectInto,
     Sql,
+    column_type,
     core_relation_row,
     core_variable,
     pg_type,
@@ -678,6 +679,137 @@ def _demand_registration(model: MetaData) -> NativeRoutine:
     )
 
 
+def _advance_demand_selection(model: MetaData) -> NativeRoutine:
+    demand = model.tables["ops.data_demand"]
+    history = model.tables["ops.data_demand_selection"]
+    fields = (
+        ("p_project", history.c.project_id),
+        ("p_name", history.c.name),
+        ("p_demand", history.c.demand_id),
+        ("p_expected_demand", history.c.prior_demand_id),
+        ("p_expected_generation", history.c.generation),
+    )
+    project, name, successor, prior, expected = (
+        core_variable(parameter, column.type) for parameter, column in fields
+    )
+    generation = core_variable("next_generation", history.c.generation.type)
+    scope = and_(history.c.project_id == project, history.c.name == name)
+    row = select(core_relation_row(history)).select_from(history).where(scope)
+    retained_demand = _owned_row("retained", history, "demand_id")
+    retained_prior = _owned_row("retained", history, "prior_demand_id")
+    current_generation = _owned_row("selection_head", history, "generation")
+    current_demand = _owned_row("selection_head", history, "demand_id")
+    stale = "stale named demand selection token"
+
+    return NativeRoutine(
+        "ops",
+        "advance_demand_selection",
+        parameters=tuple(Parameter(name, column_type(column)) for name, column in fields),
+        returns=column_type(history.c.generation),
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            (
+                Perform(func.sem.require_admission_caller()),
+                _refusal(
+                    func.current_setting("transaction_isolation").not_in(
+                        ("read committed", "read uncommitted")
+                    ),
+                    "selection advancement requires a fresh read-committed snapshot",
+                    "25000",
+                ),
+                _refusal(
+                    or_(
+                        func.nullif(project, "").is_(None),
+                        func.nullif(name, "").is_(None),
+                        func.nullif(successor, "").is_(None),
+                        expected.is_(None),
+                        ~expected.between(0, 2**63 - 2),
+                        or_(
+                            and_(expected == 0, prior.is_not(None)),
+                            and_(expected > 0, func.nullif(prior, "").is_(None)),
+                        ),
+                    ),
+                    "selection requires a named scope and exact predecessor token",
+                    "22023",
+                ),
+                # A per-name transaction lock protects both the absent head and its
+                # successors. A replay can inspect its completed generation before
+                # checking current demand status or choosing new work.
+                Perform(
+                    func.pg_advisory_xact_lock(
+                        func.hashtextextended(
+                            cast(
+                                func.jsonb_build_array("ops.data_demand_selection", project, name),
+                                Text(),
+                            ),
+                            0,
+                        )
+                    )
+                ),
+                Assign("next_generation", expected + 1),
+                SelectInto(row.where(history.c.generation == generation), ("retained",)),
+                If(
+                    core_variable("found", Boolean()),
+                    (
+                        _refusal(
+                            or_(
+                                retained_prior.is_distinct_from(prior),
+                                retained_demand.is_distinct_from(successor),
+                            ),
+                            stale,
+                            "40001",
+                        ),
+                        Return(generation),
+                    ),
+                ),
+                SelectInto(row.order_by(history.c.generation.desc()).limit(1), ("selection_head",)),
+                _refusal(
+                    or_(
+                        func.coalesce(current_generation, 0).is_distinct_from(expected),
+                        current_demand.is_distinct_from(prior),
+                    ),
+                    stale,
+                    "40001",
+                ),
+                _refusal(
+                    successor.is_not_distinct_from(prior),
+                    "selection advancement requires a different exact demand",
+                    "22023",
+                ),
+                _refusal(
+                    ~select(1)
+                    .select_from(demand)
+                    .where(demand.c.id == successor, demand.c.project_id == project)
+                    .exists(),
+                    "named selection requires an admitted demand in its project",
+                    "23514",
+                ),
+                # The binding owner takes a shared demand lock before testing
+                # cancellation. Cancellation takes that same row exclusively.
+                Perform(func.ops.ddo_require_active_demand(successor)),
+                Sql(
+                    insert(history).values(
+                        project_id=project,
+                        name=name,
+                        generation=generation,
+                        prior_demand_id=prior,
+                        demand_id=successor,
+                        created_at=_clock(),
+                        created_xid=_xid(),
+                    )
+                ),
+                Return(generation),
+            ),
+            (
+                Local("retained", history),
+                Local("selection_head", history),
+                Local("next_generation", column_type(history.c.generation)),
+            ),
+        ),
+    )
+
+
 def _cancel_demand(model: MetaData) -> NativeRoutine:
     from sqlalchemy import any_, update
     from sqlalchemy.dialects.postgresql import ARRAY
@@ -1079,7 +1211,7 @@ def demand_intent_programs(model: MetaData, *, protocol: bytes) -> tuple[Program
         _record_fate(model, protocol_value_sets(protocol)["RecordableFate"]),
         _close_population(model),
     )
-    return tuple(
+    commands = tuple(
         ProgramDeclaration(
             routine,
             source="data-operations:forward",
@@ -1087,6 +1219,15 @@ def demand_intent_programs(model: MetaData, *, protocol: bytes) -> tuple[Program
             access=INTERNAL_PROGRAM,
         )
         for routine in routines
+    )
+    return (
+        *commands,
+        ProgramDeclaration(
+            _advance_demand_selection(model),
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=NativeProgramAccess(purposes=("admit",)),
+        ),
     )
 
 

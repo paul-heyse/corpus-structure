@@ -43,6 +43,7 @@ def test_demand_producers_hold_structured_private_programs_until_authoring(monke
     assert {item.identity.name for item in programs} >= {
         "register_data_demand",
         "cancel_data_demand",
+        "advance_demand_selection",
         "record_data_fate",
         "close_data_population",
         "read_demand_result",
@@ -57,6 +58,8 @@ def test_demand_producers_hold_structured_private_programs_until_authoring(monke
         # owns the separate public purpose wrappers.
         if declaration.identity.name == "acquire_data_read_context":
             assert declaration.access == NativeProgramAccess(purposes=("read", "write", "evaluate"))
+        elif declaration.identity.name == "advance_demand_selection":
+            assert declaration.access == NativeProgramAccess(purposes=("admit",))
         else:
             assert declaration.access == INTERNAL_PROGRAM
 
