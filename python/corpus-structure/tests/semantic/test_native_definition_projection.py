@@ -114,6 +114,32 @@ classes:
     validate_wire_schema(schema, semantic_value({"width": 612, "page": 1}))
     with pytest.raises(ValueError):
         validate_wire_schema(schema, semantic_value({"width": "612", "page": 1}))
+    with pytest.raises(ValueError):
+        validate_wire_schema(schema, semantic_value({"width": 612}))
+    with pytest.raises(ValueError):
+        validate_wire_schema(schema, semantic_value({"width": 612, "page": 1, "unknown": 4}))
+
+
+def test_captured_json_meaning_selects_the_recursive_tag_before_validating_its_payload():
+    from corpus_structure.semantic.data_operation_storage import kind_meaning_schema
+    from corpus_structure.semantic.data_operation_values import semantic_value
+    from corpus_structure.semantic.data_operation_wire import validate_wire_schema
+
+    kind = SimpleNamespace(
+        semantic_id="primitive:json", category="primitive", name="json", facts=b"{}"
+    )
+    schema = kind_meaning_schema(kind, (kind,), {}, lambda _: ())
+
+    def nested(value):
+        for _ in range(16):
+            value = ["mapping", [["item", ["sequence", [value]]]]]
+        return value
+
+    validate_wire_schema(schema, nested(semantic_value(51)))
+    with pytest.raises(ValueError):
+        validate_wire_schema(schema, nested(["integer", []]))
+    with pytest.raises(ValueError):
+        validate_wire_schema(schema, ["sequence", [], "unexpected"])
 
 
 def _captured(**changes):

@@ -240,24 +240,32 @@ def kind_meaning_schema(
     def tagged(tag, payload=None):
         return array({"const": tag}) if payload is None else array({"const": tag}, payload)
 
-    def mapping(pairs, required):
+    def starts_with(name):
+        return {"type": "array", "minItems": 1, "items": [{"const": name}]}
+
+    def when_named(name, value):
+        return {"if": starts_with(name), "then": value, "else": False}
+
+    def mapping(fields, required):
+        choices = [when_named(name, array({}, value)) for name, value in fields.items()]
         entries: dict[str, Any] = {
             "type": "array",
-            "items": {"anyOf": pairs} if pairs else False,
+            "items": {"anyOf": choices} if choices else False,
         }
         if required:
-            entries["allOf"] = [{"contains": pair} for pair in required]
+            # The item schema checks the payload once. Required fields only check the key.
+            entries["allOf"] = [{"contains": starts_with(name)} for name in required]
         return tagged("mapping", entries)
 
-    header_pairs = [
-        array({"const": field}, tagged(tag, {"type": "string"}))
+    header_fields = {
+        field: tagged(tag, {"type": "string"})
         for field, tag in (
             ("root", "string"),
             ("placement_root", "string"),
             ("partition_count", "integer"),
             ("item_count", "integer"),
         )
-    ]
+    }
 
     def primitive(name):
         if name == "json":
@@ -272,9 +280,10 @@ def kind_meaning_schema(
                             tagged(t, {"type": "string"})
                             for t in ("string", "integer", "decimal", "float")
                         ),
-                        tagged("sequence", {"type": "array", "items": ref}),
-                        tagged(
-                            "mapping", {"type": "array", "items": array({"type": "string"}, ref)}
+                        when_named("sequence", array({}, {"type": "array", "items": ref})),
+                        when_named(
+                            "mapping",
+                            array({}, {"type": "array", "items": array({"type": "string"}, ref)}),
                         ),
                     ]
                 }
@@ -332,7 +341,7 @@ def kind_meaning_schema(
                 raise ValueError("abstract meaning range has no concrete nominal members")
             definitions[key] = {"anyOf": [build(kinds[child.iri]) for child in concrete]}
             return {"$ref": "#/definitions/" + key}
-        choices, required = [], []
+        fields, required = {}, []
         for prop in definition.properties:
             field = kinds[definition.iri + "/property/" + prop.name]
             target = kinds[json.loads(field.facts)["range"]]
@@ -352,12 +361,11 @@ def kind_meaning_schema(
                 value = {"anyOf": [tagged("null"), value]}
             partitioned = current.semantic_id == kind.semantic_id and prop.name in partition_headers
             if partitioned:
-                value = mapping(header_pairs, header_pairs)
-            pair = array({"const": prop.name}, value)
-            choices.append(pair)
+                value = mapping(header_fields, header_fields)
+            fields[prop.name] = value
             if prop.required or partitioned:
-                required.append(pair)
-        definitions[key] = mapping(choices, required)
+                required.append(prop.name)
+        definitions[key] = mapping(fields, required)
         return {"$ref": "#/definitions/" + key}
 
     body = build(kind)
