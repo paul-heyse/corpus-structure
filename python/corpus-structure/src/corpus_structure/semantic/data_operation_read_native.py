@@ -47,6 +47,7 @@ from .native_program import (
 from .native_program import (
     literal as pg_literal,
 )
+from .support_trust_native import evaluator_body_access
 
 
 def _object(*values):
@@ -481,12 +482,14 @@ def _body_access_programs(model):
     packets = _rows(member_values[1], "packets")
     set_text = pg_type("text")
     set_text.setof = True
-    body_contracts = _program(
-        "ddo_body_kind_contracts",
-        (
-            Parameter("p_kind", column_type(kinds.c.kind_contract)),
-            Parameter("p_body", pg_type("jsonb")),
-        ),
+    body_parameters = (
+        Parameter("p_kind", column_type(kinds.c.kind_contract)),
+        Parameter("p_body", pg_type("jsonb")),
+    )
+    admitted = core_variable("p_admitted", Boolean())
+    body_contracts_impl = _program(
+        "ddo_body_kind_contracts_impl",
+        (*body_parameters, Parameter("p_admitted", pg_type("bool"))),
         (
             SelectInto(
                 select(core_relation_row(kinds))
@@ -519,33 +522,38 @@ def _body_access_programs(model):
                         ),
                         "body member kind is outside its captured nominal contract",
                     ),
-                    SelectInto(
-                        select(core_relation_row(kinds))
-                        .select_from(kinds)
-                        .where(kinds.c.kind_contract == child),
-                        ("child_kind",),
-                        True,
-                    ),
-                    _refuse(
-                        or_(
-                            not_(
-                                func.public.json_matches_schema(
-                                    cast(child_kind["meaning_schema"], JSON()),
-                                    cast(child_body, JSON()),
-                                )
+                    If(
+                        admitted.is_distinct_from(True),
+                        (
+                            SelectInto(
+                                select(core_relation_row(kinds))
+                                .select_from(kinds)
+                                .where(kinds.c.kind_contract == child),
+                                ("child_kind",),
+                                True,
                             ),
-                            not_(
-                                func.public.json_matches_schema(
-                                    cast(child_kind["body_schema"], JSON()),
-                                    cast(func.data.ddo_json(child_body), JSON()),
-                                )
+                            _refuse(
+                                or_(
+                                    not_(
+                                        func.public.json_matches_schema(
+                                            cast(child_kind["meaning_schema"], JSON()),
+                                            cast(child_body, JSON()),
+                                        )
+                                    ),
+                                    not_(
+                                        func.public.json_matches_schema(
+                                            cast(child_kind["body_schema"], JSON()),
+                                            cast(func.data.ddo_json(child_body), JSON()),
+                                        )
+                                    ),
+                                ),
+                                "body member value differs from its captured nominal kind",
                             ),
                         ),
-                        "body member value differs from its captured nominal kind",
                     ),
                     ReturnQuery(
                         select(core_star()).select_from(
-                            func.ops.ddo_body_kind_contracts(child, child_body)
+                            func.ops.ddo_body_kind_contracts_impl(child, child_body, admitted)
                         )
                     ),
                 ),
@@ -559,28 +567,60 @@ def _body_access_programs(model):
         ),
         returns=set_text,
     )
-    contracts = (
-        func.ops.ddo_body_kind_contracts(p_kind, p_body)
-        .table_valued(column("value", Text()))
-        .render_derived()
-        .alias("contracts")
-    )
-    body_access = _program(
-        "ddo_body_access",
+    body_contracts = _program(
+        "ddo_body_kind_contracts",
+        body_parameters,
         (
-            Parameter("p_kind", column_type(kinds.c.kind_contract)),
-            Parameter("p_body", pg_type("jsonb")),
-        ),
-        (
-            ForQuery(
-                ("contract",),
-                select(contracts.c.value),
-                (Perform(func.ops.ddo_kind_access(contract)),),
+            ReturnQuery(
+                select(core_star()).select_from(
+                    func.ops.ddo_body_kind_contracts_impl(p_kind, p_body, literal(False))
+                )
             ),
-            Return(true()),
         ),
-        (Local("contract", column_type(kinds.c.kind_contract)),),
-        returns=pg_type("bool"),
+        returns=set_text,
+    )
+    admitted_body_contracts = _program(
+        "ddo_admitted_body_kind_contracts",
+        body_parameters,
+        (
+            ReturnQuery(
+                select(core_star()).select_from(
+                    func.ops.ddo_body_kind_contracts_impl(p_kind, p_body, literal(True))
+                )
+            ),
+        ),
+        returns=set_text,
+    )
+
+    def access(name, kind_contracts, *, stored=False):
+        contracts = (
+            kind_contracts(p_kind, p_body)
+            .table_valued(column("value", Text()))
+            .render_derived(name="contracts")
+        )
+        authorization = select(contracts.c.value)
+        if stored:
+            authorization = authorization.distinct()
+        return _program(
+            name,
+            body_parameters,
+            (
+                # The live evaluator purpose covers every admitted kind universe.
+                *((If(evaluator_body_access(), (Return(true()),)),) if stored else ()),
+                ForQuery(
+                    ("contract",),
+                    authorization,
+                    (Perform(func.ops.ddo_kind_access(contract)),),
+                ),
+                Return(true()),
+            ),
+            (Local("contract", column_type(kinds.c.kind_contract)),),
+            returns=pg_type("bool"),
+        )
+
+    body_access = access("ddo_body_access", func.ops.ddo_body_kind_contracts)
+    admitted_body_access = access(
+        "ddo_admitted_body_access", func.ops.ddo_admitted_body_kind_contracts, stored=True
     )
     binding, project = (
         core_variable("p_binding", JSONB()),
@@ -609,7 +649,7 @@ def _body_access_programs(model):
             PerformQuery(
                 select(
                     func.ops.ddo_kind_access(products.c.kind_contract),
-                    func.ops.ddo_body_access(
+                    func.ops.ddo_admitted_body_access(
                         func.coalesce(members.c.kind_contract, products.c.kind_contract),
                         func.coalesce(members.c.body, products.c.canonical_body),
                     ),
@@ -626,7 +666,15 @@ def _body_access_programs(model):
         ),
         returns=pg_type("bool"),
     )
-    return kind_access, body_contracts, body_access, binding_access
+    return (
+        kind_access,
+        body_contracts_impl,
+        body_contracts,
+        admitted_body_contracts,
+        body_access,
+        admitted_body_access,
+        binding_access,
+    )
 
 
 def _input_projection_programs(model, parameters, selected_rows):

@@ -20,12 +20,7 @@ def request_owner():
     owner.reservation = object()
     owner.running = False
     owner.hydrated_inputs = None
-    owner.consumer_inputs, owner.consumer_results, owner.binding_rows, owner.hydrated_sizes = (
-        {},
-        {},
-        {},
-        {},
-    )
+    owner.consumer_inputs, owner.consumer_results, owner.hydrated_sizes = {}, {}, {}
     return owner
 
 
@@ -182,7 +177,6 @@ def test_completed_request_drops_body_caches_only_after_physical_retirement():
     owner.handles.append(handle)
     owner.consumer_inputs["member"] = body
     owner.consumer_results["member"] = body
-    owner.binding_rows["member"] = body
     owner.hydrated_inputs = body
     owner.hydrated_sizes["member"] = 100
     del body
@@ -193,7 +187,7 @@ def test_completed_request_drops_body_caches_only_after_physical_retirement():
     owner.running = False
     assert owner.release_retired_inputs() and reference() is None
     assert owner.hydrated_inputs is None and not owner.consumer_inputs
-    assert not owner.consumer_results and not owner.binding_rows and not owner.hydrated_sizes
+    assert not owner.consumer_results and not owner.hydrated_sizes
 
 
 def test_retained_statement_error_drops_parameter_body_after_structured_publication(monkeypatch):

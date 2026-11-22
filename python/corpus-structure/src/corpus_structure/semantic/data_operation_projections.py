@@ -120,7 +120,7 @@ def _disclosed_kind_access(metadata, kind):
 
 def _disclosed_body_access(metadata, kind, body):
     return case(
-        (_kind_disclosed(metadata, kind), func.ops.ddo_body_access(kind, body)),
+        (_kind_disclosed(metadata, kind), func.ops.ddo_admitted_body_access(kind, body)),
         else_=literal(False),
     )
 
@@ -131,7 +131,7 @@ def _support_export_body_access(metadata, products, product_ids):
     access = case(
         (
             _kind_disclosed(metadata, products.c.kind_contract),
-            func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body),
+            func.ops.ddo_admitted_body_access(products.c.kind_contract, products.c.canonical_body),
         ),
         else_=literal(True),
     )
@@ -146,7 +146,7 @@ def _custody_body_eligible(metadata, kind, body):
     """Authenticate identity-only material within the original acquisition's universes."""
     kinds = metadata.tables["sem.data_kind_contract"]
     nested = (
-        func.ops.ddo_body_kind_contracts(kind, body)
+        func.ops.ddo_admitted_body_kind_contracts(kind, body)
         .table_valued(column("kind_contract", Text))
         .render_derived(name="custody_body_kind")
     )
@@ -426,7 +426,9 @@ def read_access_universes(metadata):
         ),
     ).cte("access_products")
     nested = (
-        func.ops.ddo_body_kind_contracts(products.c.kind_contract, products.c.canonical_body)
+        func.ops.ddo_admitted_body_kind_contracts(
+            products.c.kind_contract, products.c.canonical_body
+        )
         .table_valued(column("kind_contract", Text))
         .render_derived(name="nested_access_kind")
     )
@@ -801,7 +803,7 @@ def binding_branches(metadata):
                         (
                             and_(
                                 func.ops.ddo_kind_access(admitted.c.parent_kind),
-                                func.ops.ddo_body_access(
+                                func.ops.ddo_admitted_body_access(
                                     projected.c.projected_kind, projected.c.projected_body
                                 ),
                             ),
@@ -905,7 +907,7 @@ def binding_branches(metadata):
         _set_valid(candidate_validity, "use", candidates.c.use_id),
         func.ops.ddo_episode_current_valid(candidates.c.episode_id, release, type_=Boolean()),
         func.ops.ddo_kind_access(candidates.c.parent_kind),
-        func.ops.ddo_body_access(candidates.c.projected_kind, candidates.c.projected_body),
+        func.ops.ddo_admitted_body_access(candidates.c.projected_kind, candidates.c.projected_body),
     )
     admissions = metadata.tables["ops.original_source_admission"].alias("admission")
     factual_header = _obj(
@@ -940,7 +942,7 @@ def binding_branches(metadata):
                     ),
                     case(
                         (
-                            func.ops.ddo_body_access(
+                            func.ops.ddo_admitted_body_access(
                                 products.c.kind_contract, products.c.canonical_body
                             ),
                             or_(
@@ -1021,7 +1023,7 @@ def binding_branches(metadata):
                 for field, value in zip(binding_columns(), original_values, strict=True)
             )
         )
-        .where(func.ops.ddo_body_access(fact.c.kind_contract, fact.c.canonical_body))
+        .where(func.ops.ddo_admitted_body_access(fact.c.kind_contract, fact.c.canonical_body))
         .group_by(
             fact.c.product_id,
             fact.c.kind_contract,
@@ -2079,7 +2081,7 @@ def read_page(metadata, *, scheduler=False):
                     case(
                         (
                             product_body_selected,
-                            func.ops.ddo_body_access(
+                            func.ops.ddo_admitted_body_access(
                                 products.c.kind_contract, products.c.canonical_body
                             ),
                         ),

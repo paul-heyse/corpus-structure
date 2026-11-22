@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Generator, Iterator, Mapping
 from contextlib import contextmanager, nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -21,10 +21,11 @@ from .data_operation_json import json_bytes, native_json_loads, wire_json_loads
 from .data_operation_model import SubjectContext, validate_replicate_selection
 from .data_operation_partitions import partition_group_digests, partition_header, partition_packet
 from .data_operation_values import decode_semantic_value
+from .owned_json import FrozenObject, freeze_json, thaw_json
 from .selected_graph_budget import SelectedGraphBudgetExceeded
 
 if TYPE_CHECKING:
-    from ._data_operation_wire import WireReadDemandResultRequest
+    from ._data_operation_wire import WireReadDemandResultRequest, WireReadDemandResultResult
 
 
 def _read_request(value):
@@ -106,38 +107,66 @@ class CutSelection:
 
 @dataclass(frozen=True)
 class DemandResult:
-    """A bounded native page; immutable bytes own all nested values."""
+    """A bounded native page with exact retained bytes and an owned live snapshot."""
 
     content: bytes
     request: bytes = b"{}"
     reader_schema: bytes | None = None
+    _native_snapshot: FrozenObject | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+
+    @classmethod
+    def _from_native(cls, native: WireReadDemandResultResult, request: bytes) -> DemandResult:
+        """Own the result admitted by the native transport, without schema replay."""
+        snapshot = freeze_json(native)
+        if type(snapshot) is not FrozenObject:
+            raise TypeError("native demand acquisition requires an object")
+        page = cls(json_bytes(native), request)
+        object.__setattr__(page, "_native_snapshot", snapshot)
+        return page
+
+    @cached_property
+    def projection_snapshot(self) -> FrozenObject:
+        """Reuse live admission; raw detached bytes retain strict generated decoding."""
+        if self._native_snapshot is not None:
+            return self._native_snapshot
+        from .demand_wire import decode_wire_demand_result
+
+        snapshot = freeze_json(decode_wire_demand_result(self.content))
+        if type(snapshot) is not FrozenObject:
+            raise TypeError("demand projection requires an object")
+        return snapshot
 
     @cached_property
     def _page(self):
         from .data_operation_json import decode_retained_json_object
         from .demand_wire import interpret_demand_record
-        from .native_source_view import freeze_native
 
         parsed, cut_content = decode_retained_json_object(self.content, _PIN_FIELDS)
         interpreted = interpret_demand_record(
             parsed, None if self.reader_schema is None else native_json_loads(self.reader_schema)
         )
-        return freeze_native(interpreted), cut_content
+        return freeze_json(interpreted), cut_content
 
     @cached_property
     def _record(self):
-        return self._page[0]
+        return self._native_snapshot if self._native_snapshot is not None else self._page[0]
 
     @property
     def record(self) -> dict[str, Any]:
-        from .native_source_view import thaw_native
-
-        return thaw_native(self._record)
+        record = thaw_json(self._record)
+        if type(record) is not dict:
+            raise TypeError("demand result requires an object")
+        return record
 
     @cached_property
     def cut(self) -> CutSelection:
         # Exact retained member bytes own the cut identity, including ordinary
         # float exponent spelling. Interpretation never rewrites this custody.
+        if self._native_snapshot is not None:
+            fields = dict(self._native_snapshot.fields)
+            return CutSelection(json_bytes({key: thaw_json(fields[key]) for key in _PIN_FIELDS}))
         return CutSelection(self._page[1])
 
     @property
@@ -205,7 +234,7 @@ def read_demand_result(
     native = DataOperationStorage(connection).read_demand_result(_read_request(request))
     if native["project_id"] != project_id:
         raise ValueError("demand belongs to another project")
-    page = DemandResult(json_bytes(native), json_bytes(request))
+    page = DemandResult._from_native(native, json_bytes(request))
     if cut is not None and page.cut.content != cut.content:
         raise ValueError("continuation differs from the pinned cut selection")
     return page

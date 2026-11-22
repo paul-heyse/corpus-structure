@@ -102,13 +102,15 @@ open. Read attribution belongs to [SBX-11](owner-resolved-reads.md#sbx-native-re
 attachment and completion attribution belong to [SBX-06](references-and-projection-keys.md#sbx-native-attachment-and-completion).
 [Native timing evidence](../../design_review/evidence/2026-11-22_python-postgresql-efficiency/postgresql/README.md)
 
-Advance a native correction before reset where a required ordinary case still violates its
-existing budget, timeout or correctness contract and representative evidence identifies a
-bounded change that preserves the contract. For an early scalar read, use the additional
+Advance a bounded correction before broad qualification when source inspection or representative
+evidence shows that it removes material repeated work, contention or preparation from a
+required journey while preserving its contract. This includes required journeys that
+already finish within their watchdog. Use a bounded comparison when attribution or lifecycle
+cost could change the choice. For an early scalar read, use the additional
 [SBX-11 selection criteria](owner-resolved-reads.md#sbx-native-read-attribution).
 Inconclusive attribution leaves any required failing identity open while independent work
-continues. If the required cases pass, record the conditional optimization and its revisit
-trigger with the owner. Broader SBX-11/12 work and the SBX-18/19 placement decision keep their
+continues. Record any remaining conditional optimization and its revisit trigger with the
+owner. Broader SBX-11/12 work and the SBX-18/19 placement decision keep their
 sequence. A changed authority, custody or architectural rule follows the
 [existing decision route](common-analytical-basis.md#decision-routes) before adoption.
 
@@ -120,6 +122,27 @@ original required selection, retaining failed and interrupted evidence. Assess a
 by exact source and context and repeat affected identities as needed. An inconclusive
 optimization comparison creates no additional acceptance gate. Existing required
 identities retain their acceptance obligations.
+
+**Efficiency execution checkpoint · 2026-11-22.** Stable ordinary collection passed for
+9,589 selected identities (`3fb72541bec64efb951a761dac0181c8`). Provider collection passed
+for 38 (`0b72efacd0a14406b7935cbe42244b15`). The isolated ordinary event baseline
+(`7330a209f8874d8ebad47cf9d7a7172c`) failed its three cases in the shared setup.
+PostgreSQL canceled two evaluator calls to `renew_data_request` at the existing 10-second
+renewal limit. The private log reaches historical definition correspondence and repeated
+nominal child schemas through witness and output-reference body access. A setup stack
+also sampled duplicate schema copying during static port correspondence. These
+observations identify specific repeated work and do not establish end-to-end timings.
+
+The selected changes retain one private LinkML schema copy, reuse the admitted live result
+and witness meaning, stage per-item attachment scopes once, and use one canonical
+completion encoding with separate framed and payload digests. Stored products and members
+already passed strict native admission. Renewals and live reads reuse that admission
+for nominal shape while checking current purpose, support and exact occurrence. The stored
+body route can use current evaluator membership for all admitted universes; ordinary
+purpose still walks the actual member kind closure. Incoming packets keep the recursive
+schema checks. Preview `4775d29ebf7747f2b3787c24618955ab`, rollback-only candidate
+`410ff9ab575940938887f5f95fe14109` and registration `892e4269383644b9be4539b9c9562a4a`
+passed. Installed acceptance and development reset remain separate obligations.
 
 **Cold authoring checkpoint · 2026-11-21.** `uv run ci db init --creation-only` created
 `corpus_structure_sbx09_author` on the dedicated cluster. Managed preview

@@ -41,6 +41,7 @@ from corpus_structure.semantic._data_operation_wire import (
     WireClaimDataRequestsClaimedResult,
     WireClaimDataRequestsRequest,
     WireCompletion,
+    WireOutputMember,
     WireRegisterDataExecutionOriginResult,
     WireRetainDataCompletionIntentRequest,
     wire_attempt_fence,
@@ -65,7 +66,6 @@ from corpus_structure.semantic.data_operation_demands import ReadyDataRequest
 from corpus_structure.semantic.data_operation_json import (
     json_bytes,
     native_json_loads,
-    scope_identity,
 )
 from corpus_structure.semantic.data_operation_ports import (
     HydratedRoleValue,
@@ -350,7 +350,6 @@ class _RequestExecution:
         invocation.requests.append(self)
         self.consumer_inputs = {}
         self.consumer_results = {}
-        self.binding_rows = {}
         self.hydrated_sizes = {}
         self.hydrated_inputs = None
         self.uncertain_submission = False
@@ -450,7 +449,6 @@ class _RequestExecution:
         self.hydrated_inputs = None
         self.consumer_inputs.clear()
         self.consumer_results.clear()
-        self.binding_rows.clear()
         self.hydrated_sizes.clear()
         return True
 
@@ -1070,33 +1068,15 @@ class NativeDemandExecutor:
                 trust_snapshot=pins["trust"],
                 max_bytes=self.policy.max_packet_bytes,
             )
-        if context.model.operation(ready.operation).consumer_selection is not None:
+        operation = context.model.operation(ready.operation)
+        if operation.consumer_selection is not None:
             result = context.consumer_selectors[ready.operation].select_hydrated(selected)
             if execution_owner is not None:
                 execution_owner.consumer_results[ready.obligation] = result
         if execution_owner is not None:
             execution_owner.hydrated_sizes[ready.obligation] = selected.measured_bytes
             execution_owner.consumer_inputs[ready.obligation] = selected
-            execution_owner.binding_rows[ready.obligation] = {
-                role: tuple(
-                    {
-                        "product": value.member.product,
-                        "member": value.member.member,
-                        "kind_contract": value.member.kind_contract,
-                        "project_id": ready.resolved.subject_context.project_id,
-                        "subject": value.member.subject,
-                        "subject_definition": value.member.subject_definition,
-                        "original_source": value.member.original_source,
-                        "analyzed_scope": scope_identity(
-                            native_json_loads(value.member.analyzed_scope)
-                        ),
-                        "body": value.value(),
-                    }
-                    for value in values
-                )
-                for role, values in selected.values
-            }
-        roles = {role.name: role for role in context.model.operation(ready.operation).roles}
+        roles = {role.name: role for role in operation.roles}
         identities = {(value.owner, value.domain): value.key for value in context.model.identities}
         values = []
         retained_roles = {role.role: role for role in ready.binding_result.roles}
@@ -1131,23 +1111,6 @@ class NativeDemandExecutor:
         if answer.operation != ready.operation:
             raise PortRefusal("completion belongs to another operation")
         operation = context.model.operation(ready.operation)
-        if operation.output_witnesses:
-            from corpus_structure.semantic.data_operation_output_witnesses import (
-                validate_output_witnesses,
-            )
-
-            if physical is None or ready.obligation not in physical.binding_rows:
-                raise PortRefusal(
-                    "output witnesses require their authenticated selected input rows"
-                )
-            bodies = {}
-            for value in answer.outputs:
-                if value.meaning is None:
-                    raise PortRefusal("output witnesses require canonical typed output meaning")
-                bodies.setdefault(value.role, []).append(
-                    decode_semantic_value(native_json_loads(value.meaning))
-                )
-            validate_output_witnesses(operation, bodies, physical.binding_rows[ready.obligation])
         output_bytes = sum(
             len(value.content)
             + len(value.meaning or b"")
@@ -1160,9 +1123,9 @@ class NativeDemandExecutor:
                 f"Completion outputs use {output_bytes} bytes, exceeding the "
                 f"{self.policy.max_reply_bytes}-byte reply limit"
             )
-        if answer.outcome not in context.model.operation(ready.operation).outcomes:
+        if answer.outcome not in operation.outcomes:
             raise PortRefusal("completion outcome is outside the declared operation")
-        outputs = []
+        outputs: list[WireOutputMember] = []
         positions = {}
         for value in answer.outputs:
             position = positions.get(value.role, 0)
@@ -1176,7 +1139,7 @@ class NativeDemandExecutor:
                     "multiplicity": 1,
                     "product": {
                         "kind_contract": value.kind_contract,
-                        "body": json.loads(value.meaning),
+                        "body": native_json_loads(value.meaning),
                         "members": [
                             interpret_wire_record("product_member", native_json_loads(member))
                             for member in value.members
@@ -1193,6 +1156,32 @@ class NativeDemandExecutor:
                     },
                 }
             )
+        if operation.output_witnesses:
+            from corpus_structure.semantic.data_operation_output_witnesses import (
+                selected_witness_rows,
+                validate_output_witnesses,
+            )
+
+            if physical is None or ready.obligation not in physical.consumer_inputs:
+                raise PortRefusal(
+                    "output witnesses require their authenticated selected input rows"
+                )
+            witnessed_roles = {group.output_role for group in operation.output_witnesses}
+            bodies = {}
+            for output in outputs:
+                if output["role"] in witnessed_roles:
+                    bodies.setdefault(output["role"], []).append(
+                        decode_semantic_value(output["product"]["body"])
+                    )
+            selected = physical.consumer_inputs[ready.obligation]
+            validate_output_witnesses(
+                operation,
+                bodies,
+                selected_witness_rows(
+                    operation, selected, ready.resolved.subject_context.project_id
+                ),
+            )
+            del bodies
         binding = _ready_binding(ready.binding)
         completion = {
             "outcome": answer.outcome,
@@ -1379,7 +1368,6 @@ class NativeDemandExecutor:
         for retained in (
             physical.consumer_inputs,
             physical.consumer_results,
-            physical.binding_rows,
             physical.hydrated_sizes,
         ):
             retained.pop(ready.obligation, None)

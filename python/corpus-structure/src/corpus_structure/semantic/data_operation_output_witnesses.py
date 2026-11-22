@@ -11,7 +11,7 @@ from collections import defaultdict
 from collections.abc import Mapping
 from functools import lru_cache
 
-from .data_operation_json import json_bytes, json_loads
+from .data_operation_json import json_bytes, json_loads, native_json_loads
 from .data_operation_model import (
     BindingField,
     OutputWitnessComparison,
@@ -208,11 +208,7 @@ def compile_reference_targets(raw, roles, kinds, output_paths):
             raise ValueError("reference binding label requires a frozen source-set input")
         if type(occurrence_position) is not bool or (
             occurrence_position
-            and (
-                occurrence_field is not None
-                or occurrence_binding
-                or source.collection != "set"
-            )
+            and (occurrence_field is not None or occurrence_binding or source.collection != "set")
         ):
             raise ValueError("reference ledger position requires an unordered set input")
         uses_occurrence = occurrence_field is not None or occurrence_binding or occurrence_position
@@ -413,6 +409,85 @@ def _field(value, pointer):
     return current
 
 
+def selected_witness_rows(operation, selection, project_id):
+    """Project only the selected roles and fields used by witness declarations."""
+    headers = defaultdict(set)
+    body_roles = set()
+    for group in operation.output_witnesses:
+        for comparison in group.comparisons:
+            source = comparison.input
+            if source.projection != "selected-input":
+                body_roles.add(source.role)
+            elif source.field == "reference":
+                headers[source.role].update(("product", "member"))
+            else:
+                headers[source.role].add(source.field)
+
+    def header(value, field):
+        if field == "project_id":
+            return project_id
+        if field == "analyzed_scope":
+            return native_json_loads(value.member.analyzed_scope)
+        return getattr(value.member, field)
+
+    def row(role, value):
+        projected = {field: header(value, field) for field in headers.get(role, ())}
+        if role in body_roles:
+            projected["body"] = value.value()
+        return projected
+
+    return {
+        role: tuple(row(role, value) for value in values)
+        for role, values in selection.values
+        if role in headers or role in body_roles
+    }
+
+
+def _comparison_key(value):
+    from .native_source_view import thaw_native
+
+    return json_context_meaning(json_bytes(thaw_native(value)))
+
+
+def _input_key(row, comparisons):
+    key = []
+    for comparison in comparisons:
+        source = comparison.input
+        if source.projection == "selected-input":
+            value = (
+                [row["product"], row.get("member")]
+                if source.field == "reference"
+                else row.get(source.field)
+            )
+        else:
+            value = _field(row["body"], source.field)
+        if (
+            value is None
+            and comparison.encoding == "value"
+            and not (source.projection == "selected-input" and source.field == "member")
+        ):
+            return None
+        if comparison.encoding == "context-meaning-json":
+            value = json.loads(_comparison_key(value))
+        key.append(_comparison_key(value))
+    return tuple(key)
+
+
+def _output_key(record, comparisons):
+    key = []
+    for comparison in comparisons:
+        value = _field(record, comparison.output_field)
+        if comparison.encoding != "value":
+            if not isinstance(value, str):
+                return None
+            try:
+                value = json_loads(value)
+            except ValueError:
+                return None
+        key.append(_comparison_key(value))
+    return tuple(key)
+
+
 def validate_output_witnesses(operation, outputs, selected_inputs):
     """Explain/check the compiled mapping using already authenticated selected rows.
 
@@ -420,50 +495,20 @@ def validate_output_witnesses(operation, outputs, selected_inputs):
     roles to rows with actual header fields and decoded ``body``. Acquisition and
     authorization remain with the existing caller/native binding owner.
     """
-    from .native_source_view import thaw_native
-
     for group in operation.output_witnesses:
+        candidate_keys = None
         for body in outputs.get(group.output_role, ()):
             for record in witness_records(body, group.records):
-
-                def matches(row, group=group, record=record):
-                    for comparison in group.comparisons:
-                        actual = _field(record, comparison.output_field)
-                        source = comparison.input
-                        if source.projection == "selected-input":
-                            expected = (
-                                [row["product"], row.get("member")]
-                                if source.field == "reference"
-                                else row.get(source.field)
-                            )
-                        else:
-                            expected = _field(row["body"], source.field)
-                        if (
-                            expected is None
-                            and comparison.encoding == "value"
-                            and not (
-                                source.projection == "selected-input" and source.field == "member"
-                            )
-                        ):
-                            return False
-                        if comparison.encoding != "value":
-                            if not isinstance(actual, str):
-                                return False
-                            try:
-                                actual = json_loads(actual)
-                            except ValueError:
-                                return False
-                        if comparison.encoding == "context-meaning-json":
-                            expected = json.loads(
-                                json_context_meaning(json_bytes(thaw_native(expected)))
-                            )
-                        if json_context_meaning(
-                            json_bytes(thaw_native(actual))
-                        ) != json_context_meaning(json_bytes(thaw_native(expected))):
-                            return False
-                    return True
-
-                if not any(matches(row) for row in selected_inputs.get(group.input_role, ())):
+                if candidate_keys is None:
+                    candidate_keys = {
+                        key
+                        for row in selected_inputs.get(group.input_role, ())
+                        if (key := _input_key(row, group.comparisons)) is not None
+                    }
+                if (
+                    not candidate_keys
+                    or _output_key(record, group.comparisons) not in candidate_keys
+                ):
                     raise ValueError(
                         "output witness has no complete selected input member: "
                         + group.output_role

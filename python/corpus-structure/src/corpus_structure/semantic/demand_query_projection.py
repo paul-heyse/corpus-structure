@@ -6,12 +6,13 @@ from dataclasses import dataclass
 
 from .data_operation_json import json_loads, own_json_value
 from .data_operation_value_codec import decode_semantic_value, tagged_mapping_field
+from .demand_results import DemandResult
 from .owned_json import FrozenObject, freeze_json, thaw_json
 
 
 @dataclass(frozen=True)
 class DemandQueryProjectionInputs:
-    """Detached generated values of the material admitted by native acquisition."""
+    """An owned page and the exact request selection for row projection."""
 
     page: FrozenObject
     selection: FrozenObject
@@ -19,18 +20,19 @@ class DemandQueryProjectionInputs:
 
 
 def prepare_demand_projection_inputs(
-    native: bytes, selection: bytes, *, decimal_fixed_point_digits: int
+    native: bytes | DemandResult, selection: bytes, *, decimal_fixed_point_digits: int
 ) -> DemandQueryProjectionInputs:
-    """Validate once during acquisition, before selected row derivation.
-
-    The native cut already identifies immutable product bodies; strict generated
-    decoding must preserve their complete material rather than transform it.
-    """
+    """Transfer acquired page ownership, or strictly admit detached input bytes."""
     from .demand_wire import decode_wire_demand_result
 
     if type(selection) is not bytes:
         raise TypeError("native projection requires immutable selection bytes")
-    page = freeze_json(decode_wire_demand_result(native))
+    if type(native) is DemandResult:
+        page = native.projection_snapshot
+    elif type(native) is bytes:
+        page = freeze_json(decode_wire_demand_result(native))
+    else:
+        raise TypeError("native projection requires an acquired demand result or immutable bytes")
     selected = freeze_json(json_loads(selection))
     if type(page) is not FrozenObject or type(selected) is not FrozenObject:
         raise TypeError("native projection requires a page and selection object")

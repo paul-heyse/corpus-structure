@@ -43,27 +43,37 @@ def test_retained_product_cannot_change_selected_identity(profile, monkeypatch):
         pytest.fail("selected formal ingress repeated the standalone verifier")
 
     monkeypatch.setattr(formal_products, "validate_formal_product", repeated)
-    assert (
-        acquired_formal_product(
-            profile.prepared,
-            body,
-            source,
-            model=profile.model,
-            subject_context=context,
-            member=member,
-        ).content
-        == product.content
+    acquired = acquired_formal_product(
+        profile.prepared,
+        body,
+        source,
+        model=profile.model,
+        subject_context=context,
+        member=member,
     )
-    member = replace(member, product="product:another")
-    with pytest.raises(ValueError, match="exact selected native product"):
-        acquired_formal_product(
-            profile.prepared,
-            body,
-            source,
-            model=profile.model,
-            subject_context=context,
-            member=member,
-        )
+    reacquired = acquired_formal_product(
+        profile.prepared,
+        body,
+        source,
+        model=profile.model,
+        subject_context=context,
+        member=member,
+    )
+    assert acquired.content == product.content
+    assert reacquired.value is acquired.value
+    for bad_member in (
+        replace(member, product="product:another"),
+        replace(member, kind_contract="kind:another"),
+    ):
+        with pytest.raises(ValueError, match="exact selected native product"):
+            acquired_formal_product(
+                profile.prepared,
+                body,
+                source,
+                model=profile.model,
+                subject_context=context,
+                member=bad_member,
+            )
 
 
 def test_standalone_formal_product_checks_member_identity(profile):

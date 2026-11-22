@@ -54,7 +54,8 @@ class _CharacterizationPayload:
         len(payload.content) + len(payload.meaning) + sum(map(len, payload.members))
     ),
 )
-def _characterization_payload(content, prepared, model, definition, collections):
+def acquire_characterization_payload(content, prepared, model, definition, collections):
+    """Share nominal body admission separately from its producing occurrence."""
     from .data_operation_ports import project_product_members
     from .data_operation_values import semantic_value
 
@@ -171,7 +172,9 @@ class RetainedCharacterizationProduct:
                     raise ValueError(
                         "retained characterization differs from selected partition commitments"
                     )
-        payload = _characterization_payload(content, prepared, model, definition, collections)
+        payload = acquire_characterization_payload(
+            content, prepared, model, definition, collections
+        )
         return cls._from_payload(
             payload,
             prepared,
@@ -307,7 +310,7 @@ class EnrichedDocumentProduct:
         if type(content) is not bytes:
             raise TypeError("enriched document requires immutable body bytes")
         definition = prepared.index.definitions[cls.kind_name]
-        payload = _characterization_payload(content, prepared, model, definition, ())
+        payload = acquire_characterization_payload(content, prepared, model, definition, ())
         return cls._from_payload(payload, prepared, model, subject_context)
 
     def _require_acquired(self):

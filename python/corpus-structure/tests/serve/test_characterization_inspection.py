@@ -183,6 +183,7 @@ def test_summary_preserves_selected_custody_and_does_not_advertise_full_body_res
         derivation_id="derivation:actual",
         kind_contract="kind:native",
         body=body,
+        meaning_body=["string", "private tagged value"],
     )
     result = dict(
         cut={"release_id": "release:actual"},
@@ -196,9 +197,7 @@ def test_summary_preserves_selected_custody_and_does_not_advertise_full_body_res
         resource_handle="full:body",
     )
     monkeypatch.setattr(contribution_queries, "read_demand_contributions", lambda *_: result)
-    prepared = SimpleNamespace(
-        validate_python=lambda nominal, value: SimpleNamespace(model_dump=lambda **_: value)
-    )
+    prepared = SimpleNamespace()
     monkeypatch.setattr(releases, "open_release", lambda *_: prepared)
     monkeypatch.setattr(
         source_catalog,
@@ -214,5 +213,8 @@ def test_summary_preserves_selected_custody_and_does_not_advertise_full_body_res
     assert actual["items"][0]["product_id"] == "product:actual"
     assert actual["items"][0]["use_id"] == "use:actual"
     assert actual["items"][0]["derivation_id"] == "derivation:actual"
-    assert "body" not in actual["items"][0] and "resource_handle" not in actual
+    assert {"body", "meaning_body"}.isdisjoint(actual["items"][0])
+    assert "resource_handle" not in actual
+    assert actual["items"][0]["summary"]["outcome"] == "partial"
+    assert result["items"][0]["meaning_body"] == ["string", "private tagged value"]
     assert result["items"][0]["body"] is body and result["resource_handle"] == "full:body"

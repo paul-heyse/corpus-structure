@@ -221,6 +221,8 @@ def test_native_current_members_page_without_losing_source_positions(characteriz
     assert empty["items"] == [] and empty["knowledge"] == "unknown"
 
 
+# Preserve the managed test identity while checking the current complete capture;
+# the authored inspection tests cover partial and unknown coverage separately.
 def test_native_current_summary_omits_members_and_preserves_unknown_coverage(
     characterization_source,
 ):
@@ -234,10 +236,16 @@ def test_native_current_summary_omits_members_and_preserves_unknown_coverage(
         row["product_id"] == product["product_id"]
         and row["derivation_id"] == operation_use(snapshot, CONSTRUCTION)["derivation_id"]
     )
-    assert "body" not in row and "resource_handle" not in page
-    assert row["summary"]["outcome"] == actual["outcome"] == "partial"
+    assert {"body", "meaning_body"}.isdisjoint(row) and "resource_handle" not in page
+    assert row["summary"]["outcome"] == actual["outcome"] == "complete"
     assert sum(row["summary"]["member_counts"].values()) == len(actual["members"])
     assert row["summary"]["providers"] is None
+    assert row["summary"]["coverage"]
+    assert all(
+        value["outcome"] in {"complete", "empty"}
+        for value in row["summary"]["coverage"]
+        if value["availability"] == "available"
+    )
     assert [
         (value["family"], value["outcome"], value["availability"])
         for value in row["summary"]["coverage"]
@@ -490,9 +498,13 @@ def test_current_construction_validator_refuses_relabelled_or_unreleased_witness
         )
         body["formal_support"].append(
             dict(
-                owner=owner, use="external_premise", position=0,
+                owner=owner,
+                use="external_premise",
+                position=0,
                 target=dict(
-                    variant="member", role="formal", occurrence="99",
+                    variant="member",
+                    role="formal",
+                    occurrence="99",
                     member_id=primary.value["members"][0]["member_id"],
                 ),
             )

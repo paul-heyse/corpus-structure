@@ -85,9 +85,9 @@ def reference_native_programs(model):
     ledger_position = target["occurrence_position"].astext == "true"
     uses_occurrence = or_(occurrence.is_not(None), binding_label, ledger_position)
     captured_roles = core_variable("captured_roles", JSONB())
-    ledger = func.ops.ddo_derivation_input_positions(
-        request_inputs, captured_roles
-    ).table_valued(column("input_record", JSONB()), column("physical_position", Integer()))
+    ledger = func.ops.ddo_derivation_input_positions(request_inputs, captured_roles).table_valued(
+        column("input_record", JSONB()), column("physical_position", Integer())
+    )
     positioned_bindings = (
         select(
             func.coalesce(
@@ -261,7 +261,9 @@ def reference_native_programs(model):
                     detail,
                 ),
                 Perform(
-                    select(func.ops.ddo_body_access(members.c.kind_contract, members.c.body))
+                    select(
+                        func.ops.ddo_admitted_body_access(members.c.kind_contract, members.c.body)
+                    )
                     .where(members.c.product_id == product, members.c.member_id == member_id)
                     .scalar_subquery()
                 ),

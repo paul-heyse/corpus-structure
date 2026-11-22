@@ -95,6 +95,18 @@ pytestmark = pytest.mark.parametrize(
 )
 
 
+def ready_requests(kernel, demand_id):
+    with kernel["engine"].begin() as connection:
+        snapshot = DemandPlanner(kernel["model"], DataOperationStorage(connection)).resume(
+            demand_id
+        )
+    # Population selection and attachment write the frontier using the retained pin.
+    with kernel["engine"].begin() as connection:
+        return DemandPlanner(kernel["model"], DataOperationStorage(connection)).ready(
+            snapshot, authorization=b"{}"
+        )
+
+
 def ready_completion(kernel):
     contexts = tuple(
         {
@@ -105,10 +117,8 @@ def ready_completion(kernel):
         for value, page in ((15, 1), (16, 2))
     )
     demand, _, _ = discover(kernel, values=(15, 16), member_contexts=contexts)
-    with kernel["engine"].begin() as connection:
-        planner = DemandPlanner(kernel["model"], DataOperationStorage(connection))
-        assert planner.ready(planner.resume(demand["demand_id"]), authorization=b"{}") == ()
-        (ready,) = planner.ready(planner.resume(demand["demand_id"]), authorization=b"{}")
+    assert ready_requests(kernel, demand["demand_id"]) == ()
+    (ready,) = ready_requests(kernel, demand["demand_id"])
     assert ready.operation == "urn:consumer"
     members = [member for role in ready.binding_result.roles for member in role.members]
     assert {member.member for member in members} == {"m15", "m16"}

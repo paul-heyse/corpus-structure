@@ -175,9 +175,11 @@ def compile_conditional_rules(view: SchemaView) -> dict[str, dict[str, Any]]:
     """
     if not any(cls.rules for cls in view.all_classes().values()):
         return {}
-    schema = deepcopy(view.schema)
+    assert view.schema is not None
+    # Validation consumes the private copy before the generator mutates it.
+    normalized = private_schema_view(view.schema)
+    schema = normalized.schema
     assert schema is not None
-    normalized = private_schema_view(schema)
     # Each class's inherited rules must see its own effective slot aliases.
     for name in normalized.all_classes():
         slots = {str(slot.name): slot for slot in normalized.class_induced_slots(name)}

@@ -488,19 +488,34 @@ def acquired_formal_product(
 ) -> FormalEvidenceProduct:
     """Decode an exact whole formal product whose consumer's rules were bound natively."""
     from .data_operation_model import BoundRoleMember
+    from .enriched_document_products import acquire_characterization_payload
 
     if type(member) is not BoundRoleMember or member.member is not None:
         raise ValueError("selected formal evidence requires its exact whole binding member")
-    typed = prepared.validate_json("DdoFormalProduct", canonical_bytes(value))
-    checked = _values(typed)
-    selected = source.value
-    product = FormalEvidenceProduct._accept_checked(
-        typed, checked, source, prepared, model, subject_context
+    definition = prepared.index.definitions["DdoFormalProduct"]
+    kind_contract = next(
+        identity.key
+        for identity in model.identities
+        if (identity.owner, identity.domain) == (definition.iri, "kind")
     )
+    admitted = acquire_characterization_payload(
+        canonical_bytes(value), prepared, model, definition, ()
+    )
+    selected = source.value
+    payload = _FormalPayload(
+        admitted.content,
+        admitted.value,
+        admitted.meaning,
+        admitted.members,
+        admitted.body_digest,
+        kind_contract,
+    )
+    product = FormalEvidenceProduct._from_payload(payload, source, prepared, model, subject_context)
     if (
-        product.semantic_id != member.product
-        or checked["source"] != selected["source"]
-        or tuple(checked["selectors"]) != tuple(selected["selectors"])
+        kind_contract != member.kind_contract
+        or product.semantic_id != member.product
+        or product.value["source"] != selected["source"]
+        or tuple(product.value["selectors"]) != tuple(selected["selectors"])
     ):
         raise ValueError("formal body differs from its exact selected native product/source")
     return product

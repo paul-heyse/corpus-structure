@@ -1,6 +1,7 @@
 """Independent selected membership, group pagination and actual MCP read contracts."""
 
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any
 
 import anyio
@@ -19,6 +20,13 @@ from corpus_structure.semantic.demand_results import CutSelection, DemandResult
 from corpus_structure.semantic.selected_graph_budget import SelectedGraphBudgetExceeded
 from semantic.demand_result_support import demand_result_page
 from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code
+
+
+def _native_connection(page):
+    from corpus_structure.semantic.data_operation_wire import wire_contract_digest
+
+    encoded = json_bytes({"payload": page, "contract_digest": wire_contract_digest()}).decode()
+    return SimpleNamespace(scalar=lambda *_: encoded)
 
 
 def test_members_retain_actual_context_episode_direction_and_multiplicity():
@@ -43,17 +51,31 @@ def test_members_retain_actual_context_episode_direction_and_multiplicity():
 def test_native_projection_consumes_its_snapshot_and_explicit_decimal_limit(monkeypatch):
     from dataclasses import replace
 
-    from corpus_structure.semantic import value_codec
+    from pydantic import ValidationError
+
+    from corpus_structure.semantic import demand_wire, value_codec
     from corpus_structure.semantic.demand_query_projection import (
         prepare_demand_projection_inputs,
         selected_query_rows,
     )
+    from corpus_structure.semantic.demand_results import read_demand_result
 
-    native = json_bytes(demand_result_page())
+    original = demand_result_page()
+    native = json_bytes(original)
+    acquired = read_demand_result(_native_connection(original), "demand:A", project_id="project:A")
+    assert acquired.content == native
+    assert acquired.cut.content == CutSelection.from_native(original).content
+    assert acquired.cut.content == DemandResult(native).cut.content
     selection = json_bytes(
         DemandQueryRequest(demand_id="demand:A", project_id="project:A").selection()
     )
     inputs = prepare_demand_projection_inputs(native, selection, decimal_fixed_point_digits=4)
+    untrusted = demand_result_page()
+    untrusted["uses"][0]["products"][0]["unmodeled"] = "not admitted"
+    with pytest.raises(ValidationError):
+        prepare_demand_projection_inputs(
+            DemandResult(json_bytes(untrusted)), selection, decimal_fixed_point_digits=4
+        )
 
     def unexpected_model_acquisition(*args, **kwargs):
         raise AssertionError("native projection acquired the running model")
@@ -68,6 +90,60 @@ def test_native_projection_consumes_its_snapshot_and_explicit_decimal_limit(monk
     with pytest.raises(ValueError, match="positive model-derived decimal limit"):
         list(selected_query_rows(replace(inputs, decimal_fixed_point_digits=True)))
 
+    def unexpected_generated_decode(*args, **kwargs):
+        raise AssertionError("native projection repeated generated wire admission")
+
+    monkeypatch.setattr(demand_wire, "decode_wire_demand_result", unexpected_generated_decode)
+    projected = prepare_demand_projection_inputs(acquired, selection, decimal_fixed_point_digits=4)
+    assert projected.page is acquired.projection_snapshot
+    changed = acquired.record
+    changed["uses"].clear()
+    assert acquired.record["uses"]
+    assert list(selected_query_rows(projected)) == rows
+
+
+@pytest.mark.parametrize(
+    "defect",
+    ["missing_release", "boolean_generation", "extra_product", "unknown_tag", "no_payload"],
+)
+def test_malformed_native_page_cannot_supply_a_projection_snapshot(defect):
+    from corpus_structure.semantic.demand_results import read_demand_result
+
+    page = demand_result_page()
+    product = page["uses"][0]["products"][0]
+    match defect:
+        case "missing_release":
+            del page["release_id"]
+        case "boolean_generation":
+            page["obligations"][0]["generation"] = True
+        case "extra_product":
+            product["unexpected"] = "not admitted"
+        case "unknown_tag":
+            product["body"] = ["unrecognized", "value"]
+        case "no_payload":
+            product["body"] = ["string"]
+    with pytest.raises(ValueError, match="read_demand_result_result/ violates result contract"):
+        read_demand_result(_native_connection(page), "demand:A", project_id="project:A")
+
+
+def test_admitted_projection_still_refuses_noncanonical_tag_payload():
+    from corpus_structure.semantic.demand_query_projection import (
+        prepare_demand_projection_inputs,
+        selected_query_rows,
+    )
+    from corpus_structure.semantic.demand_results import read_demand_result
+
+    page = demand_result_page()
+    page["uses"][0]["products"][0]["body"] = ["integer", "01"]
+    acquired = read_demand_result(_native_connection(page), "demand:A", project_id="project:A")
+    selection = json_bytes(
+        DemandQueryRequest(demand_id="demand:A", project_id="project:A").selection()
+    )
+    for source in (acquired, acquired.content):
+        inputs = prepare_demand_projection_inputs(source, selection, decimal_fixed_point_digits=4)
+        with pytest.raises(ValueError, match="canonical"):
+            list(selected_query_rows(inputs))
+
 
 def test_cut_distinguishes_native_boundary_context_and_current_trust():
     original = CutSelection.from_native(demand_result_page())
@@ -79,6 +155,21 @@ def test_cut_distinguishes_native_boundary_context_and_current_trust():
     changed = demand_result_page()
     changed["scope"] = {"subject": "one"}
     assert original.identity != CutSelection.from_native(changed).identity
+
+
+@pytest.mark.parametrize("ordinary", [1e-5, 1e20, -0.0])
+def test_admitted_page_retains_the_canonical_cut_with_ordinary_numbers(ordinary):
+    from corpus_structure.semantic.demand_results import read_demand_result
+
+    page = demand_result_page()
+    page["selection"]["operations"][0]["parameters"] = {"ordinary": ordinary}
+    acquired = read_demand_result(_native_connection(page), "demand:A", project_id="project:A")
+    expected = CutSelection.from_native(page)
+    assert acquired.cut.content == expected.content
+    assert acquired.cut.identity == expected.identity
+    assert acquired.cut.content == DemandResult(acquired.content).cut.content
+    actual = acquired.record["selection"]["operations"][0]["parameters"]["ordinary"]
+    assert type(actual) is float and actual.hex() == ordinary.hex()
 
 
 @pytest.mark.usefixtures("complete_serving_code")

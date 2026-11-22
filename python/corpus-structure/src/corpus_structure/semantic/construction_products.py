@@ -26,6 +26,7 @@ from corpus_structure.semantic.characterization import (
 from corpus_structure.semantic.native_source_view import (
     freeze_native,
     matches_positioned_source_extent,
+    thaw_native,
 )
 from corpus_structure.semantic.source_products import (
     native_selected_ranges,
@@ -1198,15 +1199,26 @@ def _checked_interpreted_product[Product: InterpretedProduct](
 ) -> Product:
     from .data_operation_ports import project_product_members
     from .data_operation_values import semantic_value
+    from .enriched_document_products import acquire_characterization_payload
 
-    typed = prepared.validate_json(product_type.kind_name, canonical_bytes(value))
-    checked = typed.model_dump(mode="json", exclude_unset=True)
-    typed_value = typed.model_dump(mode="python", exclude_unset=True)
-    kind = prepared.index.definitions[product_type.kind_name].iri
+    definition = prepared.index.definitions[product_type.kind_name]
+    kind = definition.iri
     kind_contract = next(
         item.key for item in model.identities if (item.owner, item.domain) == (kind, "kind")
     )
-    body_digest = body_identity(typed_value).key
+    content = canonical_bytes(value)
+    retained, typed_value = None, None
+    if bound_member is None:
+        typed = prepared.validate_json(product_type.kind_name, content)
+        checked = typed.model_dump(mode="json", exclude_unset=True)
+        typed_value = typed.model_dump(mode="python", exclude_unset=True)
+        body_digest = body_identity(typed_value).key
+    else:
+        retained = acquire_characterization_payload(content, prepared, model, definition, ())
+        body_digest = retained.body_digest
+        # Graph reconstruction binds this invocation's exact producing roles. Keep its
+        # detached working view separate from the shared nominal payload.
+        checked = thaw_native(retained.value)
     graph_value = checked
     parents = ()
     contextual_parents = ()
@@ -1325,12 +1337,25 @@ def _checked_interpreted_product[Product: InterpretedProduct](
         verify_inventory_native_scores(packets)
         verify_interpreted_body_coverage(checked["coverage"], checked["outcome"], inventory)
         verify_interpreted_source_coverage(checked["coverage"], selected)
+    if retained is None:
+        assert typed_value is not None
+        content = canonical_bytes(checked)
+        owned = freeze_native(checked)
+        meaning = canonical_bytes(semantic_value(typed_value))
+        members = project_product_members(model, kind, typed_value)
+    else:
+        content, owned, meaning, members = (
+            retained.content,
+            retained.value,
+            retained.meaning,
+            retained.members,
+        )
     payload = _InterpretedPayload(
-        canonical_bytes(checked),
-        freeze_native(checked),
+        content,
+        owned,
         freeze_native({name: inventory[name] for name, _ in _INVENTORIES}),
-        canonical_bytes(semantic_value(typed_value)),
-        project_product_members(model, kind, typed_value),
+        meaning,
+        members,
         body_digest,
         kind_contract,
         parents,

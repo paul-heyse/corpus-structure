@@ -1,6 +1,6 @@
 # Set-based execution
 
-**Status:** Implementation is paused through SBX-09. The efficiency amendment is scheduled.
+**Status:** Execution has resumed through SBX-09, starting with the efficiency amendment.
 SBX-00 through SBX-02 have package evidence. SBX-03 through SBX-09 have partial implementation and
 scoped verification. This series owns the pivot to
 partition-unit storage, declared rules and proofs, projection-keyed reuse, native change
@@ -14,7 +14,7 @@ design advice read production source at `7a415d18d` on 2026-11-21. The
 The [common analytics amendment](#common-analytics-review-amendment) schedules the annotation-fork
 pilot and expands the analytical and replay comparisons. The
 [efficiency amendment](#validation-postgresql-efficiency-amendment) orders the live-read correction,
-native attribution and qualification after the pause.
+native attribution and qualification.
 Design changes are **Proposed** unless marked accepted. Implementation and measured results
 carry their own evidence and dates. `cs/` means `python/corpus-structure/src/corpus_structure/`.
 
@@ -455,6 +455,11 @@ source and scope. The amendments preserve current authority, custody and cutover
 Apply the [documented decision routes](set-based-execution/common-analytical-basis.md#decision-routes)
 before any later alternative changes a binding rule. Required qualification and the empty
 development reset retain their existing sequence and scope.
+
+**Execution priority · 2026-11-22.** Land bounded work reductions that help a required journey
+before broad qualification, including journeys that already pass their watchdog. Distinguish
+routine scoped corrections from the later SBX-11/12 and SBX-18/19 trials.
+[Qualification and selection criteria](set-based-execution/cutover-and-qualification.md#sbx-efficiency-qualification)
 
 ## Completion
 

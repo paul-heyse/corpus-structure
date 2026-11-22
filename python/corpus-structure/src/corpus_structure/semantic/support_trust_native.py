@@ -86,6 +86,14 @@ def _routine(
     )
 
 
+def evaluator_body_access():
+    """Live evaluator membership under the calling role, including definer programs."""
+    principal = func.coalesce(
+        func.nullif(func.current_setting("role"), "none"), func.session_user()
+    )
+    return func.pg_has_role(principal, role_name("evaluator"), "MEMBER", type_=Boolean())
+
+
 def support_trust_native_programs(model) -> tuple[ProgramDeclaration, ...]:
     """Generate support locks and trust checks from the captured physical model."""
     trust = model.tables["ops.data_trust_scope"]
@@ -96,16 +104,12 @@ def support_trust_native_programs(model) -> tuple[ProgramDeclaration, ...]:
         _value(name) for name in ("universe", "project", "source", "scope_key")
     )
     snapshot = _value("snapshot", JSONB())
-    principal = func.coalesce(
-        func.nullif(func.current_setting("role"), "none"), func.session_user()
-    )
-    authorized = func.pg_has_role(principal, role_name("evaluator"), "MEMBER", type_=Boolean())
     authorize = _routine(
         "ddo_authorize",
         (Parameter("universe", pg_type("text")),),
         (
             _check(
-                and_(universe == "evaluator", ~authorized),
+                and_(universe == "evaluator", ~evaluator_body_access()),
                 "evaluator data requires evaluator purpose",
                 "42501",
             ),

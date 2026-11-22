@@ -129,12 +129,14 @@ def inspect_demand_characterization(
             nominal = kinds.get(row["kind_contract"])
             if nominal is None:
                 continue
-            body = prepared.validate_python(nominal, row["body"]).model_dump(
-                mode="python", exclude_unset=True
-            )
+            body = row["body"]
             summaries.append(
                 {
-                    **{key: value for key, value in row.items() if key != "body"},
+                    **{
+                        key: value
+                        for key, value in row.items()
+                        if key not in {"body", "meaning_body"}
+                    },
                     "summary": _characterization_summary(
                         body, native_annotation=nominal == "DdoSourceAnnotations"
                     ),

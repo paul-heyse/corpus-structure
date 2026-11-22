@@ -2158,8 +2158,14 @@ def _attachment_batch_program(model):
         for name in ("p", "item", "result", "results", "cached", "read_trust", "snapshot")
     )
     scope_key, cache_key = (_value(name) for name in ("scope_key", "cache_key"))
-    entries = _elements(p["items"], "attach_entry")
+    entries = (
+        func.jsonb_array_elements(p["items"])
+        .table_valued(column("value", JSONB()), with_ordinality="ordinal")
+        .render_derived(name="attach_entry")
+    )
     completed = _elements(results, "attached_result")
+    item_ordinal = _value("item_ordinal", BigInteger())
+    batch_scopes = _value("batch_scopes", JSONB())
     scopes = (
         func.ops.ddo_support_scopes(
             demand("project_id"),
@@ -2170,8 +2176,11 @@ def _attachment_batch_program(model):
         .render_derived(name="scopes")
         .lateral("scopes")
     )
-    lock_union = (
-        select(scopes.c.scope)
+    scope_sets = (
+        select(
+            entries.c.ordinal,
+            func.jsonb_agg(scopes.c.scope).label("scopes"),
+        )
         .select_from(
             entries.join(
                 obligations,
@@ -2181,13 +2190,34 @@ def _attachment_batch_program(model):
                 ),
             ).join(scopes, literal(True))
         )
+        .group_by(entries.c.ordinal)
+        .subquery("attach_scope_sets")
+    )
+    prepared_scopes = (
+        select(
+            func.coalesce(
+                func.jsonb_object_agg(cast(scope_sets.c.ordinal, Text), scope_sets.c.scopes),
+                _json("{}"),
+            )
+        )
+        .select_from(scope_sets)
+        .scalar_subquery()
+    )
+    scope_lists = _each(batch_scopes, "item_scope_list")
+    locked_scopes = (
+        func.jsonb_array_elements_text(scope_lists.c.value)
+        .table_valued(column("scope", Text()))
+        .render_derived(name="locked_scope")
+        .lateral()
+    )
+    lock_union = (
+        select(locked_scopes.c.scope)
+        .select_from(scope_lists.join(locked_scopes, literal(True)))
         .distinct()
-        .order_by(scopes.c.scope)
+        .order_by(locked_scopes.c.scope)
     )
     item_scopes = (
-        func.ops.ddo_support_scopes(
-            demand("project_id"), obligation("original_source"), item["binding"]["support"]
-        )
+        func.jsonb_array_elements_text(batch_scopes[cast(item_ordinal, Text)])
         .table_valued(column("scope", Text()))
         .render_derived(name="item_scope")
     )
@@ -2195,6 +2225,9 @@ def _attachment_batch_program(model):
     steps = (
         _selected(boundaries, boundaries.c.id == p["read_id"].astext, "boundary"),
         _selected(demands, demands.c.id == boundary("demand_id"), "demand"),
+        # Original support was admitted under this read. Reuse its scope
+        # projection to lock the union and slice the newly checked epochs.
+        Assign("batch_scopes", prepared_scopes),
         # Acquire the canonical union outside item savepoints so an item refusal
         # cannot release a lock retained by the read or another accepted item.
         ForQuery(
@@ -2224,8 +2257,8 @@ def _attachment_batch_program(model):
             )
         ),
         ForQuery(
-            ("item",),
-            select(entries.c.value),
+            ("item", "item_ordinal"),
+            select(entries.c.value, entries.c.ordinal).order_by(entries.c.ordinal),
             (
                 Assign("cache_key", func.ops.ddo_digest(item)),
                 If(
@@ -2251,6 +2284,7 @@ def _attachment_batch_program(model):
                         _check(
                             or_(
                                 obligation("id").is_(None),
+                                ~batch_scopes.bool_op("?")(cast(item_ordinal, Text)),
                                 item["binding"]["read_id"].astext.is_distinct_from(boundary("id")),
                             ),
                             "attach item differs from the admitted demand/read",
@@ -2320,6 +2354,8 @@ def _attachment_batch_program(model):
             )
         ),
         *(Local(name, pg_type("jsonb")) for name in ("item", "result", "read_trust", "snapshot")),
+        Local("batch_scopes", pg_type("jsonb")),
+        Local("item_ordinal", pg_type("int8")),
         Local("results", pg_type("jsonb"), _json("[]")),
         Local("cached", pg_type("jsonb"), _json("{}")),
         Local("cache_key", pg_type("text")),

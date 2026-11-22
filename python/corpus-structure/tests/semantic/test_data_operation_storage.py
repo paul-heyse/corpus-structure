@@ -2974,7 +2974,18 @@ def test_native_completion_receipt_records_actual_validator_not_release_expectat
             ),
             {"id": intent["intent_id"]},
         ).one()
-        assert payload_digest == sha256(canonical_bytes(json_loads(payload))).hexdigest()
+        completion = json_loads(payload)
+        assert payload_digest == sha256(canonical_bytes(completion)).hexdigest()
+        intent_frame = [
+            fence["request_id"],
+            fence["generation"],
+            fence["task_id"],
+            fence["attempt"],
+            fence["holder"],
+            ddo_kernel["runtime"],
+            completion,
+        ]
+        assert intent["intent_id"] == "intent:" + sha256(canonical_bytes(intent_frame)).hexdigest()
         assert seal["payload"] == intent["payload_digest"] == payload_digest
         assert seal["request"] == fence["request_id"]
         assert seal["generation"] == fence["generation"]

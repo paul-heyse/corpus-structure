@@ -19,6 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, array, insert
 
+from .data_operation_value_native import canonical_text_digest
 from .native_objects import native_sql_script
 from .native_program import (
     Assign,
@@ -1046,6 +1047,17 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
     def old(field):
         return row("old", intent, field)
 
+    canonical_completion = core_variable("canonical_completion", Text())
+    intent_prefix = func.data.canonical_json(
+        func.jsonb_build_array(
+            rf("id"),
+            rf("generation"),
+            tf("id"),
+            tf("attempt"),
+            tf("claimed_by"),
+            p["runtime_id"].astext,
+        )
+    )
     valid_runtime = (
         select(1)
         .select_from(runtime)
@@ -1129,19 +1141,16 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
                 )
             ),
             Perform(func.ops.ddo_require_completion_live(rf(), completion)),
+            Assign("canonical_completion", func.data.canonical_json(completion)),
+            # Append the already canonical final element to the canonical frame.
             Assign(
                 "key",
                 literal("intent:")
-                + func.ops.ddo_digest(
-                    func.jsonb_build_array(
-                        rf("id"),
-                        rf("generation"),
-                        tf("id"),
-                        tf("attempt"),
-                        tf("claimed_by"),
-                        p["runtime_id"].astext,
-                        completion,
-                    )
+                + canonical_text_digest(
+                    func.left(intent_prefix, -1)
+                    .concat(",")
+                    .concat(canonical_completion)
+                    .concat("]")
                 ),
             ),
             reject(
@@ -1155,7 +1164,7 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
                 .exists(),
                 "immutable consumed draft must be adopted; a generation cannot replace its answer",
             ),
-            Assign("payload_digest_", func.ops.ddo_digest(completion)),
+            Assign("payload_digest_", canonical_text_digest(canonical_completion)),
             Sql(
                 insert(intent)
                 .values(
@@ -1197,6 +1206,7 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
             Local("t", task),
             Local("snapshot", pg_type("jsonb")),
             Local("key", pg_type("text")),
+            Local("canonical_completion", pg_type("text")),
             Local("payload_digest_", pg_type("text")),
             Local("old", intent),
         ),

@@ -175,7 +175,7 @@ def _serve_demand_query(connection, request, implementation):
                 entry, remaining = bounded_rows(
                     selected_query_rows(
                         prepare_demand_projection_inputs(
-                            whole.content,
+                            whole,
                             selection_content,
                             decimal_fixed_point_digits=decimal_fixed_point_digits,
                         )
@@ -189,7 +189,7 @@ def _serve_demand_query(connection, request, implementation):
         rows = uncached_rows_from(
             selected_query_rows(
                 prepare_demand_projection_inputs(
-                    page.content,
+                    page,
                     selection_content,
                     decimal_fixed_point_digits=decimal_fixed_point_digits,
                 )

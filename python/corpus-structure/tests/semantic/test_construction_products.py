@@ -766,18 +766,29 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(
         "corpus_structure.semantic.construction_products.verify_interpreted_annotation_support",
         repeated,
     )
-    assert (
-        acquired_construction_product(
-            construction.prepared,
-            construction.model,
-            product.value,
-            source,
-            (primary, rebound),
-            subject_context=context,
-            member=member,
-        ).content
-        == product.content
+    acquired = acquired_construction_product(
+        construction.prepared,
+        construction.model,
+        product.value,
+        source,
+        (primary, rebound),
+        subject_context=context,
+        member=member,
     )
+    reacquired = acquired_construction_product(
+        construction.prepared,
+        construction.model,
+        product.value,
+        source,
+        (primary, rebound),
+        subject_context=context,
+        member=member,
+    )
+    assert acquired.content == product.content
+    assert acquired.publication("constructions", member.kind_contract) == product.publication(
+        "constructions", member.kind_contract
+    )
+    assert reacquired.value is acquired.value
     with pytest.raises(ValueError, match="exact retained dependency closure"):
         acquired_construction_product(
             construction.prepared,

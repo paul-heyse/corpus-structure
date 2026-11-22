@@ -60,10 +60,13 @@ def _json(value):
     return cast(literal(value), JSONB())
 
 
+def canonical_text_digest(value):
+    """Hash text already encoded by the native canonical JSON owner."""
+    return func.encode(func.sha256(func.convert_to(value, "UTF8")), "hex")
+
+
 def _meaning_digest(meaning):
-    return func.encode(
-        func.sha256(func.convert_to(func.data.canonical_json(meaning), "UTF8")), "hex"
-    )
+    return canonical_text_digest(func.data.canonical_json(meaning))
 
 
 def _identity_expression(domain, meaning):

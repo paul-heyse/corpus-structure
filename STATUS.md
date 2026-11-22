@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-22. SBX implementation is paused through SBX-09. The efficiency amendment schedules the live-read correction, native attribution and resumed qualification. Main registers `semantic_sbx_current_root` with the optimized proof codec, verified on the empty proof qualification database. Development still runs native N29 and its data is disposable. Stage installation belongs to SBX-20._ [SBX execution sequence](docs/plans/set-based-execution_2026-11-21.md#remaining-execution-through-sbx-09) · [ADR-0150](docs/adr/0150-sbx-empty-development-cutover.md)
+_Updated 2026-11-22. SBX execution has resumed. Main has the refreshed semantic_sbx_current_root for admitted read and worker handoff, attachment and completion work reduction, and stored-body reuse during lease renewal. Rollback-only authoring and registration passed. Final-source acceptance is open. Development still runs native N29 and its data is disposable._ [SBX execution sequence](docs/plans/set-based-execution_2026-11-21.md#remaining-execution-through-sbx-09) · [ADR-0150](docs/adr/0150-sbx-empty-development-cutover.md)
 
 ## Current owners
 
@@ -40,7 +40,7 @@ _Updated 2026-11-22. SBX implementation is paused through SBX-09. The efficiency
 **Documentation · 2026-11-22.** `uv run ci docs check` passed for the post-pilot amendment
 (`f82642b2dda447b1844995e2b782841c`) and the earlier common analytics amendment
 (`71cef8befe5542c7a1ac9dc40f3eb4dc`). Product qualification is `not_run` for the plan
-revision and remains with the linked SBX packages. The [efficiency amendment](docs/plans/set-based-execution_2026-11-21.md#validation-postgresql-efficiency-amendment) owns I01–I07. The live-page draft passed in isolation. Main integration, summary acceptance and native event attribution remain open.
+revision and remains with the linked SBX packages. The [efficiency amendment](docs/plans/set-based-execution_2026-11-21.md#validation-postgresql-efficiency-amendment) owns I01–I07. The live guarded read passed by selected identity in `bdfe6713f9f3491f87a58da8cb01d20c`. The isolated event baseline reproduced lease-renewal timeout in repeated nominal checks; final registered-root acceptance remains open.
 
 ## Retained scoped evidence · 2026-11-21
 

@@ -1,9 +1,12 @@
 """Independent grouped-witness expectations, including cross-member forgery."""
 
+from dataclasses import replace
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
+from corpus_structure.semantic import data_operation_output_witnesses as witnesses
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_model import read_effective_data_operations
 from corpus_structure.semantic.data_operation_output_witnesses import validate_output_witnesses
@@ -117,6 +120,35 @@ def selected() -> dict[str, list[dict[str, Any]]]:
             },
         ]
     }
+
+
+def test_selected_witness_rows_materialize_only_declared_fields_and_roles():
+    operation = compiled(group()).operations[0]
+    declaration = operation.output_witnesses[0]
+    # Keep only the declared reference comparison. Neither the source body nor
+    # its other member metadata or the unrelated role should be inspected.
+    reference = replace(declaration, comparisons=(declaration.comparisons[2],))
+    operation = replace(operation, output_witnesses=(reference,))
+    source = SimpleNamespace(member=SimpleNamespace(product="p:a", member="m:a"))
+    selection = SimpleNamespace(values=(("source", (source,)), ("unused", (object(),))))
+    assert witnesses.selected_witness_rows(operation, selection, "project") == {
+        "source": ({"product": "p:a", "member": "m:a"},)
+    }
+
+
+def test_repeated_output_records_prepare_each_complete_input_key_once(monkeypatch):
+    operation = compiled(group()).operations[0]
+    prepared = []
+    input_key = witnesses._input_key
+
+    def prepare(row, comparisons):
+        prepared.append(row["member"])
+        return input_key(row, comparisons)
+
+    monkeypatch.setattr(witnesses, "_input_key", prepare)
+    outputs = {"result": [{"records": [{"pin": pin()} for _ in range(8)]}]}
+    validate_output_witnesses(operation, outputs, selected())
+    assert prepared == ["m:a", "m:b"]
 
 
 def test_group_compiles_into_recipe_and_roundtrips_without_changing_unrelated_model():

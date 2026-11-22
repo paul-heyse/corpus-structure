@@ -473,7 +473,6 @@ def test_fresh_hydration_uses_its_own_transaction_after_claim_commit(monkeypatch
         hydrated_sizes={},
         consumer_inputs={},
         consumer_results={},
-        binding_rows={},
     )
     ready = executor._ready_items[0]
     claim, result = executor._claim(
