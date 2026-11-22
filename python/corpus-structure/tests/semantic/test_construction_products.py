@@ -293,7 +293,7 @@ def test_source_only_and_full_combined_views_preserve_distinct_coverage_claims(p
         profile="source_only",
         subject_context=publication_context((source,)[0], document=True),
     )
-    assert base.value.model_dump(mode="python")["outcome"] == "complete"
+    assert base.value["outcome"] == "complete"
     full = compose_enriched_document(
         construction.prepared,
         construction.model,
@@ -302,7 +302,7 @@ def test_source_only_and_full_combined_views_preserve_distinct_coverage_claims(p
         profile="full_characterization",
         subject_context=publication_context((source,)[0], document=True),
     )
-    full_value = full.value.model_dump(mode="python")
+    full_value = full.value
     assert full_value["outcome"] == "partial"
     assert full_value["coverage"] and all(
         row["outcome"] == "unknown" for row in full_value["coverage"]
@@ -335,7 +335,7 @@ def test_multi_source_view_keeps_each_projection_local_coordinate(profiles):
         subject_context=publication_context((left, right)[0], document=True),
     )
     readings = EnrichedDocumentReadings(view, products)
-    view_value = view.value.model_dump(mode="python")
+    view_value = view.value
     assert view_value["original_document"] == left.value["source"]["document"]
     assert len(view_value["sources"]) == 2
     assert readings.source(right.value["source"]).content == right.content
@@ -373,7 +373,7 @@ def test_captured_composition_canonicalizes_sets_without_reordering_explicit_seq
     )
     assert first is not None and second is not None
     assert first.content == second.content
-    value = first.value.model_dump(mode="json")
+    value = first.value
     assert {row["source"]["projection"] for row in value["sources"]} == {
         left.value["source"]["projection"],
         right.value["source"]["projection"],
@@ -382,7 +382,7 @@ def test_captured_composition_canonicalizes_sets_without_reordering_explicit_seq
         product.semantic_id for product in products
     }
     explicit = execute_view_profile(receiver, (right, left), products[::-1], (), "selected_layers")
-    assert canonical_bytes(explicit.value.model_dump(mode="json")["sources"]) == canonical_bytes([right.value, left.value])
+    assert canonical_bytes(explicit.value["sources"]) == canonical_bytes([right.value, left.value])
 
 
 def test_retained_working_doc_uses_native_lexeme_values_without_source_getters(monkeypatch):
@@ -468,10 +468,10 @@ def test_retained_working_doc_uses_native_lexeme_values_without_source_getters(m
 
 def test_compact_family_members_preserve_parent_identity_and_complete_source_context(profiles):
     import json
-    from dataclasses import replace
 
     from corpus_structure.semantic.characterization_manifests import manifest_contract
     from corpus_structure.semantic.construction_products import PreparedContextualProfile
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember
     from corpus_structure.semantic.data_product_reference import DataProductReference
     from corpus_structure.semantic.enriched_document_products import (
         RetainedCharacterizationProduct,
@@ -513,10 +513,24 @@ def test_compact_family_members_preserve_parent_identity_and_complete_source_con
             subject_context=context,
         )
         retained.append(
-            replace(
-                wrapper, selected_product=product.semantic_id, selected_member=manifest["member_id"]
+            wrapper.with_context(
+                context,
+                member=BoundRoleMember(
+                    product=product.semantic_id,
+                    kind_contract=manifest["kind_contract"],
+                    subject=context.subject,
+                    original_source=context.original_source,
+                    analyzed_scope=context.analyzed_scope,
+                    coverage=b"[]",
+                    subject_definition=context.subject_definition,
+                    support_episodes=(),
+                    support_evidence=b"[]",
+                    support_references=(),
+                    member=manifest["member_id"],
+                ),
             )
         )
+        assert retained[-1].value is wrapper.value
     view = compose_enriched_document(
         construction.prepared,
         construction.model,

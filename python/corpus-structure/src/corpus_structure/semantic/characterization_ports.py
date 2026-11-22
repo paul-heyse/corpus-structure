@@ -602,7 +602,7 @@ class PreparedCharacterizationPort(ABC):
             subject_definition=member.subject_definition,
         )
         if product.subject_context != context:
-            product = replace(product, subject_context=context)
+            product = product.with_context(context)
         if product.semantic_id != member.product:
             raise PortRefusal("family body differs from its selected native product identity")
         return product
@@ -657,19 +657,15 @@ class PreparedCharacterizationPort(ABC):
         if not raw:
             return ()
         if binding is None:
-            if not all(isinstance(value, RetainedCharacterizationProduct) for value in raw):
-                raise PortRefusal("heterogeneous inputs require their actual native kind lineage")
-            return tuple(
-                RetainedCharacterizationProduct.acquire(
-                    self.prepared,
-                    self.model,
-                    value.kind,
-                    value.content,
-                    subject_context=value.subject_context,
-                    partitions=value.partitions,
-                )
-                for value in raw
-            )
+            for value in raw:
+                if (
+                    type(value) is not RetainedCharacterizationProduct
+                    or value.prepared.release_id != self.prepared.release_id
+                    or value.model.content != self.model.content
+                ):
+                    raise PortRefusal("heterogeneous inputs require their actual native kind lineage")
+                value._require_acquired()
+            return tuple(raw)
         selected = next(role for role in binding.roles if role.role == name)
         members = tuple(member for member in selected.members for _ in range(member.multiplicity))
         if len(members) != len(raw):
@@ -706,12 +702,7 @@ class PreparedCharacterizationPort(ABC):
                     member.analyzed_scope,
                     subject_definition=member.subject_definition,
                 )
-                product = replace(
-                    product,
-                    subject_context=context,
-                    selected_product=member.product,
-                    selected_member=member.member,
-                )
+                product = product.with_context(context, member=member)
                 products.append(product)
             else:
                 products.append(self._selected_product(product, binding, name, len(products)))
@@ -867,7 +858,11 @@ class PreparedCharacterizationPort(ABC):
         if binding is not None:
             if binding.subject_context is None:
                 raise ValueError("publication requires acquired output subject context")
-            product = replace(product, subject_context=binding.subject_context)
+            product = (
+                product.with_context(binding.subject_context)
+                if isinstance(product, EnrichedDocumentProduct)
+                else replace(product, subject_context=binding.subject_context)
+            )
         from ._data_operation_wire import WireKindContract, WireOutputMember
         from .data_operation_ports import PortCompletion, RoleValue, project_product_members
         from .established_validity import (
@@ -881,6 +876,12 @@ class PreparedCharacterizationPort(ABC):
             for item in self.model.identities
             if item.owner == output.kind and item.domain == "kind"
         )
+        if isinstance(product, EnrichedDocumentProduct):
+            return PortCompletion(
+                self.operation.semantic_id,
+                (product.publication(output.name, kind),),
+                outcome=successful_return_outcome(self.operation),
+            )
         value = product.value.model_dump(mode="python", exclude_unset=True)
         meaning = semantic_value(value)
         members = project_product_members(self.model, output.kind, value)
@@ -1059,12 +1060,7 @@ class PreparedCharacterizationPort(ABC):
             check_active=check_active,
         )
         if isinstance(inputs, _DocumentInputs):
-            checked = self.prepared.validate_json("DdoEnrichedDocumentView", reply.content)
-            product = EnrichedDocumentProduct(
-                canonical_bytes(checked.model_dump(mode="json", exclude_unset=True)),
-                self.prepared,
-                self.model,
-            )
+            product = EnrichedDocumentProduct.acquire(self.prepared, self.model, reply.content)
         elif isinstance(inputs, _ConstructionInputs):
             product = validate_construction_product(
                 self.prepared,

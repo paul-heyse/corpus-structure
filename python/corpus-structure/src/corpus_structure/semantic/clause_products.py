@@ -486,7 +486,7 @@ def execute_clause_classification(
                 raise ValueError(
                     "clause observation body differs from its exact selected native product"
                 )
-            value = product.value.model_dump(mode="json", exclude_unset=True)
+            value = product.value
             observed.append(
                 (
                     value,

@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
-from dataclasses import dataclass
-from typing import ClassVar
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from functools import cached_property
+from hashlib import sha256
+from typing import Any, ClassVar
+
+from corpus_structure.caches import declare
 
 from .characterization import characterization_profiles
 from .data_operation_identity import body_identity, contextual_product_identity
@@ -14,12 +19,59 @@ from .data_operation_partitions import partition_header
 from .data_operation_source_sets import FrozenSourceSet, SelectedSourceSetEntry
 from .data_product_reference import DataProductMemberReference, DataProductReference
 from .identity import canonical_bytes
-from .native_source_view import thaw_native
+from .native_source_view import freeze_native, thaw_native
 from .source_products import FrozenNativeSource
 from .types import PreparedRelease
 
 
 @dataclass(frozen=True)
+class _CharacterizationPayload:
+    content: bytes
+    value: Mapping[str, Any]
+    meaning: bytes
+    members: tuple[bytes, ...]
+    body_digest: str
+
+
+@declare(
+    "characterization-product-payloads",
+    "runtime_bytes",
+    key=lambda content, prepared, model, definition, collections: (
+        sha256(content).digest(),
+        prepared.release_id,
+        sha256(model.content).digest(),
+        definition.iri,
+        collections,
+    ),
+    weight=lambda payload: (
+        len(payload.content) + len(payload.meaning) + sum(map(len, payload.members))
+    ),
+)
+def _characterization_payload(content, prepared, model, definition, collections):
+    from .data_operation_ports import project_product_members
+    from .data_operation_values import semantic_value
+
+    committed = json.loads(content) if collections else None
+    if committed is not None:
+        header = {name: value for name, value in committed.items() if name not in collections}
+        checked = prepared.validate_json(definition.name, canonical_bytes(header))
+    else:
+        checked = prepared.validate_json(definition.name, content)
+    typed = checked.model_dump(mode="python", exclude_unset=True)
+    display = checked.model_dump(mode="json", exclude_unset=True)
+    if committed is not None:
+        typed.update({name: committed[name] for name in collections})
+        display = committed
+    return _CharacterizationPayload(
+        content if collections else canonical_bytes(display),
+        freeze_native(display),
+        canonical_bytes(semantic_value(typed)),
+        project_product_members(model, definition.iri, typed),
+        body_identity(committed if committed is not None else typed).key,
+    )
+
+
+@dataclass(frozen=True, init=False)
 class RetainedCharacterizationProduct:
     """An actual concrete nominal kind under the declared characterization marker."""
 
@@ -27,54 +79,104 @@ class RetainedCharacterizationProduct:
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
     kind: str
-    subject_context: SubjectContext | None = None
-    selected_product: str | None = None
-    selected_member: str | None = None
-    partitions: tuple[bytes, ...] | None = None
+    subject_context: SubjectContext | None
+    selected_product: str | None
+    selected_member: str | None
+    partitions: tuple[bytes, ...] | None
+    _payload: ClassVar[_CharacterizationPayload]
+
+    def __init__(self, *args, **kwargs):
+        raise TypeError("retained characterization requires validating acquisition")
+
+    @classmethod
+    def _from_payload(
+        cls, payload, prepared, model, kind, context, partitions, selection=(None, None)
+    ):
+        result = object.__new__(cls)
+        object.__setattr__(result, "content", payload.content)
+        object.__setattr__(result, "_payload", payload)
+        object.__setattr__(result, "prepared", prepared)
+        object.__setattr__(result, "model", model)
+        object.__setattr__(result, "kind", kind)
+        object.__setattr__(result, "subject_context", context)
+        object.__setattr__(result, "partitions", partitions)
+        object.__setattr__(result, "selected_product", selection[0])
+        object.__setattr__(result, "selected_member", selection[1])
+        return result
 
     @classmethod
     def acquire(cls, prepared, model, kind, content, *, subject_context=None, partitions=None):
-        definition = next((row for row in prepared.definitions if row.iri == kind), None)
+        if type(content) is not bytes or (
+            partitions is not None
+            and (
+                type(partitions) is not tuple
+                or any(type(packet) is not bytes for packet in partitions)
+            )
+        ):
+            raise TypeError("retained characterization requires immutable body and packet bytes")
+        definition = prepared.index.by_iri.get(kind)
         if (
             definition is None
             or definition.abstract
             or "DdoCharacterizationEnvelope" not in definition.ancestors
         ):
             raise ValueError("view input lacks a concrete declared characterization kind")
-        product = cls(content, prepared, model, kind, subject_context, partitions=partitions)
-        value = product.value
-        from .data_operation_ports import project_product_members
-
-        raw = value.model_dump(mode="python", exclude_unset=True)
-        project_product_members(model, kind, raw)
+        collections = ()
         if partitions is not None:
+            owner = next(row for row in model.kinds if row.semantic_id == kind)
+            collections = tuple(
+                sorted(
+                    name
+                    for name, spec in json.loads(owner.facts).get("collections", {}).items()
+                    if spec["unit"] == "partitioned"
+                )
+            )
             packet_groups = defaultdict(list)
             for packet in map(json.loads, partitions):
                 packet_groups[packet["collection"]].append(packet)
             header = json.loads(content)
-            collections = product._partition_collections()
-            if packet_groups.keys() - collections or any(
+            if packet_groups.keys() - set(collections) or any(
                 partition_header(packet_groups[name]) != header.get(name) for name in collections
             ):
                 raise ValueError(
                     "retained characterization differs from selected partition commitments"
                 )
-            return product
-        return cls(
-            canonical_bytes(value.model_dump(mode="json", exclude_unset=True)),
-            prepared,
-            model,
-            kind,
-            subject_context,
-        )
+        payload = _characterization_payload(content, prepared, model, definition, collections)
+        return cls._from_payload(payload, prepared, model, kind, subject_context, partitions)
 
-    def _partition_collections(self) -> set[str]:
-        owner = next(kind for kind in self.model.kinds if kind.semantic_id == self.kind)
-        return {
-            name
-            for name, spec in json.loads(owner.facts).get("collections", {}).items()
-            if spec["unit"] == "partitioned"
-        }
+    def _require_acquired(self):
+        if (
+            type(self) is not RetainedCharacterizationProduct
+            or "_payload" not in vars(self)
+            or self.content is not self._payload.content
+        ):
+            raise TypeError("retained characterization lacks its acquired payload")
+
+    def __deepcopy__(self, memo):
+        self._require_acquired()
+        return self
+
+    def with_context(self, context, *, member=None):
+        self._require_acquired()
+        selection = (self.selected_product, self.selected_member)
+        if member is not None:
+            from .data_operation_model import BoundRoleMember
+
+            if (
+                type(member) is not BoundRoleMember
+                or member.member is None
+                or member.kind_contract != self._kind_contract
+                or context is None
+                or context.subject != member.subject
+                or context.subject_definition != member.subject_definition
+                or context.original_source != member.original_source
+                or context.analyzed_scope != member.analyzed_scope
+            ):
+                raise ValueError("retained characterization requires its exact selected member")
+            selection = (member.product, member.member)
+        return self._from_payload(
+            self._payload, self.prepared, self.model, self.kind, context, self.partitions, selection
+        )
 
     def _publication_context(self):
         if self.subject_context is None:
@@ -84,42 +186,75 @@ class RetainedCharacterizationProduct:
         return self.subject_context
 
     @property
-    def value(self):
-        definition = next(row for row in self.prepared.definitions if row.iri == self.kind)
-        content = self.content
-        if self.partitions is not None:
-            header = json.loads(content)
-            for name in self._partition_collections():
-                header.pop(name)
-            content = canonical_bytes(header)
-        return self.prepared.validate_json(definition.name, content)
+    def value(self) -> Mapping[str, Any]:
+        self._require_acquired()
+        return self._payload.value
 
-    @property
-    def semantic_id(self):
-        if self.selected_product is not None:
-            return self.selected_product
-        kind = next(
+    @cached_property
+    def _kind_contract(self):
+        return next(
             row.key
             for row in self.model.identities
             if row.owner == self.kind and row.domain == "kind"
         )
-        value = (
-            json.loads(self.content)
-            if self.partitions is not None
-            else self.value.model_dump(mode="python", exclude_unset=True)
-        )
+
+    @cached_property
+    def semantic_id(self):
+        self._require_acquired()
+        if self.selected_product is not None:
+            return self.selected_product
         return contextual_product_identity(
-            kind=kind, context=self._publication_context(), body=body_identity(value).key
+            kind=self._kind_contract,
+            context=self._publication_context(),
+            body=self._payload.body_digest,
         ).key
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class EnrichedDocumentProduct:
     kind_name: ClassVar[str] = "DdoEnrichedDocumentView"
     content: bytes
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
-    subject_context: SubjectContext | None = None
+    subject_context: SubjectContext | None
+    _payload: ClassVar[_CharacterizationPayload]
+
+    def __init__(self, *args, **kwargs):
+        raise TypeError("enriched document requires validating acquisition")
+
+    @classmethod
+    def _from_payload(cls, payload, prepared, model, context):
+        result = object.__new__(cls)
+        object.__setattr__(result, "content", payload.content)
+        object.__setattr__(result, "prepared", prepared)
+        object.__setattr__(result, "model", model)
+        object.__setattr__(result, "subject_context", context)
+        object.__setattr__(result, "_payload", payload)
+        return result
+
+    @classmethod
+    def acquire(cls, prepared, model, content, *, subject_context=None):
+        if type(content) is not bytes:
+            raise TypeError("enriched document requires immutable body bytes")
+        definition = prepared.index.definitions[cls.kind_name]
+        payload = _characterization_payload(content, prepared, model, definition, ())
+        return cls._from_payload(payload, prepared, model, subject_context)
+
+    def _require_acquired(self):
+        if (
+            type(self) is not EnrichedDocumentProduct
+            or "_payload" not in vars(self)
+            or self.content is not self._payload.content
+        ):
+            raise TypeError("enriched document lacks its acquired payload")
+
+    def with_context(self, context):
+        self._require_acquired()
+        return self._from_payload(self._payload, self.prepared, self.model, context)
+
+    def __deepcopy__(self, memo):
+        self._require_acquired()
+        return self
 
     def _publication_context(self):
         if self.subject_context is None:
@@ -129,12 +264,21 @@ class EnrichedDocumentProduct:
         return self.subject_context
 
     @property
-    def value(self):
-        return self.prepared.validate_json(self.kind_name, self.content)
+    def value(self) -> Mapping[str, Any]:
+        self._require_acquired()
+        return self._payload.value
 
-    @property
+    def publication(self, role, kind_contract):
+        from .data_operation_ports import RoleValue
+
+        self._require_acquired()
+        return RoleValue(
+            role, kind_contract, self.content, self._payload.meaning, self._payload.members
+        )
+
+    @cached_property
     def semantic_id(self):
-        value = self.value.model_dump(mode="python", exclude_unset=True)
+        self._require_acquired()
         kind = next(
             item.key
             for item in self.model.identities
@@ -142,7 +286,7 @@ class EnrichedDocumentProduct:
             and item.domain == "kind"
         )
         return contextual_product_identity(
-            kind=kind, context=self._publication_context(), body=body_identity(value).key
+            kind=kind, context=self._publication_context(), body=self._payload.body_digest
         ).key
 
     @property
@@ -251,7 +395,11 @@ def compose_enriched_document_values(
     owned = {}
     for product in products:
         check_active()
-        body = json.loads(product.content)
+        body = (
+            product.value
+            if isinstance(product, RetainedCharacterizationProduct)
+            else json.loads(product.content)
+        )
         if canonical_bytes(body["source"]) not in source_by_key:
             raise ValueError("combined view product has no retained original source coordinate")
         pin = DataProductReference(product.semantic_id)
@@ -357,12 +505,8 @@ def compose_enriched_document(
             characterization_profiles(prepared).get("full_characterization", ())
         ),
     )
-    checked = prepared.validate_json("DdoEnrichedDocumentView", canonical_bytes(value))
-    return EnrichedDocumentProduct(
-        canonical_bytes(checked.model_dump(mode="json", exclude_unset=True)),
-        prepared,
-        model,
-        subject_context,
+    return EnrichedDocumentProduct.acquire(
+        prepared, model, canonical_bytes(value), subject_context=subject_context
     )
 
 
@@ -372,9 +516,10 @@ class EnrichedDocumentReadings:
 
     view: EnrichedDocumentProduct
     products: tuple
+    _sources: tuple[FrozenNativeSource, ...] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self):
-        body = self.view.value.model_dump(mode="json", exclude_unset=True)
+        body = self.view.value
         expected = tuple(row["product_id"] for row in body.get("products", ()))
         if tuple(product.semantic_id for product in self.products) != expected:
             raise ValueError("combined reader inputs differ from frozen selected products")
@@ -392,12 +537,10 @@ class EnrichedDocumentReadings:
         )
         if checked.content != self.view.content:
             raise ValueError("combined document differs from its exact retained composition")
+        object.__setattr__(self, "_sources", sources)
 
     def sources(self):
-        return tuple(
-            FrozenNativeSource.acquire(self.view.prepared, value)
-            for value in json.loads(self.view.content)["sources"]
-        )
+        return self._sources
 
     def source(self, coordinate=None):
         sources = self.sources()
@@ -417,7 +560,7 @@ class EnrichedDocumentReadings:
     def member(self, reference: DataProductMemberReference, *, active_only=False):
         if not isinstance(reference, DataProductMemberReference):
             raise TypeError("combined reader requires a governed semantic member address")
-        active = {row["product_id"] for row in json.loads(self.view.content).get("active", ())}
+        active = {row["product_id"] for row in self.view.value.get("active", ())}
         if active_only and reference.product.product_id not in active:
             raise ValueError("member is outside selected active characterization")
         product = next(
@@ -426,14 +569,19 @@ class EnrichedDocumentReadings:
         )
         if product is None:
             raise ValueError("member product is outside frozen document selection")
+        body = (
+            product.value
+            if isinstance(product, RetainedCharacterizationProduct)
+            else json.loads(product.content)
+        )
         packet = next(
             (
                 packet
-                for packet in json.loads(product.content).get("members", ())
+                for packet in body.get("members", ())
                 if packet["member_id"] == reference.member_id
             ),
             None,
         )
         if packet is None:
             raise ValueError("member is not an actual retained canonical packet")
-        return packet
+        return thaw_native(packet)
