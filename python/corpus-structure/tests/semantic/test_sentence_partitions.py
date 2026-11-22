@@ -3,7 +3,10 @@
 from dataclasses import replace
 from typing import Any, cast
 
-from corpus_structure.semantic.canonical_sentences import canonical_partition_values
+from corpus_structure.semantic.canonical_sentences import (
+    _memoized_canonical_local_rows,
+    canonical_partition_values,
+)
 from corpus_structure.semantic.data_operation_identity import canonical_identity
 from corpus_structure.semantic.data_operation_model import InputReadProjection, ProjectedCollection
 from corpus_structure.semantic.data_operation_projection_values import (
@@ -110,6 +113,47 @@ def test_block_movement_keeps_local_geometry_and_canonical_reference():
         "item_key": [{"kind": "text", "text": "token"}, {"kind": "integer", "integer": 0}],
     }
     assert "lower" not in token
+
+
+def test_canonical_memo_observes_local_rows_and_address_but_assembles_current_placement():
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
+
+    header = {
+        "source": {"document": "native", "projection": "one", "section_pointer": "#/texts/0"},
+        "selectors": [],
+        "block_coverage": [],
+        "coverage": [],
+    }
+    projection = {"families": [], "manifest_contract": "kind:manifest"}
+    left = _annotation(0, key="left")
+    right = _annotation(4, key="right", ordinal=1)
+    changed_rows = list(decode_semantic_value(right["body"]))
+    changed_rows[1] = {**changed_rows[1], "end": 2}
+    changed = SentenceBlock("right", 0, 0, 4, tuple(changed_rows)).packet()
+    moved = {**left, "placement": {"start": 4, "end": 8}, "ordinal": 1}
+    basis = ("project:memo-control", "recipe:memo-control", _CANONICAL_READ.fingerprint)
+
+    def project(*packets, memo_basis=basis):
+        return canonical_partition_values(
+            materialize_whole_input_projection(_CANONICAL_READ, _LAYOUTS, header, packets),
+            projection,
+            memo_basis=memo_basis,
+        )["partitions"]
+
+    before = _memoized_canonical_local_rows.cache_info()
+    first = project(left, right)
+    second = project(changed, moved)
+    after = _memoized_canonical_local_rows.cache_info()
+    assert after.misses - before.misses == 3
+    assert after.hits - before.hits == 1
+    assert second == project(changed, moved, memo_basis=None)
+    assert second[1]["partition_digest"] == first[0]["partition_digest"]
+    assert second[1]["placement"] == {"start": 4, "end": 8}
+    assert second[0]["partition_digest"] != first[1]["partition_digest"]
+
+    third = project({**moved, "partition_key": "renamed"}, memo_basis=basis)
+    assert third[0]["partition_digest"] != second[1]["partition_digest"]
+    assert _memoized_canonical_local_rows.cache_info().misses == after.misses + 1
 
 
 def test_renumbered_repeated_blocks_keep_separate_current_addresses():

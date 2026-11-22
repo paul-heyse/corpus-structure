@@ -5,8 +5,11 @@ from __future__ import annotations
 import inspect
 import json
 from dataclasses import dataclass, field, replace
+from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from corpus_structure.caches import declare
 
 from .characterization_manifests import append_manifest
 from .data_operation_model import SubjectContext
@@ -17,11 +20,13 @@ from .types import SourceArtifact
 
 if TYPE_CHECKING:
     from .data_operation_admission import PreparedCapabilityIdentity
+    from .data_operation_cpu import PythonCPUDescriptor
     from .data_operation_model import (
         EffectiveDataOperationModel,
         EffectiveOperation,
         InputReadProjection,
     )
+    from .runtime_slice import AuthenticatedSlice
     from .types import PreparedRelease
 
 
@@ -90,10 +95,44 @@ def canonical_projection_spec(model, container_kind):
     return dict(families=list(SPACY_FAMILIES[:2]), manifest_contract=ids[owner, "kind"])
 
 
-def canonical_partition_values(inventory: dict, projection: dict) -> dict:
+def _canonical_local_rows(key: str, body: bytes) -> bytes:
+    """Render the role-relative rows for one block, in local coordinates."""
+    from .data_operation_partitions import partition_packet
     from .data_operation_values import decode_semantic_value
     from .data_product_reference import SemanticReference
-    from .sentence_partitions import COLLECTION, SentenceBlock
+    from .sentence_partitions import COLLECTION
+
+    rows = tuple(
+        row
+        | {
+            "annotation": SemanticReference.item(
+                "inventory", COLLECTION, key, (row["record_type"], row["ordinal"])
+            ).values()
+        }
+        for row in decode_semantic_value(json.loads(body))
+    )
+    packet = partition_packet(COLLECTION, key, 0, 0, 0, rows)
+    return canonical_bytes({"body": packet["body"], "partition_digest": packet["partition_digest"]})
+
+
+@declare(
+    "canonical-partition-rows",
+    "runtime_bytes",
+    key=lambda basis, key, body: (*basis, key, sha256(body).digest()),
+    weight=lambda result: len(result),
+)
+def _memoized_canonical_local_rows(basis: tuple[str, ...], key: str, body: bytes) -> bytes:
+    return _canonical_local_rows(key, body)
+
+
+def canonical_partition_values(
+    inventory: dict,
+    projection: dict,
+    memo_basis: tuple[str, ...] | None = None,
+    *,
+    check_active=lambda: None,
+) -> dict:
+    from .sentence_partitions import COLLECTION
 
     header = inventory["header"]
     coverage = [row for row in header["coverage"] if row["family"] in projection["families"]]
@@ -106,20 +145,22 @@ def canonical_partition_values(inventory: dict, projection: dict) -> dict:
     }
     packets = []
     for part in inventory["collections"][COLLECTION]:
+        check_active()
         key = part["partition_key"]
-        rows = tuple(
-            row
-            | {
-                "annotation": SemanticReference.item(
-                    "inventory", COLLECTION, key, (row["record_type"], row["ordinal"])
-                ).values()
-            }
-            for row in decode_semantic_value(part["body"])
+        meaning = canonical_bytes(part["body"])
+        rows = (
+            _canonical_local_rows(key, meaning)
+            if memo_basis is None
+            else _memoized_canonical_local_rows(memo_basis, key, meaning)
         )
         packets.append(
-            SentenceBlock(
-                key, part["ordinal"], part["placement"]["start"], part["placement"]["end"], rows
-            ).packet()
+            {
+                "collection": COLLECTION,
+                "partition_key": key,
+                "ordinal": part["ordinal"],
+                "placement": part["placement"],
+                **json.loads(rows),
+            }
         )
     return {"header": append_manifest(body, projection["manifest_contract"]), "partitions": packets}
 
@@ -162,9 +203,9 @@ def canonical_profile_assets():
     )
 
 
-def canonical_execution_custody():
+def _canonical_execution_files():
     root = Path(__file__).parent
-    paths = (
+    return (
         Path(__file__),
         root / "characterization_manifests.py",
         root / "sentence_products.py",
@@ -175,9 +216,18 @@ def canonical_execution_custody():
         root / "data_operation_ports.py",
         root / "data_operation_cpu.py",
     )
+
+
+def canonical_execution_custody():
     return SourceArtifact(
         "canonical/execution-custody",
-        canonical_bytes(dict(files=[(path.name, path.read_bytes().hex()) for path in paths])),
+        canonical_bytes(
+            dict(
+                files=[
+                    (path.name, path.read_bytes().hex()) for path in _canonical_execution_files()
+                ]
+            )
+        ),
         runtime_transport=True,
     )
 
@@ -234,6 +284,9 @@ class PreparedCanonicalPort:
     authorize: Any
     custody: tuple[SourceArtifact, ...]
     sources: Any
+    _verification: AuthenticatedSlice = field(init=False, repr=False, compare=False)
+    _descriptor: PythonCPUDescriptor = field(init=False, repr=False, compare=False)
+    _signature: inspect.Signature = field(init=False, repr=False, compare=False)
 
     @property
     def operation(self):
@@ -243,10 +296,39 @@ class PreparedCanonicalPort:
     def native_selections(self):
         return ()
 
-    def _verify(self):
+    def __post_init__(self):
         from corpus_structure.methods.canonical_sentences import CanonicalSentenceProjection
 
-        from .data_operation_prepared_products import verify_prepared_product
+        from .data_operation_cpu import prepared_cpu_descriptor
+        from .data_operation_prepared_products import (
+            authenticated_prepared_product,
+            verify_prepared_product,
+        )
+        from .file_custody import verified_file
+
+        entry = "corpus_structure.semantic.canonical_sentences.canonical_partition_values"
+        functions = (
+            (self.operation.callable_surfaces[0].declaration, CanonicalSentenceProjection.run),
+            (
+                "corpus_structure.semantic.canonical_sentences.execute_canonical_projection",
+                execute_canonical_projection,
+            ),
+            (entry, canonical_partition_values),
+            (
+                "corpus_structure.semantic.canonical_sentences.canonical_projection_spec",
+                canonical_projection_spec,
+            ),
+            (
+                "corpus_structure.semantic.canonical_sentences.PreparedCanonicalProfile.project",
+                PreparedCanonicalProfile.project,
+            ),
+            (
+                "corpus_structure.semantic.data_operation_projection_values.materialize_whole_input_projection",
+                materialize_whole_input_projection,
+            ),
+        )
+        required = canonical_sentence_operation_sources(include_dependencies=False)
+        assets = required.boundary_contracts
 
         verify_prepared_product(
             self.identity,
@@ -254,33 +336,46 @@ class PreparedCanonicalPort:
             self.operation,
             self.sources,
             self.custody,
-            assets=(canonical_profile_assets(), canonical_execution_custody()),
-            functions=(
-                (self.operation.callable_surfaces[0].declaration, CanonicalSentenceProjection.run),
-                (
-                    "corpus_structure.semantic.canonical_sentences.execute_canonical_projection",
-                    execute_canonical_projection,
-                ),
-                (
-                    "corpus_structure.semantic.canonical_sentences.canonical_partition_values",
-                    canonical_partition_values,
-                ),
-                (
-                    "corpus_structure.semantic.canonical_sentences.canonical_projection_spec",
-                    canonical_projection_spec,
-                ),
-                (
-                    "corpus_structure.semantic.canonical_sentences.PreparedCanonicalProfile.project",
-                    PreparedCanonicalProfile.project,
-                ),
-                (
-                    "corpus_structure.semantic.data_operation_projection_values.materialize_whole_input_projection",
-                    materialize_whole_input_projection,
-                ),
-            ),
+            assets=assets,
+            functions=functions,
             authorize=self.authorize,
-            required_sources=canonical_sentence_operation_sources(include_dependencies=False),
+            required_sources=required,
         )
+        verification = authenticated_prepared_product(
+            self.sources, functions, required_sources=required
+        )
+        transport = next(asset for asset in assets if asset.name == "canonical/execution-custody")
+        contents = dict(json.loads(transport.content)["files"])
+        files = tuple(
+            verified_file(path, sha256(bytes.fromhex(contents[path.name])).hexdigest())
+            for path in _canonical_execution_files()
+        )
+        verification.files = tuple(
+            {file.path: file for file in (*verification.files, *files)}.values()
+        )
+        source = next(
+            value
+            for value in self.sources.sources
+            if value.module == canonical_partition_values.__module__
+        )
+        object.__setattr__(self, "_verification", verification)
+        object.__setattr__(
+            self, "_signature", inspect.signature(canonical_partition_values, eval_str=True)
+        )
+        object.__setattr__(
+            self,
+            "_descriptor",
+            prepared_cpu_descriptor(
+                ((source.module, source.filename, source.content),),
+                entry,
+                None,
+                tuple(file.receipt() for file in files),
+            ),
+        )
+
+    def _verify(self):
+        self._verification.check()
+        self.authorize(self.identity)
 
     def _input(self, values, binding):
         from .data_operation_ports import PortRefusal, PythonRoleValue
@@ -354,23 +449,31 @@ class PreparedCanonicalPort:
         return self._complete(result, binding)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
-        from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
+        from .data_operation_cpu import plan_cpu_call
 
-        self._verify()
         inventory = self._input(values, binding)
-        signature = inspect.signature(canonical_partition_values)
-        bound = signature.bind(inventory=inventory, projection=json.loads(self.profile.projection))
-        path = Path(__file__).resolve()
-        descriptor = PythonCPUDescriptor(
-            (("corpus_structure.semantic.canonical_sentences", str(path), path.read_bytes()),),
-            "corpus_structure.semantic.canonical_sentences.canonical_partition_values",
-            (),
-            verification="prepared-kernel",
+        memo_basis = None
+        if (
+            binding is not None
+            and binding.replicate is None
+            and self.operation.replicate_policy == "deterministic-single-result"
+        ):
+            memo_basis = (
+                binding.subject_context.project_id,
+                self.identity.recipe,
+                self.profile.input_projection.fingerprint,
+                binding.parameters.decode(),
+                binding.inference,
+            )
+        bound = self._signature.bind(
+            inventory=inventory,
+            projection=json.loads(self.profile.projection),
+            memo_basis=memo_basis,
         )
         reply = yield from plan_cpu_call(
-            descriptor,
+            self._descriptor,
             bound,
-            signature,
+            self._signature,
             verify=self._verify,
             execution_owner=execution_owner,
             check_active=check_active,
@@ -412,8 +515,6 @@ def resolve_canonical_sentence_port(
         input_projection,
         canonical_bytes(json.loads(inventory_kind.facts)["collections"]),
     )
-    port = PreparedCanonicalPort(
+    return PreparedCanonicalPort(
         identity, profile, authorize, custody, sources or canonical_sentence_operation_sources()
     )
-    port._verify()
-    return port
