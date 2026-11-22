@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 import json
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -19,9 +19,12 @@ from .source_products import FrozenNativeSource, source_product_inputs, source_s
 from .types import SourceArtifact, SourceBundle
 
 if TYPE_CHECKING:
+    from inspect import Signature
+
     from .data_operation_admission import PreparedCapabilityIdentity
     from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation
     from .python_operation_sources import PythonSourceCollection
+    from .runtime_slice import AuthenticatedSlice
     from .types import PreparedRelease
 
 _MODEL = Path(__file__).parents[1] / "model/semantic/data-operation-source-discovery.yaml"
@@ -90,9 +93,32 @@ def selected_source_population(original, views, *, complete, kind_contract):
     return {"document": document, "complete": complete, "members": members}
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class SourceViewPopulation:
     content: bytes
+    meaning: bytes
+    members: tuple[bytes, ...]
+
+    def __init__(self, *args, **kwargs):
+        raise TypeError("source populations require validated acquisition")
+
+    @classmethod
+    def acquire(cls, prepared, model, value):
+        from .data_operation_ports import project_product_members
+        from .data_operation_values import semantic_value
+
+        checked = prepared.validate_json("DdoSourceViewPopulation", canonical_bytes(value))
+        body = checked.model_dump(mode="python", exclude_unset=True)
+        kind = prepared.index.definitions["DdoSourceViewPopulation"].iri
+        result = object.__new__(cls)
+        object.__setattr__(
+            result,
+            "content",
+            canonical_bytes(checked.model_dump(mode="json", exclude_unset=True)),
+        )
+        object.__setattr__(result, "meaning", canonical_bytes(semantic_value(body)))
+        object.__setattr__(result, "members", project_product_members(model, kind, body))
+        return result
 
 
 @dataclass(frozen=True)
@@ -114,10 +140,7 @@ class PreparedSourceDiscovery:
         value = selected_source_population(
             original, values, complete=complete, kind_contract=kind_contract
         )
-        checked = self.prepared.validate_json("DdoSourceViewPopulation", canonical_bytes(value))
-        return SourceViewPopulation(
-            canonical_bytes(checked.model_dump(mode="json", exclude_unset=True))
-        )
+        return SourceViewPopulation.acquire(self.prepared, self.model, value)
 
 
 def execute_source_discovery(receiver, original, views, complete):
@@ -126,7 +149,7 @@ def execute_source_discovery(receiver, original, views, complete):
 
 def source_discovery_assets():
     module = ast.parse(Path(__file__).read_bytes())
-    names = {"selected_source_population", "PreparedSourceDiscovery"}
+    names = {"selected_source_population", "PreparedSourceDiscovery", "SourceViewPopulation"}
     selected = tuple(
         (node.name, ast.dump(node, include_attributes=False))
         for node in module.body
@@ -157,6 +180,7 @@ def source_discovery_assets():
                 "projection": selected,
                 "model": _MODEL.read_bytes().hex(),
                 "source": algorithms,
+                "source_view": Path(__file__).with_name("native_source_view.py").read_bytes().hex(),
                 "document_address": Path(__file__)
                 .with_name("original_documents.py")
                 .read_bytes()
@@ -200,22 +224,52 @@ class PreparedSourceDiscoveryPort:
     authorize: Callable[[PreparedCapabilityIdentity], None]
     custody: tuple[SourceArtifact, ...]
     sources: PythonSourceCollection
+    _verification: AuthenticatedSlice = field(init=False, compare=False, repr=False)
+    logical_signature: Signature = field(init=False, compare=False, repr=False)
 
     native_selections = ()
 
-    @property
-    def logical_signature(self):
+    def __post_init__(self):
         import inspect
 
         from corpus_structure.methods.source_discovery import SelectedSourceViewsOperation
 
-        signature = inspect.signature(SelectedSourceViewsOperation.run, eval_str=True)
-        return signature.replace(parameters=tuple(signature.parameters.values())[1:])
+        from .data_operation_prepared_products import (
+            authenticated_prepared_product,
+            verify_prepared_product,
+        )
+        from .file_custody import observed_file
 
-    def _verify(self):
-        from corpus_structure.methods.source_discovery import SelectedSourceViewsOperation
-
-        from .data_operation_prepared_products import verify_prepared_product
+        root = Path(__file__).parent
+        files = tuple(
+            observed_file(path)
+            for path in (
+                _MODEL,
+                root / "source_products.py",
+                root / "native_source_view.py",
+                root / "original_documents.py",
+            )
+        )
+        required = source_discovery_operation_sources()
+        functions = (
+            (self.operation.callable_surfaces[0].declaration, SelectedSourceViewsOperation.run),
+            (
+                "corpus_structure.semantic.source_discovery.execute_source_discovery",
+                execute_source_discovery,
+            ),
+            (
+                "corpus_structure.semantic.source_discovery.PreparedSourceDiscovery.project",
+                PreparedSourceDiscovery.project,
+            ),
+            (
+                "corpus_structure.semantic.source_discovery.selected_source_population",
+                selected_source_population,
+            ),
+            (
+                "corpus_structure.semantic.source_discovery.SourceViewPopulation.acquire",
+                SourceViewPopulation.acquire,
+            ),
+        )
 
         verify_prepared_product(
             self.identity,
@@ -223,25 +277,27 @@ class PreparedSourceDiscoveryPort:
             self.operation,
             self.sources,
             self.custody,
-            assets=(source_discovery_assets(), source_discovery_custody()),
-            functions=(
-                (self.operation.callable_surfaces[0].declaration, SelectedSourceViewsOperation.run),
-                (
-                    "corpus_structure.semantic.source_discovery.execute_source_discovery",
-                    execute_source_discovery,
-                ),
-                (
-                    "corpus_structure.semantic.source_discovery.PreparedSourceDiscovery.project",
-                    PreparedSourceDiscovery.project,
-                ),
-                (
-                    "corpus_structure.semantic.source_discovery.selected_source_population",
-                    selected_source_population,
-                ),
-            ),
+            assets=required.boundary_contracts,
+            functions=functions,
             authorize=self.authorize,
-            required_sources=source_discovery_operation_sources(),
+            required_sources=required,
         )
+        verification = authenticated_prepared_product(
+            self.sources, functions, required_sources=required
+        )
+        verification.files += files
+        verification.check()
+        object.__setattr__(self, "_verification", verification)
+        signature = inspect.signature(SelectedSourceViewsOperation.run, eval_str=True)
+        object.__setattr__(
+            self,
+            "logical_signature",
+            signature.replace(parameters=tuple(signature.parameters.values())[1:]),
+        )
+
+    def _verify(self):
+        self._verification.check()
+        self.authorize(self.identity)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         # This bounded, read-only projection has no physical submission or provider wait.
@@ -255,9 +311,8 @@ class PreparedSourceDiscoveryPort:
             PortCompletion,
             PortRefusal,
             RoleValue,
-            project_product_members,
         )
-        from .data_operation_values import decode_semantic_value, semantic_value
+        from .data_operation_values import decode_semantic_value
 
         self._verify()
         check_active()
@@ -286,7 +341,7 @@ class PreparedSourceDiscoveryPort:
                 raise PortRefusal("source discovery input has another nominal kind")
         original = _untrusted_value(roles["original"].value)
         if "views" in roles:
-            views = _untrusted_value(roles["views"].value)
+            views = roles["views"].value
         else:
             absent = [role for role in binding.roles if role.role == "views"]
             if len(absent) != 1 or absent[0].state != "known-absent":
@@ -301,9 +356,6 @@ class PreparedSourceDiscoveryPort:
             )
         product = self.profile.project(original, tuple(views), parameters["complete"])
         output = next(role for role in self.operation.roles if role.direction == "output")
-        body = self.profile.prepared.validate_json(
-            "DdoSourceViewPopulation", product.content
-        ).model_dump(mode="python", exclude_unset=True)
         check_active()
         self._verify()
         return PortCompletion(
@@ -313,8 +365,8 @@ class PreparedSourceDiscoveryPort:
                     output.name,
                     ids[output.kind, "kind"],
                     product.content,
-                    canonical_bytes(semantic_value(body)),
-                    project_product_members(self.profile.model, output.kind, body),
+                    product.meaning,
+                    product.members,
                 ),
             ),
             outcome=successful_return_outcome(self.operation),
@@ -335,8 +387,6 @@ def resolve_source_discovery_port(
         raise PortRefusal(
             "source population requires its declared read-only scalar discovery profile"
         )
-    port = PreparedSourceDiscoveryPort(
+    return PreparedSourceDiscoveryPort(
         identity, selected, PreparedSourceDiscovery(prepared, model), authorize, custody, sources
     )
-    port._verify()
-    return port

@@ -88,15 +88,17 @@ def source(profile, *, document="document:one", start=0, end=4):
             "source_field": "text",
         }
     ]
-    value = thaw_native(FrozenNativeSource.from_projection(
-        profile.prepared,
-        document=document,
-        section_pointer="#/texts/0",
-        membership="direct",
-        text="mean",
-        pieces=pieces,
-        items=items,
-    ).value)
+    value = thaw_native(
+        FrozenNativeSource.from_projection(
+            profile.prepared,
+            document=document,
+            section_pointer="#/texts/0",
+            membership="direct",
+            text="mean",
+            pieces=pieces,
+            items=items,
+        ).value
+    )
     value["selectors"] = [{"projection": value["source"]["projection"], "start": start, "end": end}]
     return FrozenNativeSource.acquire(profile.prepared, value).value
 
@@ -160,7 +162,7 @@ def test_source_discovery_refuses_foreign_original_and_repeated_complete_context
 def test_native_source_keeps_original_key_and_canonical_document_address(profile):
     from corpus_structure.semantic.original_documents import original_document_subject
 
-    value = source(profile)
+    value = thaw_native(source(profile))
     assert value["source"]["document"] == "document:one"
     assert value["source"]["document_subject"] == original_document_subject("document:one")
     assert value["source"]["document_subject"] != value["source"]["document"]
@@ -186,10 +188,10 @@ def test_acquire_preserves_body_under_its_older_pinned_source_contract(profile):
             artifact = SourceArtifact(artifact.name, yaml.safe_dump(old).encode())
         old_sources.append(artifact)
     older = prepare_release(SourceBundle(bundle.root, tuple(old_sources)))
-    value = source(profile)
+    value = thaw_native(source(profile))
     del value["source"]["document_subject"]
     preserved = FrozenNativeSource.acquire(older, value)
-    assert preserved.value == value
+    assert thaw_native(preserved.value) == value
     assert "document_subject" not in preserved.value["source"]
 
 
@@ -244,7 +246,15 @@ def test_source_hierarchy_preserves_distinct_computational_member_addresses(prof
                     "read_snapshot": "1:1:",
                     "frontier_at": "2026-11-15T00:00:00Z",
                     "scope": {},
-                    "selection": {},
+                    "selection": {
+                        "version": "data-demand-public-selection-v1",
+                        "model": "0" * 64,
+                        "intent_digest": "intent:source",
+                        "roots": [],
+                        "targets": ["source.selected_views/discovery"],
+                        "root_operations": ["source.selected_views/discovery"],
+                        "discovery": [],
+                    },
                     "trust_snapshot": {},
                 }
             )
