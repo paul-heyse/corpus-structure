@@ -391,6 +391,8 @@ def validate_output_witnesses(operation, outputs, selected_inputs):
     roles to rows with actual header fields and decoded ``body``. Acquisition and
     authorization remain with the existing caller/native binding owner.
     """
+    from .native_source_view import thaw_native
+
     for group in operation.output_witnesses:
         for body in outputs.get(group.output_role, ()):
             for record in witness_records(body, group.records):
@@ -423,9 +425,9 @@ def validate_output_witnesses(operation, outputs, selected_inputs):
                             except ValueError:
                                 return False
                         if comparison.encoding == "context-meaning-json":
-                            expected = json.loads(json_context_meaning(json_bytes(expected)))
-                        if json_context_meaning(json_bytes(actual)) != json_context_meaning(
-                            json_bytes(expected)
+                            expected = json.loads(json_context_meaning(json_bytes(thaw_native(expected))))
+                        if json_context_meaning(json_bytes(thaw_native(actual))) != json_context_meaning(
+                            json_bytes(thaw_native(expected))
                         ):
                             return False
                     return True

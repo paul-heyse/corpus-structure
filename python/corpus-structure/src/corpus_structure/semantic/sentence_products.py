@@ -13,11 +13,11 @@ import json
 from bisect import bisect_left
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, field
 from functools import cached_property
 from hashlib import sha256
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 
 import yaml
 from pydantic import BaseModel
@@ -84,6 +84,29 @@ class SourceAnnotations:
     partitions: tuple[bytes, ...]
     execution_receipts: tuple[bytes, ...] = ()
     subject_context: SubjectContext | None = None
+    _payload: ClassVar[Any]
+
+    def __post_init__(self):
+        from .sentence_partitions import sentence_product_payload
+
+        if type(self.execution_receipts) is not tuple or any(type(receipt) is not bytes for receipt in self.execution_receipts):
+            raise TypeError("annotation execution custody requires immutable receipt bytes")
+        payload = sentence_product_payload(self.content, self.partitions, self.prepared, "DdoSourceAnnotations")
+        object.__setattr__(self, "content", payload.content)
+        object.__setattr__(self, "partitions", payload.partitions)
+        object.__setattr__(self, "_payload", payload)
+
+    def with_context(self, context):
+        _ = self.value
+        result = object.__new__(SourceAnnotations)
+        for name in ("content", "prepared", "model", "partitions", "execution_receipts", "_payload"):
+            object.__setattr__(result, name, getattr(self, name))
+        object.__setattr__(result, "subject_context", context)
+        if "_blocks" in vars(self):
+            object.__setattr__(result, "_blocks", self._blocks)
+        if "configuration" in vars(self):
+            object.__setattr__(result, "configuration", self.configuration)
+        return result
 
     def _publication_context(self):
         if self.subject_context is None:
@@ -94,7 +117,7 @@ class SourceAnnotations:
 
     @cached_property
     def semantic_id(self) -> str:
-        from .data_operation_identity import body_identity, contextual_product_identity
+        from .data_operation_identity import contextual_product_identity
 
         kind = next(
             identity.key
@@ -105,18 +128,25 @@ class SourceAnnotations:
         return contextual_product_identity(
             kind=kind,
             context=self._publication_context(),
-            body=body_identity(json.loads(self.content)).key,
+            body=self._payload.body_identity,
         ).key
 
-    @property
+    @cached_property
     def configuration(self):
-        return SentenceConfig.model_validate(json.loads(self.content)["configuration"])
+        return SentenceConfig.model_validate(self.value["configuration"])
 
     @property
-    def value(self) -> BaseModel:
-        body = json.loads(self.content)
-        body.pop("rows")
-        return self.prepared.validate_json("DdoSourceAnnotations", canonical_bytes(body))
+    def value(self) -> Mapping[str, Any]:
+        if "_payload" not in vars(self) or self.content is not self._payload.content or self.partitions is not self._payload.partitions:
+            raise TypeError("source annotations lack their validating acquisition")
+        return self._payload.value
+
+    @cached_property
+    def _blocks(self):
+        from .native_source_view import freeze_native
+
+        return tuple(freeze_native(_annotation_block(layout, block)) for layout, block in
+                     zip(self.value["block_layouts"], self._payload.blocks, strict=True))
 
     def inventory(self, kind: str) -> tuple[dict[str, Any], ...]:
         if kind not in {"sentence", "token"}:
@@ -166,11 +196,13 @@ class AnnotationView(Protocol):
 
 def source_annotation_blocks(
     value: Mapping[str, Any] | AnnotationView, partitions: tuple[bytes, ...] | None = None
-) -> tuple[dict[str, Any], ...]:
+) -> tuple[Mapping[str, Any], ...]:
     """Recover working block coordinates and columns from authenticated rows and layout."""
     from .data_operation_partitions import partition_header
     from .sentence_partitions import COLLECTION, blocks_from_packets
 
+    if type(value) is SourceAnnotations:
+        return value._blocks
     if isinstance(value, Mapping):
         body = value
     else:
@@ -269,7 +301,8 @@ def _restore_selected_annotation_rows(source, value, rows):
 def retained_source_annotation_products(source, native):
     """Restore captured blocks once from an authenticated nominal annotation input."""
     return _restore_selected_annotation_rows(
-        source, json.loads(native.content), source_annotation_rows(native)
+        source, native.value if type(native) is SourceAnnotations else json.loads(native.content),
+        source_annotation_rows(native)
     )
 
 
@@ -389,6 +422,7 @@ def validate_source_annotations(
     from corpus_structure.methods.sentence_evidence import verify_annotation_source
 
     from .characterization_manifests import manifest_contract
+    from .native_source_view import thaw_native
 
     raw = dict(value)
     if set(raw) == {"header", "partitions"}:
@@ -398,20 +432,14 @@ def validate_source_annotations(
         raw = dict(raw["header"])
     if partitions is None or "rows" not in raw:
         raise ValueError("source annotations require an admitted header and row partitions")
-    commitment = raw.pop("rows")
-    checked = prepared.validate_json("DdoSourceAnnotations", canonical_bytes(raw)).model_dump(
-        mode="json", exclude_unset=True
-    )
-    checked["rows"] = commitment
+    result = SourceAnnotations(canonical_bytes(raw), prepared, model, partitions, receipts, subject_context)
+    checked = thaw_native(result.value)
     selected = source.value
-    frozen_configuration = SentenceConfig.model_validate(checked["configuration"])
+    frozen_configuration = result.configuration
     if configuration is not None and configuration != frozen_configuration:
         raise ValueError("annotation configuration differs from its captured model profile")
     verify_annotation_source(
         checked["source"], checked["selectors"], selected["source"], selected["selectors"]
-    )
-    result = SourceAnnotations(
-        canonical_bytes(checked), prepared, model, partitions, receipts, subject_context
     )
     blocks = source_annotation_blocks(result)
     _validate_annotation_blocks(blocks, checked, source, frozen_configuration)
@@ -429,10 +457,6 @@ def acquired_source_annotations(prepared, model, header, packets, source, *, mem
     from corpus_structure.methods.sentence_evidence import verify_annotation_source
 
     selected = source.value
-    body = json.loads(header)
-    verify_annotation_source(
-        body["source"], body["selectors"], selected["source"], selected["selectors"]
-    )
     context = SubjectContext(
         project,
         member.subject,
@@ -441,6 +465,9 @@ def acquired_source_annotations(prepared, model, header, packets, source, *, mem
         subject_definition=member.subject_definition,
     )
     native = SourceAnnotations(header, prepared, model, packets, subject_context=context)
+    verify_annotation_source(
+        native.value["source"], native.value["selectors"], selected["source"], selected["selectors"]
+    )
     if member.member is not None or native.semantic_id != member.product:
         raise ValueError("annotation body differs from its exact selected whole product")
     return native
@@ -1339,7 +1366,7 @@ class PreparedSentencePort:
 
     def _completion(self, product, source, binding=None):
         if binding is not None:
-            product = replace(product, subject_context=binding.subject_context)
+            product = product.with_context(binding.subject_context)
         from ._data_operation_wire import WireKindContract, WireOutputMember
         from .data_operation_ports import PortCompletion
         from .established_validity import RuleObservedInput, successful_rule_attestation
@@ -1347,15 +1374,12 @@ class PreparedSentencePort:
 
         # Product meaning uses the exact typed record's fields; display JSON and native
         # member packets are deliberate projections of that same validated product.
-        model_value = json.loads(product.content)
-        partitions = tuple(json.loads(packet) for packet in product.partitions)
         output = next(role for role in self.operation.roles if role.direction == "output")
         contracts = {(item.owner, item.domain): item.key for item in self.profile.model.identities}
-        result = partitioned_role(
-            output.name, contracts[output.kind, "kind"], model_value, partitions
-        )
+        result = partitioned_role(output.name, contracts[output.kind, "kind"], product._payload)
         attestations = ()
         if binding is not None and binding.subject_context is not None:
+            from .native_source_view import thaw_native
             selected_source = {"source": (RuleObservedInput(source.value),)}
             observed = {
                 "segment.sentences/exact-source-scope": selected_source,
@@ -1373,8 +1397,8 @@ class PreparedSentencePort:
                 "multiplicity": 1,
                 "product": {
                     "kind_contract": WireKindContract(result.kind_contract),
-                    "body": json.loads(result.meaning),
-                    "members": [json.loads(member) for member in result.members],
+                    "body": thaw_native(product._payload.tagged),
+                    "members": thaw_native(product._payload.member_packets),
                 },
             }
             # The producer validated these facts before detaching the answer.
@@ -1385,12 +1409,12 @@ class PreparedSentencePort:
                     self.operation.semantic_id,
                     packet,
                     binding.subject_context,
-                    partition=partition,
+                    partition=thaw_native(partition) if partition is not None else None,
                     selected_inputs=observed[rule.id],
                 )
                 for rule in self.profile.model.rules
                 if rule.id in observed
-                for partition in (partitions if rule.scope == "partition" else (None,))
+                for partition in (product._payload.packets if rule.scope == "partition" else (None,))
             )
         return PortCompletion(
             self.operation.semantic_id,

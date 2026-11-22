@@ -5,10 +5,12 @@ from __future__ import annotations
 import inspect
 import json
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
+from functools import cached_property
 from hashlib import sha256
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from corpus_structure.caches import declare
 
@@ -39,6 +41,31 @@ class CanonicalProduct:
     kind: str
     subject_context: SubjectContext | None = None
     partitions: tuple[bytes, ...] = field(kw_only=True)
+    _payload: ClassVar[Any]
+
+    def __post_init__(self):
+        from .sentence_partitions import sentence_product_payload
+
+        payload = sentence_product_payload(
+            self.content, self.partitions, self.prepared, self.prepared.index.by_iri[self.kind].name
+        )
+        object.__setattr__(self, "content", payload.content)
+        object.__setattr__(self, "partitions", payload.partitions)
+        object.__setattr__(self, "_payload", payload)
+
+    def with_context(self, context):
+        _ = self.value
+        result = object.__new__(CanonicalProduct)
+        for name in ("content", "prepared", "model", "kind", "partitions", "_payload"):
+            object.__setattr__(result, name, getattr(self, name))
+        object.__setattr__(result, "subject_context", context)
+        return result
+
+    @property
+    def value(self) -> Mapping[str, Any]:
+        if "_payload" not in vars(self) or self.content is not self._payload.content or self.partitions is not self._payload.partitions:
+            raise TypeError("canonical product lacks its validating acquisition")
+        return self._payload.value
 
     def _publication_context(self):
         if self.subject_context is None:
@@ -63,12 +90,11 @@ class CanonicalProduct:
             partitions=tuple(canonical_bytes(packet) for packet in packets),
         )
 
-    @property
+    @cached_property
     def reference(self):
-        from .data_operation_identity import body_identity, contextual_product_identity
+        from .data_operation_identity import contextual_product_identity
         from .data_product_reference import DataProductReference
 
-        value = json.loads(self.content)
         kind = next(
             item.key
             for item in self.model.identities
@@ -76,7 +102,7 @@ class CanonicalProduct:
         )
         return DataProductReference(
             contextual_product_identity(
-                kind=kind, context=self._publication_context(), body=body_identity(value).key
+                kind=kind, context=self._publication_context(), body=self._payload.body_identity
             ).key
         )
 
@@ -492,6 +518,7 @@ class PreparedCanonicalPort:
     def _input(self, values, binding):
         from .data_operation_ports import PortRefusal, PythonRoleValue
         from .data_operation_values import decode_semantic_value
+        from .sentence_partitions import sentence_product_payload
         from .source_products import source_subject
 
         inputs = [role for role in self.operation.roles if role.direction == "input"]
@@ -508,26 +535,29 @@ class PreparedCanonicalPort:
             or values[0].partitioned is None
         ):
             raise PortRefusal("canonical projection requires its actual nominal inventory role")
-        inventory = values[0].partitioned.value()
+        retained = sentence_product_payload(
+            values[0].partitioned.header, values[0].partitioned.packets, self.profile.prepared,
+            self.profile.prepared.index.by_iri[inputs[0].kind].name,
+        )
         if binding is not None and (
             not binding.sufficient
             or binding.operation != self.operation.semantic_id
             or binding.definition != self.identity.definition
             or binding.eligibility != self.identity.eligibility
-            or binding.subject != source_subject(inventory["header"]["source"])
+            or binding.subject != source_subject(retained.value["source"])
             or decode_semantic_value(json.loads(binding.parameters)) != {}
         ):
             raise PortRefusal("canonical inventory differs from frozen selected binding")
         return materialize_whole_input_projection(
             self.profile.input_projection,
             json.loads(self.profile.input_layouts),
-            inventory["header"],
-            inventory["partitions"],
+            retained.value,
+            retained.packets,
         )
 
     def _complete(self, value, binding=None):
         if binding is not None:
-            value = replace(value, subject_context=binding.subject_context)
+            value = value.with_context(binding.subject_context)
         from .data_operation_ports import PortCompletion
         from .sentence_partitions import partitioned_role
 
@@ -543,8 +573,7 @@ class PreparedCanonicalPort:
                 partitioned_role(
                     output.name,
                     kind,
-                    json.loads(value.content),
-                    tuple(json.loads(packet) for packet in value.partitions),
+                    value._payload,
                 ),
             ),
             outcome=successful_return_outcome(self.operation),
@@ -562,6 +591,7 @@ class PreparedCanonicalPort:
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from .data_operation_cpu import plan_cpu_call
+        from .native_source_view import thaw_native
 
         inventory = self._input(values, binding)
         memo_basis = None
@@ -577,7 +607,7 @@ class PreparedCanonicalPort:
                 binding.parameters.decode(),
             )
         bound = self._signature.bind(
-            inventory=inventory,
+            inventory=thaw_native(inventory),
             projection=json.loads(self.profile.projection),
             memo_basis=memo_basis,
             decimal_digits=self._decimal_digits,

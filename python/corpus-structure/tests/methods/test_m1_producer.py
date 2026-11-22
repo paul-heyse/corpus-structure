@@ -4,6 +4,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from annotation_support import controlled as controlled
 
 from corpus_structure.methods import m1_source
 from corpus_structure.methods.gliner import GlinerPreparation, GlinerReport
@@ -267,13 +268,14 @@ def test_request_limit_continues_independent_context_but_worker_fault_fences_it(
 
 
 def test_current_annotation_consumer_reuses_columns_and_refuses_profile_or_source_drift(
-    monkeypatch,
+    monkeypatch, controlled,
 ):
     from dataclasses import replace
 
-    from corpus_structure.ingest import annotations
+    from corpus_structure.ingest import annotations, sentences
     from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.ingest.sentences import SentenceConfig
+    from corpus_structure.methods import source_preparation
     from corpus_structure.semantic.sentence_products import (
         retained_source_annotation_products,
         source_annotation_rows,
@@ -281,6 +283,8 @@ def test_current_annotation_consumer_reuses_columns_and_refuses_profile_or_sourc
     from corpus_structure.semantic.source_products import FrozenNativeSource
     from methods.declared_primary_fixture import profiles, source_readings
 
+    monkeypatch.setattr(sentences, "pipeline", lambda *_: controlled)
+    monkeypatch.setattr(source_preparation, "pipeline", lambda *_: controlled)
     source, products, _primary, native = source_readings("Mean is average.", AnnotationProfile())
     monkeypatch.setattr(annotations, "pipeline", lambda *_: pytest.fail("replay ran inference"))
     restored = retained_source_annotation_products(
@@ -290,7 +294,7 @@ def test_current_annotation_consumer_reuses_columns_and_refuses_profile_or_sourc
     assert restored[0].tokens[0].start == 0 and restored[0].sentences[-1].end == 16
     profile = AnnotationProfile(
         native.configuration,
-        execution_profile=native.value.model_dump(mode="json")["execution_profile"],
+        execution_profile=native.value["execution_profile"],
     )
     rows = source_annotation_rows(native)
     for changed in (

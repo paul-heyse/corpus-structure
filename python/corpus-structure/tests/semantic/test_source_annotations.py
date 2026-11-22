@@ -31,6 +31,35 @@ from semantic.source_annotations_test_support import (
 from semantic.source_annotations_test_support import partition_controlled_annotations
 
 
+def test_annotation_payload_is_immutable_and_context_changes_retain_decoded_custody(
+    acquired, detached, monkeypatch
+):
+    from dataclasses import replace
+    from typing import Any, cast
+
+    from corpus_structure.semantic import sentence_partitions
+    from corpus_structure.semantic.sentence_products import source_annotation_blocks
+
+    prepared, model, configuration, _ = acquired
+    source, value = detached
+    product = partition_controlled_annotations(prepared, model, value, source, configuration=configuration)
+    with pytest.raises(TypeError, match="immutable receipt bytes"):
+        replace(product, execution_receipts=cast(Any, [b"unadmitted"] ))
+    blocks = source_annotation_blocks(product)
+    configured = product.configuration
+
+    def repeated(*_args, **_kwargs):
+        pytest.fail("retained annotation data was decoded or validated again")
+
+    monkeypatch.setattr(sentence_partitions, "sentence_product_payload", repeated)
+    carried = product.with_context(None)
+    assert carried.value is product.value
+    assert source_annotation_blocks(carried) is blocks
+    assert carried.configuration is configured
+    with pytest.raises(TypeError):
+        carried.value["configuration"]["batch_size"] = 99
+
+
 def test_one_annotation_population_preserves_existing_payload_and_compact_manifest(
     acquired, detached
 ):
@@ -51,7 +80,7 @@ def test_one_annotation_population_preserves_existing_payload_and_compact_manife
     )
     assert len(restored) == 1 and len(restored[0].tokens) == 4
     assert restored[0].block_start == 0 and restored[0].block_end == len(source.value["text"])
-    assert product.value.model_dump(mode="json")["outcome"] == "partial"
+    assert product.value["outcome"] == "partial"
     header = json.loads(product.content)
     assert len(product.inventory("sentence")) == 1
     assert len(product.inventory("token")) == 4
@@ -119,6 +148,9 @@ def test_canonical_projection_uses_annotations_without_native_label_determinants
     projection = canonical_projection_spec(
         model, prepared.index.definitions["DdoCanonicalSentences"].iri
     )
+    from corpus_structure.semantic.data_operation_projection_values import (
+        materialize_whole_input_projection,
+    )
     from corpus_structure.semantic.data_product_reference import read_semantic_reference
     from corpus_structure.semantic.sentence_partitions import (
         blocks_from_packets,
@@ -126,12 +158,20 @@ def test_canonical_projection_uses_annotations_without_native_label_determinants
     )
 
     header, packets = partition_source_annotations(value)
-    canonical = canonical_partition_values({"header": header, "partitions": packets}, projection)
+    operation = model.operation("segment.sentences/canonical-projection")
+    input_role = next(role for role in operation.roles if role.direction == "input")
+    layout = json.loads(next(kind.facts for kind in model.kinds if kind.semantic_id == input_role.kind))["collections"]
+
+    def project(header, packets):
+        return materialize_whole_input_projection(input_role.read_projection, layout, header, packets)
+
+    canonical = canonical_partition_values(project(header, packets), projection)
     changed = copy.deepcopy(value)
-    changed["blocks"][0]["annotation"]["tokens"][0]["lemma"] = "another-native-label"
+    changed["blocks"][0]["lexemes"][0]["lemma"] = "another-native-label"
     relabeled, labeled_packets = partition_source_annotations(changed)
+    assert labeled_packets[0]["partition_digest"] != packets[0]["partition_digest"]
     assert (
-        canonical_partition_values({"header": relabeled, "partitions": labeled_packets}, projection)
+        canonical_partition_values(project(relabeled, labeled_packets), projection)
         == canonical
     )
     (block,) = blocks_from_packets(canonical["partitions"])

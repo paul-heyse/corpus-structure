@@ -185,8 +185,8 @@ def inputs(profile, *, text="The mean is 2.", words=None, pieces=None, items=Non
     return source, canonical, sentence, tokens
 
 
-def test_detached_head_failures_preserve_valid_siblings_and_native_tree_groups(profile):
-    _, canonical, sentence, tokens = inputs(profile)
+def test_detached_head_failures_preserve_valid_siblings_and_native_tree_groups(profile, monkeypatch):
+    source, canonical, sentence, tokens = inputs(profile)
     words = [word for _, word in tokens]
     preparation = dict(
         prepared_words=words,
@@ -233,6 +233,27 @@ def test_detached_head_failures_preserve_valid_siblings_and_native_tree_groups(p
     assert (
         "input_ids" not in detach_hanlp_sentence(sentence, tokens, canonical, heads, preparation)[1]
     )
+    from dataclasses import replace
+
+    from corpus_structure.semantic.characterization_manifests import manifest_contract
+    from corpus_structure.semantic.hanlp_products import partition_hanlp_product
+
+    product = partition_hanlp_product(
+        source, ((sentence, tokens),), units, (alignment,), coverage,
+        kind_contract=manifest_contract(profile.prepared, profile.model, "DdoHanlpManifest"),
+        prepared=profile.prepared,
+    )
+    decode = type(profile.prepared).validate_python
+
+    def no_repeat(self, name, value):
+        if name == "DdoHanlpInventory":
+            pytest.fail("retained HanLP nominal data was validated again")
+        return decode(self, name, value)
+
+    monkeypatch.setattr(type(profile.prepared), "validate_python", no_repeat)
+    assert replace(product).value is product.value
+    with pytest.raises(TypeError):
+        product.value["selectors"][0]["projection"] = "changed"
 
 
 def test_actual_subword_lengths_bound_outer_batches_without_cutting_sentences():

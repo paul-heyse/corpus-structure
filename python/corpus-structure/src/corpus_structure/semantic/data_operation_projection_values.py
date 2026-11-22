@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 from .identity import canonical_bytes
+from .native_source_view import FrozenJsonArray
 
 if TYPE_CHECKING:
     from .data_operation_model import InputReadProjection, ProjectedCollection
@@ -28,7 +29,7 @@ def _path_tree(paths):
 
 def _selected_fields(raw, tree, *, tagged=False):
     if tagged:
-        if not isinstance(raw, list) or len(raw) != 2 or raw[0] != "mapping":
+        if not isinstance(raw, (list, FrozenJsonArray)) or len(raw) != 2 or raw[0] != "mapping":
             return {}
         values = {}
         for name, value in raw[1]:
@@ -112,11 +113,11 @@ def materialize_whole_input_projection(
         if not selection.groups:
             return {}
         body = packet["body"]
-        if not isinstance(body, list) or len(body) != 2 or body[0] != "sequence":
+        if not isinstance(body, (list, FrozenJsonArray)) or len(body) != 2 or body[0] != "sequence":
             raise ValueError("projected partition requires its admitted item sequence")
         rows = []
         for item in body[1]:
-            if not isinstance(item, list) or len(item) != 2 or item[0] != "mapping":
+            if not isinstance(item, (list, FrozenJsonArray)) or len(item) != 2 or item[0] != "mapping":
                 raise ValueError("projected partition requires its admitted item mappings")
             fields = _selected_fields(item, trees[selection.name], tagged=True)
             rows.append(["mapping", _tagged_pairs(fields)])

@@ -9,7 +9,7 @@ from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from .canonical_sentences import CanonicalProduct
 from .characterization_manifests import append_manifest, manifest_contract
@@ -55,20 +55,16 @@ def hanlp_product_inputs(bundle):
 
 def canonical_hanlp_rows(source, canonical):
     """Acquire closed block-local membership and recover original pretokenized words."""
-    from .data_operation_partitions import partition_header
     from .data_product_reference import SemanticReference
-    from .sentence_partitions import COLLECTION, blocks_from_packets
+    from .sentence_partitions import COLLECTION
 
-    selected, header = source.value, json.loads(canonical.content)
+    selected, header = source.value, canonical.value
     if header["source"] != selected["source"] or tuple(header["selectors"]) != tuple(
         selected["selectors"]
     ):
         raise ValueError("HanLP canonical source/selector scope differs from original source")
-    packets = tuple(json.loads(packet) for packet in canonical.partitions)
-    if partition_header(packets) != header[COLLECTION]:
-        raise ValueError("HanLP canonical rows differ from their selected collection commitment")
     result = []
-    for block in blocks_from_packets(packets):
+    for block in canonical._payload.blocks:
         if not 0 <= block.start <= block.end <= len(selected["text"]):
             raise ValueError("HanLP canonical block exceeds its selected original source")
         addresses = set()
@@ -178,7 +174,7 @@ def detach_hanlp_sentence(sentence, tokens, canonical, heads, preparation, vocab
     sentence_ref = sentence["reference"]
     references = [reference for reference, _ in tokens]
     selector = dict(
-        projection=json.loads(canonical.content)["source"]["projection"],
+        projection=canonical.value["source"]["projection"],
         start=sentence["start"],
         end=sentence["end"],
     )
@@ -404,6 +400,24 @@ class HanlpProduct:
     content: bytes
     partitions: tuple[bytes, ...]
     execution_receipts: tuple[bytes, ...] = ()
+    prepared: Any = field(kw_only=True)
+    _payload: ClassVar[Any]
+
+    def __post_init__(self):
+        from .sentence_partitions import sentence_product_payload
+
+        if type(self.execution_receipts) is not tuple or any(type(receipt) is not bytes for receipt in self.execution_receipts):
+            raise TypeError("HanLP execution custody requires immutable receipt bytes")
+        payload = sentence_product_payload(self.content, self.partitions, self.prepared, "DdoHanlpInventory")
+        object.__setattr__(self, "content", payload.content)
+        object.__setattr__(self, "partitions", payload.partitions)
+        object.__setattr__(self, "_payload", payload)
+
+    @property
+    def value(self) -> Mapping[str, Any]:
+        if "_payload" not in vars(self) or self.content is not self._payload.content or self.partitions is not self._payload.partitions:
+            raise TypeError("HanLP product lacks its validating acquisition")
+        return self._payload.value
 
 
 @dataclass(frozen=True)
@@ -495,7 +509,7 @@ class PreparedHanlpProfile:
                         units.extend(detached)
                         alignments.append(alignment)
                         coverage.extend(standing)
-        for block in json.loads(canonical.content)["block_coverage"]:
+        for block in canonical.value["block_coverage"]:
             if block["outcome"] in {"complete", "empty"}:
                 continue
             selector = dict(
@@ -537,11 +551,12 @@ class PreparedHanlpProfile:
             coverage,
             kind_contract=manifest_contract(self.prepared, self.model, "DdoHanlpManifest"),
             receipts=tuple(receipts),
+            prepared=self.prepared,
         )
 
 
 def partition_hanlp_product(
-    source, rows, units, alignments, coverage, *, kind_contract, receipts=()
+    source, rows, units, alignments, coverage, *, kind_contract, prepared, receipts=()
 ):
     """Publish one flat population of the native heads under its canonical block placements."""
     from .data_operation_partitions import partition_header
@@ -603,6 +618,7 @@ def partition_hanlp_product(
         canonical_bytes(header),
         tuple(canonical_bytes(packet) for packet in packets),
         receipts,
+        prepared=prepared,
     )
 
 
@@ -1046,11 +1062,11 @@ class PreparedHanlpPort:
         result = partitioned_role(
             output.name,
             kind_contract,
-            json.loads(product.content),
-            tuple(json.loads(packet) for packet in product.partitions),
+            product._payload,
         )
         attestations = ()
         if binding is not None and binding.subject_context is not None:
+            from .native_source_view import thaw_native
             kind = next(kind for kind in model.kinds if kind.semantic_id == output.kind)
             assert result.meaning is not None
             packet: WireOutputMember = {
@@ -1059,13 +1075,13 @@ class PreparedHanlpPort:
                 "multiplicity": 1,
                 "product": {
                     "kind_contract": WireKindContract(kind_contract),
-                    "body": json.loads(result.meaning),
-                    "members": [json.loads(member) for member in result.members],
+                    "body": thaw_native(product._payload.tagged),
+                    "members": thaw_native(product._payload.member_packets),
                 },
             }
             observed = {
                 "source": (RuleObservedInput(source.value),),
-                "canonical": (RuleObservedInput(json.loads(canonical.content)),),
+                "canonical": (RuleObservedInput(canonical.value),),
             }
             attestations = tuple(
                 successful_rule_attestation(

@@ -77,9 +77,15 @@ def acquired(tmp_path_factory):
         SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
     )
     prepared = prepare_release(bundle)
+    from corpus_structure.semantic.canonical_sentences import canonical_sentence_operation_sources
+    from corpus_structure.semantic.primary_operations import combine_primary_sources
+
     model = compile_data_operations(
         schema=bundle,
-        python_sources=sentence_operation_sources(configuration, selection=selection),
+        python_sources=combine_primary_sources(
+            sentence_operation_sources(configuration, selection=selection),
+            canonical_sentence_operation_sources(include_dependencies=False),
+        ),
         definitions=prepared.definitions,
         vocabularies=prepared.vocabularies,
     )
@@ -178,4 +184,6 @@ def detached(acquired, monkeypatch, request):
             value, kind_contract=manifest_contract(prepared, model, "DdoSourceAnnotationManifest")
         )
     ]
-    return source, value
+    from corpus_structure.semantic.native_source_view import thaw_native
+
+    return source, thaw_native(value)
