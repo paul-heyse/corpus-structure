@@ -1115,6 +1115,7 @@ definitions:
     type: object
     properties:
       binding_authority_changed: {type: boolean}
+      binding_pin_changed: {type: boolean}
       native_settlement:
         anyOf: [{type: array, items: {$ref: '#/definitions/obligation_settlement'}}, {type: 'null'}]
       native_readiness:

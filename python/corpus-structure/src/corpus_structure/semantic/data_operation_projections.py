@@ -1733,7 +1733,7 @@ def record_grade_selected_outputs(metadata):
     return _selected_support_output_rows(metadata, one_use=False)
 
 
-def _watermark_role_matches(role, header, projected_kind, projected_scope, bounded):
+def _origin_role_matches(role, header, projected_kind, projected_scope, bounded):
     """Use binding's immutable role, source and qualified-context association."""
     return case(
         (
@@ -1764,23 +1764,29 @@ def _watermark_role_matches(role, header, projected_kind, projected_scope, bound
     )
 
 
-def _pinned_watermark_uses(metadata, bounded):
-    """Visible exact-pin uses under the obligation's actual role/context policy."""
+def _exact_pin_changed(metadata, bounded, latest, wait_read):
+    """Match newly visible fulfilled uses to an exact pin at the waiting read."""
     selection = _var("d.selection", JSONB)
-    definitions = metadata.tables["sem.data_operation_definition"].alias("watermark_definition")
-    roles = _items(definitions.c.input_roles, "watermark_role")
+    definitions = metadata.tables["sem.data_operation_definition"].alias("pin_definition")
+    roles = _items(definitions.c.input_roles, "pin_role")
     source_set = selection["source_sets"][roles.c.value["support"]["source_set"].astext]
-    entries = _items(func.coalesce(source_set["entries"], _json([])), "watermark_pin")
-    products = metadata.tables["kb.data_product"].alias("watermark_product")
-    members = metadata.tables["kb.data_product_member"].alias("watermark_member")
-    outputs = metadata.tables["ops.data_derivation_output"].alias("watermark_output")
-    episodes = metadata.tables["ops.data_derivation"].alias("watermark_episode")
-    uses = metadata.tables["ops.demand_use"].alias("watermark_use")
+    entries = _items(func.coalesce(source_set["entries"], _json([])), "source_pin")
+    products = metadata.tables["kb.data_product"].alias("pin_product")
+    members = metadata.tables["kb.data_product_member"].alias("pin_member")
+    outputs = metadata.tables["ops.data_derivation_output"].alias("pin_output")
+    episodes = metadata.tables["ops.data_derivation"].alias("pin_episode")
+    uses = metadata.tables["ops.demand_use"].alias("pin_use")
     selected_member = entries.c.value["member"].astext
     projected_kind = func.coalesce(members.c.kind_contract, products.c.kind_contract)
     projected_subject = func.coalesce(members.c.subject, products.c.subject)
     projected_scope = func.coalesce(members.c.analyzed_scope, products.c.analyzed_scope)
-    projected_body = func.coalesce(members.c.body, products.c.canonical_body)
+    projected_body = case(
+        (
+            roles.c.value["subject_field"].astext.is_not(None),
+            func.coalesce(members.c.body, products.c.canonical_body),
+        ),
+        else_=null(),
+    )
     emitting = _obj(
         member_id=outputs.c.member_id,
         role=outputs.c.role,
@@ -1806,27 +1812,14 @@ def _pinned_watermark_uses(metadata, bounded):
         ),
         support_evidence=_obj(producer_output=emitting),
     )
-    # The same immutable subject/source/proof predicates own binding eligibility.
-    # This records raw visible identities; live validity/authority remain with the
-    # read acquisition and binding boundary rather than becoming a validity cache.
-    role_matches = _watermark_role_matches(
+    # A matching event prompts binding, which checks live validity and authority.
+    role_matches = _origin_role_matches(
         roles.c.value, header, projected_kind, projected_scope, bounded
     )
     return (
-        select(
-            bounded.c.id.label("obligation_id"),
-            literal("use").label("kind"),
-            uses.c.id.label("identity"),
-            uses.c.created_at,
-        )
+        select(1)
         .select_from(
-            bounded.join(
-                definitions,
-                and_(
-                    definitions.c.release_id == _var("d.release_id", Text),
-                    definitions.c.operation_id == bounded.c.operation_id,
-                ),
-            )
+            definitions.join(wait_read, wait_read.c.id == latest.c.selection["read_id"].astext)
             .join(roles, literal(True))
             .join(entries, literal(True))
             .join(products, products.c.id == entries.c.value["product"].astext)
@@ -1854,10 +1847,16 @@ def _pinned_watermark_uses(metadata, bounded):
             .join(uses, uses.c.derivation_id == episodes.c.id)
         )
         .where(
+            definitions.c.release_id == _var("d.release_id", Text),
+            definitions.c.operation_id == bounded.c.operation_id,
+            wait_read.c.demand_id == _var("d.id", Text),
             products.c.project_id == _var("d.project_id", Text),
             or_(selected_member.is_(None), members.c.member_id.is_not(None)),
             uses.c.fate == "fulfilled",
             _visible(uses),
+            ~func.ops.ddo_read_visible(
+                uses.c.created_at, uses.c.created_xid, wait_read.table_valued()
+            ),
             role_matches,
             func.ops.ddo_source_set_proof_matches(
                 source_set,
@@ -1868,6 +1867,8 @@ def _pinned_watermark_uses(metadata, bounded):
                 emitting,
             ),
         )
+        .correlate(bounded, latest)
+        .exists()
     )
 
 
@@ -1985,7 +1986,7 @@ def _unconstrained_watermark_uses(metadata, bounded):
             # contexts must be filtered before either authorization executes.
             case(
                 (
-                    _watermark_role_matches(
+                    _origin_role_matches(
                         roles.c.value,
                         header,
                         projected.c.kind_contract,
@@ -2111,12 +2112,10 @@ def _inputs_watermarks(metadata, bounded):
         .select_from(bounded.join(originals, originals.c.demand_id == _var("d.id", Text)))
         .where(_visible(originals))
     )
-    # A use can be both a local prerequisite and an explicit pin, or can emit
-    # several selected outputs. Hash its actual identity once, independent of
-    # output multiplicity and timestamp ties.
+    # A use can be visible through several local prerequisites or outputs.
+    # Hash its actual identity once, independent of output multiplicity.
     visible = union(
         fulfilled,
-        _pinned_watermark_uses(metadata, bounded),
         _unconstrained_watermark_uses(metadata, bounded),
         population_rows,
         original_rows,
@@ -2501,7 +2500,12 @@ def read_page(metadata):
                             ("awaiting-inputs", "awaiting-population", "awaiting-discovery")
                         ),
                     ),
-                    _obj(binding_authority_changed=func.coalesce(authority_changed, True)),
+                    _obj(
+                        binding_authority_changed=func.coalesce(authority_changed, True),
+                        binding_pin_changed=_exact_pin_changed(
+                            metadata, bounded, latest, wait_read
+                        ),
+                    ),
                 ),
                 else_=_json({}),
             )

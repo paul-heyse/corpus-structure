@@ -3,6 +3,7 @@
 import json
 import re
 from dataclasses import replace
+from pathlib import Path
 from typing import cast as typing_cast
 
 import pytest
@@ -103,7 +104,7 @@ def _waiting_episode_set_recipe():
     assert PINNED_EPISODES.declaration_content is not None
     declarations = json.loads(PINNED_EPISODES.declaration_content)
     consumer = next(item for item in declarations["operations"] if item["id"] == CONSUMER)
-    next(role for role in consumer["roles"] if role["name"] == "items")["minimum"] = 2
+    next(role for role in consumer["roles"] if role["name"] == "items")["minimum"] = 3
     return replace(
         PINNED_EPISODES,
         name="waiting-exact-pinned-episodes",
@@ -112,6 +113,26 @@ def _waiting_episode_set_recipe():
 
 
 PINNED_WAITING_EPISODES = _waiting_episode_set_recipe()
+
+
+@pytest.fixture
+def current_pinned_waiter_kernel(semantic_bare_engine, tmp_path, monkeypatch):
+    from corpus_structure.schema.model_change import native_model_inputs
+    from corpus_structure.semantic import migrations
+    from corpus_structure.semantic.metadata import get_metadata
+    from corpus_structure.semantic.target_installation import capture_target_installation
+    from semantic.data_operation_kernel_support import admit_kernel, prepare_kernel
+    from semantic.test_target_installation_native import install_target_root
+
+    capture = capture_target_installation(
+        get_metadata(), logical_sources=native_model_inputs(Path(__file__).resolve().parents[4])
+    )
+    *_, revision_path = install_target_root(semantic_bare_engine, capture, tmp_path)
+    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
+    recipe = PINNED_WAITING_EPISODES
+    prepared = prepare_kernel(recipe, directory=tmp_path / "pinned-waiter-kernel")
+    with semantic_bare_engine.begin() as connection:
+        return admit_kernel(connection, recipe, engine=semantic_bare_engine, preparation=prepared)
 
 
 def _produce(kernel, *, subject, value, inference="inference:test"):
@@ -532,10 +553,10 @@ def test_same_native_value_and_position_keep_each_exact_selected_producing_episo
     assert inputs == [(product, 0), (product, 1)]
 
 
-@pytest.mark.parametrize(
-    "ddo_kernel", [PINNED_WAITING_EPISODES], indirect=True, ids=["waiting-cross-demand-pin"]
-)
-def test_waiting_watermark_tracks_new_exact_pinned_use_from_another_demand(ddo_kernel):
+def test_native_waiter_wakes_for_new_exact_pinned_use_from_another_demand(
+    current_pinned_waiter_kernel,
+):
+    ddo_kernel = current_pinned_waiter_kernel
     first_demand, first, product = _produce(
         ddo_kernel, subject="source-subject:B", value=42, inference="first-pinned-observation"
     )
@@ -547,7 +568,7 @@ def test_waiting_watermark_tracks_new_exact_pinned_use_from_another_demand(ddo_k
         subject_definition="original-occurrence",
     )
     entry = SourceSetEntry.from_semantic_source(DataProductReference(product), context=context)
-    demand = _register(ddo_kernel, entry, "waiting-for-two-pinned-observations")
+    demand = _register(ddo_kernel, entry, "waiting-for-three-pinned-observations")
     assert demand["demand_id"] != first_demand["demand_id"]
     before, ready = _ready(ddo_kernel, demand)
     assert ready == ()
@@ -565,19 +586,18 @@ def test_waiting_watermark_tracks_new_exact_pinned_use_from_another_demand(ddo_k
             ),
             {"obligation": obligation["obligation_id"]},
         )
-    assert saved_use["inputs_watermark"] == watermark
+    assert saved_use["read_id"] == before["read_id"]
 
     # Neither a new unrelated product in the same source/context nor a new
     # waiting fate is an input to this obligation's exact frozen source pin.
     _produce(ddo_kernel, subject="source-subject:B", value=99, inference="unselected-observation")
     unchanged, ready = _ready(ddo_kernel, demand)
     assert ready == ()
-    assert (
-        next(row for row in unchanged["obligations"] if row["operation_id"] == CONSUMER)[
-            "inputs_watermark"
-        ]
-        == watermark
+    unchanged_obligation = next(
+        row for row in unchanged["obligations"] if row["operation_id"] == CONSUMER
     )
+    assert unchanged_obligation["binding_pin_changed"] is False
+    assert unchanged_obligation["inputs_watermark"] == watermark
 
     second_demand, second, same_product = _produce(
         ddo_kernel, subject="source-subject:B", value=42, inference="second-pinned-observation"
@@ -586,8 +606,10 @@ def test_waiting_watermark_tracks_new_exact_pinned_use_from_another_demand(ddo_k
     assert second_demand["demand_id"] not in {demand["demand_id"], first_demand["demand_id"]}
     assert first["derivation_id"] != second["derivation_id"]
     after, ready = _ready(ddo_kernel, demand)
+    assert ready == ()
     changed = next(row for row in after["obligations"] if row["operation_id"] == CONSUMER)
-    assert changed["inputs_watermark"] != watermark
+    assert changed["binding_pin_changed"] is True
+    assert changed["inputs_watermark"] == watermark
     after_intent, before_intent = after["selection"], before["selection"]
     assert after_intent["version"] == "data-demand-intent-v2"
     assert before_intent["version"] == "data-demand-intent-v2"
@@ -601,9 +623,22 @@ def test_waiting_watermark_tracks_new_exact_pinned_use_from_another_demand(ddo_k
             )
             == saved_kernel
         )
+    revisited, ready = _ready(ddo_kernel, demand)
+    assert ready == ()
+    revisited_obligation = next(
+        row for row in revisited["obligations"] if row["operation_id"] == CONSUMER
+    )
+    assert revisited_obligation["binding_pin_changed"] is False
+
+    _, third, third_product = _produce(
+        ddo_kernel, subject="source-subject:B", value=42, inference="third-pinned-observation"
+    )
+    assert third_product == product
+    _, ready = _ready(ddo_kernel, demand)
     (answer,) = ready
     assert answer.operation == CONSUMER
     assert {member.support_episodes for member in answer.binding_result.roles[0].members} == {
         (first["derivation_id"],),
         (second["derivation_id"],),
+        (third["derivation_id"],),
     }
