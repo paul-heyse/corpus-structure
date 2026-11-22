@@ -332,6 +332,13 @@ are absent from that release's native kind projection despite having semantic id
 The terminology declaration, compiler behavior and native kind dependency roots predate
 this cutover. This result remains a failed ordinary identity.
 
+The controlled external statistics selection `a6bafcb7e0e34f219ba5fa99a7a7b9f3` also
+exposed two inherited typed-admission gaps. Both generated JSON body schemas accept their
+case. T4's typed schema expects a sequence for the keyed parameter mapping. The toy case
+projects a nested decimal to a float before checking its decimal kind. The keyed description
+predates this work (`6020b5273` and `5eabc9e35`), as does the ordinary numeric projection
+(`41bbb1ac7`). The native refusals and independent scientific expectations remain intact.
+
 **Native replay and premise follow-through · Tested by selected scope · 2026-11-22.**
 All 26 cases in `15c732e51b524bca82e59a6b14d0574f` passed their assertions. This includes
 stream fencing and cancellation, scoped readiness and wake delivery, the exact finite and rich
@@ -343,8 +350,10 @@ original invocation outcome.
 
 The real two-region composition case passed on the refreshed root. The M1 case in the same
 provider result (`ecb00e443c4d4e68a867d9f5dafb0352`) still hit the default publication timeout
-inside the recursive JSON-to-meaning traversal. The isolated codec repair converts nested
-object-free arrays in one ordered pass and uses the existing proof identity envelope
+inside the recursive JSON-to-meaning traversal. A diagnostic shared-host run with a
+300-second completion window reached the second normalization pass in the same premise
+calculation before timing out (`5ec6ed6dccae4b9e9be19e9178dd306b`). The isolated codec repair
+converts nested object-free arrays in one ordered pass and uses the existing proof identity envelope
 with those canonical observations. Independent native controls passed for exact proof bytes
 and changed-input refusal (`28a1116ea3e0420792292b06533557d9`), including a follow-up with
 4,096 member records under a local 60-second statement bound
@@ -364,6 +373,14 @@ source and migration controls. Its native journey published the corrected event 
 reached fitter and issuer execution before the 40-minute test watchdog stopped the worker.
 The codec-root event selection starts with the independently acquired restricted-frame check,
 then runs the fitter, issuer and scorer controls in the same module fixture.
+
+Regenerating the packaged report artifact refreshed its source identity for the four current
+report schemas. Their bodies matched the previous generated output. The replacement
+invalidated the serving snapshots of earlier workers. Their managed receipts retain the
+drain and completed identities (`bf30fdd0217546aeb8727bf7db6df3a4` and
+`a6bafcb7e0e34f219ba5fa99a7a7b9f3`). A fresh private run passed all 98 selected report,
+contract inspection, contribution delivery and diagnostic controls
+(`e0edd69594b44670aa39074a43cbba75`).
 
 Keep one authentic cross-boundary producer, publication and export journey. Reader-only checks
 can consume its authenticated artifacts while their producer, prepared release, wire and authority
