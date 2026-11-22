@@ -1,6 +1,7 @@
 """Partition addresses and content can survive an independently known block move."""
 
 from dataclasses import replace
+from typing import Any, cast
 
 from corpus_structure.semantic.canonical_sentences import canonical_partition_values
 from corpus_structure.semantic.data_operation_identity import canonical_identity
@@ -214,7 +215,7 @@ def test_reconverted_split_and_merged_blocks_use_their_current_addresses():
 def test_whole_projection_excludes_unread_tags_and_forwards_order_and_placement():
     packets = [_annotation(12, key="#/one", ordinal=1), _annotation(0, key="#/two", ordinal=0)]
     for packet in packets:
-        _, rows = packet["body"]
+        _, rows = cast(list[Any], packet["body"])
         # The admitted envelope has already checked these values. A marker in the
         # lexical field makes a semantic decode of unread content fail this test.
         for _, fields in rows:
