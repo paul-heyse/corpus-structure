@@ -287,6 +287,92 @@ def annotation_manifest(value, *, kind_contract):
     return compact_manifest(value, kind_contract)
 
 
+def verify_annotation_block_source(
+    start, text_digest, expected_text_digest, piece_offset, expected_offset, pieces, expected_pieces
+):
+    if text_digest != expected_text_digest:
+        raise ValueError("persisted annotation text differs from its pinned source")
+    if (
+        not expected_pieces
+        or start != expected_pieces[0]["start"]
+        or piece_offset != expected_offset
+        or pieces != expected_pieces
+    ):
+        raise ValueError("annotations differ from original selected native pieces")
+
+
+def _validate_annotation_blocks(blocks, checked, source, configuration):
+    from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
+
+    from .declared_record_sources import DeclaredNativeFrameSource
+
+    if not blocks:
+        return
+    rows = tuple(_annotation_row(block) for block in blocks)
+    frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
+    products = restore_annotations(
+        rows,
+        source=frame,
+        profile=AnnotationProfile(configuration, execution_profile=checked["execution_profile"]),
+        require_complete=False,
+    )
+    pieces = source.value["pieces"]
+    piece_starts = [piece["start"] for piece in pieces]
+    for product, block in zip(products, blocks, strict=True):
+        first = bisect_left(piece_starts, product.block_start)
+        stop = bisect_left(piece_starts, product.block_end, lo=first)
+        verify_annotation_block_source(
+            product.block_start,
+            product.text_digest,
+            sha256(frame.text[product.block_start : product.block_end].encode()).hexdigest(),
+            block["piece_offset"],
+            first,
+            [piece.to_wire() for piece in product.native_pieces],
+            pieces[first:stop],
+        )
+        if any(
+            not product.block_start <= row.start < row.end <= product.block_end
+            for row in product.sentences
+        ):
+            raise ValueError("annotation sentences exceed the actual source block")
+
+
+def verify_annotation_sentence_membership(block):
+    annotation = block["annotation"]
+    sentences = annotation["sentences"]
+    for token in annotation["tokens"]:
+        if "sentence" not in token or token["sentence"] is None:
+            continue
+        position = token["sentence"]
+        if (
+            not 0 <= position < len(sentences)
+            or not sentences[position]["start"]
+            <= token["start"]
+            < token["end"]
+            <= sentences[position]["end"]
+        ):
+            raise ValueError("annotation token/sentence membership is not exact")
+
+
+def verify_annotation_coverage(checked, selectors, manifest):
+    from corpus_structure.methods.native_evidence_layers import SPACY_FAMILIES
+
+    if len(checked["coverage"]) != len(SPACY_FAMILIES) or {
+        row["family"] for row in checked["coverage"]
+    } != set(SPACY_FAMILIES):
+        raise ValueError("native family coverage omits or repeats a declared spaCy family")
+    if any(row["eligible"] != selectors for row in checked["coverage"]):
+        raise ValueError("native family coverage differs from frozen eligible source")
+    if checked["outcome"] != (
+        "complete"
+        if all(row["outcome"] in {"complete", "empty"} for row in checked["coverage"])
+        else "partial"
+    ):
+        raise ValueError("native product outcome differs from actual family coverage")
+    if checked["members"] != [manifest]:
+        raise ValueError("annotation manifest differs from its actual retained native population")
+
+
 def validate_source_annotations(
     prepared,
     model,
@@ -298,16 +384,16 @@ def validate_source_annotations(
     configuration=None,
     partitions=None,
 ):
-    from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
+    from corpus_structure.methods.sentence_evidence import verify_annotation_source
 
-    from .declared_record_sources import DeclaredNativeFrameSource
+    from .characterization_manifests import manifest_contract
 
     raw = dict(value)
     if set(raw) == {"header", "partitions"}:
         if partitions is not None:
             raise ValueError("explicit annotation partitions repeat the selected envelope")
         partitions = tuple(canonical_bytes(packet) for packet in raw["partitions"])
-        raw = raw["header"]
+        raw = dict(raw["header"])
     if partitions is None or "rows" not in raw:
         raise ValueError("source annotations require an admitted header and row partitions")
     commitment = raw.pop("rows")
@@ -319,79 +405,43 @@ def validate_source_annotations(
     frozen_configuration = SentenceConfig.model_validate(checked["configuration"])
     if configuration is not None and configuration != frozen_configuration:
         raise ValueError("annotation configuration differs from its captured model profile")
-    configuration = frozen_configuration
-    if checked["source"] != selected["source"] or checked["selectors"] != selected["selectors"]:
-        raise ValueError("source annotations differ from exact original source/scope")
+    verify_annotation_source(
+        checked["source"], checked["selectors"], selected["source"], selected["selectors"]
+    )
     result = SourceAnnotations(
         canonical_bytes(checked), prepared, model, partitions, receipts, subject_context
     )
     blocks = source_annotation_blocks(result)
-    if blocks:
-        if configuration is None:
-            raise ValueError("annotation validation requires its captured model configuration")
-        rows = tuple(_annotation_row(block) for block in blocks)
-        frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
-        products = restore_annotations(
-            rows,
-            source=frame,
-            profile=AnnotationProfile(
-                configuration, execution_profile=checked["execution_profile"]
-            ),
-            require_complete=False,
-        )
-        pieces = selected["pieces"]
-        piece_starts = [piece["start"] for piece in pieces]
-        for product, block in zip(products, blocks, strict=True):
-            if len(product.tokens) != len(block["lexemes"]):
-                raise ValueError("native lexical columns differ from their actual token population")
-            first = bisect_left(piece_starts, product.block_start)
-            stop = bisect_left(piece_starts, product.block_end, lo=first)
-            if (
-                first == len(pieces)
-                or piece_starts[first] != product.block_start
-                or block["piece_offset"] != first
-                or [piece.to_wire() for piece in product.native_pieces] != pieces[first:stop]
-            ):
-                raise ValueError("annotations differ from original selected native pieces")
-            if any(
-                not product.block_start <= row.start < row.end <= product.block_end
-                for row in product.sentences
-            ):
-                raise ValueError("annotation sentences exceed the actual source block")
-            if any(
-                token.sentence is not None
-                and (
-                    not 0 <= token.sentence < len(product.sentences)
-                    or not product.sentences[token.sentence].start
-                    <= token.start
-                    < token.end
-                    <= product.sentences[token.sentence].end
-                )
-                for token in product.tokens
-            ):
-                raise ValueError("annotation token/sentence membership is not exact")
-    from corpus_structure.methods.native_evidence_layers import SPACY_FAMILIES
-
-    if len(checked["coverage"]) != len(SPACY_FAMILIES) or {
-        row["family"] for row in checked["coverage"]
-    } != set(SPACY_FAMILIES):
-        raise ValueError("native family coverage omits or repeats a declared spaCy family")
-    if any(row["eligible"] != selected["selectors"] for row in checked["coverage"]):
-        raise ValueError("native family coverage differs from frozen eligible source")
-    if checked["outcome"] != (
-        "complete"
-        if all(row["outcome"] in {"complete", "empty"} for row in checked["coverage"])
-        else "partial"
-    ):
-        raise ValueError("native product outcome differs from actual family coverage")
-    from .characterization_manifests import manifest_contract
-
-    expected = annotation_manifest(
+    _validate_annotation_blocks(blocks, checked, source, frozen_configuration)
+    for block in blocks:
+        verify_annotation_sentence_membership(block)
+    manifest = annotation_manifest(
         checked, kind_contract=manifest_contract(prepared, model, "DdoSourceAnnotationManifest")
     )
-    if checked["members"] != [expected]:
-        raise ValueError("annotation manifest differs from its actual retained native population")
+    verify_annotation_coverage(checked, selected["selectors"], manifest)
     return result
+
+
+def acquired_source_annotations(prepared, model, header, packets, source, *, member, project):
+    """Carry an annotation input selected by native rule binding into its working row view."""
+    from corpus_structure.methods.sentence_evidence import verify_annotation_source
+
+    selected = source.value
+    body = json.loads(header)
+    verify_annotation_source(
+        body["source"], body["selectors"], selected["source"], selected["selectors"]
+    )
+    context = SubjectContext(
+        project,
+        member.subject,
+        member.original_source,
+        member.analyzed_scope,
+        subject_definition=member.subject_definition,
+    )
+    native = SourceAnnotations(header, prepared, model, packets, subject_context=context)
+    if member.member is not None or native.semantic_id != member.product:
+        raise ValueError("annotation body differs from its exact selected whole product")
+    return native
 
 
 @dataclass(frozen=True)
@@ -928,6 +978,7 @@ def sentence_operation_sources(configuration: SentenceConfig | None = None, *, s
         else selection
     )
     path = Path(__file__).parents[1] / "methods/sentence_evidence.py"
+    families = path.with_name("native_evidence_layers.py")
     return PythonSourceCollection(
         (
             PythonSource(
@@ -937,6 +988,11 @@ def sentence_operation_sources(configuration: SentenceConfig | None = None, *, s
             ),
             PythonSource(
                 "corpus_structure.methods.sentence_evidence", path.read_bytes(), str(path)
+            ),
+            PythonSource(
+                "corpus_structure.methods.native_evidence_layers",
+                families.read_bytes(),
+                str(families),
             ),
             PythonSource(
                 "corpus_structure.semantic.sentence_partitions",
@@ -1092,7 +1148,15 @@ class PreparedSentencePort:
             )
         from corpus_structure.ingest import annotations
 
-        for function in (_blocks, _detach_annotation_block, validate_source_annotations):
+        for function in (
+            _blocks,
+            _detach_annotation_block,
+            validate_source_annotations,
+            _validate_annotation_blocks,
+            verify_annotation_block_source,
+            verify_annotation_sentence_membership,
+            verify_annotation_coverage,
+        ):
             if function.__code__ != declared(
                 Path(__file__).read_bytes(), __file__, function.__name__
             ):
@@ -1196,20 +1260,13 @@ class PreparedSentencePort:
         )
         attestations = ()
         if binding is not None and binding.subject_context is not None:
-            from corpus_structure.methods.sentence_evidence import verify_annotation_source
-
-            selected = source.value
-            verify_annotation_source(
-                model_value["source"],
-                model_value["selectors"],
-                selected["source"],
-                selected["selectors"],
-            )
-            rule = next(
-                rule
-                for rule in self.profile.model.rules
-                if rule.id == "segment.sentences/exact-source-scope"
-            )
+            selected_source = {"source": (RuleObservedInput(source.value),)}
+            observed = {
+                "segment.sentences/exact-source-scope": selected_source,
+                "segment.sentences/source-layout": selected_source,
+                "segment.sentences/token-sentence-membership": None,
+                "segment.sentences/coverage-manifest": selected_source,
+            }
             kind = next(
                 kind for kind in self.profile.model.kinds if kind.semantic_id == output.kind
             )
@@ -1224,15 +1281,20 @@ class PreparedSentencePort:
                     "members": [json.loads(member) for member in result.members],
                 },
             }
-            attestations = (
+            # The producer validated these facts before detaching the answer.
+            attestations = tuple(
                 successful_rule_attestation(
                     rule,
                     kind,
                     self.operation.semantic_id,
                     packet,
                     binding.subject_context,
-                    selected_inputs={"source": (RuleObservedInput(selected),)},
-                ),
+                    partition=partition,
+                    selected_inputs=observed[rule.id],
+                )
+                for rule in self.profile.model.rules
+                if rule.id in observed
+                for partition in (partitions if rule.scope == "partition" else (None,))
             )
         return PortCompletion(
             self.operation.semantic_id,

@@ -658,27 +658,36 @@ class PreparedCharacterizationPort(ABC):
             )
         formal = self._formal(source, roles["formal"], binding)
         if self.family == "construction":
-            from .sentence_products import validate_source_annotations
+            from .sentence_products import acquired_source_annotations, validate_source_annotations
 
             selected = next(value for value in values if value.role == "sentences")
             supplied = roles["sentences"]
-            if selected.partitioned is not None:
-                annotation_body = json.loads(selected.partitioned.header)
-                partitions = selected.partitioned.packets
-            elif binding is None and isinstance(supplied, SourceAnnotations):
-                annotation_body = json.loads(supplied.content)
-                partitions = supplied.partitions
+            if binding is not None:
+                if binding.subject_context is None or selected.partitioned is None:
+                    raise PortRefusal(
+                        "construction requires its selected annotation row partitions"
+                    )
+                native = acquired_source_annotations(
+                    self.prepared,
+                    self.model,
+                    selected.partitioned.header,
+                    selected.partitioned.packets,
+                    source,
+                    member=self._member(binding, "sentences", 0),
+                    project=binding.subject_context.project_id,
+                )
+            elif isinstance(supplied, SourceAnnotations):
+                native = validate_source_annotations(
+                    self.prepared,
+                    self.model,
+                    json.loads(supplied.content),
+                    source,
+                    subject_context=supplied.subject_context,
+                    partitions=supplied.partitions,
+                )
+                native._publication_context()
             else:
                 raise PortRefusal("construction requires its selected annotation row partitions")
-            native = validate_source_annotations(
-                self.prepared,
-                self.model,
-                annotation_body,
-                source,
-                subject_context=getattr(supplied, "subject_context", None),
-                partitions=partitions,
-            )
-            native = self._selected_product(native, binding, "sentences", 0)
             return _ConstructionInputs(source, formal, native)
         supporting = self._retained(roles["supporting"], binding, "supporting")
         constructions = tuple(

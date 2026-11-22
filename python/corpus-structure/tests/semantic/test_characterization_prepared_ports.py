@@ -352,7 +352,10 @@ def test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_ty
 
     sentence_role = next(role for role in port.operation.roles if role.name == "sentences")
     assert set(sentence_role.required_rules) == {
+        "segment.sentences/coverage-manifest",
         "segment.sentences/exact-source-scope",
+        "segment.sentences/source-layout",
+        "segment.sentences/token-sentence-membership",
         "segment.sentences/native-dense-ordinal",
         "segment.sentences/native-row-span",
         "segment.sentences/native-source-order",

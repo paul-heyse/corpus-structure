@@ -54,6 +54,8 @@ class CanonicalSentenceProjection:
                     "segment.sentences/native-row-span",
                     "segment.sentences/native-source-order",
                     "segment.sentences/exact-source-scope",
+                    "segment.sentences/token-sentence-membership",
+                    "segment.sentences/coverage-manifest",
                 ],
                 "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",
                 "direction": "input",

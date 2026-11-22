@@ -101,6 +101,16 @@ def test_one_annotation_population_preserves_existing_payload_and_compact_manife
         validate_output_witnesses(operation, {"result": [foreign]}, selected)
 
 
+def test_annotation_producer_refuses_missing_family_even_with_matching_manifest(acquired, detached):
+    prepared, model, configuration, _ = acquired
+    source, value = detached
+    value["coverage"].pop()
+    with pytest.raises(ValueError, match="coverage omits or repeats a declared spaCy family"):
+        partition_controlled_annotations(
+            prepared, model, value, source, configuration=configuration
+        )
+
+
 def test_canonical_projection_uses_annotations_without_native_label_determinants(
     acquired, detached
 ):

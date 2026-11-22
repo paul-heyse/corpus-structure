@@ -127,8 +127,8 @@ class PreparedPredicateInputs:
         from .enriched_document_products import RetainedCharacterizationProduct
         from .formal_products import retained_formal_product
         from .sentence_products import (
+            acquired_source_annotations,
             retained_source_annotation_products,
-            validate_source_annotations,
         )
         from .source_contexts import NativeSourceContext, PreparedNativeSources, source_slice
         from .source_products import FrozenNativeSource
@@ -140,15 +140,15 @@ class PreparedPredicateInputs:
             self.prepared, source, source_member, project=self.context.project_id
         )
         (annotation_member,) = self.members("annotations")
-        native = validate_source_annotations(
+        native = acquired_source_annotations(
             self.prepared,
             model,
-            annotations,
+            canonical_bytes(annotations["header"]),
+            tuple(canonical_bytes(packet) for packet in annotations["partitions"]),
             selected,
-            subject_context=self.subject_context(annotation_member),
+            member=annotation_member,
+            project=self.context.project_id,
         )
-        if native.semantic_id != annotation_member.product:
-            raise ValueError("predicate native body differs from its bound product")
         retained_formal = []
         for member, body in zip(self.members("formal"), formal, strict=True):
             original = FrozenNativeSource.acquire(

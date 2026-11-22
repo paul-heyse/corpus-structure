@@ -1220,7 +1220,7 @@ class PreparedLearnedPrimaryPort:
             project_product_members,
         )
         from .data_operation_values import semantic_value
-        from .sentence_products import validate_source_annotations
+        from .sentence_products import acquired_source_annotations
         from .source_products import FrozenNativeSource
 
         self._verify()
@@ -1255,15 +1255,18 @@ class PreparedLearnedPrimaryPort:
         source = FrozenNativeSource.acquire(self.profile.prepared, inputs.pop("source"))
         if "annotations" in inputs:
             partitioned = role_values["annotations"].partitioned
-            annotations = validate_source_annotations(
+            if partitioned is None or binding.subject_context is None:
+                raise PortRefusal("learned profile requires its selected annotation row partitions")
+            (member,) = next(role.members for role in binding.roles if role.role == "annotations")
+            inputs["annotations"] = acquired_source_annotations(
                 self.profile.prepared,
                 self.profile.model,
-                inputs["annotations"],
+                partitioned.header,
+                partitioned.packets,
                 source,
-                subject_context=binding.subject_context,
-                partitions=partitioned.packets if partitioned is not None else None,
+                member=member,
+                project=binding.subject_context.project_id,
             )
-            inputs["annotations"] = annotations
         for name in ("formal", "constructions", "contextual"):
             if name in inputs:
                 selected = next(
