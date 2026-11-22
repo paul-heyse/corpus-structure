@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import cached_property
 from hashlib import sha256
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from corpus_structure.caches import declare
 
@@ -26,6 +26,9 @@ from .identity import canonical_bytes
 from .native_source_view import freeze_native, thaw_native
 from .source_products import FrozenNativeSource
 from .types import PreparedRelease
+
+if TYPE_CHECKING:
+    from .sentence_partitions import SentenceBlock
 
 
 @dataclass(frozen=True)
@@ -87,6 +90,7 @@ class RetainedCharacterizationProduct:
     selected_product: str | None
     selected_member: str | None
     partitions: tuple[bytes, ...] | None
+    partition_blocks: tuple[SentenceBlock, ...] | None
     learned_dependencies: tuple[str, ...] | None
     _payload: ClassVar[_CharacterizationPayload]
 
@@ -105,6 +109,7 @@ class RetainedCharacterizationProduct:
         selection=(None, None),
         *,
         learned_dependencies=None,
+        partition_blocks=None,
     ):
         result = object.__new__(cls)
         object.__setattr__(result, "content", payload.content)
@@ -114,6 +119,7 @@ class RetainedCharacterizationProduct:
         object.__setattr__(result, "kind", kind)
         object.__setattr__(result, "subject_context", context)
         object.__setattr__(result, "partitions", partitions)
+        object.__setattr__(result, "partition_blocks", partition_blocks)
         object.__setattr__(result, "selected_product", selection[0])
         object.__setattr__(result, "selected_member", selection[1])
         object.__setattr__(result, "learned_dependencies", learned_dependencies)
@@ -137,6 +143,7 @@ class RetainedCharacterizationProduct:
         ):
             raise ValueError("view input lacks a concrete declared characterization kind")
         collections = ()
+        partition_blocks = None
         if partitions is not None:
             owner = next(row for row in model.kinds if row.semantic_id == kind)
             collections = tuple(
@@ -146,18 +153,34 @@ class RetainedCharacterizationProduct:
                     if spec["unit"] == "partitioned"
                 )
             )
-            packet_groups = defaultdict(list)
-            for packet in map(json.loads, partitions):
-                packet_groups[packet["collection"]].append(packet)
             header = json.loads(content)
-            if packet_groups.keys() - set(collections) or any(
-                partition_header(packet_groups[name]) != header.get(name) for name in collections
-            ):
-                raise ValueError(
-                    "retained characterization differs from selected partition commitments"
-                )
+            if definition.name == "DdoSourceAnnotations":
+                from .sentence_partitions import acquire_sentence_partitions
+
+                if collections != ("rows",):
+                    raise ValueError("source annotations require their declared rows collection")
+                _, partition_blocks = acquire_sentence_partitions(partitions, header.get("rows"))
+            else:
+                packet_groups = defaultdict(list)
+                for packet in map(json.loads, partitions):
+                    packet_groups[packet["collection"]].append(packet)
+                if packet_groups.keys() - set(collections) or any(
+                    partition_header(packet_groups[name]) != header.get(name)
+                    for name in collections
+                ):
+                    raise ValueError(
+                        "retained characterization differs from selected partition commitments"
+                    )
         payload = _characterization_payload(content, prepared, model, definition, collections)
-        return cls._from_payload(payload, prepared, model, kind, subject_context, partitions)
+        return cls._from_payload(
+            payload,
+            prepared,
+            model,
+            kind,
+            subject_context,
+            partitions,
+            partition_blocks=partition_blocks,
+        )
 
     def _require_acquired(self):
         if (
@@ -205,6 +228,7 @@ class RetainedCharacterizationProduct:
             self.partitions,
             selection,
             learned_dependencies=dependencies,
+            partition_blocks=self.partition_blocks,
         )
 
     def _publication_context(self):

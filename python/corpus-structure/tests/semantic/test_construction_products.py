@@ -676,6 +676,10 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(
         row["family"] == "construction.named_rules" and row["outcome"] == "complete"
         for row in json.loads(product.content)["coverage"]
     )
+    from corpus_structure.semantic.data_operation_values import (
+        decode_semantic_value,
+        semantic_value,
+    )
     from corpus_structure.semantic.enriched_document_products import RetainedCharacterizationProduct
 
     retained = RetainedCharacterizationProduct.acquire(
@@ -686,7 +690,27 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(
         partitions=annotations.partitions,
         subject_context=context,
     )
-    for original_annotations in (annotations, retained):
+    assert retained.partition_blocks == annotations.partition_blocks
+    rebound = retained.with_context(context)
+    assert rebound.partition_blocks is retained.partition_blocks
+    altered = json.loads(annotations.partitions[0])
+    rows = decode_semantic_value(altered["body"])
+    rows[0]["ordinal"] += 1
+    altered["body"] = semantic_value(rows)
+    with pytest.raises(ValueError, match="partition digest differs"):
+        RetainedCharacterizationProduct.acquire(
+            construction.prepared,
+            construction.model,
+            retained.kind,
+            annotations.content,
+            partitions=(canonical_bytes(altered), *annotations.partitions[1:]),
+            subject_context=context,
+        )
+    monkeypatch.setattr(
+        "corpus_structure.semantic.sentence_partitions.acquire_sentence_partitions",
+        lambda *_: pytest.fail("construction decoded already admitted annotation blocks"),
+    )
+    for original_annotations in (annotations, rebound):
         restored = validate_construction_product(
             construction.prepared,
             construction.model,

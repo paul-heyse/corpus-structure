@@ -776,20 +776,14 @@ def _annotation_dependency(body):
 
 def _selected_annotation_blocks(selected):
     from .enriched_document_products import RetainedCharacterizationProduct
-    from .sentence_partitions import acquire_sentence_partitions
 
     native = []
     for product in selected:
-        if type(product) is SourceAnnotations:
-            native.append((product.value, product.partition_blocks))
-        elif (
+        if type(product) is SourceAnnotations or (
             type(product) is RetainedCharacterizationProduct
-            and product.prepared.index.by_iri[product.kind].name == "DdoSourceAnnotations"
-            and product.partitions is not None
+            and product.partition_blocks is not None
         ):
-            header = product.value
-            _, blocks = acquire_sentence_partitions(product.partitions, header["rows"])
-            native.append((header, blocks))
+            native.append((product.value, product.partition_blocks))
     return native
 
 
