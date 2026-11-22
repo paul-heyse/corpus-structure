@@ -93,7 +93,7 @@ def test_executor_scalar_handoff_preserves_optional_omission_and_exact_cardinali
     binding = replace(binding, roles=(role,))
     selected = HydratedConsumerSelection(
         BoundConsumerSelection(binding),
-        (("views", tuple(SelectedConsumerValue(member, b'{"value":7}') for _ in range(count))),),
+        (("views", tuple(SelectedConsumerValue.acquire(member, b'{"value":7}', b'["mapping",[["value",["integer","7"]]]]') for _ in range(count))),),
     )
     monkeypatch.setattr(
         "corpus_structure.semantic.data_operation_consumers.hydrate_consumer_selection",

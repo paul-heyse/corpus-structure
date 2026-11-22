@@ -320,8 +320,8 @@ def test_selected_occurrences_share_one_immutable_typed_payload_until_eviction(m
         return decode(value)
 
     monkeypatch.setattr(data_operation_values, "decode_semantic_value", counted)
-    first = SelectedConsumerValue(_member(member="one"), content, meaning)
-    second = SelectedConsumerValue(_member(member="two"), content, meaning)
+    first = SelectedConsumerValue.acquire(_member(member="one"), content, meaning)
+    second = SelectedConsumerValue.acquire(_member(member="two"), content, meaning)
     value = first.value()
     assert second.value() is value and first.member != second.member
     assert semantic_value(value) == semantic_value(body)
@@ -336,7 +336,7 @@ def test_selected_occurrences_share_one_immutable_typed_payload_until_eviction(m
         value["choice"].value["values"][0] = 9
     caches.clear("runtime_bytes")
     assert first.value() is value and second.value() is value
-    replacement = SelectedConsumerValue(_member(member="three"), content, meaning)
+    replacement = SelectedConsumerValue.acquire(_member(member="three"), content, meaning)
     assert replacement.value() is not value
     assert semantic_value(replacement.value()) == semantic_value(body)
     assert len(calls) == 2
@@ -347,7 +347,30 @@ def test_frozen_native_array_keeps_its_strict_json_array_ingress_contract():
 
     from corpus_structure.semantic.data_operation_ports import _validated_python_input
 
-    admitted = SelectedConsumerValue(_member(member="array"), b'{"items":[1,2]}')
+    admitted = SelectedConsumerValue.acquire(
+        _member(member="array"), b'{"items":[1,2]}',
+        b'["mapping",[["items",["sequence",[["integer","1"],["integer","2"]]]]]]',
+    )
     assert _validated_python_input(dict[str, list[int]], admitted.value()) == {"items": [1, 2]}
     with pytest.raises(ValidationError):
         _validated_python_input(dict[str, list[int]], {"items": (1, 2)})
+
+
+def test_selected_native_carrier_rejects_unvalidated_construction_and_reuses_partition_payload():
+    from corpus_structure.semantic.data_operation_partitions import PartitionedInput
+
+    member = _member(member="closed")
+    with pytest.raises(TypeError, match="validating acquisition"):
+        SelectedConsumerValue(member, b"7", b'["integer","7"]')
+    with pytest.raises(ValueError, match="noncanonical"):
+        SelectedConsumerValue.acquire(member, b"1", b'["decimal","01"]')
+    value = SelectedConsumerValue.acquire(member, b"7", b'["integer","7"]')
+    placed = value.with_partition(PartitionedInput(value.content, ()))
+    assert placed is not value and placed._payload is value._payload
+    assert placed.member == value.member and placed.value() == 7
+    with pytest.raises(ValueError, match="another native header"):
+        value.with_partition(PartitionedInput(b"8", ()))
+    forged = object.__new__(SelectedConsumerValue)
+    object.__setattr__(forged, "content", value.content)
+    with pytest.raises(TypeError, match="validating acquisition"):
+        forged.value()

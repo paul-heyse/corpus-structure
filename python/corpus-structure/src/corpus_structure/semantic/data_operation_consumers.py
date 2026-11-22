@@ -8,11 +8,10 @@ It grants no native publication, hydration or effect permission.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, replace
-from functools import cached_property
+from dataclasses import dataclass
 from hashlib import sha256
 from types import MappingProxyType
-from typing import Any
+from typing import Any, ClassVar
 
 from corpus_structure.caches import declare
 
@@ -62,8 +61,9 @@ class BoundConsumerSelection:
 @dataclass(frozen=True)
 class _ConsumerPayload:
     content: bytes
-    meaning: bytes | None
+    meaning: bytes
     value: Any
+    decoder: tuple[str, str, int]
 
 
 def _freeze_consumer(value):
@@ -86,42 +86,74 @@ def _freeze_consumer(value):
     "runtime_bytes",
     key=lambda content, meaning, decoder: (
         sha256(content).digest(),
-        None if meaning is None else sha256(meaning).digest(),
+        sha256(meaning).digest(),
         decoder,
     ),
-    weight=lambda payload: len(payload.content) + len(payload.meaning or b""),
+    weight=lambda payload: len(payload.content) + len(payload.meaning),
 )
 def _consumer_payload(content, meaning, decoder):
     import json
 
     from .data_operation_values import decode_semantic_value
 
-    value = (
-        decode_semantic_value(json.loads(meaning))
-        if meaning is not None
-        else json.loads(content)
-    )
-    return _ConsumerPayload(content, meaning, _freeze_consumer(value))
+    value = decode_semantic_value(json.loads(meaning))
+    return _ConsumerPayload(content, meaning, _freeze_consumer(value), decoder)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class SelectedConsumerValue:
-    """Exact selected occurrence over one bounded immutable admitted payload."""
+    """Exact selected occurrence over one validated immutable tagged body."""
 
     member: BoundRoleMember
     content: bytes
-    meaning: bytes | None = None
+    meaning: bytes
     partitioned: PartitionedInput | None = None
+    _payload: ClassVar[_ConsumerPayload]
 
-    @cached_property
-    def _payload(self):
+    def __init__(self, *args, **kwargs):
+        raise TypeError("selected native values require validating acquisition")
+
+    @classmethod
+    def _from_payload(cls, member, payload, partitioned=None):
+        value = object.__new__(cls)
+        object.__setattr__(value, "member", member)
+        object.__setattr__(value, "content", payload.content)
+        object.__setattr__(value, "meaning", payload.meaning)
+        object.__setattr__(value, "partitioned", partitioned)
+        object.__setattr__(value, "_payload", payload)
+        return value
+
+    @classmethod
+    def acquire(cls, member: BoundRoleMember, content: bytes, meaning: bytes):
+        """Decode tagged meaning, retaining its native owner's presentation bytes."""
         from .value_codec import decimal_digit_limit
 
-        return _consumer_payload(
-            self.content, self.meaning, (MODEL_VERSION, self.member.kind_contract, decimal_digit_limit())
+        if type(content) is not bytes or type(meaning) is not bytes:
+            raise TypeError("selected native values require exact body and tagged-meaning bytes")
+        payload = _consumer_payload(
+            content, meaning, (MODEL_VERSION, member.kind_contract, decimal_digit_limit())
         )
+        return cls._from_payload(member, payload)
+
+    def _require_acquired(self):
+        if (
+            type(self) is not SelectedConsumerValue
+            or "_payload" not in vars(self)
+            or self.content is not self._payload.content
+            or self.meaning is not self._payload.meaning
+            or self.member.kind_contract != self._payload.decoder[1]
+        ):
+            raise TypeError("selected native value lacks its validating acquisition")
+
+    def with_partition(self, partitioned: PartitionedInput):
+        """Retain the same validated payload with its admitted partition placement."""
+        self._require_acquired()
+        if partitioned.header != self.content:
+            raise ValueError("selected partition placement has another native header")
+        return type(self)._from_payload(self.member, self._payload, partitioned)
 
     def value(self):
+        self._require_acquired()
         return self._payload.value
 
 
@@ -303,7 +335,7 @@ def hydrate_consumer_selection(
                 used += (len(content) + len(meaning)) * member.multiplicity
                 if used > max_bytes:
                     raise ValueError("complete consumer inputs exceed owned packet capacity")
-                hydrated[key] = SelectedConsumerValue(member, content, meaning)
+                hydrated[key] = SelectedConsumerValue.acquire(member, content, meaning)
         if found != members.keys():
             raise ValueError("retained consumer member no longer has one admitted body")
     hydrated, used = _hydrate_partitions(connection, model, read, hydrated, used, max_bytes)
@@ -401,7 +433,7 @@ def _hydrate_partitions(connection, model, read, hydrated, used, max_bytes):
         used += sum(map(len, partitioned.packets)) * value.member.multiplicity
         if used > max_bytes:
             raise ValueError("complete consumer inputs exceed owned packet capacity")
-        hydrated[key] = replace(value, partitioned=partitioned)
+        hydrated[key] = value.with_partition(partitioned)
     return hydrated, used
 
 

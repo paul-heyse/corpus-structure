@@ -487,7 +487,7 @@ def test_hydrated_consumer_preserves_typed_decimal_body_independently_of_json_di
         subject_definition="document",
         support_references=(),
     )
-    value = SelectedConsumerValue(
+    value = SelectedConsumerValue.acquire(
         member, b'"0.1234567890123456789"', b'["decimal","0.1234567890123456789"]'
     )
     assert value.value() == Decimal("0.1234567890123456789")
