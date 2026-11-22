@@ -871,18 +871,18 @@ def verify_detached_result(
         return value
 
     def support_reference(reference):
-        if authority_reference(reference) is not None:
-            return
-        if reference["kind"] in {"original-source", "authored"}:
+        kind = reference.get("kind", "computation")
+        if kind in {"original-source", "authored"}:
             original = required(originals, reference["admission_id"], "original support")
             if original["source_reference"] != reference["source_reference"]:
                 raise ValueError("detached original support names another source")
-        else:
+        elif authority_reference(reference) is None:
             episode = required(episodes, reference["derivation_id"], "support episode")
             if reference.get("admission_use_id") is not None:
                 selected = required(uses, reference["admission_use_id"], "support use")
                 if selected["derivation_id"] != episode["id"]:
                     raise ValueError("detached support use names another producing episode")
+        return kind
 
     def binding_endpoints(binding):
         for selected_input in binding.get("inputs", ()):
@@ -996,8 +996,8 @@ def verify_detached_result(
                     outputs=payload["outputs"],
                 )
             for occurrence, reference in enumerate(payload["support"]):
-                support_reference(reference)
-                original = reference["kind"] in {"original-source", "authored"}
+                kind = support_reference(reference)
+                original = kind in {"original-source", "authored"}
                 edge = required(
                     original_supports if original else supports,
                     (episode["id"], occurrence),
@@ -1017,7 +1017,7 @@ def verify_detached_result(
                         )
                     }
                 )
-                if reference["kind"] == "computation":
+                if kind == "computation":
                     expected["support_derivation_id"] = reference["derivation_id"]
                 if any(edge[name] != value for name, value in expected.items()):
                     raise ValueError("detached support edge differs from the sealed completion")
