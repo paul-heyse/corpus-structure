@@ -9,7 +9,10 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 from corpus_structure.schema.model_change import native_model_inputs
 from corpus_structure.semantic import migrations
-from corpus_structure.semantic._data_operation_wire import WirePublishDataDerivationRequest
+from corpus_structure.semantic._data_operation_wire import (
+    WirePublishDataDerivationRequest,
+    WireRecordDataFateRequest,
+)
 from corpus_structure.semantic.canonical_sentences import canonical_sentence_operation_sources
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_demands import DemandPlanner
@@ -245,12 +248,14 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
     def recipient(frontier):
         return next(row for row in frontier["obligations"] if row["operation_id"] == CONSUMER)
 
-    def routes(frontier):
+    def routes(frontier, *, after_wait=False):
         with admin.begin() as connection:
             connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_writer")
             planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
             return planner._fulfilled_use_recipients(
-                frontier, [row["obligation_id"] for row in frontier["obligations"]]
+                frontier,
+                [row["obligation_id"] for row in frontier["obligations"]],
+                after_wait=after_wait,
             )
 
     with admin.begin() as connection:
@@ -345,3 +350,30 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
         row for row in current_reused["obligations"] if row["operation_id"] == extra
     )
     assert extra_obligation.get("request_id") is None
+
+    demand, fence, intent = prepare_publication("subject:waiting", 20)
+    advance("waiter", demand)
+
+    def remember_wait(frontier):
+        with admin.begin() as connection:
+            connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_writer")
+            DataOperationStorage(connection).record_data_fate(
+                cast(
+                    WireRecordDataFateRequest,
+                    {
+                        "obligation_id": recipient(frontier)["obligation_id"],
+                        "fate": "awaiting-inputs",
+                        "selection": {"read_id": frontier["read_id"], "reasons": []},
+                    },
+                )
+            )
+
+    remember_wait(snapshot(demand))
+    assert routes(snapshot(demand), after_wait=True) == ()
+    publish(kernel, fence, intent)
+    seen = snapshot(demand)
+    (pending_reason,) = routes(seen, after_wait=True)
+    assert pending_reason["successor_fate"] == "pending"
+    remember_wait(seen)
+    assert routes(snapshot(demand), after_wait=True) == ()
+    assert routes(snapshot(demand)) == (pending_reason,)

@@ -662,6 +662,8 @@ class DemandPlanner:
         self,
         snapshot: Mapping[str, Any],
         page: list[str],
+        *,
+        after_wait: bool = False,
     ) -> tuple[FulfilledUseRecipient, ...]:
         if not page:
             return ()
@@ -670,6 +672,7 @@ class DemandPlanner:
                 snapshot["project_id"],
                 snapshot["read_id"],
                 bindparam("dispatch_page", page, type_=ARRAY(Text())),
+                after_wait,
                 type_=JSONB(),
             )
         )
@@ -700,6 +703,7 @@ class DemandPlanner:
                     for key, obligation in obligations.items()
                     if obligation["fate"] == "awaiting-inputs"
                 ],
+                after_wait=True,
             )
             if reason["successor_fate"] == "pending"
         )
@@ -1017,6 +1021,7 @@ class DemandPlanner:
                             "fate": "awaiting-population",
                             "selection": {
                                 "inputs_watermark": obligation["inputs_watermark"],
+                                "read_id": snapshot["read_id"],
                                 "reasons": [
                                     asdict(
                                         BindingReason(
@@ -1091,6 +1096,7 @@ class DemandPlanner:
                             "fate": recordable_binding_fate(binding.status),
                             "selection": {
                                 "inputs_watermark": obligation["inputs_watermark"],
+                                "read_id": snapshot["read_id"],
                                 "reasons": [asdict(reason) for reason in binding.reasons],
                             },
                         },

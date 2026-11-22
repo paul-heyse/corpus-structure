@@ -2,6 +2,7 @@
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Column,
     Text,
     and_,
@@ -348,6 +349,7 @@ def fulfilled_use_recipients(model):
     )
     project, read = (core_variable(parameter, field.type) for parameter, field in fields)
     page = core_variable("p_page", ARRAY(Text()))
+    after_wait = core_variable("p_after_wait", Boolean())
     boundary = core_variable("boundary", JSONB())
     demand_id = core_variable("boundary", reads.c.demand_id.type, "demand_id")
     access_universes = core_variable("boundary", reads.c.access_universes.type, "access_universes")
@@ -380,6 +382,32 @@ def fulfilled_use_recipients(model):
     )
     successor_input = occurrence(successor.c.selection["inputs"], "recipient_bound_input")
     successor_support = occurrence(successor.c.selection["support"], "recipient_bound_support")
+    prior = reads.alias("recipient_wait_read")
+    already_observed = (
+        select(1)
+        .select_from(prior)
+        .where(
+            prior.c.id == successor.c.selection["read_id"].astext,
+            prior.c.demand_id == demand_id,
+            func.ops.ddo_read_visible(uses.c.created_at, uses.c.created_xid, prior.table_valued()),
+        )
+        .correlate(successor, uses)
+        .exists()
+    )
+    current_producer = (
+        select(1)
+        .select_from(next_use)
+        .where(
+            next_use.c.obligation_id == producer.c.id,
+            or_(
+                next_use.c.created_at > uses.c.created_at,
+                and_(next_use.c.created_at == uses.c.created_at, next_use.c.id > uses.c.id),
+            ),
+            func.ops.ddo_read_visible(next_use.c.created_at, next_use.c.created_xid, boundary),
+        )
+        .correlate(producer, uses)
+        .exists()
+    )
     linked = (
         select(1)
         .select_from(successor_input.join(successor_support, true()))
@@ -478,6 +506,8 @@ def fulfilled_use_recipients(model):
             func.ops.ddo_demand_active(demands.c.id),
             uses.c.fate == "fulfilled",
             func.ops.ddo_read_visible(uses.c.created_at, uses.c.created_xid, boundary),
+            ~current_producer,
+            func.ops.ddo_node_valid("use", uses.c.id, boundary),
             recipient.c.id == any_(page),
             func.ops.ddo_read_visible(recipient.c.created_at, recipient.c.created_xid, boundary),
             producer.c.operation_id == requests.c.operation_id,
@@ -514,6 +544,7 @@ def fulfilled_use_recipients(model):
             role["accepted_kind_contracts"].contains(
                 func.jsonb_build_array(product.c.kind_contract)
             ),
+            or_(~after_wait, ~already_observed),
         )
         .distinct()
         .subquery("routed_occurrences")
@@ -526,6 +557,7 @@ def fulfilled_use_recipients(model):
         parameters=(
             *(Parameter(parameter, column_type(field)) for parameter, field in fields),
             Parameter("p_page", column_type(Column("page", ARRAY(Text())))),
+            Parameter("p_after_wait", pg_type("boolean")),
         ),
         returns=returned,
         security_definer=True,

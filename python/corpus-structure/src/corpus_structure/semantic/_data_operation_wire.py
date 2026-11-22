@@ -1435,6 +1435,7 @@ class WireResultBinding(TypedDict):
 
 class WireReasonSelection(TypedDict):
     inputs_watermark: NotRequired[str]
+    read_id: NotRequired[WireReadId]
     reasons: NotRequired[list[WireBindingReason]]
 
 

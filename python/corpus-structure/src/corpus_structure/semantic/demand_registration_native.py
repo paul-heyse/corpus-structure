@@ -1125,6 +1125,7 @@ def _cancel_demand(model: MetaData) -> NativeRoutine:
 
 def _record_fate(model: MetaData, recordable_fates: tuple[str, ...]) -> NativeRoutine:
     demands = model.tables["ops.data_demand"]
+    reads = model.tables["ops.data_demand_read"]
     obligations = model.tables["ops.data_obligation"]
     uses = model.tables["ops.demand_use"]
     definitions = model.tables["sem.data_operation_definition"]
@@ -1134,6 +1135,8 @@ def _record_fate(model: MetaData, recordable_fates: tuple[str, ...]) -> NativeRo
         _owned_row("o", obligations, name) for name in ("demand_id", "id", "operation_id")
     )
     fate = payload["fate"].astext
+    observed_read = payload["selection"]["read_id"].astext
+    boundary = core_variable("boundary", JSONB())
     key = _identify("use:", payload)
     roles = _items(
         definitions.c.input_roles.op("||", return_type=JSONB())(definitions.c.output_roles),
@@ -1190,6 +1193,26 @@ def _record_fate(model: MetaData, recordable_fates: tuple[str, ...]) -> NativeRo
                     fate.not_in(recordable_fates),
                     "native ownership required for fulfillment/attachment",
                 ),
+                If(
+                    observed_read.is_not(None),
+                    (
+                        SelectInto(
+                            select(core_relation_row(reads)).where(
+                                reads.c.id == observed_read, reads.c.demand_id == demand
+                            ),
+                            ("boundary",),
+                            strict=True,
+                        ),
+                        Perform(
+                            func.ops.ddo_require_read_current(
+                                boundary,
+                                select(demands.c.project_id)
+                                .where(demands.c.id == demand)
+                                .scalar_subquery(),
+                            )
+                        ),
+                    ),
+                ),
                 Assign("key", key),
                 Sql(
                     insert(uses)
@@ -1220,7 +1243,7 @@ def _record_fate(model: MetaData, recordable_fates: tuple[str, ...]) -> NativeRo
                     )
                 ),
             ),
-            (Local("o", obligations), Local("key", pg_type("text"))),
+            (Local("o", obligations), Local("key", pg_type("text")), Local("boundary", reads)),
         ),
     )
 
