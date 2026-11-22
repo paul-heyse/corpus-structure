@@ -215,13 +215,13 @@ The installed-root scheduler selection passed all 12 cases (`uv run ci test`,
 complete empty, filtered-empty and insufficient populations, optional minimum-zero settlement,
 and both commit orders for the cross-demand recipient.
 
-**Interrupted integrated qualification · 2026-11-22.** A host restart interrupted the
+**Interrupted integrated qualification · 2026-11-22.** A development-environment interruption stopped the
 ordinary campaign (`uv run ci test`, `a8841a637e3e452b8a7ae2cb3c2e41fc`) and the actual
 provider campaign (`uv run ci test --native-host private --providers-only`,
 `eecc4da197e94c058d05cd75a270779b`). `uv run ci results recover` refused both because the
 supervisor settlement records had not been written. Their partial logs identify contextual
 manifest and dossier compiler defects and assertions targeting superseded carrier shapes.
-Fresh managed runs qualify the repaired source. Maintenance reinspection after restart found
+Fresh managed runs qualify the repaired source. Maintenance reinspection after the interruption found
 the original development database at native revision `semantic_ddo_pe_n29`.
 
 **Restart checkpoint · Tested by selected scope · 2026-11-22.** The contextual manifest
@@ -274,7 +274,21 @@ passed. `uv run ci db init` installed the sole native root on
 verified the exact frozen descriptor, reader/writer/evaluator grants and five empty project,
 document, original, demand and product relations. The integrated type check passed
 (`uv run ci check --only types`, `a980311531fc4f1686b0abe829daa1c7`). Broader functional,
-provider and repository qualification remains open.
+provider and repository qualification follows.
+
+**Integrated qualification checkpoint · Tested by selected scope · 2026-11-22.**
+`just model check` and `uv run ci check` passed (`73e3b6a7631d4da98591e4b7c3b48670`).
+Both native dossier identities passed on the integrated root
+(`uv run ci test --native-host private`, `30639a627c184863a4cdad0dd38ec05d`).
+They exercised populated applicability, selected membership and verified detached replay.
+The integrated ordinary campaign and provider campaign ran concurrently
+(`ab9513b363b24a98b47a874bdfb53416`, `2f85ad9fefa54e029cfc8d9f10e93a10`).
+The provider lane lost two workers to their test watchdogs. The host ran out of memory while
+both campaigns were active. The managed supervisors drained on request and retained incomplete
+ordinary and provider results. The shared fault lane then passed all eight cases.
+The assessment fixtures now pass all 33 selected cases with the carried construction inputs
+(`b0de9837d0794da8ad1f6f7a402a7f83`). Reconcile unresolved ordinary and provider identities
+using smaller cohorts. The development database still awaits integrated acceptance.
 
 Keep one authentic cross-boundary producer, publication and export journey. Reader-only checks
 can consume its authenticated artifacts while their producer, prepared release, wire and authority

@@ -306,6 +306,8 @@ def named_witness_case() -> dict[str, Any]:
         packets=[json.loads(packet) for packet in native.partitions],
         input_product=native.semantic_id,
         use=True,
+        construction_formal_parents={product.semantic_id: product.construction_formal_parents},
+        learned_dependencies={product.semantic_id: product.dependency_products},
     )
 
 
@@ -374,7 +376,11 @@ def _named_witness(case):
                 if all(row.get(name) == value for name, value in fields.items())
             )
 
-    inventories = SelectedCharacterizationInventories(records)
+    inventories = SelectedCharacterizationInventories(
+        records,
+        construction_formal_parents=case["construction_formal_parents"],
+        learned_dependencies=case["learned_dependencies"],
+    )
     cut = SimpleNamespace(record={"project_id": "graph-test", "demand_id": "assessment"})
     projection = LayerProjection(
         lambda pin: inventories[DataProductReference(pin["product_id"])].payload,
