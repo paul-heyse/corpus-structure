@@ -42,7 +42,11 @@ def structural_report(scope, selected):
         raise ValueError("selected output has no current structural report contract")
     from .data_product_reference import read_semantic_reference
     from .live_reference_resolution import require_selected_output_reference
-    from .structural_products import DeclaredClauseReport, DeclaredNamedDefinitionComponentsReport
+    from .structural_products import (
+        DeclaredClauseReport,
+        DeclaredDefinitionApplicabilityReport,
+        DeclaredNamedDefinitionComponentsReport,
+    )
 
     condition = root.structural.condition_qualification
     if condition is not None:
@@ -81,6 +85,25 @@ def structural_report(scope, selected):
                         read_semantic_reference(value),
                         path=prefix + field,
                     )
+    if isinstance(root.structural, DeclaredDefinitionApplicabilityReport):
+        applicability = root.structural
+        relationship = require_selected_output_reference(
+            scope,
+            selected,
+            read_semantic_reference(applicability.relationship_input),
+            path="/relationship_input",
+            metadata_only=True,
+        )
+        for reading in applicability.definition.readings:
+            link = reading.link_ref
+            if (link.product_id, link.kind_contract, link.member_id) != (
+                relationship.product_id,
+                relationship.kind_contract,
+                relationship.member_id,
+            ):
+                raise ValueError(
+                    "selected applicability link differs from its original relationship input"
+                )
     clause = root.structural.clause_classification
     if clause is not None:
         clause_report = cast(DeclaredClauseReport, root.structural)

@@ -141,6 +141,14 @@ class DefinitionApplicabilityOperation:
                 {"operator": "scan", "roles": ["relationship"]},
             ],
         },
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/relationship_input",
+                "input_role": "relationship",
+                "variant": "product",
+            },
+        ],
         "output_witnesses": [
             {
                 "output_role": "result",
@@ -302,7 +310,7 @@ class DefinitionApplicabilityOperation:
             },
             {
                 "output_role": "result",
-                "records": "/relationship_input",
+                "records": "/definition/readings/*/link_ref",
                 "input_role": "relationship",
                 "comparisons": [
                     {
@@ -315,13 +323,13 @@ class DefinitionApplicabilityOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": "reference",
+                        "output_field": "member_id",
                         "input": {
                             "role": "relationship",
                             "projection": "selected-input",
-                            "field": "reference",
+                            "field": "member",
                         },
-                        "encoding": "json",
+                        "encoding": "value",
                     },
                     {
                         "output_field": "kind_contract",

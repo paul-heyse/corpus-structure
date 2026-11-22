@@ -226,7 +226,7 @@ def applicability():
                 inputs=value,
                 sources_input=tuple(source_pin(source) for source in value.sources),
                 components_input=component_pin,
-                relationship_input=relationship_pin,
+                relationship_input={"variant": "product", "role": "relationship"},
                 definition=DeclaredDefinitionProduct(
                     usage_id="usage",
                     candidate_list_id="literal:fixed-targets",

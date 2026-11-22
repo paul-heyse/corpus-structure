@@ -1,6 +1,7 @@
 """Acquire one reference parent through an exact live selection before opening its body."""
 
 from dataclasses import replace
+from typing import Literal, overload
 
 from sqlalchemy import Text, column, func, select
 from sqlalchemy.dialects.postgresql import JSONB
@@ -162,6 +163,18 @@ class LiveReferenceAccess:
         return AcquiredReferencePartition(
             packet["partition_digest"], packet["body"], tuple(declarations[0]["address"])
         )
+
+
+@overload
+def require_selected_output_reference(
+    scope, selected, reference, *, path, metadata_only: Literal[True]
+) -> ProducingReferenceInput: ...
+
+
+@overload
+def require_selected_output_reference(
+    scope, selected, reference, *, path, metadata_only: bool = False
+) -> object: ...
 
 
 def require_selected_output_reference(scope, selected, reference, *, path, metadata_only=False):

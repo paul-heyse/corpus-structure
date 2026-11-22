@@ -991,13 +991,13 @@ class DeclaredDefinitionApplicabilityReport(DeclaredStructuralProductReport):
     definition_components: None = None
     dossier: None = None
     model_config = ConfigDict(json_schema_extra={"x-ddo-definition-variant": "applicability"})
-    """Current usage result with independently bound exact component/relationship pins."""
+    """Current usage result over exact component and relationship inputs."""
 
     kind: Literal["definition_applicability"] = "definition_applicability"
     definition: DeclaredDefinitionProduct
     sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
     components_input: DeclaredStructuralInputPin
-    relationship_input: DeclaredStructuralInputPin
+    relationship_input: SemanticWholeReference
 
 
 class DeclaredArtifactReport(DeclaredStructuralProductReport):

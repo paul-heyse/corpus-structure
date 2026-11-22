@@ -31,6 +31,19 @@ def test_current_definition_workflow_has_actual_source_and_consumer_contracts(pr
         "components",
         "relationship",
     }
+    (target,) = applicability.reference_targets
+    assert (target.output_role, target.path, target.input_role, target.variant) == (
+        "result",
+        "/relationship_input",
+        "relationship",
+        "product",
+    )
+    (link_witness,) = (
+        witness
+        for witness in applicability.output_witnesses
+        if witness.input_role == "relationship"
+    )
+    assert link_witness.records == "/definition/readings/*/link_ref"
     for operation in (
         "retrieve.contextual_query/declared",
         "retrieve.contextual_query/selected-context",
@@ -55,6 +68,79 @@ def test_current_definition_workflow_has_actual_source_and_consumer_contracts(pr
     ):
         assert model.operation(operation).subject == subject
         assert model.subject_definition(subject).scope == "project"
+
+
+def test_selected_applicability_resolves_original_whole_relationship(prepared_workflow):
+    from dataclasses import asdict
+    from types import SimpleNamespace
+
+    from pydantic import ValidationError
+
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.selected_structural_projection import structural_report
+    from corpus_structure.semantic.structural_products import DeclaredDefinitionApplicabilityReport
+    from semantic.dossier_semantic_states_support import applicability
+
+    operation = "structure.definition_applicability/declared"
+    nominal = "urn:corpus:structural:DeclaredDefinitionApplicabilityReport"
+    model = bound_data_operation_model(prepared_workflow)
+    contract = next(
+        item.key for item in model.identities if item.owner == nominal and item.domain == "kind"
+    )
+    (target,) = model.operation(operation).reference_targets
+    _, reports = applicability()
+    report = reports[0]
+    body = report.model_dump(mode="json", exclude_none=True)
+    link = report.definition.readings[0].link_ref
+    original = {
+        "role": "relationship",
+        "product_id": link.product_id,
+        "position": 0,
+        "multiplicity": 1,
+    }
+    use = {"fate": "fulfilled", "derivation_id": "episode", "selection": {"inputs": [original]}}
+    maps = {
+        "ops.demand_use": {"use": use},
+        "ops.data_derivation": {"episode": {"release_id": "release"}},
+        "sem.data_operation_definition": {
+            ("release", operation): {"support_contract": {"reference_targets": [asdict(target)]}},
+        },
+        # Metadata-only authentication should never read the relationship bodies.
+        "kb.data_product": {
+            link.product_id: {"project_id": link.project_id, "kind_contract": link.kind_contract},
+        },
+        "kb.data_product_member": {},
+        "kb.data_product_partition": {},
+        "sem.data_kind_contract": {link.kind_contract: {"kind": target.input_kind}},
+    }
+
+    def original_edges(relation, **fields):
+        assert relation == "ops.data_derivation_input"
+        assert fields == {"derivation_id": "episode", "role": "relationship"}
+        return (original,)
+
+    scope = SimpleNamespace(
+        model=model,
+        cut=SimpleNamespace(record={"project_id": link.project_id}),
+        index=SimpleNamespace(mapping=lambda relation, _: maps[relation], rows_for=original_edges),
+    )
+    selected = SimpleNamespace(
+        operation_id=operation,
+        derivation_id="episode",
+        use_id="use",
+        output={"role": "result"},
+        nominal=nominal,
+        reference=SimpleNamespace(member_id=None, kind_contract=contract),
+        body=body,
+    )
+    assert structural_report(scope, selected) == report
+    use["selection"]["inputs"] = [{**original, "product_id": "equal-content-replacement"}]
+    with pytest.raises(ValueError, match="unavailable in the exact selected use"):
+        structural_report(scope, selected)
+    with pytest.raises(ValidationError, match="relationship_input"):
+        DeclaredDefinitionApplicabilityReport.model_validate(
+            {**body, "relationship_input": link.model_dump(mode="json")}
+        )
 
 
 def unadmitted_frame(text):

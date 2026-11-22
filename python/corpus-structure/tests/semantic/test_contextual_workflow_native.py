@@ -405,6 +405,22 @@ def test_current_component_applicability_preserves_independent_transfer_unknowns
     assert reading["outcome"] == expected
     assert reading["component_ref"]["product_id"] == case.components.row["product_id"]
     assert reading["link_ref"]["product_id"] == case.relationship.row["product_id"]
+    assert report.body["relationship_input"] == {"variant": "product", "role": "relationship"}
+    from corpus_structure.serve.structural_products import (
+        SelectedStructuralRequest,
+        inspect_selected_structures,
+    )
+
+    with case.kernel.purpose("read").begin() as connection:
+        page = inspect_selected_structures(
+            connection,
+            SelectedStructuralRequest(
+                demand_id=retained["demand_id"], project_id=PROJECT, roots=(report.root,)
+            ),
+        )
+    (selected_report,) = page["reports"]
+    assert selected_report["availability"] == "observed"
+    assert selected_report["report"]["relationship_input"] == report.body["relationship_input"]
     states = {value["dimension"]: value["state"] for value in reading["premises"]}
     assert states["sense"] == states["scope"] == states["version"] == "compatible"
     assert (

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .data_operation_model import ResolvedRoleBinding, SubjectContext
+from .data_product_reference import SemanticReference
 from .declared_structural_references import DeclaredComponentRef, DeclaredRelationshipRef
 from .identity import canonical_bytes
 from .structural_products import ApplicabilityPremise, DeclaredLocatedDefinitionComponent
@@ -463,7 +464,7 @@ def execute_definition_applicability(
         ),
         sources_input=(exact.reference("source"),),
         components_input=exact.reference("components"),
-        relationship_input=exact.reference("relationship"),
+        relationship_input=SemanticReference.whole("relationship").whole_value(),
     )
     profile.check_active()
     return result.model_dump(mode="json", exclude_none=True)
