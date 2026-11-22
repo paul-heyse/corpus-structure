@@ -11,6 +11,8 @@ types:
     typeof: string
     pattern: '\S'
 enums:
+  InputReadScope:
+    permissible_values: {whole: {}, partition: {}, halo: {}}
   DataRuleScope:
     permissible_values:
       partition:
@@ -121,11 +123,29 @@ classes:
       support: {range: OperationInputSupport, inlined: true}
       producer_requirement: {range: OperationProducerRequirement, inlined: true}
       required_rules: {range: SemanticText, multivalued: true}
+      read_projection: {range: OperationReadProjection, inlined: true}
       parameter: {range: SemanticText}
       alternatives: {range: SemanticText, multivalued: true}
       selected: {range: SemanticText}
       subject_field: {range: SemanticText}
       subject_target: {range: SemanticText}
+  OperationReadProjection:
+    attributes:
+      scope: {range: InputReadScope, required: true}
+      header: {range: SemanticText, multivalued: true}
+      collections: {range: OperationProjectedCollection, multivalued: true, inlined_as_list: true}
+      halo: {range: OperationPartitionHalo, inlined: true}
+  OperationProjectedCollection:
+    attributes:
+      name: {range: SemanticText, required: true}
+      groups: {range: SemanticText, multivalued: true}
+      membership: {range: boolean}
+      order: {range: boolean}
+      placement: {range: boolean}
+  OperationPartitionHalo:
+    attributes:
+      before: {range: integer, minimum_value: 0, required: true}
+      after: {range: integer, minimum_value: 0, required: true}
   OperationProducerRequirement:
     attributes:
       output_role: {range: SemanticText}

@@ -123,6 +123,33 @@ class ProducerRequirement:
 
 
 @dataclass(frozen=True)
+class ProjectedCollection:
+    name: str
+    groups: tuple[str, ...]
+    membership: bool
+    order: bool
+    placement: bool
+
+
+@dataclass(frozen=True)
+class PartitionHalo:
+    before: int
+    after: int
+
+
+@dataclass(frozen=True)
+class InputReadProjection:
+    """Versioned declared reads. Native enforcement is a separate capability."""
+
+    version: Literal[1]
+    scope: Literal["whole", "partition", "halo"]
+    header: tuple[str, ...]
+    collections: tuple[ProjectedCollection, ...]
+    halo: PartitionHalo | None
+    fingerprint: str
+
+
+@dataclass(frozen=True)
 class OperationRole:
     name: str
     kind: str
@@ -139,6 +166,7 @@ class OperationRole:
     subject_target: Literal["subject", "original-source", "source-set"] = "subject"
     producer_requirement: ProducerRequirement | None = None
     required_rules: tuple[str, ...] = ()
+    read_projection: InputReadProjection | None = None
 
 
 def operation_role_record(role: OperationRole, *, result_only: bool = False) -> dict:
@@ -148,6 +176,9 @@ def operation_role_record(role: OperationRole, *, result_only: bool = False) -> 
         record.pop("producer_requirement")
     if result_only or not role.required_rules:
         record.pop("required_rules")
+    if result_only or role.read_projection is None:
+        # Retain the existing recipe determinant until execution enforces this projection.
+        record.pop("read_projection")
     if role.subject_target == "subject":
         record.pop("subject_target")
     if role.subject_field is None:
@@ -1113,6 +1144,8 @@ class EffectiveDataOperationModel:
             for role in operation["roles"]:
                 if not role["required_rules"]:
                     role.pop("required_rules")
+                if role["read_projection"] is None:
+                    role.pop("read_projection")
                 if role["producer_requirement"] is None:
                     role.pop("producer_requirement")
                 if role["subject_target"] == "subject":
@@ -1391,6 +1424,7 @@ def _effective_model_structure():
                     "subject_target": "subject",
                     "producer_requirement": None,
                     "required_rules": [],
+                    "read_projection": None,
                     **value,
                 }
             if cls is EffectiveDataOperationModel and isinstance(value, dict):

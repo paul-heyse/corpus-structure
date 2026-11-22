@@ -1141,6 +1141,7 @@ def compile_data_operations(
     operations = []
     subject_definitions = {}
     bindings = []
+    projection_kind_graph = None
     for raw, surfaces, origins, implementation_root in authored:
         raw = _mapping(raw, "operation")
         semantic_id = _text(raw.get("id"), "operation/id")
@@ -1317,6 +1318,45 @@ def compile_data_operations(
                         + required_rule,
                     )
                 edges.append(SemanticEdge(semantic_id, required_rule, "require-rule", name))
+            read_projection = None
+            if "read_projection" in record:
+                location = semantic_id + "/" + name + "/read_projection"
+                if direction != "input":
+                    _fail(location, "read projections belong to input roles")
+                from .data_operation_identity import SemanticGraph
+                from .data_operation_read_projections import compile_read_projection
+
+                if projection_kind_graph is None:
+                    projection_kind_graph = SemanticGraph(
+                        {
+                            "nodes": [
+                                SemanticNode(owner, "kind:" + fact.category, fact.facts).record()
+                                for owner, fact in kinds.items()
+                            ],
+                            "edges": [
+                                asdict(edge)
+                                for edge in edges
+                                if edge.source in kinds and edge.target in kinds
+                            ],
+                        }
+                    )
+                try:
+                    read_projection, observations = compile_read_projection(
+                        record["read_projection"], kind, kinds, projection_kind_graph
+                    )
+                except ValueError as error:
+                    _fail(location, str(error))
+                projection_id = semantic_id + "/role/" + name + "/read-projection"
+                if projection_id in kinds or projection_id in nodes:
+                    _fail(location, "read projection identity collides with another owned fact")
+                nodes[projection_id] = SemanticNode(
+                    projection_id, "input-read-projection", canonical_bytes(asdict(read_projection))
+                )
+                edges.append(SemanticEdge(semantic_id, projection_id, "read-projection", name))
+                edges.extend(
+                    SemanticEdge(projection_id, observed, "projection-read", occurrence)
+                    for occurrence, observed in observations
+                )
             roles.append(
                 OperationRole(
                     name,
@@ -1334,6 +1374,7 @@ def compile_data_operations(
                     cast(Any, subject_target),
                     producer_requirement,
                     required_rules,
+                    read_projection,
                 )
             )
         if semantic_id in kinds or semantic_id in nodes:
