@@ -9,7 +9,10 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.characterization import validate_inventory_graph
+from corpus_structure.semantic.characterization import (
+    validate_inventory_role_support,
+    validate_inventory_topology,
+)
 from corpus_structure.semantic.characterization_evidence import (
     validate_formal_normalization,
     validate_formal_positions,
@@ -28,6 +31,7 @@ from corpus_structure.semantic.formal_products import (
     prepare_formal_evidence,
     validate_formal_product,
 )
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.source_products import source_subject
 from semantic.characterization_evidence_support import EVIDENCE_MUTATIONS
 from semantic.characterization_native_support import (
@@ -59,7 +63,7 @@ def profiles(current_characterization_recipe):
         "scientific-kernel-controls",
         source_subject(value["source"]),
         value["source"]["document"],
-        json_bytes({"source": value["source"], "selectors": value["selectors"]}),
+        json_bytes(thaw_native({"source": value["source"], "selectors": value["selectors"]})),
         subject_definition="original-source-view",
     )
     primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
@@ -78,7 +82,7 @@ def positioned_formal(profiles):
         "positioned-formal-controls",
         source_subject(value["source"]),
         value["source"]["document"],
-        json_bytes({"source": value["source"], "selectors": value["selectors"]}),
+        json_bytes(thaw_native({"source": value["source"], "selectors": value["selectors"]})),
         subject_definition="original-source-view",
     )
     return (
@@ -611,9 +615,7 @@ def test_current_shared_graph_kernel_keeps_factorized_diamond_and_refuses_cycle(
         indexes = _indexes(value)
         nodes = {key: row for index in indexes.values() for key, row in index.items()}
         nodes["reading"] = value["choices"][0]["members"][0]
-        validate_inventory_graph(
-            value, indexes, nodes, {"reading": value["choices"][0]}, lambda _: None
-        )
+        validate_inventory_topology(value, indexes, nodes, {"reading": value["choices"][0]})
 
     check(body)
     assert len(body["terms"]) == 3 * stages + 3
@@ -661,7 +663,8 @@ def test_current_shared_witness_kernel_preserves_source_and_choice_conservation(
                 .get(row.get("rule_id"), {})
             )
 
-        validate_inventory_graph(value, indexes, nodes, {"reading": value["choices"][0]}, basis)
+        validate_inventory_topology(value, indexes, nodes, {"reading": value["choices"][0]})
+        validate_inventory_role_support(value["roles"], nodes, basis)
 
     check(body)
     invalid = deepcopy(body)

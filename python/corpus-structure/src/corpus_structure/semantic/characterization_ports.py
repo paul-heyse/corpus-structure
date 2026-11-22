@@ -768,6 +768,9 @@ class PreparedCharacterizationPort(ABC):
                 )
                 product._publication_context()
             else:
+                member = self._member(binding, "constructions", index)
+                if context is None or member is None:
+                    raise PortRefusal("selected construction needs its acquired member and context")
                 product = acquired_construction_product(
                     self.prepared,
                     self.model,
@@ -775,7 +778,7 @@ class PreparedCharacterizationPort(ABC):
                     source,
                     (*formal, *supporting),
                     subject_context=context,
-                    member=self._member(binding, "constructions", index),
+                    member=member,
                 )
             constructions.append(product)
         return _ContextualInputs(source, formal, tuple(constructions), supporting)
