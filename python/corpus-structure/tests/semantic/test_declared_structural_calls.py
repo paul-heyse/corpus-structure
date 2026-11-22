@@ -112,12 +112,21 @@ def test_selected_condition_attachment_keeps_original_binding_separate_from_curr
     maps = {
         "ops.data_derivation": {"episode": {"release_id": "producer-release"}},
         "sem.data_operation_definition": {
-            ("producer-release", operation): {"support_contract": {"reference_targets": [target]}},
+            ("producer-release", operation): {
+                "support_contract": {"reference_targets": [target]},
+                "input_roles": [
+                    {
+                        "name": "report",
+                        "kind": target["input_kind"],
+                        "accepted_kind_contracts": ["kind:report"],
+                    }
+                ],
+            },
         },
         "kb.data_product": {"original": {"project_id": "project", "kind_contract": "kind:report"}},
         "kb.data_product_member": {("original", "qualifier"): {"body": semantic_value(body)}},
         "kb.data_product_partition": {},
-        "sem.data_kind_contract": {"kind:report": {"kind": target["input_kind"]}},
+        "sem.data_kind_contract": {"kind:report": {"kind": "concrete-predicate-inspection"}},
     }
     original = {"role": "report", "product_id": "original", "position": 0, "multiplicity": 1}
     use = {
@@ -194,7 +203,16 @@ def test_selected_reference_resolves_only_one_exact_declared_occurrence():
         },
         "ops.data_derivation": {"episode": {"release_id": "release"}},
         "sem.data_operation_definition": {
-            ("release", "report"): {"support_contract": {"reference_targets": [target]}},
+            ("release", "report"): {
+                "support_contract": {"reference_targets": [target]},
+                "input_roles": [
+                    {
+                        "name": "reports",
+                        "kind": target["input_kind"],
+                        "accepted_kind_contracts": ["member-kind"],
+                    }
+                ],
+            },
         },
         "kb.data_product": products,
         "kb.data_product_member": members,
@@ -268,7 +286,7 @@ def test_native_condition_target_requires_the_actual_bound_report_member(product
     )
     conn.exec_driver_sql(
         "CREATE TABLE sem.data_operation_definition "
-        "(release_id text, operation_id text, support_contract jsonb)"
+        "(release_id text, operation_id text, support_contract jsonb, input_roles jsonb)"
     )
     programs = (
         *completion_settlement_native_programs(metadata),
@@ -286,9 +304,19 @@ def test_native_condition_target_requires_the_actual_bound_report_member(product
         )
     conn.execute(
         text(
-            "INSERT INTO sem.data_operation_definition VALUES ('release', :operation, :contract)"
-        ).bindparams(bindparam("contract", type_=JSONB())),
-        {"operation": operation.semantic_id, "contract": {"reference_targets": [asdict(target)]}},
+            "INSERT INTO sem.data_operation_definition VALUES ('release', :operation, :contract, :roles)"
+        ).bindparams(bindparam("contract", type_=JSONB()), bindparam("roles", type_=JSONB())),
+        {
+            "operation": operation.semantic_id,
+            "contract": {"reference_targets": [asdict(target)]},
+            "roles": [
+                {
+                    "name": "report",
+                    "kind": target.input_kind,
+                    "accepted_kind_contracts": [product["kind_contract"]],
+                }
+            ],
+        },
     )
     request = {
         "project_id": context["project_id"],

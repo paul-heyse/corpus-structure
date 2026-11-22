@@ -45,6 +45,7 @@ def structural_report(scope, selected):
     from .structural_products import (
         DeclaredClauseReport,
         DeclaredDefinitionApplicabilityReport,
+        DeclaredDossierReport,
         DeclaredNamedDefinitionComponentsReport,
     )
 
@@ -104,6 +105,22 @@ def structural_report(scope, selected):
                 raise ValueError(
                     "selected applicability link differs from its original relationship input"
                 )
+    if isinstance(root.structural, DeclaredDossierReport):
+        dossier = root.structural
+        components = require_selected_output_reference(
+            scope,
+            selected,
+            read_semantic_reference(dossier.components_input),
+            path="/components_input",
+            metadata_only=True,
+        )
+        root_component = dossier.dossier.root_component
+        if (root_component.product_id, root_component.kind_contract, root_component.member_id) != (
+            components.product_id,
+            components.kind_contract,
+            components.member_id,
+        ):
+            raise ValueError("selected dossier root differs from its original components input")
     clause = root.structural.clause_classification
     if clause is not None:
         clause_report = cast(DeclaredClauseReport, root.structural)

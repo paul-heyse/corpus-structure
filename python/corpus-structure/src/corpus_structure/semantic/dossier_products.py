@@ -233,6 +233,7 @@ class PreparedDossierInputs:
 
         from .contextual_operations import contextual_relationship_binding
         from .contributions import contribution_identity
+        from .data_product_reference import SemanticReference
         from .declared_candidate_products import candidate_member_values
         from .declared_record_sources import DeclaredNativeFrameSource
         from .declared_structural_calls import _passage
@@ -516,12 +517,11 @@ class PreparedDossierInputs:
                 for member in self.members(role)
             )
 
-        (component_pin,) = pins("components")
         result = DeclaredDossierReport.model_validate(
             {
                 **value.model_dump(mode="python"),
                 "sources_input": pins("sources"),
-                "components_input": component_pin,
+                "components_input": SemanticReference.whole("components").whole_value(),
                 "definitions_input": pins("definitions"),
                 "comparisons_input": pins("comparisons"),
                 "candidates_input": pins("candidates"),

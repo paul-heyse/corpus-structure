@@ -992,6 +992,7 @@ def verify_detached_result(
                     derivation_id=episode["id"],
                     project_id=request["project_id"],
                     targets=targets,
+                    input_roles=definition["input_roles"],
                     outputs=payload["outputs"],
                 )
             for occurrence, reference in enumerate(payload["support"]):

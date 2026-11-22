@@ -238,6 +238,14 @@ class DossierOperation:
                 {"operator": "collection", "roles": ["admissions"], "collection": "set"},
             ],
         },
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/components_input",
+                "input_role": "components",
+                "variant": "product",
+            },
+        ],
         "output_witnesses": [
             {
                 "output_role": "result",
@@ -320,7 +328,7 @@ class DossierOperation:
             },
             {
                 "output_role": "result",
-                "records": "/components_input",
+                "records": "/dossier/root_component",
                 "input_role": "components",
                 "comparisons": [
                     {
@@ -333,13 +341,13 @@ class DossierOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": "reference",
+                        "output_field": "member_id",
                         "input": {
                             "role": "components",
                             "projection": "selected-input",
-                            "field": "reference",
+                            "field": "member",
                         },
-                        "encoding": "json",
+                        "encoding": "value",
                     },
                     {
                         "output_field": "kind_contract",

@@ -179,7 +179,11 @@ def require_selected_output_reference(
 
 def require_selected_output_reference(scope, selected, reference, *, path, metadata_only=False):
     """Resolve a declared reference or authenticate its exact whole-product binding."""
-    from .detached_reference_resolution import IndexedReferenceAccess, reference_input_occurrence
+    from .detached_reference_resolution import (
+        IndexedReferenceAccess,
+        reference_input_occurrence,
+        reference_role_contracts,
+    )
 
     def row_map(relation, *fields):
         return scope.index.mapping(relation, fields)
@@ -204,6 +208,7 @@ def require_selected_output_reference(scope, selected, reference, *, path, metad
     if len(targets) != 1:
         raise ValueError("selected reference requires its one declared output target")
     (target,) = targets
+    contracts = reference_role_contracts(definition["input_roles"], target)
     role = target["input_role"]
     current_support = {
         (pin["position"], pin["product_id"], pin.get("member_id"), pin["multiplicity"])
@@ -239,7 +244,7 @@ def require_selected_output_reference(scope, selected, reference, *, path, metad
         if bound_packet is None:
             continue
         kind_contract = bound_packet["kind_contract"]
-        if access.kinds[kind_contract]["kind"] != target["input_kind"]:
+        if kind_contract not in access.kinds or kind_contract not in contracts:
             raise ValueError("selected reference differs from its declared producing input kind")
         binding = ProducingReferenceInput(
             role, product_id, kind_contract, member_id, multiplicity=original["multiplicity"]

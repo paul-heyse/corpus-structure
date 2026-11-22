@@ -387,6 +387,16 @@ def test_actual_dossier_contract_binds_ordinary_admission_and_exact_output_pins(
         sources,
     )
     operation = model.operation("structure.dossier/declared")
+    (target,) = operation.reference_targets
+    assert (target.path, target.input_role, target.variant) == (
+        "/components_input",
+        "components",
+        "product",
+    )
+    (components,) = (
+        witness for witness in operation.output_witnesses if witness.input_role == "components"
+    )
+    assert components.records == "/dossier/root_component"
     admissions = next(role for role in operation.roles if role.name == "admissions")
     assert admissions.direction == "input" and admissions.minimum == 0
     assert admissions.support is not None and admissions.support.identity_requirements == (

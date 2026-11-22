@@ -61,6 +61,18 @@ def reference_native_programs(model):
         func.coalesce(definitions.c.support_contract["reference_targets"], empty),
         "reference_targets",
     )
+    input_roles = _rows(definitions.c.input_roles, "reference_input_roles")
+    admitted_contracts = (
+        select(input_roles.c.value["accepted_kind_contracts"])
+        .select_from(input_roles)
+        .where(
+            input_roles.c.value["name"].astext == targets.c.value["input_role"].astext,
+            input_roles.c.value["kind"].astext == targets.c.value["input_kind"].astext,
+        )
+        .correlate(definitions, targets)
+        .scalar_subquery()
+    )
+    contracts = core_variable("target_contracts", JSONB())
     outputs = _rows(completion["outputs"], "reference_outputs")
     bindings = _rows(request_field("binding")["inputs"], "reference_inputs")
     bound = bindings.c.value
@@ -108,7 +120,7 @@ def reference_native_programs(model):
         .where(
             bound["role"].astext == role,
             products.c.project_id == request_field("project_id"),
-            kinds.c.kind == target["input_kind"].astext,
+            contracts.bool_op("?")(kinds.c.kind_contract),
             or_(bound["member_id"].astext.is_(None), members.c.member_id.is_not(None)),
             case(
                 (occurrence.is_(None), literal(True)),
@@ -323,8 +335,8 @@ def reference_native_programs(model):
                         )
                     ),
                     ForQuery(
-                        ("target",),
-                        select(targets.c.value)
+                        ("target", "target_contracts"),
+                        select(targets.c.value, admitted_contracts)
                         .select_from(definitions.join(targets, literal(True)))
                         .where(
                             definitions.c.release_id == request_field("release_id"),
@@ -347,6 +359,7 @@ def reference_native_programs(model):
                         Local(name, pg_type("jsonb"))
                         for name in (
                             "target",
+                            "target_contracts",
                             "output",
                             "ref",
                             "partition_body",

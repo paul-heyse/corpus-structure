@@ -137,7 +137,7 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
     )
     conn.exec_driver_sql(
         "CREATE TABLE sem.data_operation_definition "
-        "(release_id text, operation_id text, support_contract jsonb)"
+        "(release_id text, operation_id text, support_contract jsonb, input_roles jsonb)"
     )
     native = (
         *completion_settlement_native_programs(metadata),
@@ -166,11 +166,18 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
             }
         ]
     }
+
+    def roles(kind, kind_contract):
+        return [{"name": "inventory", "kind": kind, "accepted_kind_contracts": [kind_contract]}]
+
     conn.execute(
         text(
-            "INSERT INTO sem.data_operation_definition VALUES ('release', 'derive', :contract)"
-        ).bindparams(bindparam("contract", type_=JSONB())),
-        {"contract": contract},
+            "INSERT INTO sem.data_operation_definition VALUES ('release', 'derive', :contract, :roles)"
+        ).bindparams(bindparam("contract", type_=JSONB()), bindparam("roles", type_=JSONB())),
+        {
+            "contract": contract,
+            "roles": roles("urn:partitioned", product["kind_contract"]),
+        },
     )
     request = {
         "project_id": context["project_id"],
@@ -222,13 +229,16 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
         ),
     ):
         (target,) = contract["reference_targets"]
-        target = {**target, "input_kind": "urn:container", "variant": variant}
+        target = {**target, "input_kind": "urn:admitted-container-family", "variant": variant}
         target.pop("collection")
         conn.execute(
-            text("UPDATE sem.data_operation_definition SET support_contract=:contract").bindparams(
-                bindparam("contract", type_=JSONB())
-            ),
-            {"contract": {"reference_targets": [target]}},
+            text(
+                "UPDATE sem.data_operation_definition SET support_contract=:contract, input_roles=:roles"
+            ).bindparams(bindparam("contract", type_=JSONB()), bindparam("roles", type_=JSONB())),
+            {
+                "contract": {"reference_targets": [target]},
+                "roles": roles(target["input_kind"], container["kind_contract"]),
+            },
         )
         related = {
             **request,
@@ -241,6 +251,33 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
         check(ref, original=related)
         with pytest.raises(DBAPIError, match="does not resolve address"), conn.begin_nested():
             check(bad_ref, original=related)
+        with pytest.raises(DBAPIError, match="does not resolve address"), conn.begin_nested():
+            conn.execute(
+                text("UPDATE sem.data_operation_definition SET input_roles=:roles").bindparams(
+                    bindparam("roles", type_=JSONB())
+                ),
+                {"roles": roles(target["input_kind"], "wrong-concrete-kind")},
+            )
+            check(ref, original=related)
+
+    # An input already occupying a concrete member is checked using that
+    # member's kind, independently from the containing product's kind.
+    occupied = {
+        **request,
+        "binding": {
+            "inputs": [{"role": "inventory", "product_id": existing_parent, "member_id": "one"}],
+        },
+    }
+    ref = SemanticReference.member("inventory", "one")
+    with pytest.raises(DBAPIError, match="does not resolve address"), conn.begin_nested():
+        check(ref, original=occupied)
+    conn.execute(
+        text("UPDATE sem.data_operation_definition SET input_roles=:roles").bindparams(
+            bindparam("roles", type_=JSONB())
+        ),
+        {"roles": roles("urn:admitted-container-family", container["members"][0]["kind_contract"])},
+    )
+    check(ref, original=occupied)
 
 
 def test_nominal_occurrence_member_compiles_only_with_its_declared_required_input_field():

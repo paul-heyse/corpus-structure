@@ -103,7 +103,16 @@ def test_selected_applicability_resolves_original_whole_relationship(prepared_wo
         "ops.demand_use": {"use": use},
         "ops.data_derivation": {"episode": {"release_id": "release"}},
         "sem.data_operation_definition": {
-            ("release", operation): {"support_contract": {"reference_targets": [asdict(target)]}},
+            ("release", operation): {
+                "support_contract": {"reference_targets": [asdict(target)]},
+                "input_roles": [
+                    {
+                        "name": "relationship",
+                        "kind": target.input_kind,
+                        "accepted_kind_contracts": [link.kind_contract],
+                    }
+                ],
+            },
         },
         # Metadata-only authentication should never read the relationship bodies.
         "kb.data_product": {
@@ -137,9 +146,13 @@ def test_selected_applicability_resolves_original_whole_relationship(prepared_wo
     use["selection"]["inputs"] = [{**original, "product_id": "equal-content-replacement"}]
     with pytest.raises(ValueError, match="unavailable in the exact selected use"):
         structural_report(scope, selected)
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    absolute = link.model_dump(mode="json", exclude={"edge_id"})
+    absolute["reference"] = canonical_bytes([link.product_id, None]).decode()
     with pytest.raises(ValidationError, match="relationship_input"):
         DeclaredDefinitionApplicabilityReport.model_validate(
-            {**body, "relationship_input": link.model_dump(mode="json")}
+            {**body, "relationship_input": absolute}
         )
 
 

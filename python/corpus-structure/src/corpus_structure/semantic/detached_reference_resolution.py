@@ -49,6 +49,18 @@ class IndexedReferenceAccess:
         )
 
 
+def reference_role_contracts(input_roles, target) -> tuple[str, ...]:
+    """Read the admitted nominal family for the exact declared producing role."""
+    roles = tuple(
+        role
+        for role in input_roles
+        if role["name"] == target["input_role"] and role["kind"] == target["input_kind"]
+    )
+    if len(roles) != 1:
+        raise ValueError("reference lacks its one admitted producing input role")
+    return tuple(roles[0]["accepted_kind_contracts"])
+
+
 def reference_input_occurrence(access, bound, pointer):
     if pointer is None:
         return None
@@ -104,12 +116,14 @@ def require_detached_output_references(
     derivation_id: str,
     project_id: str,
     targets: list[dict],
+    input_roles: Sequence[dict],
     outputs: Sequence[WireOutputMember],
 ) -> None:
     """Check output references after authenticating their producing derivation and manifest."""
     access = IndexedReferenceAccess(row_map, project_id)
     captured = tuple(rows_for("ops.data_derivation_input", derivation_id=derivation_id))
     for target in targets:
+        contracts = reference_role_contracts(input_roles, target)
         bindings = []
         occurrence_field = target.get("occurrence_field")
         for row in captured:
@@ -124,7 +138,7 @@ def require_detached_output_references(
                 if member_id is None
                 else access.members[row["product_id"], member_id]["kind_contract"]
             )
-            if access.kinds[kind]["kind"] != target["input_kind"]:
+            if kind not in access.kinds or kind not in contracts:
                 raise ValueError(
                     "captured producing input differs from its declared reference kind"
                 )

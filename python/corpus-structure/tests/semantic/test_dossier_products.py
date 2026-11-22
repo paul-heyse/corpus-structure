@@ -325,16 +325,22 @@ def _run_bound_dossier(monkeypatch, *, changed_pin=None):
 
 
 def test_dossier_authenticates_source_pins_without_relabelling_derived_output_context(monkeypatch):
+    from pydantic import ValidationError
+
     from corpus_structure.semantic.structural_products import DeclaredDossierReport
 
     raw, source_pin, output = _run_bound_dossier(monkeypatch)
     report = DeclaredDossierReport.model_validate(raw)
     assert report.sources_input == (source_pin,)
-    assert report.components_input.subject_definition == "actual-focus-source"
-    assert report.components_input.product_id == output.product
-    assert report.components_input.member_id is None
+    assert report.components_input == {"variant": "product", "role": "components"}
+    assert report.dossier.root_component.product_id == output.product
+    assert report.dossier.root_component.member_id is None
     assert report.dossier.root_component.subject_definition == "actual-focus-source"
     assert report.dossier.predecessors[0].subject_definition == "actual-focus-source"
+    absolute = report.dossier.root_component.model_dump(exclude={"component_id", "structural_id"})
+    absolute["reference"] = canonical_bytes([output.product, None]).decode()
+    with pytest.raises(ValidationError, match="components_input"):
+        DeclaredDossierReport.model_validate({**raw, "components_input": absolute})
 
 
 @pytest.mark.parametrize(
