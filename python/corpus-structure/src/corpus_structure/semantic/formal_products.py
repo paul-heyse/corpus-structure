@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from functools import cached_property, lru_cache
+from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -723,12 +724,22 @@ def formal_execution_custody() -> SourceArtifact:
     )
 
 
+def _formal_asset_paths():
+    root = Path(__file__).parents[1]
+    return (
+        ("sympy/grammar/latex.lark", math_grammar.SHIPPED),
+        ("grammar-extension", math_grammar.EXTENSION),
+        ("formal-members", _MODEL),
+        ("characterization", root / "model/semantic/characterization.yaml"),
+        ("data-operation-source", root / "model/semantic/data-operation-source.yaml"),
+    )
+
+
 @lru_cache(maxsize=1)
 def formal_profile_assets() -> SourceArtifact:
     """Capture formal production and the effective grammar assets it reads."""
     from .operation_code_assets import code_asset
 
-    root = Path(__file__).parents[1]
     return code_asset(
         "formal/profile-assets",
         (
@@ -737,13 +748,7 @@ def formal_profile_assets() -> SourceArtifact:
             extract_formal_facts,
             validate_formal_product,
         ),
-        (
-            ("sympy/grammar/latex.lark", math_grammar.SHIPPED),
-            ("grammar-extension", math_grammar.EXTENSION),
-            ("formal-members", _MODEL),
-            ("characterization", root / "model/semantic/characterization.yaml"),
-            ("data-operation-source", root / "model/semantic/data-operation-source.yaml"),
-        ),
+        _formal_asset_paths(),
     )
 
 
@@ -812,6 +817,12 @@ class PreparedFormalEvidencePort:
     authorize: Callable[[PreparedCapabilityIdentity], None]
     custody: tuple[SourceArtifact, ...]
     sources: PythonSourceCollection | None = None
+    _verification: Any = field(init=False, repr=False, compare=False)
+    _basis: tuple = field(init=False, repr=False, compare=False)
+    _asset_paths: tuple = field(init=False, repr=False, compare=False)
+    _assets_digest: str = field(init=False, repr=False, compare=False)
+    _member_contracts: tuple[tuple[str, str], ...] = field(init=False, repr=False, compare=False)
+    _options_json: str = field(init=False, repr=False, compare=False)
 
     @property
     def logical_signature(self):
@@ -826,24 +837,21 @@ class PreparedFormalEvidencePort:
             return_annotation=FormalEvidenceProduct,
         )
 
-    def _verify(self) -> None:
+    def __post_init__(self):
         from corpus_structure.methods import formal_evidence as endpoint
 
         from .data_operation_ports import PortRefusal
-        from .data_operation_prepared_products import verify_prepared_product
+        from .data_operation_prepared_products import (
+            authenticated_prepared_product,
+            verify_prepared_product,
+        )
+        from .file_custody import verified_file
 
         if endpoint.execute_formal_profile is not execute_formal_profile:
             raise PortRefusal("loaded formal resource bridge differs from acquired implementation")
         required = formal_operation_sources()
         sources = required if self.sources is None else self.sources
-        verify_prepared_product(
-            self.identity,
-            self.profile.model,
-            self.operation,
-            sources,
-            self.custody,
-            assets=required.boundary_contracts,
-            functions=(
+        functions = (
                 (
                     "corpus_structure.methods.formal_evidence.FormalEvidenceOperation.run",
                     endpoint.FormalEvidenceOperation.run,
@@ -884,10 +892,77 @@ class PreparedFormalEvidencePort:
                     "corpus_structure.semantic.source_products.native_selector_facts",
                     native_selector_facts,
                 ),
-            ),
-            authorize=self.authorize,
-            required_sources=required,
+                (
+                    "corpus_structure.semantic.formal_evidence.extract_formal_facts",
+                    extract_formal_facts,
+                ),
+                (
+                    "corpus_structure.semantic.characterization_evidence.validate_formal_normalization",
+                    validate_formal_normalization,
+                ),
+                (
+                    "corpus_structure.semantic.formal_products.PreparedFormalEvidencePort.__post_init__",
+                    type(self).__post_init__,
+                ),
+                (
+                    "corpus_structure.semantic.formal_products.PreparedFormalEvidencePort.plan_python",
+                    type(self).plan_python,
+                ),
+                (
+                    "corpus_structure.semantic.formal_products.PreparedFormalEvidencePort.invoke_python",
+                    type(self).invoke_python,
+                ),
+            )
+        verify_prepared_product(
+            self.identity, self.profile.model, self.operation, sources, self.custody,
+            assets=required.boundary_contracts, functions=functions,
+            authorize=self.authorize, required_sources=required,
         )
+        member_contracts = tuple(formal_member_contracts(self.profile.prepared, self.profile.model).items())
+        options_json = FormalEvidenceOptions().model_dump_json()
+        verification = authenticated_prepared_product(sources, functions, required_sources=required)
+        captured = {asset.name: asset for asset in required.boundary_contracts}
+        profile_assets = captured["formal/profile-assets"]
+        asset_paths = _formal_asset_paths()
+        paths = dict(asset_paths)
+        content = tuple(
+            (paths[label], bytes.fromhex(encoded))
+            for label, encoded in json.loads(profile_assets.content)["assets"]
+        )
+        content += tuple(
+            (Path(__file__).parent / name, bytes.fromhex(encoded))
+            for name, encoded in json.loads(captured["formal/execution-custody"].content)["files"]
+        )
+        files = {record.path.resolve(): record for record in verification.files}
+        for path, encoded in content:
+            record = verified_file(path, sha256(encoded).hexdigest())
+            files[record.path.resolve()] = record
+        verification.files = tuple(files.values())
+        object.__setattr__(self, "_verification", verification)
+        object.__setattr__(self, "_asset_paths", asset_paths)
+        object.__setattr__(self, "_assets_digest", profile_assets.digest)
+        object.__setattr__(self, "_member_contracts", member_contracts)
+        object.__setattr__(self, "_options_json", options_json)
+        object.__setattr__(self, "_basis", tuple(
+            (name, getattr(self, name))
+            for name in (
+                "identity", "operation", "profile", "authorize", "custody", "sources",
+                "_verification", "_asset_paths", "_assets_digest", "_member_contracts", "_options_json",
+            )
+        ))
+
+    def _verify(self) -> None:
+        from .data_operation_ports import PortRefusal
+
+        if any(getattr(self, name) is not value for name, value in self._basis):
+            raise PortRefusal("formal port correspondence changed after acquisition")
+        if _formal_asset_paths() != self._asset_paths:
+            raise PortRefusal("formal resources differ from acquired asset locations")
+        try:
+            self._verification.check()
+        except ValueError as error:
+            raise PortRefusal("formal resources differ from acquired custody/runtime slice: " + str(error)) from error
+        self.authorize(self.identity)
 
     def _source(self, values, binding):
         from .data_operation_ports import PortRefusal, PythonRoleValue
@@ -1017,7 +1092,6 @@ class PreparedFormalEvidencePort:
         """Yield admitted source-native CPU work under the invocation's one pool/credit."""
         from corpus_structure.core.method import PreparedWork
 
-        self._verify()
         source = self._source(values, binding)
         cpu = execution_owner.cpu
         if cpu.prepared.release_id != self.profile.prepared.release_id:
@@ -1028,22 +1102,24 @@ class PreparedFormalEvidencePort:
             dict(
                 profile="formal-source-native",
                 release_id=self.profile.prepared.release_id,
-                member_contracts=formal_member_contracts(self.profile.prepared, self.profile.model),
+                member_contracts=dict(self._member_contracts),
                 source=source.content.decode(),
-                options=FormalEvidenceOptions().model_dump_json(),
+                options=self._options_json,
                 grammar=self.profile.grammar,
-                assets=formal_profile_assets().digest,
+                assets=self._assets_digest,
             )
         )
 
         def submit():
-            self._verify()
+            check_active()
             admission = cpu.try_admit(
                 check_active, reservation=execution_owner.reservation, packet_bytes=len(packet)
             )
             if admission is None:
                 return None
             try:
+                self._verify()
+                check_active()
                 return cpu.submit_formal(admission, packet, check_active)
             except BaseException:
                 if not admission.submitted:
@@ -1052,10 +1128,10 @@ class PreparedFormalEvidencePort:
 
         (reply,) = yield (PreparedWork(submit),)
         check_active()
+        self._verify()
         product = validate_formal_product(
             self.profile.prepared, json.loads(reply.content), source, model=self.profile.model
         )
-        self._verify()
         return replace(
             self._completion(product, source, binding),
             cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
@@ -1099,5 +1175,4 @@ def resolve_formal_evidence_port(
         custody,
         sources,
     )
-    port._verify()
     return port

@@ -640,7 +640,7 @@ def test_prepared_formal_refuses_monkeypatched_loaded_original_endpoint(profile,
 
     port = admitted_port(profile)
     monkeypatch.setattr(FormalEvidenceOperation, "run", lambda self, source: "invented result")
-    with pytest.raises(PortRefusal, match="callable is outside its required source subset"):
+    with pytest.raises(PortRefusal, match="authenticated runtime slice changed"):
         port._verify()
 
 
@@ -1196,3 +1196,71 @@ def test_target_distinct_original_projections_keep_disjoint_formal_members(profi
         any(row["kind"] == "formal.symbol" for row in product.inventory()["annotations"])
         for product in results
     )
+
+
+def test_formal_port_retains_one_correspondence_and_two_actual_cpu_checks(profile, monkeypatch):
+    import json
+    from types import SimpleNamespace
+
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.core.work import drive_prepared_work
+    from corpus_structure.semantic import data_operation_prepared_products
+    from corpus_structure.semantic.cpu_execution import CPUExecutionScope
+    from corpus_structure.semantic.data_operation_ports import PythonRoleValue
+
+    verify = data_operation_prepared_products.verify_prepared_product
+    admissions = []
+
+    def verified(*args, **kwargs):
+        admissions.append(args[0])
+        return verify(*args, **kwargs)
+
+    monkeypatch.setattr(data_operation_prepared_products, "verify_prepared_product", verified)
+    port = admitted_port(profile)
+    assert len(admissions) == 1
+    checks = []
+    check = port._verification.check
+
+    def checked():
+        checks.append(None)
+        check()
+
+    monkeypatch.setattr(port._verification, "check", checked)
+    role = next(role for role in port.operation.roles if role.direction == "input")
+    contract = next(
+        item.key for item in profile.model.identities if (item.owner, item.domain) == (role.kind, "kind")
+    )
+    values = (PythonRoleValue(role.name, contract, selected(profile, "Quantity: 2 kg")),)
+    cpu = CPUExecutionScope(profile.prepared, CharacterizationExecutionPolicy(workers=1))
+    attempts = []
+    admit = cpu.try_admit
+
+    def defer_once(*args, **kwargs):
+        attempts.append(None)
+        return None if len(attempts) == 1 else admit(*args, **kwargs)
+
+    monkeypatch.setattr(cpu, "try_admit", defer_once)
+    try:
+        completion = drive_prepared_work(
+            port.plan_python(values, execution_owner=SimpleNamespace(cpu=cpu, reservation=None)),
+            lambda: None,
+        )
+        assert len(checks) == 2 and len(admissions) == 1
+        assert len(attempts) >= 2
+        assert json.loads(completion.outputs[0].content)["source"]["document"] == "document:original-content"
+        assert json.loads(completion.cpu_execution_evidence)["request_digest"]
+    finally:
+        cpu.close()
+
+
+def test_formal_port_checks_the_acquired_grammar_asset_after_admission(profile, tmp_path, monkeypatch):
+    from corpus_structure.methods.math import grammar
+    from corpus_structure.semantic.data_operation_ports import PortRefusal
+
+    acquired = tmp_path / "acquired.lark"
+    acquired.write_bytes(grammar.SHIPPED.read_bytes())
+    monkeypatch.setattr(grammar, "SHIPPED", acquired)
+    port = admitted_port(profile)
+    acquired.write_bytes(b"changed grammar after formal admission")
+    with pytest.raises(PortRefusal, match="resources differ"):
+        port._verify()
