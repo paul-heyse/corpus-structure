@@ -24,6 +24,49 @@ class HanlpEvidenceOperation:
         "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
+        "rules": [
+            {
+                "id": "text.hanlp_native/dense-unit-ordinals",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-hanlp/DdoHanlpInventory",
+                "collection": "rows",
+                "scope": "partition",
+                "form": "dense_ordinal",
+                "checker": "admission",
+                "parameters": {"path": "ordinal", "group_by": ["sentence_ordinal", "record_type"]},
+            },
+            {
+                "id": "text.hanlp_native/canonical-token-and-span-alignment",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-hanlp/DdoHanlpInventory",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.hanlp_native/source-native",
+                "checker_callable": "corpus_structure.semantic.hanlp_products.verify_hanlp_sentence_alignment",
+                "parameters": {
+                    "paths": ["canonical_input", "rows"],
+                    "input_reads": {
+                        "canonical": ["source", "selectors", "rows"],
+                        "source": ["source", "selectors", "text"],
+                    },
+                },
+            },
+            {
+                "id": "text.hanlp_native/coverage",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-hanlp/DdoHanlpInventory",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.hanlp_native/source-native",
+                "checker_callable": "corpus_structure.semantic.hanlp_products.hanlp_coverage_outcome",
+                "parameters": {
+                    "paths": ["source", "selectors", "coverage", "outcome", "members"],
+                    "input_reads": {
+                        "canonical": ["block_coverage", "rows"],
+                        "source": ["source", "selectors", "text"],
+                    },
+                },
+            },
+        ],
         "roles": [
             {
                 "name": "source",
@@ -44,6 +87,7 @@ class HanlpEvidenceOperation:
             },
             {
                 "name": "canonical",
+                "required_rules": ["segment.sentences/canonical-dense-ordinal"],
                 "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoCanonicalSentences",
                 "direction": "input",
                 "minimum": 1,

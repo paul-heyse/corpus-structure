@@ -66,6 +66,11 @@ class DeclarationSyntaxOperation:
             {
                 "name": "hanlp",
                 "parameter": "hanlp",
+                "required_rules": [
+                    "text.hanlp_native/dense-unit-ordinals",
+                    "text.hanlp_native/canonical-token-and-span-alignment",
+                    "text.hanlp_native/coverage",
+                ],
                 "kind": "https://corpus-structure.dev/semantic/data-operation-hanlp/DdoHanlpInventory",
                 "direction": "input",
                 "minimum": 1,

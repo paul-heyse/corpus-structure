@@ -123,9 +123,49 @@ def canonical_hanlp_rows(source, canonical):
     return result
 
 
+def verify_hanlp_sentence_alignment(sentence, tokens, units, alignment):
+    """Verify exact canonical token order and the published span references."""
+    if alignment["sentence"] != sentence or len(alignment["prepared_words"]) != len(tokens):
+        raise ValueError("HanLP subword alignment differs from its canonical sentence")
+    if [unit["token"] for unit in units if unit["record_type"] == "token"] != tokens:
+        raise ValueError("HanLP tokens differ from exact canonical non-whitespace tokens")
+    for unit in units:
+        if unit["sentence"] != sentence:
+            raise ValueError("HanLP unit refers to another canonical sentence")
+        if unit["record_type"] == "constituent":
+            spans = [unit]
+        elif unit["record_type"] == "srl_group":
+            spans = unit["roles"]
+        else:
+            continue
+        for span in spans:
+            start, end = span["start"], span["end"]
+            if not 0 <= start < end <= len(tokens) or span["tokens"] != tokens[start:end]:
+                raise ValueError("HanLP unit span differs from its canonical token references")
+
+
+def hanlp_coverage_outcome(coverage):
+    """Every processed or unavailable scope has one standing per native family."""
+    from corpus_structure.methods.native_evidence_layers import HANLP_FAMILIES
+
+    width = len(HANLP_FAMILIES)
+    if not coverage or len(coverage) % width:
+        raise ValueError("HanLP coverage differs from its native family roster")
+    for start in range(0, len(coverage), width):
+        scope = coverage[start : start + width]
+        if {row["family"] for row in scope} != set(HANLP_FAMILIES) or any(
+            row["eligible"] != scope[0]["eligible"] for row in scope
+        ):
+            raise ValueError("HanLP coverage differs from its native family roster or scope")
+    return (
+        "complete"
+        if all(row["outcome"] in {"complete", "empty"} for row in coverage)
+        else "partial"
+    )
+
+
 def detach_hanlp_sentence(sentence, tokens, canonical, heads, preparation, vocabulary=None):
     """Preserve native conventions independently; malformed heads retain failed coverage."""
-    from corpus_structure.methods.native_evidence_layers import HANLP_FAMILIES
     from corpus_structure.methods.pm2_hanlp_products import (
         _NATIVE_SRL,
         _constituency,
@@ -277,8 +317,7 @@ def detach_hanlp_sentence(sentence, tokens, canonical, heads, preparation, vocab
         )
     except ValueError as error:
         standing("srl", "failed", str(error))
-    if {row["family"] for row in coverage} != set(HANLP_FAMILIES):
-        raise ValueError("HanLP family inventory differs from owned native families")
+    verify_hanlp_sentence_alignment(sentence_ref, references, units, alignment)
     return units, alignment, coverage
 
 
@@ -551,9 +590,7 @@ def partition_hanlp_product(
             source=source.value["source"],
             selectors=source.value["selectors"],
             canonical_input=SemanticReference.whole("canonical").values(),
-            outcome="complete"
-            if all(row["outcome"] in {"complete", "empty"} for row in coverage)
-            else "partial",
+            outcome=hanlp_coverage_outcome(coverage),
             coverage=coverage,
         ),
         kind_contract,
@@ -687,6 +724,7 @@ def hanlp_operation_sources(selection, *, sentence_configuration=None, include_d
     path = methods / "hanlp_evidence.py"
     heads = methods / "native_evidence.py"
     products = methods / "pm2_hanlp_products.py"
+    families = methods / "native_evidence_layers.py"
     own = PythonSourceCollection(
         (
             PythonSource(
@@ -705,6 +743,11 @@ def hanlp_operation_sources(selection, *, sentence_configuration=None, include_d
             ),
             PythonSource(
                 "corpus_structure.methods.pm2_hanlp_products", products.read_bytes(), str(products)
+            ),
+            PythonSource(
+                "corpus_structure.methods.native_evidence_layers",
+                families.read_bytes(),
+                str(families),
             ),
         ),
         boundary_contracts=(
@@ -784,6 +827,14 @@ class PreparedHanlpPort:
                 (
                     "corpus_structure.semantic.hanlp_products.canonical_hanlp_rows",
                     canonical_hanlp_rows,
+                ),
+                (
+                    "corpus_structure.semantic.hanlp_products.verify_hanlp_sentence_alignment",
+                    verify_hanlp_sentence_alignment,
+                ),
+                (
+                    "corpus_structure.semantic.hanlp_products.hanlp_coverage_outcome",
+                    hanlp_coverage_outcome,
                 ),
                 (
                     "corpus_structure.semantic.hanlp_products.partition_hanlp_product",
@@ -877,30 +928,67 @@ class PreparedHanlpPort:
             raise PortRefusal("HanLP inputs differ from exact frozen binding")
         return source, canonical
 
-    def _complete(self, product):
+    def _complete(self, product, source, canonical, binding):
+        from ._data_operation_wire import WireKindContract, WireOutputMember
         from .data_operation_ports import PortCompletion
+        from .established_validity import RuleObservedInput, successful_rule_attestation
         from .sentence_partitions import partitioned_role
 
         output = next(role for role in self.operation.roles if role.direction == "output")
-        kind = next(
+        model = self.profile.model
+        kind_contract = next(
             item.key
-            for item in self.profile.model.identities
+            for item in model.identities
             if item.owner == output.kind and item.domain == "kind"
         )
+        result = partitioned_role(
+            output.name,
+            kind_contract,
+            json.loads(product.content),
+            tuple(json.loads(packet) for packet in product.partitions),
+        )
+        attestations = ()
+        if binding is not None and binding.subject_context is not None:
+            kind = next(kind for kind in model.kinds if kind.semantic_id == output.kind)
+            assert result.meaning is not None
+            packet: WireOutputMember = {
+                "role": output.name,
+                "position": 0,
+                "multiplicity": 1,
+                "product": {
+                    "kind_contract": WireKindContract(kind_contract),
+                    "body": json.loads(result.meaning),
+                    "members": [json.loads(member) for member in result.members],
+                },
+            }
+            observed = {
+                "source": (RuleObservedInput(source.value),),
+                "canonical": (RuleObservedInput(json.loads(canonical.content)),),
+            }
+            attestations = tuple(
+                successful_rule_attestation(
+                    rule,
+                    kind,
+                    self.operation.semantic_id,
+                    packet,
+                    binding.subject_context,
+                    selected_inputs=observed,
+                )
+                for rule in model.rules
+                if rule.id
+                in {
+                    "text.hanlp_native/canonical-token-and-span-alignment",
+                    "text.hanlp_native/coverage",
+                }
+            )
         return PortCompletion(
             self.operation.semantic_id,
-            (
-                partitioned_role(
-                    output.name,
-                    kind,
-                    json.loads(product.content),
-                    tuple(json.loads(packet) for packet in product.partitions),
-                ),
-            ),
+            (result,),
             execution_evidence=canonical_bytes(
                 [json.loads(receipt) for receipt in product.execution_receipts]
             ),
             outcome=successful_return_outcome(self.operation),
+            rule_attestations=attestations,
         )
 
     def invoke_python(self, values, *, binding=None, check_active=lambda: None):
@@ -912,7 +1000,7 @@ class PreparedHanlpPort:
             source, canonical
         )
         self._verify()
-        return self._complete(product)
+        return self._complete(product, source, canonical, binding)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from corpus_structure.core.method import PreparedWork
@@ -927,7 +1015,7 @@ class PreparedHanlpPort:
                 self.profile, check_active, execution_owner.native_hosts
             ).run(source, canonical)
             self._verify()
-            return self._complete(result)
+            return self._complete(result, source, canonical, binding)
 
         (completion,) = yield (PreparedWork(lambda: execution_owner.submit_python(compute)),)
         check_active()

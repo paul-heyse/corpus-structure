@@ -17,11 +17,13 @@ from corpus_structure.semantic.hanlp_products import (
     canonical_hanlp_rows,
     detach_hanlp_sentence,
     hanlp_admission_batches,
+    hanlp_coverage_outcome,
     hanlp_operation_sources,
     hanlp_product_inputs,
     hanlp_sentence_batches,
     prepare_hanlp_selection,
     resolve_hanlp_port,
+    verify_hanlp_sentence_alignment,
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.original_documents import original_document_subject
@@ -33,6 +35,34 @@ from corpus_structure.semantic.source_products import (
 )
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from test_preparation import preparation_fixture
+
+
+def test_hanlp_role_span_requires_its_exact_canonical_token_slice():
+    sentence = {"address": "sentence-0"}
+    tokens = [{"address": "token-0"}, {"address": "token-1"}]
+    alignment = {"sentence": sentence, "prepared_words": ["left", "right"]}
+    role = {"start": 0, "end": 1, "tokens": [tokens[0]]}
+    units = [
+        *({"record_type": "token", "sentence": sentence, "token": token} for token in tokens),
+        {"record_type": "srl_group", "sentence": sentence, "roles": [role]},
+    ]
+    verify_hanlp_sentence_alignment(sentence, tokens, units, alignment)
+    role["tokens"] = [tokens[1]]
+    with pytest.raises(ValueError, match="unit span differs from its canonical token references"):
+        verify_hanlp_sentence_alignment(sentence, tokens, units, alignment)
+
+
+def test_hanlp_coverage_requires_each_native_family_for_each_scope():
+    from corpus_structure.methods.native_evidence_layers import HANLP_FAMILIES
+
+    coverage = [
+        {"family": family, "eligible": [{"start": 0, "end": 10}], "outcome": "complete"}
+        for family in HANLP_FAMILIES
+    ]
+    assert hanlp_coverage_outcome(coverage) == "complete"
+    coverage[-1]["family"] = coverage[0]["family"]
+    with pytest.raises(ValueError, match="coverage differs from its native family roster"):
+        hanlp_coverage_outcome(coverage)
 
 
 @preparation_fixture("hanlp_profile", scope="module")
