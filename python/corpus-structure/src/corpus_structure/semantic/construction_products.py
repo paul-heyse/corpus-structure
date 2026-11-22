@@ -450,12 +450,20 @@ def construction_product_values(
         from .constructions.retained_rules import populate_source_reading_products
 
         vocab = retained_native_vocab(source, native)
+        thresholds, _ = readings.fields(family="formal.threshold", start=0, end=len(view.text))
+        by_start = {}
+        for threshold in thresholds:
+            if threshold.normalized["kind"] == "threshold" and threshold.normalized[
+                "domain_status"
+            ] in {"valid", "unresolved"}:
+                by_start.setdefault(threshold.start, []).append(threshold)
         populate_source_reading_products(
             builder,
             view,
             source,
             native,
             annotation_products=native_products,
+            formal_thresholds=by_start,
             vocab=vocab,
             check_active=check_active,
             admitted=lambda a, b: any(start <= a < b <= end for start, end in requested),

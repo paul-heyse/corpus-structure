@@ -78,6 +78,40 @@ def test_source_conditions_and_order_are_dependency_cued_not_textual_order():
     assert values(text, frames[1], "actor") == ("Analyst",)
 
 
+def test_nominal_condition_uses_exact_retained_formal_threshold():
+    from corpus_structure.methods.predicate_frames import predicate_frames
+
+    text = "Manager must approve Table 5.1 if revenue > 25000 USD."
+    product, primary = annotation(
+        text,
+        [
+            ("Manager", "PROPN", "nsubj", 2, "NNP"),
+            ("must", "AUX", "aux", 2, "MD"),
+            ("approve", "VERB", "ROOT", 2, "VB"),
+            ("Table", "NOUN", "dobj", 2, "NN"),
+            ("5.1", "NUM", "nummod", 3, "CD"),
+            ("if", "SCONJ", "mark", 6, "IN"),
+            ("revenue", "NOUN", "advcl", 2, "NN"),
+            (">", "X", "dep", 8, "XX"),
+            ("25000", "NUM", "nummod", 9, "CD"),
+            ("USD", "PROPN", "appos", 6, "NNP"),
+        ],
+    )
+    (frame,) = predicate_frames(text, (product,), primary_products=(primary,)).frames
+    (condition,) = (cue for cue in frame.cues if cue.kind == "condition")
+
+    assert condition.status == "located"
+    assert tuple(text[a:b] for a, b in condition.span.extents) == ("if revenue > 25000 USD",)
+    cue = next(
+        term
+        for term in primary.inventory()["terms"]
+        if term["local_id"] == condition.primary_ref.local_id
+    )
+    (threshold,) = cue["external_premises"]
+    assert threshold["member_id"].startswith("formal:node:")
+    assert threshold["product_id"] != primary.semantic_id
+
+
 def test_missing_dependency_columns_supply_no_role_claims():
     product, primary = annotation(
         "Manager reviews Table.",

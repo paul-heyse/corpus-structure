@@ -1120,7 +1120,13 @@ def compile_data_operations(
     rules: dict[str, EffectiveDataRule] = {}
     boundaries_by_root = {part.root: part.boundaries for part in slices}
     rule_boundaries = {
-        raw["id"]: boundaries_by_root.get(root, ())
+        raw["id"]: tuple(
+            boundary
+            for boundary in boundaries_by_root.get(root, ())
+            if (asset := supplied_contracts.get(boundary.contract)) is not None
+            and asset.digest == boundary.content_digest
+            and not asset.runtime_transport
+        )
         for raw, _, _, root in authored
         if root is not None
     }

@@ -14,7 +14,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from importlib.resources import files
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import spacy
 from spacy.lang.en import English
@@ -27,6 +27,11 @@ from corpus_structure.ingest.annotation_views import AnnotationView, annotation_
 from corpus_structure.ingest.annotations import AnnotationProduct, AnnotationUnavailable
 from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
 from corpus_structure.semantic.file_custody import observed_file
+
+if TYPE_CHECKING:
+    from corpus_structure.semantic.data_product_reference import DataProductMemberReference
+    from corpus_structure.semantic.formal_readings import FormalFieldReading
+
 
 PREDICATE_FRAME_VERSION = "2"
 type RoleSpan = tuple[int, int]
@@ -164,6 +169,7 @@ class FrameCue:
     component: int | None = None
     primary_ref: Any = None
     primary_marker_ref: Any = None
+    formal_threshold: DataProductMemberReference | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -323,7 +329,10 @@ def frames_from_annotation(
 
 
 def recognize_frame_result(
-    view: AnnotationView, *, layout: FrameLayout = "prose"
+    view: AnnotationView,
+    *,
+    layout: FrameLayout = "prose",
+    formal_thresholds: Mapping[int, Sequence[FormalFieldReading]] | None = None,
 ) -> PredicateFrameResult:
     """Include unresolved cue evidence and unavailable columns for a native view."""
     product = view.product
@@ -337,7 +346,7 @@ def recognize_frame_result(
             "required retained columns: " + ", ".join(missing),
         )
         return PredicateFrameResult((), (issue,))
-    block = _FrameBlock(view, layout)
+    block = _FrameBlock(view, layout, formal_thresholds)
     frames = block.frames()
     missing = sorted({"LEMMA", "MORPH", "TAG"} - columns)
     issues = (
@@ -356,11 +365,12 @@ def recognize_frame_result(
 
 
 class _FrameBlock:
-    def __init__(self, view: AnnotationView, layout: FrameLayout):
+    def __init__(self, view: AnnotationView, layout: FrameLayout, formal_thresholds):
         runtime, view = _runtime_view(view)
         self.doc = view.doc
         self.product = view.product
         self.layout = layout
+        self.formal_thresholds = {} if formal_thresholds is None else formal_thresholds
         self.direct: dict[str, dict[int, list[int]]] = defaultdict(lambda: defaultdict(list))
         self.lexical: dict[str, list[tuple[int, ...]]] = defaultdict(list)
         view.check_layout()
@@ -693,7 +703,17 @@ class _FrameBlock:
         return self.span(selected)
 
     def add_cue(
-        self, kind, variant, span, basis, hosts, *, origin=None, component=None, unresolved=False
+        self,
+        kind,
+        variant,
+        span,
+        basis,
+        hosts,
+        *,
+        origin=None,
+        component=None,
+        unresolved=False,
+        formal_threshold=None,
     ) -> None:
         cue = FrameCue(
             self.product.block_id,
@@ -706,6 +726,7 @@ class _FrameBlock:
             hosts,
             origin,
             component,
+            formal_threshold=formal_threshold,
         )
         if not hosts:
             self.unowned.append(cue)
@@ -814,7 +835,23 @@ class _FrameBlock:
                     continue
                 span = self.span({*self.focus(component).tokens, *nodes})
                 hosts = () if origin is None else (origin,)
-                unresolved = origin is None or component not in self.predicates
+                # A nominal advcl can be a complete formal threshold. The provider
+                # still has to locate its marker and direct predicate governor.
+                threshold = None
+                if origin is not None and component not in self.predicates and kind == "condition":
+                    head = self.product.tokens[component]
+                    candidates = [
+                        field
+                        for field in self.formal_thresholds.get(head.start, ())
+                        if basis.extents
+                        and basis.extents[-1][1] <= field.start
+                        and any(a <= field.start < field.end <= b for a, b in span.extents)
+                    ]
+                    if len(candidates) == 1:
+                        threshold = candidates[0].reference
+                unresolved = origin is None or (
+                    component not in self.predicates and threshold is None
+                )
                 self.add_cue(
                     kind,
                     variant,
@@ -824,6 +861,7 @@ class _FrameBlock:
                     origin=origin,
                     component=component,
                     unresolved=unresolved,
+                    formal_threshold=threshold,
                 )
                 if (
                     origin is not None
@@ -1952,6 +1990,7 @@ def populate_source_reading_products(
     native,
     *,
     annotation_products=None,
+    formal_thresholds=None,
     vocab=None,
     check_active=lambda: None,
     admitted=lambda a, b: True,
@@ -1989,6 +2028,7 @@ def populate_source_reading_products(
         projection=view.projection,
         vocab=vocab,
         check_active=check_active,
+        formal_thresholds=formal_thresholds,
     )
 
 
@@ -2000,6 +2040,7 @@ def _populate_source_readings(
     projection,
     vocab,
     check_active,
+    formal_thresholds,
 ):
     from ..sentence_partitions import construction_annotation_reference
     from .forest import identity
@@ -2141,6 +2182,8 @@ def _populate_source_readings(
             children=children,
             premises=[annotation],
         )
+        if candidate.formal_threshold is not None:
+            layer.terms[key]["external_premises"] = [candidate.formal_threshold.values()]
         cue_ids[key] = (product, candidate)
         return key
 
@@ -2169,7 +2212,10 @@ def _populate_source_readings(
                 required=_REQUIRED,
             )
             result = recognize_local_qualifiers(
-                restored, recognize_frame_result(restored, layout=layout)
+                restored,
+                recognize_frame_result(
+                    restored, layout=layout, formal_thresholds=formal_thresholds
+                ),
             )
         except (AnnotationUnavailable, ValueError) as error:
             issue = FrameIssue(

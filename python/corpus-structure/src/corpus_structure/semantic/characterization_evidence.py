@@ -179,9 +179,10 @@ def validate_formal_normalization(annotations):
     for key in annotations:
         annotation = annotations[key]
         normalized = _field(_field(annotation, "formal", {}), "normalized", {})
-        if (
-            _field(normalized, "kind", None) in {"decimal", "threshold"}
-            and _field(normalized, "domain_status", None) == "valid"
+        kind = _field(normalized, "kind", None)
+        status = _field(normalized, "domain_status", None)
+        if (kind in {"decimal", "threshold"} and status == "valid") or (
+            kind == "threshold" and status == "unresolved"
         ):
             spelling = _field(normalized, "value", "")
             if type(spelling) is not str or not _decimal_spelling(spelling):
