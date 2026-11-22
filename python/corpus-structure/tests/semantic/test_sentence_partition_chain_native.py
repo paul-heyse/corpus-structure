@@ -94,14 +94,17 @@ def _recipe(directory, *, target="canonical"):
 
 
 @contextmanager
-def _private_source(admin, native_settings, tmp_path, monkeypatch, text):
+def _private_source(admin, native_settings, tmp_path, monkeypatch, text, *other_texts):
     epoch = capture_target_installation(get_metadata(), logical_sources=native_model_inputs(ROOT))
     *_, revision_path = install_target_root(admin, epoch, tmp_path)
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
     inputs = tmp_path / "capture"
     inputs.mkdir()
+    texts = (text, *other_texts)
     scenario = PdfSourceScenario(
-        section_content((("text", text, text, None),)), ("#/groups/0",), False
+        section_content(tuple(("text", value, value, None) for value in texts)),
+        tuple(f"#/groups/{index}" for index in range(len(texts))),
+        False,
     )
     with ExitStack() as resources:
         purposes = {}

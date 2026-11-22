@@ -8,9 +8,6 @@ source/primary/predicate products; no lexical-only RPC or run snapshot is used.
 import pytest
 
 from corpus_structure.semantic.identity import canonical_bytes
-from semantic.current_pdf_source_support import (
-    current_pdf_source_factory as current_pdf_source_factory,
-)
 from semantic.formal_products_support import profile as profile
 from semantic.formal_products_support import selected
 
@@ -315,7 +312,7 @@ def test_current_dossier_page_excludes_unselected_member_source_closure():
     ids=("threshold", "passive-actor"),
 )
 def test_current_native_comparison_consumes_actual_predicate_and_formal_source_products(
-    current_pdf_source_factory, tmp_path, left, right, actor_outcome
+    semantic_bare_engine, native_settings, tmp_path, monkeypatch, left, right, actor_outcome
 ):
     from corpus_structure.semantic.data_operation_service import DemandOperationSelection
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
@@ -328,10 +325,10 @@ def test_current_native_comparison_consumes_actual_predicate_and_formal_source_p
         recipe,
         selected_for_source,
     )
+    from semantic.test_sentence_partition_chain_native import _private_source
 
-    literals = (left, right)
-    with current_pdf_source_factory(
-        tuple(("text", value, value, None) for value in literals)
+    with _private_source(
+        semantic_bare_engine, native_settings, tmp_path, monkeypatch, left, right
     ) as source:
         kernel = admit_current_target(source, recipe(tmp_path / "recipe"), tmp_path / "consumer")
         _, _, products, _ = produce_source_reports(source, kernel, PREDICATES, text=left)
