@@ -14,6 +14,7 @@ from corpus_structure.semantic.change_impact import (
     changed_operations,
     classify_change_impact,
     inspect_change_impact,
+    operation_determinant_changes,
 )
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from semantic.data_operation_kernel_support import POPULATION, STORAGE
@@ -118,12 +119,14 @@ def test_complete_population_absence_precedes_partial_target_fate(impact_models)
 def test_helper_change_is_potential_while_unrelated_source_has_no_affected_roots():
     before, target = models()
     name = before.operations[0].semantic_id
+    assert operation_determinant_changes(before, target) == {name: ("recipe",)}
     assert changed_operations(before, target)[0] == {name}
     (row,) = classify_change_impact(before, target, before=(observation(before),))
     assert row.state == "potential" and row.changed_roots == (name,)
     unrelated = compile_data_operations(
         python_sources=python_inputs(operation_source(extra="def other(): return 88\n"))
     )
+    assert operation_determinant_changes(before, unrelated) == {}
     assert changed_operations(before, unrelated) == (set(), {})
 
 
@@ -140,6 +143,7 @@ def test_both_dependency_sides_preserve_removed_consumer_edge_and_finite_cycle()
         operations=(*target.operations, replace(consumer, dependencies=())),
         nodes=(*target.nodes, consumer_node),
     )
+    assert operation_determinant_changes(old, new)["consumer"] == ("recipe", "dependencies")
     assert changed_operations(old, new)[1]["consumer"] == {root.semantic_id, "consumer"}
 
 

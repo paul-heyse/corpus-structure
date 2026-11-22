@@ -154,23 +154,49 @@ def _impact_fate_class(
             assert_never(fate)
 
 
-def changed_operations(before: EffectiveDataOperationModel, target: EffectiveDataOperationModel):
-    """Existing admitted identity projections, with both declared dependency sides."""
+OperationChange = Literal["introduced", "removed", "recipe", "eligibility", "dependencies"]
+
+
+def operation_determinant_changes(
+    before: EffectiveDataOperationModel, target: EffectiveDataOperationModel
+) -> dict[str, tuple[OperationChange, ...]]:
+    """Compare effective operations independently of release identity and reachability."""
     old = {op.semantic_id: op for op in before.operations}
     new = {op.semantic_id: op for op in target.operations}
-    roots = set(old) ^ set(new)
     old_ids = {(row.owner, row.domain): row.key for row in before.identities}
     new_ids = {(row.owner, row.domain): row.key for row in target.identities}
-    for name in old.keys() & new.keys():
+    changes: dict[str, tuple[OperationChange, ...]] = {}
+    for name in sorted(old.keys() | new.keys()):
+        if name not in old:
+            changes[name] = ("introduced",)
+            continue
+        if name not in new:
+            changes[name] = ("removed",)
+            continue
+        reasons: list[OperationChange] = []
         if (
             old[name].recipe != new[name].recipe
-            or old[name].eligibility != new[name].eligibility
             or old_ids.get((name, "recipe")) != new_ids.get((name, "recipe"))
         ):
-            roots.add(name)
+            reasons.append("recipe")
+        if old[name].eligibility != new[name].eligibility:
+            reasons.append("eligibility")
+        if (old[name].dependencies, old[name].potential_dependencies) != (
+            new[name].dependencies,
+            new[name].potential_dependencies,
+        ):
+            reasons.append("dependencies")
+        if reasons:
+            changes[name] = tuple(reasons)
+    return changes
+
+
+def changed_operations(before: EffectiveDataOperationModel, target: EffectiveDataOperationModel):
+    """Project conservative reachability over both declared dependency sides."""
     from .data_operation_identity import SemanticGraph
 
-    names = set(old) | set(new)
+    roots = set(operation_determinant_changes(before, target))
+    names = {operation.semantic_id for model in (before, target) for operation in model.operations}
     records = {
         "nodes": [dict(id=name, category="operation", payload={}) for name in sorted(names)],
         "edges": [],
