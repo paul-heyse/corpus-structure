@@ -1,15 +1,20 @@
 """Actual annotation and canonical projection through native custody."""
 
+import json
 from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy import func, select
 
 from corpus_structure.schema.model_change import native_model_inputs
 from corpus_structure.semantic import migrations
 from corpus_structure.semantic.canonical_sentences import canonical_sentence_operation_sources
 from corpus_structure.semantic.composed import data_operation_dependencies
+from corpus_structure.semantic.data_operation_partitions import partition_group_digests
+from corpus_structure.semantic.data_operation_projection_values import input_projection_digest
+from corpus_structure.semantic.data_operation_storage import admitted_data_read
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.demand_results import read_demand_result, stream_selected_support
 from corpus_structure.semantic.metadata import get_metadata
@@ -142,6 +147,47 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
         projected = packets[canonical.row["product_id"], annotated["partition_key"]]
         annotation_rows = decode_semantic_value(annotated["body"])
         canonical_rows = decode_semantic_value(projected["body"])
+        (input_role,) = [
+            role for role in kernel.model.operation(target).roles if role.direction == "input"
+        ]
+        assert input_role.read_projection is not None
+        kind = next(kind for kind in kernel.model.kinds if kind.semantic_id == input_role.kind)
+        group_definition = json.loads(kind.facts)["collections"]["rows"]["field_groups"]
+        expected_digest = input_projection_digest(
+            input_role.read_projection,
+            annotation.body,
+            [
+                {
+                    **annotated,
+                    "group_digests": partition_group_digests(annotation_rows, group_definition),
+                }
+            ],
+        )
+        # The private fixture's administrative connection can invoke the
+        # internal comparator. Its selected input still goes through the
+        # binding owner and the exact read acquired by the application.
+        cut = page.cut.record
+        with kernel.engine.begin() as connection:
+            binding = admitted_data_read(
+                connection,
+                demand_id,
+                target,
+                cut["trust_snapshot"],
+                kernel.model,
+                read_id=cut["read_id"],
+                subject=annotation.row["subject"],
+                original_source=annotation.row["original_source"],
+                analyzed_scope=annotation.row["analyzed_scope"],
+                selected_pins=[{"product_id": annotation.row["product_id"], "member_id": None}],
+            )
+            native_digest = connection.scalar(
+                select(
+                    func.ops.ddo_binding_input_projection_digest(
+                        *binding.binding_arguments, input_role.name
+                    )
+                )
+            )
+            assert native_digest == expected_digest
         start = annotated["placement"]["start"]
         sentences = [row for row in annotation_rows if row["record_type"] == "sentence"]
         assert [text[start + row["start"] : start + row["end"]] for row in sentences] == [

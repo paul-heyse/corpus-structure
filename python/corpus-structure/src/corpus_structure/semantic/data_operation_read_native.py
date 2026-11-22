@@ -8,6 +8,7 @@ from sqlalchemy import (
     Column,
     Text,
     and_,
+    case,
     cast,
     column,
     func,
@@ -623,6 +624,223 @@ def _body_access_programs(model):
     return kind_access, body_contracts, body_access, binding_access
 
 
+def _input_projection_programs(model, parameters, selected_rows):
+    """Private whole-role parity read built on the existing binding authority."""
+    empty = cast(literal("[]"), JSONB())
+
+    def tag(kind, value):
+        return func.jsonb_build_array(kind, value, type_=JSONB())
+
+    def mapping(pairs):
+        return tag("mapping", pairs)
+
+    def pair(name, value):
+        return func.jsonb_build_array(name, value, type_=JSONB())
+
+    def tagged_fields(name, value):
+        return mapping(
+            func.coalesce(
+                func.jsonb_agg(aggregate_order_by(pair(name, value), name.collate("C"))),
+                empty,
+            )
+        )
+
+    def text_rows(expression, name):
+        return (
+            func.jsonb_array_elements_text(expression)
+            .table_valued(column("path", Text()))
+            .render_derived(name=name)
+        )
+
+    # Select from the admitted tagged header so numeric kinds and explicit null
+    # survive. An absent nested path contributes no synthetic enclosing record.
+    header = core_variable("p_header", JSONB())
+    paths = text_rows(core_variable("p_paths", JSONB()), "observed_paths")
+    parent = func.split_part(paths.c.path, ".", 1)
+    direct = parent == paths.c.path
+    suffixes = (
+        select(
+            parent.label("field"),
+            func.bool_or(direct).label("whole"),
+            func.coalesce(
+                func.jsonb_agg(func.substr(paths.c.path, func.length(parent) + 2)).filter(~direct),
+                empty,
+            ).label("suffixes"),
+        )
+        .group_by(parent)
+        .subquery("selected_header_paths")
+    )
+    field = func.data.ddo_field(header, suffixes.c.field, type_=JSONB())
+    selected_value = case(
+        (suffixes.c.whole, field),
+        else_=func.ops.ddo_input_projection_header(field, suffixes.c.suffixes, type_=JSONB()),
+    )
+    header_fields = select(tagged_fields(suffixes.c.field, selected_value)).where(
+        field.is_not(None), or_(suffixes.c.whole, selected_value != mapping(empty))
+    )
+    header_projection = _program(
+        "ddo_input_projection_header",
+        (Parameter("p_header", pg_type("jsonb")), Parameter("p_paths", pg_type("jsonb"))),
+        (
+            If(header[0].astext.is_distinct_from("mapping"), (Return(mapping(empty)),)),
+            Return(header_fields.scalar_subquery()),
+        ),
+        volatility="immutable",
+        security=False,
+    )
+
+    demands = model.tables["ops.data_demand"]
+    definitions = model.tables["sem.data_operation_definition"]
+    partitions = model.tables["kb.data_product_partition"]
+    binding_roles = _rows(definitions.c.input_roles, "binding_projection_role")
+    projection = core_variable("projection", JSONB())
+    actual_header = core_variable("admitted_header", JSONB())
+    p_role = core_variable("p_role", Text())
+    p_selected = core_variable("p_selected", JSONB())
+    definition = (
+        select(binding_roles.c.value["read_projection"])
+        .select_from(
+            demands.join(definitions, definitions.c.release_id == demands.c.release_id).join(
+                binding_roles, true()
+            )
+        )
+        .where(
+            demands.c.id == core_variable("p_demand", Text()),
+            definitions.c.operation_id == core_variable("p_operation", Text()),
+            func.jsonb_array_length(definitions.c.input_roles) == 1,
+            binding_roles.c.value["name"].astext == p_role,
+            binding_roles.c.value["collection"].astext == "scalar",
+            binding_roles.c.value["minimum"].astext == "1",
+            binding_roles.c.value["maximum"].astext == "1",
+        )
+    )
+    selected = selected_rows(decode=False)
+    authorized_header = (
+        select(selected.c.meaning_body)
+        .where(
+            selected.c.product == p_selected[0]["product_id"].astext,
+            selected.c.member.is_(None),
+        )
+        .distinct()
+    )
+    collections = _rows(projection["collections"], "observed_collections")
+    collection = collections.c.value
+    groups = text_rows(collection["groups"], "observed_groups")
+    group_fields = (
+        select(
+            tagged_fields(groups.c.path, tag("string", partitions.c.group_digests[groups.c.path]))
+        )
+        .select_from(groups)
+        .correlate(partitions, collections)
+        .scalar_subquery()
+    )
+    placement = mapping(
+        func.jsonb_build_array(
+            *(
+                pair(name, tag("integer", partitions.c.placement[name].astext))
+                for name in ("end", "start")
+            )
+        )
+    )
+    partition_fields = empty
+    for name, value, observed in (
+        ("groups", group_fields, func.jsonb_array_length(collection["groups"]) > 0),
+        (
+            "ordinal",
+            tag("integer", cast(partitions.c.ordinal, Text())),
+            collection["order"].astext == "true",
+        ),
+        (
+            "partition_key",
+            tag("string", partitions.c.partition_key),
+            collection["membership"].astext == "true",
+        ),
+        ("placement", placement, collection["placement"].astext == "true"),
+    ):
+        partition_fields = partition_fields.concat(
+            case((observed, func.jsonb_build_array(pair(name, value))), else_=empty)
+        )
+    partition_value = mapping(partition_fields)
+    ordering = (
+        case((collection["order"].astext == "true", partitions.c.ordinal), else_=0),
+        func.convert_to(
+            case(
+                (collection["membership"].astext == "true", partitions.c.partition_key),
+                else_=func.data.canonical_json(func.data.ddo_json(partition_value)),
+            ),
+            "UTF8",
+        ),
+    )
+    collection_values = (
+        select(
+            tag(
+                "sequence",
+                func.coalesce(
+                    func.jsonb_agg(aggregate_order_by(partition_value, *ordering)), empty
+                ),
+            )
+        )
+        .where(
+            partitions.c.product_id == p_selected[0]["product_id"].astext,
+            partitions.c.collection == collection["name"].astext,
+        )
+        .correlate(collections)
+        .scalar_subquery()
+    )
+    projected_collections = select(
+        tagged_fields(collection["name"].astext, collection_values)
+    ).scalar_subquery()
+    digest = func.data.ddo_identity(
+        "input-projection-value",
+        mapping(
+            func.jsonb_build_array(
+                pair("collections", projected_collections),
+                pair(
+                    "header",
+                    func.ops.ddo_input_projection_header(actual_header, projection["header"]),
+                ),
+                pair("projection", tag("string", projection["fingerprint"])),
+            )
+        ),
+        type_=Text(),
+    )
+    binding_projection = _program(
+        "ddo_binding_input_projection_digest",
+        (
+            *parameters,
+            Parameter("p_selected", pg_type("jsonb"), pg_literal(None)),
+            Parameter("p_role", pg_type("text"), pg_literal(None)),
+        ),
+        (
+            _refuse(
+                or_(
+                    func.jsonb_typeof(p_selected).is_distinct_from("array"),
+                    func.jsonb_array_length(p_selected) != 1,
+                    p_selected[0]["member_id"].astext.is_not(None),
+                    p_selected[0]["product_id"].astext.is_(None),
+                ),
+                "input projection requires one exact whole-product pin",
+                "23514",
+            ),
+            SelectInto(definition, ("projection",)),
+            _refuse(
+                or_(
+                    projection["scope"].astext.is_distinct_from("whole"),
+                    projection["version"].astext.is_distinct_from("1"),
+                ),
+                "input projection requires one declared scalar whole role",
+                "23514",
+            ),
+            SelectInto(authorized_header, ("admitted_header",)),
+            If(actual_header.is_(None), (Return(cast(null(), Text())),)),
+            Return(digest),
+        ),
+        (Local("projection", pg_type("jsonb")), Local("admitted_header", pg_type("jsonb"))),
+        returns=pg_type("text"),
+    )
+    return header_projection, binding_projection
+
+
 def _binding_programs(model):
     demands, reads = model.tables["ops.data_demand"], model.tables["ops.data_demand_read"]
     p_demand, p_operation, p_read, p_subject = (
@@ -878,7 +1096,13 @@ def _binding_programs(model):
             Return(member_row.scalar_subquery()),
         ),
     )
-    return internal, public, partition_read, reference_member
+    return (
+        internal,
+        public,
+        partition_read,
+        reference_member,
+        *_input_projection_programs(model, parameters, selected_rows),
+    )
 
 
 def read_native_programs(model):
