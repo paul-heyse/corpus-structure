@@ -205,6 +205,8 @@ def _population_authority(model):
     outputs = model.tables["ops.data_derivation_output"]
     demand = model.tables["ops.data_demand"]
     read = model.tables["ops.data_demand_read"]
+    use = model.tables["ops.demand_use"]
+    obligation = model.tables["ops.data_obligation"]
     population = _param("pop", "ops", populations.name)
     evidence = core_variable("evidence", JSONB())
     pop_evidence = _owned_row("pop", populations, "evidence")
@@ -266,11 +268,23 @@ def _population_authority(model):
         )
         .exists()
     )
+    released_discovery = definitions.alias("released_discovery")
     declared_relation = (
         select(1)
         .select_from(
             relations.join(episodes, episodes.c.id == pop_evidence["derivation_id"].astext)
             .join(requests, requests.c.id == episodes.c.request_id)
+            .join(use, use.c.id == pop_evidence["admission_use_id"].astext)
+            .join(obligation, obligation.c.id == use.c.obligation_id)
+            .join(
+                released_discovery,
+                and_(
+                    released_discovery.c.release_id == d("release_id"),
+                    released_discovery.c.operation_id == obligation.c.operation_id,
+                    released_discovery.c.recipe == episodes.c.recipe,
+                    released_discovery.c.profile == "discovery",
+                ),
+            )
             .join(
                 outputs,
                 and_(
@@ -295,7 +309,18 @@ def _population_authority(model):
             relation["output_role"].astext == outputs.c.role,
             outputs.c.role == pop_evidence["member_role"].astext,
             requests.c.project_id == d("project_id"),
-            requests.c.release_id == d("release_id"),
+            use.c.demand_id == d("id"),
+            use.c.derivation_id == episodes.c.id,
+            use.c.fate == "fulfilled",
+            obligation.c.demand_id == d("id"),
+            obligation.c.operation_id == requests.c.operation_id,
+            obligation.c.subject == requests.c.subject,
+            obligation.c.original_source.is_not_distinct_from(requests.c.original_source),
+            obligation.c.analyzed_scope == requests.c.analyzed_scope,
+            or_(
+                _owned_row("boundary", read, "id").is_(None),
+                func.ops.ddo_read_visible(use.c.created_at, use.c.created_xid, boundary),
+            ),
         )
         .exists()
     )

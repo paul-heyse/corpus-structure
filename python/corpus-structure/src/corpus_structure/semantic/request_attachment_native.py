@@ -1526,8 +1526,6 @@ def _attachment_program(model, protocol: bytes):
             prior.c.subject == o("subject"),
             prior.c.original_source.is_not_distinct_from(o("original_source")),
             prior.c.analyzed_scope == o("analyzed_scope"),
-            episodes.c.release_id == d("release_id"),
-            episodes.c.runtime_id == d("runtime_id"),
             episodes.c.recipe == defn("recipe"),
             episodes.c.outcome == "success",
             func.ops.ddo_validity_direct("producer", episodes.c.id, _value("boundary")),

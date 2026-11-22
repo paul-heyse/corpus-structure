@@ -4,12 +4,15 @@ import json
 from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, literal, select
+from sqlalchemy.dialects.postgresql import JSONB
 
 from corpus_structure.schema.model_change import native_model_inputs
 from corpus_structure.semantic import migrations
+from corpus_structure.semantic._data_operation_wire import WireResultBinding
 from corpus_structure.semantic.canonical_sentences import canonical_sentence_operation_sources
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_demands import DemandPlanner
@@ -49,7 +52,7 @@ from semantic.structural_production_native_support import (
 from semantic.test_target_installation_native import install_target_root
 
 
-def _recipe(directory, *, target="canonical"):
+def _recipe(directory, *, target="canonical", sentence_configuration=None):
     original = current_pdf_recipe(directory)
     captured = original.captured_inputs
     assert captured is not None
@@ -77,7 +80,9 @@ def _recipe(directory, *, target="canonical"):
         operations = construction_operation_sources(sentence_configuration=SentenceConfig())
     else:
         bundle = sentence_product_inputs(captured.bundle)
-        operations = canonical_sentence_operation_sources()
+        operations = canonical_sentence_operation_sources(
+            sentence_configuration=sentence_configuration
+        )
     return replace(
         original,
         name="annotation-partition-chain-" + target,
@@ -319,6 +324,147 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
         } in observed_routes
         repeated = execute_captured_kernel_demand(kernel, demand_id)
         assert repeated.receipt_count == 0
+
+
+@pytest.mark.gpu
+@pytest.mark.provider_evidence
+def test_actual_canonical_adopts_equal_projection_from_another_annotation_capture(
+    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+):
+    from corpus_structure.ingest.sentences import SentenceConfig
+
+    text = "Ada acts. Bob waits."
+    operation = "segment.sentences/canonical-projection"
+    namespace = "https://corpus-structure.dev/semantic/data-operation-sentences/"
+
+    def capture(source, name, batch_size):
+        directory = tmp_path / name
+        directory.mkdir()
+        config = SentenceConfig(exclude=("ner",), batch_size=batch_size)
+        kernel = admit_current_target(
+            source,
+            _recipe(directory / "recipe", sentence_configuration=config),
+            directory / "target",
+        )
+        retained, original, products, _ = produce_source_reports(
+            source, kernel, operation, text=text
+        )
+        (annotation,) = selected_for_source(
+            kernel, products, namespace + "DdoSourceAnnotations", original
+        )
+        (canonical,) = selected_for_source(
+            kernel, products, namespace + "DdoCanonicalSentences", original
+        )
+        demand_id = retained["demand_id"]
+        with kernel.purpose("read").begin() as connection:
+            page = read_demand_result(connection, demand_id, project_id=PROJECT, limit=1000)
+            (partition,) = [
+                row
+                for entry in stream_selected_support(connection, page, whole_read=True)
+                if entry["relation"] == "kb.data_product_partition"
+                and (row := entry["record"])["product_id"] == annotation.row["product_id"]
+            ]
+        (inventory,) = [
+            role for role in kernel.model.operation(operation).roles if role.direction == "input"
+        ]
+        assert inventory.read_projection is not None
+        digest = input_projection_digest(inventory.read_projection, annotation.body, [partition])
+        with kernel.purpose("write").begin() as connection:
+            planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+            frontier = planner.resume(demand_id)
+        (obligation,) = [
+            row
+            for row in frontier["obligations"]
+            if row["operation_id"] == operation and row["subject"] == original.row["subject"]
+        ]
+        (fulfilled,) = [
+            use
+            for use in frontier["uses"]
+            if use["obligation_id"] == obligation["obligation_id"] and use["fate"] == "fulfilled"
+        ]
+        return kernel, demand_id, annotation, canonical, fulfilled, digest
+
+    with _private_source(
+        semantic_bare_engine, native_settings, tmp_path, monkeypatch, text
+    ) as source:
+        first, first_demand, annotated, canonical, published, digest = capture(source, "first", 64)
+        second, second_demand, revised, selected, adopted, revised_digest = capture(
+            source, "revised", 1
+        )
+
+        assert first.runtime != second.runtime
+        assert first.identities[operation, "recipe"] == second.identities[operation, "recipe"]
+        assert annotated.body["configuration"]["batch_size"] == 64
+        assert revised.body["configuration"]["batch_size"] == 1
+        assert annotated.row["product_id"] != revised.row["product_id"]
+        assert digest == revised_digest
+        assert adopted["request_id"] != published["request_id"]
+        assert adopted["use_id"] != published["use_id"]
+        assert adopted["derivation_id"] == published["derivation_id"]
+        assert selected.row["product_id"] == canonical.row["product_id"]
+        current_binding = cast(WireResultBinding, adopted["selection"])
+        assert current_binding["inputs"][0]["product_id"] == revised.row["product_id"]
+
+        inputs = table("ops.data_derivation_input")
+        generations = table("ops.data_request_generation")
+        demands = table("ops.data_demand")
+        populations = table("ops.data_population")
+        historical = populations.alias("historical_population")
+        forged_population = func.jsonb_populate_record(
+            populations.table_valued(),
+            func.jsonb_build_object(
+                "evidence",
+                populations.c.evidence.op("||")(
+                    func.jsonb_build_object(
+                        "admission_use_id", historical.c.evidence["admission_use_id"].astext
+                    )
+                ),
+            ),
+        )
+
+        def matches_source_role(population):
+            return func.ops.ddo_discovery_role_population(
+                demands.table_valued(),
+                population,
+                "segment.sentences/source-native",
+                "source",
+                revised.row["subject"],
+                revised.row["original_source"],
+                literal(revised.row["analyzed_scope"], JSONB()),
+            )
+
+        with second.engine.begin() as connection:
+            producing_product = connection.scalar(
+                select(inputs.c.product_id).where(
+                    inputs.c.derivation_id == published["derivation_id"]
+                )
+            )
+            current_attempts = connection.scalar(
+                select(func.count())
+                .select_from(generations)
+                .where(generations.c.request_id == adopted["request_id"])
+            )
+            population_support = connection.execute(
+                select(
+                    matches_source_role(populations.table_valued()),
+                    matches_source_role(forged_population),
+                )
+                .select_from(
+                    demands.join(populations, populations.c.demand_id == demands.c.id).join(
+                        historical,
+                        (historical.c.name == populations.c.name)
+                        & (
+                            historical.c.evidence["derivation_id"].astext
+                            == populations.c.evidence["derivation_id"].astext
+                        ),
+                    )
+                )
+                .where(demands.c.id == second_demand, historical.c.demand_id == first_demand)
+            ).all()
+        assert producing_product == annotated.row["product_id"]
+        assert current_attempts == 0
+        assert (True, False) in population_support
+        assert all(stale is False for _, stale in population_support)
 
 
 @pytest.mark.gpu
