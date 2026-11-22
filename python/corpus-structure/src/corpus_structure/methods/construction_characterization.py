@@ -17,6 +17,22 @@ class ConstructionOperation:
         "id": "text.constructions/source-native",
         "rules": [
             {
+                "id": "text.constructions/selected-primary-members",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.constructions/source-native",
+                "checker_callable": "corpus_structure.semantic.construction_products.verify_interpreted_dependency_members",
+                "parameters": {
+                    "paths": ["dependencies", "members"],
+                    "input_reads": {
+                        "formal": ["members"],
+                        "sentences": ["execution_profile", "block_coverage"],
+                    },
+                },
+            },
+            {
                 "id": "text.constructions/canonical-occurrence-addresses",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
                 "scope": "product",

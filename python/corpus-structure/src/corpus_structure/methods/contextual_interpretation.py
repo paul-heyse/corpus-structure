@@ -20,6 +20,23 @@ class ContextualEvaluationOperation:
         "id": "text.contextual_evaluation/source-native",
         "rules": [
             {
+                "id": "text.contextual_evaluation/selected-primary-members",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualMeaningProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.contextual_evaluation/source-native",
+                "checker_callable": "corpus_structure.semantic.construction_products.verify_interpreted_dependency_members",
+                "parameters": {
+                    "paths": ["dependencies", "members"],
+                    "input_reads": {
+                        "formal": ["members"],
+                        "constructions": ["members"],
+                        "supporting": ["members"],
+                    },
+                },
+            },
+            {
                 "id": "text.contextual_evaluation/canonical-occurrence-addresses",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualMeaningProduct",
                 "scope": "product",

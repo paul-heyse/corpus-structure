@@ -439,6 +439,7 @@ class PreparedCharacterizationPort(ABC):
             occurrence_runtime = occurrence_identity_runtime()
             from .construction_products import (
                 verify_interpreted_body_coverage,
+                verify_interpreted_dependency_members,
                 verify_interpreted_inventory_topology,
                 verify_interpreted_literal_source,
                 verify_interpreted_positioned_geometry,
@@ -466,6 +467,10 @@ class PreparedCharacterizationPort(ABC):
                 (
                     "corpus_structure.semantic.construction_products.verify_interpreted_inventory_topology",
                     verify_interpreted_inventory_topology,
+                ),
+                (
+                    "corpus_structure.semantic.construction_products.verify_interpreted_dependency_members",
+                    verify_interpreted_dependency_members,
                 ),
                 (
                     "corpus_structure.semantic.construction_products.verify_interpreted_body_coverage",
@@ -818,7 +823,34 @@ class PreparedCharacterizationPort(ABC):
             constructions.append(product)
         return _ContextualInputs(source, formal, tuple(constructions), supporting)
 
-    def _completion(self, product, binding=None, *, source=None):
+    @staticmethod
+    def _observed_dependency_members(binding, inputs):
+        from .established_validity import RuleObservedInput
+
+        products = {"formal": inputs.formal}
+        if isinstance(inputs, _ConstructionInputs):
+            products["sentences"] = (inputs.native,)
+        else:
+            products.update(constructions=inputs.constructions, supporting=inputs.supporting)
+        result = {}
+        for name, values in products.items():
+            selected = next(role for role in binding.roles if role.role == name)
+            position = 0
+            observed = []
+            for member in selected.members:
+                retained = values[position]
+                if retained.semantic_id != member.product:
+                    raise ValueError("dependency attestation requires its exact producing input")
+                observed.append(
+                    RuleObservedInput(json.loads(retained.content), member.multiplicity)
+                )
+                position += member.multiplicity
+            if position != len(values):
+                raise ValueError("dependency attestation changes the selected input multiplicity")
+            result[name] = tuple(observed)
+        return result
+
+    def _completion(self, product, binding=None, *, inputs=None):
         if product is None:
             from .data_operation_ports import PortCompletion, PortRefusal
 
@@ -851,9 +883,16 @@ class PreparedCharacterizationPort(ABC):
         if binding is not None and isinstance(
             product, (ConstructionProduct, ContextualMeaningProduct)
         ):
-            if source is None or product.subject_context is None:
+            if (
+                not isinstance(inputs, (_ConstructionInputs, _ContextualInputs))
+                or product.subject_context is None
+            ):
                 raise ValueError("interpreted attestation requires its selected source and subject")
+            source = inputs.source
             checked = {
+                "corpus_structure.semantic.construction_products.verify_interpreted_dependency_members": self._observed_dependency_members(
+                    binding, inputs
+                ),
                 "corpus_structure.semantic.construction_products.verify_interpreted_literal_source": {
                     "source": (RuleObservedInput(source.value),)
                 },
@@ -942,10 +981,7 @@ class PreparedCharacterizationPort(ABC):
             )
         check_active()
         self._verify()
-        source = (
-            inputs.source if isinstance(inputs, (_ConstructionInputs, _ContextualInputs)) else None
-        )
-        return self._completion(product, binding, source=source)
+        return self._completion(product, binding, inputs=inputs)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from .construction_products import validate_interpreted_product
@@ -1040,11 +1076,8 @@ class PreparedCharacterizationPort(ABC):
                 (*inputs.formal, *inputs.supporting, *inputs.constructions),
                 product_type=ContextualMeaningProduct,
             )
-        source = (
-            inputs.source if isinstance(inputs, (_ConstructionInputs, _ContextualInputs)) else None
-        )
         return replace(
-            self._completion(product, binding, source=source),
+            self._completion(product, binding, inputs=inputs),
             cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
         )
 

@@ -942,6 +942,38 @@ def verify_interpreted_positioned_geometry(packets, source):
                 raise ValueError("construction occurrence changes original positioned source")
 
 
+def verify_interpreted_dependency_members(product, nodes, dependencies, *, include_annotations):
+    """Bind external graph premises and alternative choices to actual primary members."""
+    if (product["dependencies"] if "dependencies" in product else []) != [
+        {"product_id": key} for key, _ in dependencies
+    ]:
+        raise ValueError("construction product changes selected primary dependencies")
+    external = {
+        (product_id, packet["member_id"]): packet["body"]
+        for product_id, dependency in dependencies
+        if include_annotations or not _annotation_dependency(dependency)
+        for packet in dependency["members"]
+    }
+    external_choices = {
+        key for key, body in external.items() if body["record_type"] == "choice_member"
+    }
+    for address in nodes:
+        node = nodes[address]
+        basis = node["basis"] if "basis" in node else {}
+        for ref in (
+            *(node["external_premises"] if "external_premises" in node else ()),
+            *(basis["external_premises"] if "external_premises" in basis else ()),
+        ):
+            if (ref["product_id"], ref["member_id"]) not in external:
+                raise ValueError("construction has dangling primary semantic member premise")
+        for ref in (
+            *(node["required_external_choices"] if "required_external_choices" in node else ()),
+            *(basis["required_external_choices"] if "required_external_choices" in basis else ()),
+        ):
+            if (ref["product_id"], ref["member_id"]) not in external_choices:
+                raise ValueError("construction requires an actual primary choice alternative")
+
+
 def validate_interpreted_product(
     prepared,
     model,
@@ -990,12 +1022,6 @@ def _checked_interpreted_product(
         or tuple(checked["selectors"]) != tuple(selected["selectors"])
     ):
         raise ValueError("construction body differs from its exact selected native product/source")
-    selected_products = tuple((product.semantic_id, product.content) for product in formal)
-    expected_dependencies = [
-        DataProductReference(product_id).values() for product_id, _ in selected_products
-    ]
-    if checked.get("dependencies", []) != expected_dependencies:
-        raise ValueError("construction product changes selected primary dependencies")
     contracts = interpreted_member_contracts(prepared, model)
     inventory, indexes, all_nodes, _ = (
         verify_interpreted_inventory_topology(packets)
@@ -1017,30 +1043,13 @@ def _checked_interpreted_product(
     if bound_member is None:
         verify_inventory_occurrence_ids(checked)
         verify_interpreted_positioned_geometry(packets, selected)
-    dependencies = {product_id: json.loads(content) for product_id, content in selected_products}
-    external = {
-        (product_id, packet["member_id"]): packet["body"]
-        for product_id, dependency in dependencies.items()
-        if product_type is not ConstructionProduct or not _annotation_dependency(dependency)
-        for packet in dependency["members"]
-    }
-    external_choices = {
-        key for key, body in external.items() if body["record_type"] == "choice_member"
-    }
-    for node in all_nodes.values():
-        basis = node.get("basis", {})
-        for ref in (
-            *node.get("external_premises", ()),
-            *basis.get("external_premises", ()),
-        ):
-            if (ref["product_id"], ref["member_id"]) not in external:
-                raise ValueError("construction has dangling primary semantic member premise")
-        for ref in (
-            *node.get("required_external_choices", ()),
-            *basis.get("required_external_choices", ()),
-        ):
-            if (ref["product_id"], ref["member_id"]) not in external_choices:
-                raise ValueError("construction requires an actual primary choice alternative")
+    dependencies = tuple((product.semantic_id, json.loads(product.content)) for product in formal)
+    verify_interpreted_dependency_members(
+        checked,
+        all_nodes,
+        dependencies,
+        include_annotations=product_type is not ConstructionProduct,
+    )
     navigation = (
         _validated_annotation_support(checked, formal, inventory, all_nodes)
         if product_type is ConstructionProduct

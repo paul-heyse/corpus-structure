@@ -549,6 +549,10 @@ def test_interpreted_body_coverage_refuses_empty_family_with_analytical_members(
 
 def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired, monkeypatch):
     from corpus_structure.semantic import construction_products
+    from corpus_structure.semantic.characterization_ports import (
+        _ConstructionInputs,
+        _ContextualInputs,
+    )
     from corpus_structure.semantic.construction_products import (
         PreparedConstructionProfile,
         PreparedContextualProfile,
@@ -557,6 +561,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         verify_interpreted_source_coverage,
     )
     from corpus_structure.semantic.data_operation_model import BoundRoleMember
+    from corpus_structure.semantic.sentence_products import SourceAnnotations
 
     _, _, prepared, model, formal = acquired
     source = selected(formal, "All samples are finite.")
@@ -568,22 +573,49 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
     contextual = PreparedContextualProfile(prepared, model).run(
         source, (construction,), (primary,), subject_context=context
     )
-    for operation, resolver, product, required in (
+    # These header fields are the complete observation of the annotation input for this proof.
+    annotation = SourceAnnotations(
+        b'{"execution_profile":"selected","block_coverage":[]}',
+        prepared,
+        model,
+        (),
+        subject_context=context,
+    )
+
+    def binding(**roles):
+        return SimpleNamespace(
+            subject_context=context,
+            roles=tuple(
+                SimpleNamespace(
+                    role=name,
+                    members=tuple(
+                        SimpleNamespace(product=item.semantic_id, multiplicity=1) for item in items
+                    ),
+                )
+                for name, items in roles.items()
+            ),
+        )
+
+    for operation, resolver, product, required, inputs, selection in (
         (
             "text.constructions/source-native",
             resolve_construction_port,
             construction,
             "text.constructions/literal-source",
+            _ConstructionInputs(source, (primary,), annotation),
+            binding(formal=(primary,), sentences=(annotation,)),
         ),
         (
             "text.contextual_evaluation/source-native",
             resolve_contextual_port,
             contextual,
             "text.contextual_evaluation/literal-source",
+            _ContextualInputs(source, (primary,), (construction,)),
+            binding(formal=(primary,), constructions=(construction,), supporting=()),
         ),
     ):
         port = admitted(acquired, operation, resolver)
-        result = port._completion(product, SimpleNamespace(subject_context=context), source=source)
+        result = port._completion(product, selection, inputs=inputs)
         proofs = {proof.rule_id: proof for proof in result.rule_attestations}
         prefix = operation.partition("/")[0]
         coverage_rule = prefix + "/body-coverage"
@@ -592,6 +624,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         topology_rule = prefix + "/inventory-topology"
         numeric_rule = prefix + "/native-numeric-scores"
         address_rule = prefix + "/canonical-occurrence-addresses"
+        members_rule = prefix + "/selected-primary-members"
         assert set(proofs) == {
             required,
             coverage_rule,
@@ -600,14 +633,15 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
             topology_rule,
             numeric_rule,
             address_rule,
+            members_rule,
         }
         assert all(proof.output_role == "result" for proof in proofs.values())
         assert all(proof.output_position == 0 for proof in proofs.values())
 
         changed = port._completion(
             product,
-            SimpleNamespace(subject_context=context),
-            source=selected(formal, "No sample is finite."),
+            selection,
+            inputs=replace(inputs, source=selected(formal, "No sample is finite.")),
         )
         changed_proofs = {proof.rule_id: proof for proof in changed.rule_attestations}
         assert changed_proofs[coverage_rule].premise == proofs[coverage_rule].premise
@@ -617,6 +651,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         assert changed_proofs[topology_rule].premise == proofs[topology_rule].premise
         assert changed_proofs[numeric_rule].premise == proofs[numeric_rule].premise
         assert changed_proofs[address_rule].premise == proofs[address_rule].premise
+        assert changed_proofs[members_rule].premise == proofs[members_rule].premise
 
     consumer = model.operation("text.contextual_evaluation/source-native")
     (formal_role,) = (role for role in consumer.roles if role.name == "formal")
