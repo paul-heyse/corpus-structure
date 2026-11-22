@@ -10,7 +10,7 @@ import json
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
 from pydantic import TypeAdapter
 from sqlalchemy import Text, bindparam, func, select
@@ -404,6 +404,18 @@ class ReadyDataRequest:
         return json.loads(self.native).get("retained_intent_id")
 
 
+class FulfilledUseRecipient(TypedDict):
+    """A declared output-to-input role occurrence selected by the native routine."""
+
+    use_id: str
+    producer_operation: str
+    output_role: str
+    output_position: int
+    recipient_obligation: str
+    recipient_operation: str
+    input_role: str
+
+
 def _population_context_matches(
     row: dict,
     obligation: dict,
@@ -630,7 +642,7 @@ class DemandPlanner:
         selection_generation: int,
         use_id: str,
         authorization: bytes,
-    ) -> tuple[tuple[ReadyDataRequest, ...], tuple[dict, ...]]:
+    ) -> tuple[tuple[ReadyDataRequest, ...], tuple[FulfilledUseRecipient, ...]]:
         """Prepare one admitted hop and return its distinct candidate reasons.
 
         The exact use may have come from publication or reuse attachment. A
@@ -650,7 +662,9 @@ class DemandPlanner:
                 type_=JSONB(),
             )
         )
-        reasons = tuple(self.storage.connection.scalars(query))
+        reasons = tuple(
+            cast(FulfilledUseRecipient, reason) for reason in self.storage.connection.scalars(query)
+        )
         if not reasons:
             return (), ()
         return (
