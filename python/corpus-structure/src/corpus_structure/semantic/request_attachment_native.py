@@ -1988,6 +1988,7 @@ def _attachment_program(model, protocol: bytes):
             )
             .on_conflict_do_nothing()
         ),
+        Perform(func.ops.ddo_record_obligation_cut(usekey, binding["read_id"].astext)),
         SelectInto(
             select(core_relation_row(existing_use))
             .select_from(existing_use)

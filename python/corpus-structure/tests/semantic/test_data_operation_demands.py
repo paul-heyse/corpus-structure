@@ -254,6 +254,7 @@ def test_resume_preserves_exact_completion_observation_separate_from_frontier(st
         "historical_fate": "attached",
         "inputs_watermark": "watermark:one",
         "native_readiness": None,
+        "native_settlement": None,
     }
     snapshot: dict[str, Any] = {
         "demand_id": "demand:one",

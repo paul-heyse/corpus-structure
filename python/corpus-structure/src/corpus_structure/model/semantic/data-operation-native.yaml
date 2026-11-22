@@ -1099,10 +1099,24 @@ definitions:
       ready: {type: boolean}
       roles: {type: array, items: {$ref: '#/definitions/readiness_role'}}
     required: [ready, roles]
+  obligation_settlement:
+    description: One current named generation's exact required-scalar binding cut, never selection-wide freshness.
+    type: object
+    additionalProperties: false
+    properties:
+      selection_name: {$ref: '#/definitions/identifier'}
+      selection_generation: {$ref: '#/definitions/positive_integer'}
+      state: {enum: [pending, settled]}
+      binding_read_id: {anyOf: [{$ref: '#/definitions/read_id'}, {type: 'null'}]}
+      attachment_use_id: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
+      successor_use_id: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
+    required: [selection_name, selection_generation, state, binding_read_id, attachment_use_id, successor_use_id]
   result_obligation:
     type: object
     properties:
       binding_authority_changed: {type: boolean}
+      native_settlement:
+        anyOf: [{type: array, items: {$ref: '#/definitions/obligation_settlement'}}, {type: 'null'}]
       native_readiness:
         anyOf: [{$ref: '#/definitions/obligation_readiness'}, {type: 'null'}]
       inputs_watermark: {type: string, minLength: 1}
@@ -1142,6 +1156,7 @@ definitions:
         - $ref: '#/definitions/identifier'
         - type: 'null'
     required:
+    - native_settlement
     - native_readiness
     - id
     - obligation_id

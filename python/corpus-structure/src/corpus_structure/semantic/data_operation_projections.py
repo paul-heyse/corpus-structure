@@ -2184,6 +2184,17 @@ def read_page(metadata):
                 bounded.c.id, _var("boundary.id", Text), type_=JSONB()
             ).label("native_readiness"),
         )
+        .cte("ready_obligations")
+        .prefix_with("MATERIALIZED")
+    )
+    bounded = (
+        select(
+            bounded,
+            func.ops.ddo_obligation_settlement(
+                bounded.c.id, _var("boundary.id", Text), bounded.c.native_readiness,
+                type_=JSONB(),
+            ).label("native_settlement"),
+        )
         .cte("bounded")
         .prefix_with("MATERIALIZED")
     )

@@ -596,6 +596,26 @@ classes:
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
       ph:immutability: intrinsic
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["project_id","name","selection_generation"],"target":"ops.data_demand_selection.project_id,name,generation"},{"columns":["receipt_id"],"target":"ops.data_publication_receipt.id"}]}
+  data_obligation_cut:
+    description: Exact required-scalar binding cut authored with one native attachment for a named generation; not selection-wide freshness.
+    in_subset: [ops]
+    attributes:
+      project_id: {range: string, required: true}
+      name: {range: string, required: true}
+      selection_generation: {range: integer, required: true}
+      obligation_id: {range: string, required: true}
+      attachment_use_id: {range: string, required: true}
+      read_id: {range: string, required: true}
+      roles: {range: json_payload, required: true}
+      created_at: {range: timestamp, required: true}
+      created_xid: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [project_id, name, selection_generation, obligation_id, attachment_use_id]}
+    annotations:
+      ph:frontier_guard: exempt
+      ph:read_roles: {tag: 'ph:read_roles', value: []}
+      ph:immutability: intrinsic
+      ph:foreign_keys: {tag: 'ph:foreign_keys', value: [{columns: [project_id, name, selection_generation], target: 'ops.data_demand_selection.project_id,name,generation'}, {columns: [obligation_id], target: 'ops.data_obligation.id'}, {columns: [attachment_use_id], target: 'ops.demand_use.id'}, {columns: [read_id], target: 'ops.data_demand_read.id'}]}
   data_validity_reconfirmation:
     in_subset: [ops]
     attributes:

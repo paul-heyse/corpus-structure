@@ -9,7 +9,11 @@ from sqlalchemy import text
 
 from corpus_structure.schema.model_change import native_model_inputs
 from corpus_structure.semantic import migrations
-from corpus_structure.semantic._data_operation_wire import WireReadDemandResultRequest
+from corpus_structure.semantic._data_operation_wire import (
+    WireAttachDataRequestsRequest,
+    WireReadDemandResultRequest,
+    WireRevokeDataSupportRequest,
+)
 from corpus_structure.semantic.data_operation_demands import DemandPlanner
 from corpus_structure.semantic.data_operation_service import advance_demand_selection
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
@@ -95,6 +99,17 @@ def test_native_required_scalar_join_retains_exact_unchanged_origin_use(
                 cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"], **pins})
             )
 
+    def settlement(page):
+        (obligation,) = [row for row in page["obligations"] if row["operation_id"] == TARGET]
+        return obligation["native_settlement"]
+
+    def cut_count():
+        with admin.connect() as connection:
+            return connection.scalar(text(
+                "SELECT count(*) FROM ops.data_obligation_cut c JOIN ops.data_obligation o "
+                "ON o.id=c.obligation_id WHERE o.operation_id=:target"
+            ), {"target": TARGET})
+
     def readiness(page):
         (obligation,) = [row for row in page["obligations"] if row["operation_id"] == TARGET]
         assert "inputs_watermark" not in obligation
@@ -108,6 +123,11 @@ def test_native_required_scalar_join_retains_exact_unchanged_origin_use(
             for name in ("left", "right")
         ],
     }
+    assert settlement(initial) == [{
+        "selection_name": "pair", "selection_generation": 1, "state": "pending",
+        "binding_read_id": None, "attachment_use_id": None, "successor_use_id": None,
+    }]
+    assert cut_count() == 0
     for producer in (LEFT, RIGHT):
         (row,) = [item for item in initial["obligations"] if item["operation_id"] == producer]
         assert row["native_readiness"] == {"ready": True, "roles": []}
@@ -173,6 +193,19 @@ def test_native_required_scalar_join_retains_exact_unchanged_origin_use(
     )) == middle_ready
     assert publish(kernel, right_fence, right_intent)["replayed"] is True
     assert readiness(read()) == ready
+    assert settlement(current)[0]["state"] == "pending"
+    assert cut_count() == 0
+    with admin.connect() as connection:
+        transaction = connection.begin()
+        (rolled_back,) = DemandPlanner(kernel.model, DataOperationStorage(connection)).ready(
+            current, authorization=b"{}"
+        )
+        assert connection.scalar(text(
+            "SELECT count(*) FROM ops.data_obligation_cut WHERE obligation_id=:obligation"
+        ), {"obligation": rolled_back.obligation}) == 1
+        transaction.rollback()
+    assert cut_count() == 0
+    assert settlement(read())[0]["attachment_use_id"] is None
     with admin.begin() as connection:
         (scheduled,) = DemandPlanner(kernel.model, DataOperationStorage(connection)).ready(
             current, authorization=b"{}"
@@ -185,3 +218,92 @@ def test_native_required_scalar_join_retains_exact_unchanged_origin_use(
         assert identity["support"] == [
             item for item in binding["support"] if item["role"] == role["input_role"]
         ]
+
+    native = json.loads(scheduled.native)
+    attached_page = read()
+    (attached_cut,) = settlement(attached_page)
+    assert attached_cut == {
+        "selection_name": "pair", "selection_generation": 1, "state": "pending",
+        "binding_read_id": current["read_id"], "attachment_use_id": native["use_id"],
+        "successor_use_id": None,
+    }
+    assert cut_count() == 1
+    successor_fence = claim(kernel, native, seconds=300)
+
+    def joined_output(completion):
+        completion.update(inputs=binding["inputs"], support=binding["support"])
+
+    successor_publication = publish(
+        kernel, successor_fence,
+        retain(kernel, successor_fence, outputs=(11,), mutate=joined_output),
+    )
+    completed = read()
+    (completed_cut,) = settlement(completed)
+    assert completed_cut["state"] == "settled"
+    assert completed_cut["attachment_use_id"] == native["use_id"]
+    assert completed_cut["binding_read_id"] == current["read_id"]
+    successor_use = next(
+        use for use in completed["uses"] if use["obligation_id"] == scheduled.obligation
+    )
+    assert completed_cut["successor_use_id"] == successor_use["use_id"]
+    assert successor_use["derivation_id"] == successor_publication["derivation_id"]
+    assert completed_cut["successor_use_id"] != completed_cut["attachment_use_id"]
+    assert readiness(completed) == ready
+    pinned_attached = read(
+        read_id=attached_page["read_id"], selection=attached_page["selection"],
+        trust_snapshot=attached_page["trust_snapshot"],
+    )
+    assert settlement(pinned_attached) == [attached_cut]
+
+    with admin.begin() as connection:
+        superseded = advance_demand_selection(
+            connection, "ddo-test", "pair", other["demand_id"],
+            expected_demand_id=demand["demand_id"], expected_generation=1,
+        )
+    assert superseded.generation == 2
+    assert settlement(read()) == []
+    assert cut_count() == 1
+    with admin.begin() as connection:
+        restored = advance_demand_selection(
+            connection, "ddo-test", "pair", demand["demand_id"],
+            expected_demand_id=other["demand_id"], expected_generation=2,
+        )
+    assert restored.generation == 3
+    restored_page = read()
+    assert settlement(restored_page)[0]["state"] == "pending"
+    assert settlement(restored_page)[0]["attachment_use_id"] is None
+
+    # A completed historical computation still needs an actual current-generation
+    # native authoring step. Identical content cannot promote the old cut.
+    reattach = cast(WireAttachDataRequestsRequest, {
+        "read_id": restored_page["read_id"],
+        "items": [{
+            "obligation_id": scheduled.obligation,
+            "request_meaning": json.loads(scheduled.request),
+            "request_key": native["request_id"],
+            "binding": {**binding, "read_id": restored_page["read_id"]},
+            "replicate": None,
+        }],
+    })
+    with admin.begin() as connection:
+        authored = DataOperationStorage(connection).attach_data_requests(reattach)["items"][0]
+    assert authored["state"] == "fulfilled"
+    assert authored["result"]["derivation_id"] == successor_publication["derivation_id"]
+    with admin.begin() as connection:
+        assert DataOperationStorage(connection).attach_data_requests(reattach)["items"][0] == authored
+    (restored_cut,) = settlement(read())
+    assert restored_cut["state"] == "settled" and restored_cut["selection_generation"] == 3
+    assert restored_cut["attachment_use_id"] == authored["result"]["use_id"]
+    assert restored_cut["successor_use_id"] == authored["result"]["use_id"]
+    assert restored_cut["binding_read_id"] == restored_page["read_id"]
+    assert cut_count() == 2
+    with admin.begin() as connection:
+        DataOperationStorage(connection).revoke_data_support(cast(WireRevokeDataSupportRequest, {
+            "project_id": "ddo-test", "original_source": "source:test",
+            "selector_kind": "derivation", "selector": left_publication["derivation_id"],
+            "reason": "left selected authority withdrawn",
+        }))
+    revoked = read()
+    assert readiness(revoked)["ready"] is False
+    assert settlement(revoked)[0]["state"] == "pending"
+    assert cut_count() == 2

@@ -1181,6 +1181,15 @@ class WireObligationReadiness(TypedDict):
     roles: Required[list[WireReadinessRole]]
 
 
+class WireObligationSettlement(TypedDict):
+    attachment_use_id: Required[WireIdentifier | None]
+    binding_read_id: Required[WireReadId | None]
+    selection_generation: Required[WirePositiveInteger]
+    selection_name: Required[WireIdentifier]
+    state: Required[Literal["pending", "settled"]]
+    successor_use_id: Required[WireIdentifier | None]
+
+
 class WireOperationEventFrameDeclaredProductRef(TypedDict):
     analyzed_scope_meaning: Required[str]
     kind_contract: Required[str]
@@ -1404,6 +1413,7 @@ class WireResultObligation(TypedDict):
     inputs_watermark: NotRequired[str]
     intent_id: Required[WireCompletionIntentId | None]
     native_readiness: Required[WireObligationReadiness | None]
+    native_settlement: Required[list[WireObligationSettlement] | None]
     obligation_id: Required[WireObligationId]
     operation_id: Required[WireOperationId]
     original_source: Required[WireOriginalSourceId | None]
