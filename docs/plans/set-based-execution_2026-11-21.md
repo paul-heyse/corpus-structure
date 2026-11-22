@@ -1,7 +1,8 @@
 # Set-based execution
 
-**Status:** In implementation through SBX-09. SBX-00 through SBX-02 have package evidence.
-SBX-03 through SBX-09 have partial implementation and scoped verification. This series owns the pivot to
+**Status:** Implementation is paused through SBX-09. The efficiency amendment is scheduled.
+SBX-00 through SBX-02 have package evidence. SBX-03 through SBX-09 have partial implementation and
+scoped verification. This series owns the pivot to
 partition-unit storage, declared rules and proofs, projection-keyed reuse, native change
 propagation, owner-resolved reads and the single-derivation PDF path. **Created:** 2026-11-21.
 
@@ -11,7 +12,9 @@ design advice read production source at `7a415d18d` on 2026-11-21. The
 [post-SBX-01 amendment](#post-sbx-01-review-amendment) and the
 [push-propagation amendment](#push-propagation-amendment) use later source and evidence baselines.
 The [common analytics amendment](#common-analytics-review-amendment) schedules the annotation-fork
-pilot and expands the analytical and replay comparisons.
+pilot and expands the analytical and replay comparisons. The
+[efficiency amendment](#validation-postgresql-efficiency-amendment) orders the live-read correction,
+native attribution and qualification after the pause.
 Design changes are **Proposed** unless marked accepted. Implementation and measured results
 carry their own evidence and dates. `cs/` means `python/corpus-structure/src/corpus_structure/`.
 
@@ -179,8 +182,8 @@ capability consumed.
 | SBX-05 | In qualification. Construction, contextual discovery, declaration, artifact, comparison and contribution reports declare original role addresses for computational evidence. The two remaining parent dependency lists are retired. Selected complete graph readers acquire one authentic original binding. SBX-11 owns the keyed read. | SBX-01 addresses | [RPK](set-based-execution/references-and-projection-keys.md#sbx-05) |
 | SBX-06 | In qualification. Registered controls passed ordinary committed-gap recovery, both cross-demand commit orders, exact pins, original and selected population wakes, scalar and closed collection unavailability, and terminal empty discovery. Recursive readiness state and repeated readiness scans are retired. Proof-uncertain and nonempty qualified-context scopes retain pending standing until authoritative settlement. | SBX-01 field groups and SBX-02 shared premises, plus runnable SBX-03–05 address, proof and binding slices | [RPK](set-based-execution/references-and-projection-keys.md#sbx-06) |
 | SBX-07 | In progress. Canonical retains deterministic local rows across pointer renames and assembles current addresses and placement. The governed CUDA move, rename and split/merge control passed on the registered checkpoint. The other current hosts keep whole-result execution. Final-root acceptance stays open. | SBX-06, SBX-03 | [RPK](set-based-execution/references-and-projection-keys.md#sbx-07) |
-| SBX-08 | In progress. Acquired source frames and immutable partition, formal, interpreted and composed payloads have scoped evidence. The pilot selected their existing annotation hand-off. All five native stream checks passed on a registered checkpoint. Final integrated native acceptance stays open. | SBX-04/05 proof and address contracts | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-08) |
-| SBX-09 | In progress. CPU, canonical, PDF and learned paths carry acquired verification. PDF region and visual workers verify after encoding, and the late-import and encoding-time tamper controls passed. Final registered-root provider and custody verification stays open. | Integrated SBX-03–08 behavior before authoring the cold root | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-09) · [CQ](set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09) |
+| SBX-08 | In progress. Acquired source frames and immutable partition, formal, interpreted and composed payloads have scoped evidence. The pilot selected their existing annotation hand-off. All five native stream checks passed on a registered checkpoint. The live-page and witness changes are scheduled. Final integrated native acceptance stays open. | SBX-04/05 proof and address contracts | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-08) |
+| SBX-09 | In progress. CPU, canonical, PDF and learned paths carry acquired verification. PDF region and visual workers verify after encoding, and the late-import and encoding-time tamper controls passed. Final registered-root provider and custody verification stays open. | Integrated SBX-03–08 behavior and final-source correspondence to the registered root | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-09) · [CQ](set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09) |
 | SBX-10 | Derived views computed once; one span vocabulary; producer-published contexts | SBX-08; SBX-03 for token views | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-10) |
 | SBX-11 | Read programs with scoped authority acquisition, answer shapes, filters, keyset paging and explicit freshness disclosure | SBX-01 for partition reads; SBX-02 for proof answers; SBX-06 settlement coverage for the freshness slice | [ORR](set-based-execution/owner-resolved-reads.md#sbx-11) |
 | SBX-12 | Selected structural Parquet replay, partition and proof export, unified cursor and substantive cache with current authority | SBX-11; SBX-02 proof and SBX-05 reference contracts for affected relations; projection contract from the pilot | [ORR](set-based-execution/owner-resolved-reads.md#sbx-12) |
@@ -215,25 +218,30 @@ own input, carrier and reference dependencies. SBX-20 to SBX-22 close the series
 
 **Scheduled execution sequence · 2026-11-22.** Use the recorded
 [typed-population decision](set-based-execution/common-analytical-basis.md#pilot-implementation-and-evidence)
-and complete the [post-pilot amendment](#post-pilot-review-amendment).
+and the [efficiency amendment](#validation-postgresql-efficiency-amendment).
 
-1. Bind the exact construction and contextual premises and role-relative addresses in SBX-04/05.
-   Reuse acquired blocks from SBX-08. Migrate each remaining reference family with its native,
-   ordinary, evaluation and detached consumers. Reopen SBX-01/02 only where the remaining
-   construction or contextual contract requires it.
-2. Extend the [installed canonical successor](set-based-execution/cutover-and-qualification.md#early-revision-a-integration)
-   through real changes, occurrence correspondence, projected adoption and the worker-local memo.
-   Use its scalar construction caller to decide the [conditional keyed read](set-based-execution/references-and-projection-keys.md#sbx-05)
-   before assigning it to SBX-05 or SBX-11.
-3. In parallel once the authority contract is available, extend native settlement from the
-   covered scalar and other scoped origins to the remaining governed cases. Prove ordinary resume
-   and scoped coverage. Move grading and export off scheduler-only fields before removing the
-   watermark and superseded sweeps. [Delivery](set-based-execution/references-and-projection-keys.md#sbx-06)
-4. Finish carrier consumers and place the threaded end check at the last use of captured premises.
-   Integrate shared declarations, generated outputs and worker tests with the installed journey.
-   [Carriers and custody](set-based-execution/validated-values-and-handoff.md#sbx-08)
-5. Author, register and qualify the sole cold root on newly admitted data. Then reinstall
-   development empty on the dedicated cluster. [Reset and acceptance](set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09)
+1. Establish [stable source, verified fixture preparation and required test identities](set-based-execution/cutover-and-qualification.md#sbx-efficiency-qualification)
+   before new diagnostics. Promote the [live-page handoff](set-based-execution/validated-values-and-handoff.md#sbx-live-page-handoff)
+   and [metadata-only summary correction](set-based-execution/owner-resolved-reads.md#sbx-live-summary-correction)
+   together through scoped verification before broad retry.
+2. In parallel on a stable registered root, attribute the slow [native read](set-based-execution/owner-resolved-reads.md#sbx-native-read-attribution)
+   and [attachment and completion](set-based-execution/references-and-projection-keys.md#sbx-native-attachment-and-completion)
+   paths. Apply the [pre-reset selection criteria](set-based-execution/cutover-and-qualification.md#sbx-efficiency-qualification)
+   to any correction. SBX-05 supplies the scalar construction caller and exact occurrence contract.
+   SBX-11 owns both its conditional early read slice and the later read program.
+3. Close remaining family and governed-change acceptance in SBX-03–07 through the
+   [installed successor](set-based-execution/cutover-and-qualification.md#early-revision-a-integration).
+   Exercise ordinary resume and scoped coverage on the current settlement route. Recursive
+   readiness state and repeated scheduler scans are retired in source. Use the remaining
+   reference and proof work to identify any needed upstream corrections.
+4. Finish [carrier and witness handoffs](set-based-execution/validated-values-and-handoff.md#sbx-witness-handoff)
+   and verify current worker custody on the installed route. Preserve the implemented
+   post-encoding checks for PDF regions and visual mapping. Include the affected ordinary,
+   native, worker and detached consumers in targeted verification.
+5. Reuse the registered sole root when it corresponds to final source. Renew authoring,
+   registration and installation when captured native artifacts change. Qualify the final
+   source and installed root on newly admitted data, then reinstall development empty on
+   the dedicated cluster. [Reset and acceptance](set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09)
 
 **No interim forms.** The review's incremental items are not built where a package here deletes
 their subject: memoising the derivation of token rows from annotations (the derivation goes in
@@ -415,7 +423,7 @@ authority, settlement and final-root qualification have their own acceptance.
 | --- | --- |
 | [I01](../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I01) | [Installed successor](set-based-execution/cutover-and-qualification.md#early-revision-a-integration) ties SBX-03/05/06/07 to actual governed changes. SBX-07 retains the worker-local canonical memo. |
 | [I02](../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I02) | [SBX-04](set-based-execution/populations-rules-and-proofs.md#sbx-04) binds the exact premises. SBX-05 owns grouped native addresses and SBX-08 carries admitted blocks. |
-| [I03](../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I03) | [SBX-05](set-based-execution/references-and-projection-keys.md#sbx-05) can advance the scalar keyed read under its stated criteria. [SBX-11/12](set-based-execution/owner-resolved-reads.md#sbx-11) own the broader keyed and replay paths. |
+| [I03](../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I03) | [SBX-05](set-based-execution/references-and-projection-keys.md#sbx-05) supplies exact reference meaning and the scalar caller. [SBX-11](set-based-execution/owner-resolved-reads.md#sbx-native-read-attribution) owns any early keyed read and the broader online path. SBX-12 owns replay. |
 | [I04](../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I04) | [SBX-06](set-based-execution/references-and-projection-keys.md#sbx-06) extends native resume, discovery and scope settlement, separates scheduler state from shared reads and retires obsolete machinery. |
 | [I05](../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I05) | [SBX-08/09](set-based-execution/validated-values-and-handoff.md#sbx-08) finish carrier and executable custody. [SBX-16](set-based-execution/pdf-path.md#sbx-16) owns projected candidate replay. |
 | [I06](../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I06) | [Cutover and qualification](set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09) owns registered-root acceptance, fixture reuse and the empty reset. |
@@ -424,6 +432,29 @@ The [common analytical basis](set-based-execution/common-analytical-basis.md#pro
 owns placement, fidelity and investigation criteria. SBX-12, SBX-16 and SBX-18/19 name the
 library APIs used by their consumers. The existing decision routes govern any later selection
 that changes a binding rule.
+
+<a id="validation-postgresql-efficiency-amendment"></a>
+## Python validation and PostgreSQL efficiency amendment
+
+**Scheduled · 2026-11-22.** Consume the [efficiency review](../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md)
+at `c518715fe`, inspected at `d1a917c68`. The [isolated evidence](../design_review/evidence/2026-11-22_python-postgresql-efficiency/README.md)
+establishes feasibility for the live draft and identifies expensive native endpoints.
+The actual event internals require separate attribution. Each receipt retains its original
+source and scope. The amendments preserve current authority, custody and cutover decisions.
+
+| Finding | Disposition |
+| --- | --- |
+| [I01](../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I01) | [SBX-08 live-page handoff](set-based-execution/validated-values-and-handoff.md#sbx-live-page-handoff) and [SBX-11 summary correction](set-based-execution/owner-resolved-reads.md#sbx-live-summary-correction) are scheduled together before broad retry. Tag-directed raw validation remains conditional. |
+| [I02](../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I02) | [SBX-11 native read attribution](set-based-execution/owner-resolved-reads.md#sbx-native-read-attribution) owns the early keyed decision and later online migration. SBX-05 supplies the reference caller and occurrence contract. SBX-12 carries cursor and replay effects. |
+| [I03](../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I03) | [SBX-06 native attachment](set-based-execution/references-and-projection-keys.md#sbx-native-attachment-and-completion) owns attribution and selection of invariant sharing. SBX-05 supplies exact role and occurrence authority. |
+| [I04](../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I04) | [SBX-06 completion attribution](set-based-execution/references-and-projection-keys.md#sbx-native-attachment-and-completion) owns seal and retention alternatives. SBX-04 owns proof identity and SBX-08/09 own acquired values and worker fences. |
+| [I05](../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I05) | [SBX-08/09 witness handoff](set-based-execution/validated-values-and-handoff.md#sbx-witness-handoff) schedules scoped preparation and selects the checking route by correspondence and diagnostic parity. |
+| [I06](../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I06) | [Common analytical basis](set-based-execution/common-analytical-basis.md#postgresql-placement-and-transfer) owns shared placement and fidelity. SBX-11/12 use them for selected reads and finite replay. SBX-18/19 retain the named whole-route trial. |
+| [I07](../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I07) | [Qualification](set-based-execution/cutover-and-qualification.md#sbx-efficiency-qualification) owns stable source, bounded cohorts, preparation reuse and evidence reconciliation. SBX-22 uses the same applicable safeguards. |
+
+Apply the [documented decision routes](set-based-execution/common-analytical-basis.md#decision-routes)
+before any later alternative changes a binding rule. Required qualification and the empty
+development reset retain their existing sequence and scope.
 
 ## Completion
 

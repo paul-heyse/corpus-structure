@@ -202,7 +202,7 @@ closure cases passed (`uv run ci test --workers 1 --native-host private`,
 `0c35a442b72e46a1b185e727141016bb`). Final integrated publication and adoption evidence stays open.
 [Native validator](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_reference_native.py#L124)
 
-**Keyed live-read slice · Conditional · 2026-11-22.** Start with the scalar construction slot
+**Keyed live-read contract · Conditional · 2026-11-22.** SBX-05 supplies the scalar construction slot
 in the installed successor. The existing `ReferenceResolver`, guarded exact-parent acquisition
 and native `data_binding_partitions` reader supply the physical route. Capture original
 producing bindings, exact current selected use and disclosure once under the same read cut,
@@ -216,9 +216,12 @@ address. The production assessment reader uses that address within a wider witne
 also uses partition placement and order. This baseline has no qualifying scalar production caller.
 SBX-11 owns the optimization unless a later family migration supplies one.
 
-Advance this slice within SBX-05 only if its actual ordinary caller uses the final reference
-contract, avoids full selected-closure preparation and passes within the normal 8 MiB examined
-budget. Otherwise SBX-11 owns the keyed migration. Preserve the genuine transitive and detached
+SBX-11 owns the keyed migration and any narrowly advanced slice. First complete the admitted-page
+handoff and summary correction. Advance a required scalar caller under the
+[shared qualification criteria](cutover-and-qualification.md#sbx-efficiency-qualification)
+only when representative evidence identifies a necessary bounded native correction. Its actual
+ordinary caller must use the final reference contract, avoid full selected-closure preparation
+and pass within the normal 8 MiB examined budget. Preserve the genuine transitive and detached
 closure paths until their owners replace them. Keep the scoped 64 MiB fork rerun at its
 recorded request scope. The textbook MCP watchdog remains with SBX-11/12. Verify cached
 lookup denial, admitted absence, wrong or stale selection, duplicate and ambiguous occurrence,
@@ -226,7 +229,7 @@ protected issuer access and independent ordered readback. The local resolver pro
 one partition acquisition across repeated lookups with authorization per call, with native
 selection and budget acceptance still open. [Scoped probe](../../design_review/evidence/2026-11-22_sbx09-review/README.md) ·
 [Live adapter](../../../python/corpus-structure/src/corpus_structure/semantic/live_reference_resolution.py#L50) ·
-[SBX-11](owner-resolved-reads.md#sbx-11)
+[SBX-11 native read attribution](owner-resolved-reads.md#sbx-native-read-attribution)
 
 **Remaining family order · Proposed · 2026-11-22.** Complete construction and contextual
 premises with SBX-04, then characterization and declaration nodes, artifact and contextual witness
@@ -663,18 +666,93 @@ native controls through actual governed changes, exact current support and downs
 The shared [change scenarios](cutover-and-qualification.md#change-scenarios) own the journey.
 [Post-pilot review I01/I04](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I04)
 
-**Remaining delivery sequence · Proposed · 2026-11-22.** Start from the direct scalar
-settlement and pinned-read controls in `285ce76aa`. Use authoritative publication, attachment,
-selection, activation, original admission, membership, closure, proof and trust writes. Match
-selected and prospective roles and use the existing executor to settle bounded immediate
-recipients. Reuse retained publication fulfillment and release activation facts for replay.
-Add a transition fact only for an origin whose required change cannot be recovered from its
-existing authoritative records. Finish exact-pin and first-match wake, same-generation joins, in-flight
-coverage, supersession and lost-acknowledgement recovery before deleting their last recursive
-watermark and sweep consumers. Preserve record-grade and pinned read authority. Exercise both
-computation cutoffs on the actual canonical chain, including compatible release contexts and
-current occurrence publication. SBX-07 retains the canonical worker-local memo and verifies
-current placement, scoped proof and authority on that same journey.
+**Remaining delivery acceptance · Scheduled · 2026-11-22.** The private scheduler projection,
+bounded native wake and ordinary recovery replace the recursive watermark and repeated scans
+in source. Qualify the replacement on the registered final source through authoritative
+publication, attachment, selection, activation, original admission, membership, closure, proof
+and trust writes. Exercise exact-pin and first-match wake, same-generation joins, in-flight
+coverage, supersession and lost acknowledgement. Preserve record-grade and pinned read
+authority and the exact producing occurrence. Exercise both computation cutoffs on the actual
+canonical chain, including compatible release contexts and current occurrence publication.
+SBX-07 retains the canonical worker-local memo and verifies current placement, scoped proof
+and authority on that journey. Retain the dated checkpoint evidence below at its original
+source and scope.
+
+<a id="sbx-native-attachment-and-completion"></a>
+### Native attachment and completion efficiency
+
+**Scheduled investigation and conditional corrections · 2026-11-22.** Integrate
+[efficiency I03](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I03)
+and [I04](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I04)
+under SBX-06's existing attachment, claim and settlement owners. SBX-05 supplies role and
+occurrence authority, SBX-04 owns proof correspondence, and SBX-08/09 carry the established
+value and worker-fence obligations. The
+[coordinator amendment](../set-based-execution_2026-11-21.md#validation-postgresql-efficiency-amendment)
+owns disposition. Use the stable target, outcome rules and before-reset selection criteria
+in [qualification](cutover-and-qualification.md#sbx-efficiency-qualification).
+
+The retained event log establishes expensive attachment and retention endpoints. Its outer
+plans leave the internal cost unresolved. Begin with database-scoped
+`pg_stat_statements` deltas, statement counts and wait observations. Capture nested
+`auto_explain` plans only for an unresolved branch, with parameter values suppressed.
+Compare ordinary elapsed time with the instrumented run. Attribute wrapper schema checks,
+canonicalization and hashes, support/proof queries, locks and writes separately. The M1
+codec's normal-limit pass is independent evidence for its implemented correction.
+Selected native read attribution and its early keyed option stay with
+[SBX-11](owner-resolved-reads.md#sbx-native-read-attribution).
+
+**Attachment comparison.** Use a representative admitted batch with common and disjoint
+support scopes and duplicate and distinct bindings. Include a retained eligible computation,
+a fresh attempt, an actual refusal and an unchanged replay. The current batch already shares
+ordered union locks and read/source-set acquisition. First establish whether repeated
+per-item support-scope derivation, binding canonicalization or growing JSONB accumulation
+accounts for material work. Compare retaining that route with deriving the invariant
+support relation once and, when justified, constructing result rows as a set. Bind reused
+facts to the exact demand, source-set, read, trust epochs and evidence that establish them.
+Keep each item's claim, proof and current eligibility decision under its owner.
+
+Acceptance preserves sorted lock order, per-item savepoint rollback and refusal, wake
+recording, first eligible delivery versus unrelated publication, both relevant commit
+orders and repeated idempotent attachment. Place one invalid item beside a valid item and
+check their outcomes independently. Bind two independent formal producer occurrences that
+both emit at output position zero, retaining both consumer references. An exact-item cache
+alone cannot establish improvement for distinct bindings with overlapping premises.
+Retire only the repeated work replaced by the selected route.
+[Batch owner](../../../python/corpus-structure/src/corpus_structure/semantic/request_attachment_native.py#L2133)
+
+**Completion comparison.** Use the same bounded completion through fresh retention, sealed
+publication, unchanged retry/recovery and publication after a changed premise. Measure the
+public input schema separately from correspondence, current proof/support queries and
+canonicalization. Preserve the distinct intent identity framed by claim/runtime and the
+payload digest. Reuse their exact canonical component only while its value and validation
+version remain established. A matching retained validation seal can discharge immutable
+correspondence while the publication owner still establishes current claims, fences and
+support.
+
+If representative evidence identifies substantial remaining public-packet schema work,
+compare the full public check with an internal protected handle produced by native
+in-transaction validation. Include the handle's storage, recovery and cleanup burden in the
+decision. Accept the handle only when its creation and use authenticate the exact completion,
+claim/runtime, validation version and current authority. Preserve the full framed intent,
+payload digest and seal checks. A caller-supplied digest or assertion does not establish
+that validation.
+
+Acceptance includes exact identities and byte budgets, mixed output roles and positions,
+changed or revoked premises, stale attempt refusal, lost acknowledgement, cross-purpose
+refusal, rollback and atomic product/proof publication. Check recovery through ordinary
+native entry points. Include the two-independent-producer case where shared positions
+could otherwise erase an occurrence.
+[Wrapper](../../../python/corpus-structure/src/corpus_structure/semantic/native_protocol_authoring.py#L830) ·
+[Retention](../../../python/corpus-structure/src/corpus_structure/semantic/data_completion_settlement_native.py#L1071) ·
+[Publication](../../../python/corpus-structure/src/corpus_structure/semantic/data_derivation_native.py#L430)
+
+Record the comparison outcome as a selected bounded correction, retention of the current
+route with its reason, or an inconclusive investigation with the missing attribution and
+revisit condition. Before-reset adoption follows the shared qualification criteria.
+An inconclusive optimization inquiry leaves any failing required identity explicitly open.
+If the current route meets its accepted contract, schedule an unselected optimization for
+the named workload or later package that would make the comparison consequential. Attachment
+and completion remain with their native owners when broader read work advances in SBX-11.
 
 **Exact waiter · Tested · 2026-11-22.** Exact source-set pins now compare keyed native
 fulfilled uses with the retained waiting read. The ordinary planner rechecks binding once
@@ -946,10 +1024,10 @@ exact transition after lost acknowledgement, retaining prospective selection opt
 demand semantics. For other origins, inspect their authoritative records before adding the
 smallest missing work reference in the same transaction.
 
-**Ordinary recovery · Scheduled · 2026-11-22.** The overlap control currently repairs a pending
-publication gap by replaying selection advancement. Make normal bounded executor resume or
-drain reconcile the committed facts and feed immediate recipients without a second selection
-call. Exercise event-before-enrollment and enrollment-before-event, interrupted delivery and
+**Ordinary recovery · Implemented, qualification open · 2026-11-22.** Normal bounded
+executor resume reconciles committed facts and feeds immediate recipients. Qualify the
+replacement on the final source without a second selection call. Exercise
+event-before-enrollment and enrollment-before-event, interrupted delivery and
 lost acknowledgement. Repeated resume must reuse the same delivery claim, and an obsolete
 generation must never advance current coverage. Keep settlement in the existing native owners.
 [Publication reconciler](../../../python/corpus-structure/src/corpus_structure/semantic/publication_delivery_native.py#L115) ·

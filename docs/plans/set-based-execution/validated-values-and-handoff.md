@@ -116,6 +116,89 @@ ingress, exact byte admission, attempt correspondence and cleanup. The pilot's a
 transport and native extraction controls remain scoped comparison evidence. The final ordinary
 and spawned consumer paths use the selected carrier.
 
+<a id="sbx-live-page-handoff"></a>
+### Admitted live page handoff
+
+**Scheduled · 2026-11-22.** Implement the private live-page constructor in the
+`DemandResult` owner and pass its immutable interpreted snapshot to selected-query
+projection. Create that snapshot only after `DataOperationStorage` has checked the installed
+wire contract and admitted the native result and `read_demand_result` has verified the project.
+Retain the existing eager canonical bytes, whose consumers include the selected-query cache and
+pinned readers. Share the snapshot through `prepare_demand_projection_inputs` so a live page
+avoids another parse, interpretation, generated validation and material equality traversal.
+The carrier owns its frozen value and gives consumers detached views. Its owner determines
+cleanup and cache charging. A freely constructed wrapper supplies no acquisition authority.
+[Efficiency amendment](../set-based-execution_2026-11-21.md#validation-postgresql-efficiency-amendment) ·
+[Review I01](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I01)
+
+Use the [retained draft](../../design_review/evidence/2026-11-22_python-postgresql-efficiency/live-page-candidate.patch)
+as the starting implementation. The isolated source at `663254b05` plus that draft passed 78
+selected native and wire/cut controls (`a091707e98c443ae954a80a58ad2b01e`), including the exact
+independent-read test that reached a watchdog on main. This is **Tested by selected scope,
+2026-11-22**, with main integration and final-source qualification still open. The synthetic
+depth comparison establishes local validation amplification and equality of the compared
+rows and cut bytes. Its timings do not establish an end-to-end speedup for the native journey.
+
+At integration, demonstrate that first admission supplies every shape and material guarantee
+the removed generated check supplied to projection. Compare valid and malformed native pages
+with missing fields, excess support keys, Boolean versus integer values, unknown tags, malformed
+numeric strings and missing tag payloads. Retain exact value types, presence states, nominal
+contracts, mutation isolation and the independent expected selected rows. Check current and
+historical cut/cursor bytes, including ordinary exponent spelling and negative zero. Both shape
+paths admitted the spelling `"01"` in the probe, while the canonical semantic codec refused it.
+Keep that semantic check at its existing owner. Close a demonstrated admission gap there or keep
+the narrow consumer check needed for that gap.
+
+Raw bytes and a caller-created `DemandResult` without native acquisition continue through strict
+raw admission. Preserve detached interpretation and lexical cut extraction, current authorization
+and trust, the independent caller byte-budget check, and selection-specific cache keys. Exercise
+a repeat with a different product filter and lower budget after a warm cache. The shared payload
+does not supply current authority for another use. Implement the
+[summary correction](owner-resolved-reads.md#sbx-live-summary-correction) alongside this handoff
+before the broad retry, under SBX-11's response contract.
+
+Where an actual raw or detached reader still has measured depth growth, compare the current
+generated recursive union with the existing first-tag schema and canonical tag decoder. Select
+tag-directed validation only after preserving strict arity, envelope and nominal contracts,
+presence, numeric precision and member/partition/reference refusals. The isolated field-adapter
+comparison supplies a candidate mechanism. It does not replace whole-reader acceptance.
+
+<a id="sbx-witness-handoff"></a>
+### Witness preparation and completion handoff
+
+**Scheduled · 2026-11-22.** Before targeted acceptance through SBX-09, make witness preparation
+follow the operation's declared witnesses. Build input rows and normalize analyzed scopes only
+for the roles and fields that those witnesses consume. `SelectedConsumerValue.value()` already
+returns an admitted cached value. Retain it through hydration and share the owned output
+snapshot with witness matching and completion assembly where both consume the same meaning.
+Avoid reconstructing that meaning independently for each consumer. Preserve the output byte
+and reply limits and charge any retained match relation to the invocation or existing byte owner.
+[Review I05](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I05) ·
+[Proof correspondence](populations-rules-and-proofs.md#sbx-04)
+
+Compare authoritative native witness enforcement with a prepared normalized match relation
+keyed by the declared group and occurrence. Python currently scans candidate members per output
+and canonicalizes comparison operands repeatedly. Remove the repeated production Python check
+only when the native check establishes the same member, occurrence, numeric and contextual
+meaning and required diagnostics. Otherwise retain the scoped Python check and prepare its
+comparison keys once. Independent Python expectations can continue to test native semantics.
+Keep exact source/producing-role references and refuse cross-product or cross-member matches.
+
+Exercise one authentic two-report construction or event journey, with each independent producer
+allowed to emit at position zero. Compare per-role materialization and bytes on that journey
+to establish which repeated preparation was removed. Retain independent invalid-witness, numeric/context equality,
+partial coverage and wrong-occurrence controls. Check a file first imported or an asset changed
+during work, an expired attempt and a mismatched reply before publication. The SBX-09 admission
+and post-encoding checks and request/reply fences remain part of this integrated acceptance.
+
+Completion assembly consumes the same immutable representation only while its bytes and
+validation version remain fixed. The
+[native attachment and completion investigation](references-and-projection-keys.md#sbx-native-attachment-and-completion)
+owns wrapper, canonicalization, proof, lock and publication attribution. Carry its selected
+correction through these consumers, retaining the separate framed intent identity and payload
+digest, seal verification and current claim/support checks. A new protected handle follows that
+owner's evidence and decision conditions before any consumer relies on it.
+
 **Remaining carrier acceptance · Proposed · 2026-11-22.** Formal, interpreted, retained
 characterization, composition, native frame and sentence partition carriers already have the
 scoped implementation receipts below. Thread their admitted values through remaining ordinary,
@@ -124,8 +207,8 @@ existing byte owner, population and placement commitments on each acquired assem
 indexes within their invocation or charged owner. Reuse admitted characterization blocks in
 construction when their current support permits it. Sparse reference acquisition follows SBX-05.
 Retain scope and authority on each use and independently verify retained replies against the
-request. Run the five native stream cases that stopped at the legacy descriptor on the final
-registered root. Close ordinary provider acceptance through the installed successor and cold-root
+request. The five native stream cases passed on a registered checkpoint. Reconcile their scope
+against final source and rerun the affected cases. Close ordinary provider acceptance through the installed successor and cold-root
 qualification. [Proof premises](populations-rules-and-proofs.md#sbx-04) ·
 [Reference work](references-and-projection-keys.md#sbx-05) ·
 [Final-root qualification](cutover-and-qualification.md#development-reset-through-sbx-09) ·
@@ -174,9 +257,9 @@ and `1f0d5e3266b040f7874f9bbccbc51713`. Final registered-root provider qualifica
 descriptor per invocation and carries its callable, signature, adapters and verification through
 scalar, batch, stream and coroutine execution. Twenty-five focused controls passed by identity
 in `uv run ci test --native-host private` (`a9e448fa74394151a3e4e3dcb33c310a`). The five native
-stream controls stopped before execution at the legacy installed descriptor. Run them on the
-registered cold root. The request fence and the independent retained-reply check remain part
-of acceptance.
+stream controls stopped before execution at the legacy installed descriptor in that attempt.
+They later passed on a registered checkpoint (`5edb009f93ad4e94b4442b6c0899374f`).
+Final-source acceptance retains the request fence and independent retained-reply check.
 
 **Threaded PDF reply custody · Tested by selected identity · 2026-11-22.** Region rendering,
 visual mapping, capture, transforms and views construct the complete reply before their final
@@ -249,15 +332,16 @@ cancellation and acknowledgment. Such a proposal follows the existing custody de
 [Review I05](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I05) ·
 [Decision routes](common-analytical-basis.md#decision-routes)
 
-**Remaining execution · Proposed · 2026-11-22.** Both PDF region modes and visual mapping
-already retain authenticated slices and have scoped threaded controls. Their current second
-verification precedes result encoding. Align that existing check with the last use of captured
-code or assets, moving it after encoding when encoding uses those premises. Keep exactly two
-full checks around actual work. The CPU route's final check stays after result collection.
+**Remaining acceptance · Scheduled · 2026-11-22.** Both PDF region modes and visual mapping
+retain authenticated slices. Their second check now follows encoding, and scoped late-import
+and encoding-time tamper controls have passed as recorded by the coordinator. Qualify that
+integrated route on the final registered root. Keep exactly two full checks around actual work.
+The CPU route's final check stays after result collection.
 Retain current-attempt checks after collection and the independent request and reply fences.
 Exercise the ordinary executor on the final registered root, including a function-local import
 or asset changed during the call, an expired attempt, and refusal before publishing an invalid
 reply. Keep the existing construction two-check assertion and actual learned-provider acceptance.
+[Witness and completion handoff](#sbx-witness-handoff) ·
 [Final-root qualification](cutover-and-qualification.md#development-reset-through-sbx-09)
 
 Keyed PDF rendering already acquires a selected region and original bytes and releases its

@@ -48,6 +48,20 @@ when a disputed type or scan boundary matters. These observations cover the pinn
 Integrated behavior and any performance claim require their own evidence. [Runnable
 probe](../../design_review/evidence/2026-11-22_sbx-common-analytics/README.md)
 
+<a id="numeric-fidelity"></a>
+**Numeric fidelity · Scheduled · 2026-11-22.** Derive physical scalar types from the effective
+field bounds. Arrow `decimal256` supports precision through 76 digits and DuckDB `DECIMAL`
+through 38. The generic codec permits 16,384 fixed-point digits. Use bounded numeric columns
+where the declaration fits the engine's precision and scale. For wider generic values,
+retain the canonical lexical decimal and semantic tag for exact transport and identity.
+Any arithmetic on those values needs an exact compatible implementation. Include mixed
+precision and scale, integer versus Boolean, SQL null versus JSON null or absent, and UTC
+nanoseconds in the chosen boundary's independent controls.
+[Efficiency review I06](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I06) ·
+[Installed value probes](../../design_review/evidence/2026-11-22_python-postgresql-efficiency/README.md) ·
+[Arrow decimal256](https://arrow.apache.org/docs/python/generated/pyarrow.decimal256.html) ·
+[DuckDB 2.0 numeric types](https://duckdb.org/docs/2.0/sql/data_types/numeric)
+
 <a id="typed-population-pilot"></a>
 ## Typed population pilot
 
@@ -206,6 +220,28 @@ The pilot established exact decimal, UTC and null fidelity on that route. A new 
 verify its own schema and exact selected cut. [Existing transfer and lifetimes](../../../python/corpus-structure/src/corpus_structure/serve/companion_export.py#L125) ·
 [ADBC Python API](https://arrow.apache.org/adbc/current/python/api/adbc_driver_postgresql.html)
 
+**Transfer selection after the efficiency review · Scheduled · 2026-11-22.** A cross-session
+scan requires the exact acquiring pin to be committed or otherwise already visible in the
+imported snapshot and the called projection to be purpose-granted. Snapshot export does not
+make the acquiring transaction's uncommitted rows visible to the child. Exercise that visibility
+condition with a concurrent change before choosing ADBC for a new live consumer.
+
+Start live read improvement with native projection before packet construction and reuse of
+the admitted page and exact same-cut binding facts. Keep the annotation fork's selected
+immutable carrier. Use a columnar candidate when a named typed population or finite archive
+can remove a complete extraction, materialization or repeated relation scan. Compare the
+entire route through transfer, conversion, query, publication or archive authentication,
+cold reopen and cleanup. The existing analytical owner supplies resources and relation
+execution. Use relation `to_arrow_reader(batch_size=...)` for incremental output, with a
+deliberately bounded `to_arrow_table()` when materialization serves repeat scans. A connection
+`execute(...).to_arrow_reader()` copies the complete result in DuckDB 2.0. Verify actual
+producer behavior and close readers before connection reuse. Preserve explicit keys, ordering
+and bag multiplicity through both paths. SBX-11 owns live selection, SBX-12 owns the improved
+D1 replay comparison, and SBX-18/19 own broader named computation placement.
+[Efficiency review I06](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I06) ·
+[DuckDB 2.0 Arrow export](https://duckdb.org/docs/2.0/guides/python/export_arrow) ·
+[Analytical lifetime](kernel-trial.md#sbx-18)
+
 Try the DuckDB PostgreSQL extension on a private target when it can consume the purpose-authorized
 projection and plausibly eliminate material work beyond ADBC. Name that workload and the
 removed transfer or preparation before trying `ATTACH` with the PostgreSQL extension. Inspect effective pushdown and
@@ -263,6 +299,12 @@ conditions from the [post-pilot review](../../plan_improvement_reviews/set-based
 Each consumer owns its concrete API, acceptance and current disposition. These are bounded
 investigations with decision outcomes, rather than obligations to adopt every available feature.
 The library baseline is PyArrow 26.0.0 and DuckDB 2.0.0 from the exact dependency declarations.
+
+The [efficiency amendment](../set-based-execution_2026-11-21.md#validation-postgresql-efficiency-amendment)
+adds the visible-pin, full-path comparison and numeric conditions above. Apply them at the named
+consumer, and record retain, adjust or adopt with the outcome and any unresolved condition that
+could change the choice. The [qualification owner](cutover-and-qualification.md#sbx-efficiency-qualification)
+keeps scoped capability probes distinct from integrated production evidence.
 
 | Capability and placement | Disposition and decision condition |
 |---|---|

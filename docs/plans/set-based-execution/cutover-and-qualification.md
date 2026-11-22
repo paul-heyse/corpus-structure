@@ -21,9 +21,10 @@ All originals, selections and derived rows in development are disposable. Manage
 keeps its recorded standing.
 Stage installation belongs to [SBX-20](#sbx-20).
 
-**Testing during development** follows the repository's rule: compile checks and targeted
-functional tests for the scope just implemented. For this cutover, author a cold root from
-the integrated source against an empty authoring target on the dedicated PostgreSQL cluster.
+**Testing during development** uses compile checks and targeted functional tests for the
+scope just implemented. Verify final source against the registered cold root. If captured
+native artifacts change, author its replacement against an empty authoring target on the
+dedicated PostgreSQL cluster.
 
 **Stage predecessor · Inspected · 2026-11-22.** The stage transition starts from
 `semantic_ddo_pe_n47`. Commit `65c6da048` registered and verified that revision with the stage
@@ -33,17 +34,20 @@ stage revision and its Git-held native inventory when it prepares the stage tran
 ### Development reset through SBX-09
 
 1. Integrate the remaining consumers of the [selected immutable carrier](common-analytical-basis.md#pilot-implementation-and-evidence)
-   and finish the functional changes through SBX-09. Run their scoped checks through the
-   [installed successor](#early-revision-a-integration). Retire the active
-   legacy Alembic chain and its predecessor-specific data-step code. Preserve generic successor
-   authoring. Record the old stage predecessor and its Git baseline for SBX-20. Create an empty
-   authoring database on `18/corpus` with `uv run ci db init --creation-only`. Bind the reader
-   and maintenance settings to it. Run `uv run ci model change preview`, `candidate` and
-   `inspect-candidate` for `semantic_sbx_current_root` with a null predecessor and zero data steps.
-   Confirm captured source, descriptor, objects, grants and rollback. Register the inspected
-   candidate with `uv run ci model change register` and install it with `uv run ci db init` on
-   a separate fresh qualification target. Confirm the sole head, exact descriptor, and intended
-   purpose-role admission and refusal before starting the larger qualification runs.
+   and finish the functional changes through SBX-09, including the
+   [live-page handoff](validated-values-and-handoff.md#sbx-live-page-handoff) and
+   [summary correction](owner-resolved-reads.md#sbx-live-summary-correction). Apply the
+   [efficiency qualification setup](#sbx-efficiency-qualification) before attribution and
+   targeted checks. Verify the already registered sole root against final source. When
+   captured native artifacts change, use an empty authoring database on `18/corpus`
+   created with `uv run ci db init --creation-only` and bind the reader and maintenance
+   settings to it. Run `uv run ci model change preview`, `candidate` and
+   `inspect-candidate` for `semantic_sbx_current_root` with a null predecessor and zero data
+   steps. Confirm captured source, descriptor, objects, grants and rollback. Register the
+   inspected candidate with `uv run ci model change register` and install it with
+   `uv run ci db init` on a separate fresh qualification target. Confirm the sole head,
+   exact descriptor, and intended purpose-role admission and refusal for final source.
+   The retired development chain has a recorded Git baseline for SBX-20.
 2. Run `just turn-end` before final-source qualification. Run `uv run ci test` and
    `uv run ci check` for the applicable ordinary and shared fault scope. Use
    `uv run ci test --providers-only` for changed real annotation and canonical, HanLP
@@ -60,8 +64,9 @@ stage revision and its Git-held native inventory when it prepares the stage tran
    Exercise the chosen annotation fork through publication and exact selected readback, including
    the relevant occurrence, support, provider and worker controls. Keep one authentic finite and
    rich publication-to-export replay. Record managed IDs,
-   selected identities, exact source, revision and context. Preserve failed and interrupted
-   results and reconcile retries by identity. Complete required acceptance before resetting.
+   selected identities, exact source, revision and context. Use the
+   [bounded cohorts and coverage reconciliation](#sbx-efficiency-qualification).
+   Complete required acceptance before resetting.
 3. Recheck the dedicated cluster and the exact `corpus_structure_dev` maintenance identity
    with `ci host status` and `ci db status --maintenance`. Drain its writers and sessions.
    Drop only that database from the verified cluster's maintenance database without force.
@@ -70,6 +75,51 @@ stage revision and its Git-held native inventory when it prepares the stage tran
    revision, descriptor, roles, and empty project, source, demand and product relations.
    Keep qualification fixture data on qualification targets. Stage installation belongs to
    SBX-20. Record the acceptance and reset in the coordinator and status checkpoint.
+
+<a id="sbx-efficiency-qualification"></a>
+#### Efficiency qualification and native attribution
+
+**Scheduled · 2026-11-22.** Start with a stable checkout, installed descriptor, intended
+purpose roles and fixed generated metadata. Regenerate companion data before the run.
+Separate candidate and release preparation, installation or clone, native statement
+and transfer work, worker or provider execution, and assertions. A pytest setup phase can
+include actual publication and fitting. Reuse verified deployment templates and immutable
+preparation within their exact release, runtime and source premises. Reuse an authenticated
+producer fixture for downstream assertions only while its producing and interpretation
+premises apply. Give tests with native effects their own commit clones. Keep independent
+cold authoring and rollback, shared authentication/fault/durability, real provider and
+authentic publication-to-replay journeys. [Review I07](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I07)
+
+Use existing timeouts, role constraints and data limits for representative comparisons.
+Start serialized on a seeded qualification target. Use database-, role- and query-scoped
+`pg_stat_statements` deltas and wait observations. For a material unresolved branch,
+collect targeted nested `auto_explain` on the isolated target with parameter logging
+suppressed. Verify effective settings before fixture execution. Keep a separate ordinary
+baseline, match the acquired cut and workload where compared, and report server elapsed
+and client phases separately. Keep private effects within owned fixture commits or
+rollback-only probes. The earlier outer logs and small late capture leave event internals
+open. Read attribution belongs to [SBX-11](owner-resolved-reads.md#sbx-native-read-attribution);
+attachment and completion attribution belong to [SBX-06](references-and-projection-keys.md#sbx-native-attachment-and-completion).
+[Native timing evidence](../../design_review/evidence/2026-11-22_python-postgresql-efficiency/postgresql/README.md)
+
+Advance a native correction before reset where a required ordinary case still violates its
+existing budget, timeout or correctness contract and representative evidence identifies a
+bounded change that preserves the contract. For an early scalar read, use the additional
+[SBX-11 selection criteria](owner-resolved-reads.md#sbx-native-read-attribution).
+Inconclusive attribution leaves any required failing identity open while independent work
+continues. If the required cases pass, record the conditional optimization and its revisit
+trigger with the owner. Broader SBX-11/12 work and the SBX-18/19 placement decision keep their
+sequence. A changed authority, custody or architectural rule follows the
+[existing decision route](common-analytical-basis.md#decision-routes) before adoption.
+
+Once scoped read corrections pass, run heavyweight native cases and lighter cases as
+disjoint, bounded cohorts with exact selected identities and affinity groups preserved.
+Use measured host headroom for worker budgets and avoid concurrent changes to captured
+source or metadata. Reconcile managed results with `uv run ci test coverage` against the
+original required selection, retaining failed and interrupted evidence. Assess applicability
+by exact source and context and repeat affected identities as needed. An inconclusive
+optimization comparison creates no additional acceptance gate. Existing required
+identities retain their acceptance obligations.
 
 **Cold authoring checkpoint · 2026-11-21.** `uv run ci db init --creation-only` created
 `corpus_structure_sbx09_author` on the dedicated cluster. Managed preview
@@ -402,16 +452,22 @@ contract inspection, contribution delivery and diagnostic controls
 **Current main qualification · Tested by selected scope · 2026-11-22.**
 Main integrates the registered codec root (`dd9971966`) and regenerated report schema product.
 `just turn-end` and `uv run ci check` passed, including types, docs, dependency pins and
-Clippy (`6b1970f98ed0481e8489afb6acc12406`). The ordinary retry runs against that source
-(`f02c6b33e0d14cd4b77b97c5a3394854`), along with actual annotation and canonical cases
-(`267e776231a74518b001f5d387fbb0dd`) and the affected characterization controls
-(`9a40ecca090e424ba4bb0f52a238975f`). Real two-language composition and the real construction
+Clippy (`6b1970f98ed0481e8489afb6acc12406`). The ordinary retry and lighter cohort were
+interrupted and retain their completed identities (`f02c6b33e0d14cd4b77b97c5a3394854`,
+`de02b2d9873e4edd9d91884cf761c379`). All six selected actual annotation and canonical
+provider cases passed (`267e776231a74518b001f5d387fbb0dd`). The independent characterization
+read failed at its 30-minute watchdog in generated Python validation
+(`9a40ecca090e424ba4bb0f52a238975f`). Its later isolated corrective draft passed the exact
+case and wire/cut controls, with scope recorded under the [handoff owner](validated-values-and-handoff.md#sbx-live-page-handoff).
+Real two-language composition and the real construction
 that binds two independently produced formal reports both passed in `ecb00e443c4d4e68a867d9f5dafb0352`.
 The structural dossier and detached export passed by selected identity in
 `1a1f7a3b8abc4d989d0d77f6b678cead`. Its finite and rich replay worker crashed during Python
 model preparation; the exact private retry passed (`93e9997f5d61466e9201c87390e15671`).
-The second dossier and the full event journey remain in qualification. Development readback
-still identifies the original N29 database.
+The second dossier case passed on its private retry (`5a3b93c2ec84469aa8ea086df087f1a6`).
+The full event journey remains open following its interrupted retry
+(`d274226692ff45f8a015118f50269d8e`). Development readback still identifies the original N29
+database.
 
 Keep one authentic cross-boundary producer, publication and export journey. Reader-only checks
 can consume its authenticated artifacts while their producer, prepared release, wire and authority
@@ -440,7 +496,7 @@ Use the installed real annotation-to-canonical chain as the successor journey fo
 Exercise ordinary admission, execution, publication, settlement and selected readback on the
 target partition, proof and role-relative reference contracts. Admit actual producer partitions,
 require the declared proof at binding, and resolve an actual construction item through the owning
-disclosure boundary. Use this caller to decide the [SBX-05 keyed read](references-and-projection-keys.md#sbx-05).
+disclosure boundary. Use this caller for the [conditional SBX-11 keyed slice](owner-resolved-reads.md#sbx-native-read-attribution).
 Later reference family conversions consume the same contracts.
 
 Compare with independent expected annotation meaning, occurrence provenance and attachment
@@ -657,9 +713,9 @@ of the new read wire through the existing predecessor comparison.
 <a id="sbx-21"></a>
 ## SBX-21 — Retirement sweep
 
-Each package removes what it supersedes. SBX-06 removes its recursive watermark, obsolete
-fields and displaced sweeps when the scheduler and read consumers have moved. SBX-21 checks the
-retirement and removes what no single package owns. Follow the last live production or test consumer of each
+Each package removes what it supersedes. SBX-06 retired the recursive watermark and repeated
+scheduler scans in source. SBX-21 checks retirement and removes what no single package owns.
+Follow the last live production or test consumer of each
 retired surface. Migrate independent semantic checks to the replacement before deleting tests
 specific to the old mechanism.
 
@@ -709,6 +765,7 @@ Record managed result identities, selected scope, source and context. Account fo
 union through the existing result facilities. Keep failed and interrupted results, and reassess
 affected results when source, harness, environment or shared configuration changes. The final
 provider and whole-book claims belong to their actual managed runs.
+Apply the applicable [stable-source, preparation reuse and bounded cohort rules](#sbx-efficiency-qualification).
 
 **The whole book.** The retained book is processed end to end through the new path, with a
 controlled interruption and an unchanged repeat that produces no new work.

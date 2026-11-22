@@ -211,16 +211,71 @@ projection, which is what makes replay meaningless.
 <a id="sbx-11"></a>
 ## SBX-11 — The read programs
 
-**Conditional early slice · Scheduled · 2026-11-22.** SBX-05 may deliver the installed scalar
+**Conditional early scalar slice · Scheduled · 2026-11-22.** SBX-11 owns the installed scalar
 construction caller through the existing resolver and guarded exact-parent/partition reads.
-Accept that earlier migration only if its final contract removes full-closure preparation,
-works within the normal 8 MiB examined bound, and preserves producing input, exact current use,
-occurrence, multiplicity and withheld-versus-absent behavior. Otherwise this package owns the
-migration. Reuse the one acquired cut and authorize each lookup. Keep genuine transitive and
-detached acquisition until their consumers move. The fork's 64 MiB scoped result and the
-textbook's separate 32 MiB experiment retain their original evidence scopes.
+After the [admitted-page correction](validated-values-and-handoff.md#sbx-live-page-handoff),
+advance this bounded slice before the SBX-09 reset only when a required ordinary caller still
+violates its accepted contract or existing bound and representative native attribution identifies
+a conforming correction. Its final contract must remove full-closure preparation, work within
+the normal 8 MiB examined bound, and preserve producing input, exact current use, occurrence,
+multiplicity and withheld-versus-absent behavior. SBX-05 supplies that caller's reference and
+occurrence contract. Reuse the acquired cut and authorize each lookup. The fork's 64 MiB
+scoped result and the textbook's separate 32 MiB experiment retain their original evidence scopes.
 [Post-pilot I03](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I03) ·
 [SBX-05](references-and-projection-keys.md#sbx-05)
+
+<a id="sbx-live-summary-correction"></a>
+### Early summary correction
+
+**Scheduled · 2026-11-22.** Deliver the existing characterization metadata response with the
+SBX-08 admitted-page handoff before broad qualification resumes. This correction has its own
+acceptance and proceeds independently of the conditional scalar slice. Read bounded summary
+metadata from the authorized admitted nominal body, omit both `body` and `meaning_body`,
+and retain the archived kind filter, provider attribution, exact selection and summary response
+schema. Retire the repeated whole-body Python validation on this admitted route after the
+handoff's admission-parity checks establish its guarantees. Raw and detached ingress retain
+their owning validation. [Efficiency review I01](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I01)
+
+The isolated summary units passed at their original scope (`4b62418035d8469f929a1cfde9ccb8d2`).
+The native attempt returned the summary and then failed an old partial-result assertion
+against the recognized complete fixture (`3adb62f740974af0b243b45161c9e265`).
+Verify the actual fixture's complete outcome, nonempty coverage with its available families
+complete or empty, exact product and derivation, and summary counts independently. Keep authored partial and
+unknown fixtures and assert omission of both payload fields without mutating the acquired input.
+The isolated live-page 78-case result establishes feasibility and remains subject to final-source
+qualification. [Shared qualification](cutover-and-qualification.md#sbx-efficiency-qualification)
+
+<a id="sbx-native-read-attribution"></a>
+### Native read attribution and selection
+
+**Scheduled investigation · 2026-11-22.** On one stable installed source, compare fresh cut
+acquisition, the first whole-body page, continuation, same-budget repeat, lower-budget repeat,
+and an exact member among unrelated members. Compare the cold bounds with reuse on the
+warm route. Attribute scope acquisition, body examination, JSON assembly and serialization
+separately from client processing. Use database-scoped `pg_stat_statements` deltas and waits,
+then targeted nested `auto_explain` for unresolved branches, with redacted parameters and a
+separate ordinary baseline. PostgreSQL 18 `EXPLAIN (ANALYZE, BUFFERS, SERIALIZE TEXT, FORMAT JSON)`
+can isolate output conversion for a suitable bounded query. Its serialization measure excludes
+network transfer. The outer event plans and small scalar read leave the expensive nested cause
+open. [Efficiency review I02](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I02) ·
+[PostgreSQL 18 EXPLAIN](https://www.postgresql.org/docs/18/sql-explain.html)
+
+Compare existing `acquire_data_read_context`, addressed reads and one prepared same-cut binding
+batch before adding a new read shape. Reach the authorized key before opening or serializing
+the parent where the contract permits. Reuse examined facts only within their exact scope,
+representation, budget and authority lifetime. A stored length must measure the same immutable
+encoded representation and framing that the refusal uses. Preserve fresh native authorization
+on cache hits, lower-budget refusals, exact cursors, ordered placement, denial after revocation,
+and absent-versus-withheld standing. Include equal-content members with different exact producing
+uses. A digest or context-only acquisition supplies only the
+facts its contract establishes.
+
+Record the selected correction, a reasoned decision to retain the current route, or partial
+attribution with the missing observation and revisit condition. Advance a native correction
+under the conditional early slice only when its reproduction and attribution satisfy that
+slice's criteria. An inconclusive optimization inquiry leaves every failing required identity
+open under the cutover owner. The full keyed reader migration remains in this package.
+[Coordinator amendment](../set-based-execution_2026-11-21.md#validation-postgresql-efficiency-amendment)
 
 **Additional scope and evidence.** Demonstrate a keyed read, a legitimate empty
 answer, and a filtered continuation with unrelated partitions, frontier uses and protected
@@ -341,11 +396,30 @@ Explicit semantic keys and order govern the answer. File paths and row positions
 [Parquet writer API](https://arrow.apache.org/docs/python/generated/pyarrow.parquet.ParquetWriter.html) ·
 [DuckDB 2.0 Parquet scans](https://duckdb.org/docs/2.0/data/parquet/overview)
 
+**Efficiency comparison · Scheduled · 2026-11-22.** Use the improved authenticated D1 replay
+with prepared headers and use/slot bindings as the baseline. Reuse the companion export's
+committed exact-pin, exported snapshot and ADBC `cursor.fetch_record_batch()` transfer where
+the granted projection supplies the required rows. Compare the complete authorized extraction,
+conversion, file authentication, cold reopen, index preparation and repeated query. Use the
+existing analytical relation owner for semijoins, anti-joins, explicitly ordered windows and
+`except_all` where they replace repeated scans. Consume a relation's `to_arrow_reader(batch_size=...)`
+for streaming output. Verify that the selected route does not materialize every Python row before
+returning the reader, and close readers on success, failure and cancellation.
+[Efficiency review I06](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I06) ·
+[Transfer and fidelity](common-analytical-basis.md#postgresql-placement-and-transfer)
+
 Extend first replay and reopen acceptance to compare complete schema, selected cut, logical rows,
 explicit ordering, null/presence and occurrence multiplicity independently of physical pushdown.
 Verify exact file authentication before projected interpretation and include changed omitted
 columns, a partial or truncated file, empty relations and protected leaves. The manifest owner
 retains publication and interruption recovery. [Post-pilot I03/I06](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I03)
+
+Include mixed decimal precision and scale, a wider exact tagged lexical value, UTC nanoseconds,
+and two independent equal-valued occurrences. Numeric columns use declared bounds supported by
+the selected engine. Wider canonical decimal text retains transport meaning and requires an
+exact compatible arithmetic route if arithmetic is requested. Compare with the shared
+[numeric fidelity contract](common-analytical-basis.md#numeric-fidelity). An uncertain complete
+path ends with an explicit adjust or retain decision and the evidence that would reopen it.
 
 **Owns.** The typed relation interface and its two backings; the export's relation list,
 including partitions and proof rows; the manifest's per-relation digests; the detached verifier's

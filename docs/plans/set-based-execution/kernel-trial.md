@@ -20,6 +20,13 @@ establishes fixture-level DuckDB 2.0.0 and PyArrow 26.0.0 behavior, including a 
 through the existing owner and blocked connection use until an active result is drained.
 Production adoption and integrated qualification remain open.
 
+**Efficiency amendment · Scheduled · 2026-11-22.** The
+[validation and PostgreSQL review I06](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I06)
+adds complete-path comparison and exact wide-value conditions to the existing trial.
+The annotation carrier remains selected by its pilot. This package evaluates the named
+scoped-relations workload, using the shared [transfer](common-analytical-basis.md#postgresql-placement-and-transfer)
+and [numeric fidelity](common-analytical-basis.md#numeric-fidelity) contracts.
+
 ## Why a trial and not a commitment
 
 The review sampled kernels and found the procedural cores dominant. A first proposal for a
@@ -153,6 +160,17 @@ it. Use relation Arrow output to avoid the extra copied result path. Verify thes
 lifetimes on the worker route. Incremental consumption does not establish bounded memory inside
 a join or sort. [DuckDB 2.0 Python migration](https://duckdb.org/docs/2.0/clients/python/migration)
 
+Verify the producer as well as the reader. Count or inspect the selected path's materialization
+where that resolves uncertainty about whether all Python rows are constructed before the reader
+is returned. Compare the relation's `to_arrow_reader(batch_size=...)` with a deliberately
+bounded `to_arrow_table()` only where repeated access benefits from materialization.
+Retain underlying Arrow owners until consumption ends and close on cancellation. Generic
+decimal values wider than the engine supports use canonical tagged text for exact transport.
+Arithmetic requires a compatible exact engine. Include declared bounded columns, mixed precision
+and scale, a wider lexical decimal, UTC nanoseconds, null/absence and duplicate occurrences
+in independent fidelity controls. [Shared numeric contract](common-analytical-basis.md#numeric-fidelity) ·
+[DuckDB 2.0 Arrow export](https://duckdb.org/docs/2.0/guides/python/export_arrow)
+
 The
 binding exposes `DuckDBPyConnection.interrupt`, but its cancellation outcome and connection reuse
 must be established through the actual worker route before relying on it. Cooperative activity
@@ -203,6 +221,16 @@ preparation using the admitted snapshot and transfer route in the shared owner. 
 server tagged-packet extraction, movement back to Python, ordering and cleanup when choosing.
 No timing requirement follows unless memory, spill, transfer or setup uncertainty could change
 the choice. [Shared placement](common-analytical-basis.md#postgresql-placement-and-transfer)
+
+The complete-path comparison starts at authenticated acquired inputs and ends after native
+publication, selected readback and exact artifact nomination. Include conversion, relation
+preparation, materialization, ordering, resource release and any current proof or authority
+checks. A connector candidate consumes an already visible exact pin through its granted
+projection and retains the owning snapshot through scan completion. Name the complete pass or
+repeated question it removes. Reuse the existing analytical and transfer owners before adding
+a new abstraction. Record an inconclusive result with the missing observation and revisit
+condition, while retaining the current implementation for that scope. Archive-specific
+Parquet adoption and cold reopen remain in [SBX-12](owner-resolved-reads.md#sbx-12).
 
 **Success criteria.**
 

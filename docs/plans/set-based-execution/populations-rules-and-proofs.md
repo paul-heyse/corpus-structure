@@ -591,6 +591,43 @@ The intrinsic navigation proof over construction members does not by itself esta
 cross-input premises. Keep ingress and atomic native publication as the admission boundaries.
 [Review I02](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I02)
 
+**Completion and witness efficiency · Scheduled · 2026-11-22.** Integrate
+[review I04](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I04)
+and [I05](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I05)
+through the existing proof owner. The
+[native attachment and completion investigation](references-and-projection-keys.md#sbx-native-attachment-and-completion)
+separately attributes public wrapper admission, canonical payload construction, rule and
+correspondence queries, claim/support locks and native writes. Compare fresh retention,
+sealed publication, retry/recovery and changed premises before choosing a correction.
+The successful ordered native proof codec is implemented evidence at its registered source.
+It leaves the event fixture's nested retention and attachment costs unresolved.
+
+Share an observed canonical component only under the same exact value, declared rule,
+fingerprint, premise and validation version. Preserve each rule's establishment and output or
+partition claim independently. The framed intent includes claim/runtime meaning and remains
+distinct from its payload digest. Publication authenticates a retained seal and still checks
+the current attempt, eligible proof establishment and selected use. A content match alone
+cannot establish those current facts. Any protected native handle needs the investigation's
+selected contract and recovery accounting before it replaces an admitted packet.
+
+SBX-08's [witness handoff](validated-values-and-handoff.md#sbx-witness-handoff) limits eager
+preparation to actual declared witnesses and reuses the admitted value. Compare native
+enforcement with prepared same-occurrence match keys. Retire the production Python witness
+pass only when native coverage and required diagnostics agree. Otherwise retain the scoped
+check with its normalized comparison operands prepared once. Keep independent expectations
+for numeric and context equality, exact source and role, same-member matches, and refusal of
+cross-product or wrong-occurrence evidence. A retained Python oracle can assess the native
+checker independently of the production precheck.
+
+Acceptance retains an invalid witness among valid records, missing or revoked proof
+establishment, changed claim generation, altered completion bytes, lost acknowledgement and
+cross-purpose refusal. Include independent producers that each emit at position zero, exact
+digests and packet limits, and atomic refusal before any product or proof is published.
+Run these controls with the handoff and SBX-09 custody cases on the chosen final source.
+The coordinator's [efficiency amendment](../set-based-execution_2026-11-21.md#validation-postgresql-efficiency-amendment)
+owns recommendation disposition and the criterion for advancing a measured native correction
+before reset.
+
 **Remaining execution · Proposed · 2026-11-22.** Use the declared dependency-member rules and
 release-owned attachment-policy witness. Construction and contextual evaluation publish those
 attestations and address their external premises and packed choices through producing roles.
