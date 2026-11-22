@@ -533,9 +533,11 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
                 parameter_definitions=wire_json_loads(parameters[operation["operation_id"]]),
             )
         for kind in projection["kinds"]:
-            if kind["kind_contract"] in kinds and kinds[kind["kind_contract"]] != kind:
+            stored_kind = {"collections": {}, **kind}
+            key = kind["kind_contract"]
+            if key in kinds and kinds[key] != stored_kind:
                 raise ValueError("captured releases disagree on nominal kind meaning")
-            kinds[kind["kind_contract"]] = kind
+            kinds[key] = stored_kind
     runtime_ids = set()
     for digest, name in manifest.source_artifacts.items():
         if _checksum(root / name) != digest:

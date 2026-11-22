@@ -129,7 +129,12 @@ def _inspection_programs(model):
     )
     expected_kinds = select(
         projected_kinds.c.value["kind_contract"].astext.label("key"),
-        projected_kinds.c.value.label("body"),
+        projected_kinds.c.value.concat(
+            _object(
+                "collections",
+                func.coalesce(projected_kinds.c.value["collections"], _object()),
+            )
+        ).label("body"),
     ).cte("expected_kinds")
     actual_kinds = (
         select(
