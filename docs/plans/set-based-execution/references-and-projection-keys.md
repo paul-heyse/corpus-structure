@@ -244,13 +244,54 @@ Twenty-six existing identities passed in `1be4a2f8a3554d01af9ebaac4f1d74c3`. The
 test passed after a test-fixture correction (`f57a12efaeef45cda8153c648e53ca8a`). The
 rich support carrier still describes the exact selected support occurrences.
 
+**Definition component addresses · Tested by selected identity · 2026-11-22.** Definition
+component producers now publish components as admitted members. Statement admission,
+evaluation, applicability, dossier preparation and selected extraction read that one member
+population. The isolated managed selection passed 157 ordinary and captured model checks
+(`9a4e81e2f79a4f50a03a3a1d8af72d52`). A retained pre-conversion witness archive replayed
+through the generic verifier using its own captured schema. Current structural interpretation
+uses the current admitted-member shape. The dependent component citations and contextual
+relationship edge work have their own acceptance.
+
+**Discovery-derived reference roles · Inspected · 2026-11-22.** The remaining construction
+and contextual dependency rosters include discovered `formal`, `constructions` and
+`supporting` occurrences. Two admitted products can share source scope and a local member ID.
+The current occurrence-bound declaration derives its label from a frozen source set.
+
+**Proposed.** Use the original derivation's role-local input position for discovered roles.
+`ops.ddo_derivation_input_positions` already derives that address from frozen binding inputs.
+A discovered sequence currently inherits producer output positions. Independent formal products
+can both emit at position zero. Native and Python binding require unique sequence positions and
+native admission checks the actual producer position. Establish whether the consuming role has
+an order across independent producers. For an unordered role, project the existing ledger
+address through authenticated acquisition, with the emitting position retained separately.
+Resolve the original input at its recorded position, then authorize that role's exact product,
+member and multiplicity in the current selected use.
+A rank change among other members of a current unordered selection does not change the address
+in the original binding. Exercise this case alongside same-member overlap, multiple exact uses
+and unauthorized substitution before retiring the rosters. [Native position owner](../../../python/corpus-structure/src/corpus_structure/semantic/binding_support_native.py)
+
 **Bound contextual witness outputs · Tested by selected identity · 2026-11-22.** Published
 carrier and cue references address exact admitted contribution members through the frozen
 `cues` role and its occurrence labels. Authored request pins still govern acquisition.
 The prepared witness suite passed 15 tests (`61a68b1c01084ab4931d6ccbe0917821`).
 Native publication and detached replay passed in the selected current-source identity
-(`f6887f3302c24cce9fa12cc67321c07a`). The earlier parallel run
+(`f6887f3302c24cce9fa12cc67321c07a`). The stable three-case native selection also
+passed (`2a7b52bc1af346598547f25f583c0741`), including receipt-backed tamper refusal
+and the same-span workflow. The earlier parallel run
 (`00f660a4a27744bdad5841f6191463bb`) refused changed source custody during setup.
+
+**Contextual native graph proxies · Tested by selected identity · 2026-11-22.** The native
+contextual report names formal and construction proxy endpoints through scalar nominal member
+slots. Proxy identity follows the producing role and member key. Stored provider citations
+retain their original meaning. D1 resolves the graph from its exact acquired binding. Product
+readers authenticate a complete graph through one fulfilled use and its historical declaration.
+They can show one meaning authorized by multiple uses. The graph refuses missing original
+support, combined partial authority and conflicting authorized origins. All 26 selected
+graph, learned and projection controls passed (`49ba2face1604acbbc5e6e486cdce3f9`). Six
+focused selected resolver cases passed (`cc795bc39c484d8fb196768b9b805063`), including an
+older release first and exact-plus-substituted support. Downstream capture passed
+(`aa4752ebbb5e430799dbf24a76f63dd0`). Live provider acceptance for this graph migration stays open.
 
 **Contextual witness references · Tested · 2026-11-22.** Witness bindings declare whole-role
 references to the producing query and inventory. Retrieval requires exact original-to-current
@@ -334,8 +375,18 @@ item. The 30 ordinary and private native controls passed (`uv run ci test --nati
 `340cee91aaf348eca6c90d1aef34ed22`). An exact nested disclosure control passed
 (`d885635ee7bd402085351bece202ebda`), as did the independent per-item batch control
 (`15497e3ff1224cb1b6b023f5a0bf79f3`). All 29 final composition and contextual encoder controls
-passed (`1431268ff2304ca88c15fe11c077c78c`). Actual Maverick and D1 provider publication followed
-by selected query and detached read remains open.
+passed (`1431268ff2304ca88c15fe11c077c78c`).
+
+The actual private D1 literal-operand journey passed by selected identity in
+`8920778f3dbc4abe8e0ee28db5377622`. It compared the selected source operand with the retained
+provider response and validated its exact selected product against the detached archive. The
+combined result failed in the other selected identity, which reached fulfilled Maverick, HanLP
+and Dipo publication. The next attempt confirmed the HanLP constituent in the admitted `rows`
+partition and exposed an assertion that grouped the selected Maverick report with its members
+(`88e9584720504b319f6727dd38923f67`). The exact corrected three-parser provider journey passed
+(`d423aa9a82fe4d0eaa35c629976eba5c`), including the selected Maverick report in a verified archive
+and an unchanged resume. The actual literal D1 fixture uses the fixed-question path.
+Candidate-conditioned `text.d1_candidates/source-native` has separate acceptance.
 
 **Named-definition cutover · 2026-11-21.** The named producer publishes a nominal refinement
 of definition components. Each witness belongs to the producing report and is keyed by the

@@ -113,6 +113,14 @@ establishes that attempt's journey and artifact reuse. It supplies neither final
 nor a general timing claim. This test allocation applies in SBX-11/12 and SBX-20/22.
 [Review I09](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I09)
 
+**Current finite and rich replay · Tested by selected identity · 2026-11-22.** The current-source
+private fixture fulfilled the candidate producer and left `interpret.finite_candidates` awaiting
+inputs before export (`uv run ci test --native-host private`, `20cb15b07fd9491cb263a742723d1871`
+and `29ea050ed99640ed8a7bfaa2d29b8824`). The dependency-free finite operation uses generic local
+readiness for its computed candidates and authored policy. The retry must distinguish an absent
+wake from a binding refusal before recording a fix and restoring joined finite and rich coverage.
+[Readiness](references-and-projection-keys.md#readiness-delivery)
+
 <a id="early-revision-a-integration"></a>
 ## Early Revision A integration
 
@@ -173,6 +181,20 @@ construction input requirements (`d27bda9ca1db47f7891adf4964bef7a4`,
 The successor with the regenerated report schemas and selected rich read authority passed
 preview and rollback-only authoring (`e144d0867344411ab6fe1b96eef1c015`,
 `31a8c3350bfa478da58f8a4caf3bab85`).
+
+**SBX-03–05 candidate checkpoint · 2026-11-22.** The occurrence, construction proof, native
+reference and contextual witness slice passed managed rollback-only authoring
+(`uv run ci model change candidate`, `114f6356ffab42c584b84c8470bf62ca`, preview
+`b4261c2f46234ed886c4e2b3ae9d3c18`). The accepted preview bound development N29 and the
+registered N47 predecessor. The candidate declares the observed five obsolete projection
+triggers and two validation routines explicitly. Prior attempts refused the missing retirement
+list (`dd633436419e4308927b68c71ac097fc`) and an overlength candidate identifier
+(`82097ccf3dd540e98d357b9c107935b1`). This evidence covers the named captured source.
+The updated candidate includes admitted definition components, exact applicability and dossier
+origins and the scalar contextual graph roles. Preview passed (`bdc5e54bc5b74ed48d2afa6b3ca76d0b`)
+and rollback-only authoring passed (`e9dbb5ca18a54b99b038ef688cdc11f5`). The output records
+development N29 as the authoring boundary and registered N47 as the candidate predecessor.
+Registration and the development reset belong to final-root acceptance.
 
 **Projection and activation checkpoint · 2026-11-21.** The partial integrated source at
 `2375de39b` passed managed rollback-only authoring against the exact N47 predecessor

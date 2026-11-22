@@ -634,9 +634,16 @@ dotted traversal through the logical multivalued collection. The binding require
 The normalized checker compares the actual block and token together and verifies the released
 layout digest. A token ordinal valid in a different block is refused. The three focused
 prepared, navigation and actual named-construction identities passed (`4719e52fcc664084ac7ef000bc7e81f7`).
-Native establishment parity passed (`93d2544f51cd4b9981c4f7d0d75e22d4`). The current contextual
-`supporting` acquisition still checks exact input custody. Migration of the remaining external
-premises and family addresses and final registered-root qualification stay open.
+Native establishment parity passed (`93d2544f51cd4b9981c4f7d0d75e22d4`).
+The actual construction provider passed private selected token readback
+(`19646ada88614bffb3e5428b4620cbf3`). The retained carrier now preserves its admitted decoded
+annotation blocks across rebinding. The admitted contextual reader consumes the producer
+attestation and keeps the exact `supporting` input requirement. Standalone construction still
+checks the addressed rows and layout at its admission boundary. The focused construction,
+contextual and annotation selection passed all 45 cases (`55e2ea9c1ce44b90b668e0124ca08d01`),
+including exact retained acquisition without repeating the annotation proof and refusal when
+the retained dependency is missing. Remaining external premises, family addresses and
+registered-root qualification stay open.
 
 **Construction rule uptake · Tested by selected identity · 2026-11-22.** Contextual
 interpretation requires the construction selected-primary-members establishment. Predicate and
