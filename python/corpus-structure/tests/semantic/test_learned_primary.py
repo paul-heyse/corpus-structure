@@ -112,6 +112,21 @@ def test_learned_profile_captures_actual_provider_factories_and_private_outputs(
         "text.constructions/source-native",
         "text.contextual_native/source-native",
     }
+    formal_rules = {
+        "text.formal_evidence/examined-scope",
+        "text.formal_evidence/family-roster",
+        "text.formal_evidence/lexical-inventory-links",
+        "text.formal_evidence/literal-source-geometry",
+        "text.formal_evidence/member-local-addresses",
+        "text.formal_evidence/occurrence-origin",
+        "text.formal_evidence/symbolic-inventory-positions",
+    }
+    for operation_id in (
+        "text.d1_candidates/source-native",
+        "text.contextual_native/source-native",
+    ):
+        (formal,) = (role for role in model.operation(operation_id).roles if role.name == "formal")
+        assert set(formal.required_rules) == formal_rules
     frozen = json.loads(
         next(
             artifact.content

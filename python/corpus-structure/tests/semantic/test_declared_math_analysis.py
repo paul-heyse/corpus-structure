@@ -293,6 +293,10 @@ def test_analysis_operations_compile_with_explicit_weak_and_contextual_dependenc
     )
     from corpus_structure.semantic.formal_products import formal_operation_sources
     from corpus_structure.semantic.primary_operations import combine_primary_sources
+    from corpus_structure.semantic.source_discovery import (
+        source_discovery_inputs,
+        source_discovery_operation_sources,
+    )
     from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
     configuration = SentenceConfig(exclude=("ner",))
@@ -300,7 +304,7 @@ def test_analysis_operations_compile_with_explicit_weak_and_contextual_dependenc
         NativeProfile(
             "spacy",
             {"controlled": "unadmitted-schema"},
-            {},
+            {"files": {}},
             configuration.model_dump(mode="json"),
             "float32",
             "cupy",
@@ -312,9 +316,10 @@ def test_analysis_operations_compile_with_explicit_weak_and_contextual_dependenc
 
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     bundle = construction_product_inputs(
-        SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
+        source_discovery_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
     )
     sources = combine_primary_sources(
+        source_discovery_operation_sources(),
         formal_operation_sources(),
         characterization_operation_sources(
             sentence_configuration=configuration, sentence_selection=selection
@@ -327,6 +332,7 @@ def test_analysis_operations_compile_with_explicit_weak_and_contextual_dependenc
     )
     weak = model.operation("analyze.math/lexical")
     strong = model.operation("analyze.math/contextual")
+    occurrence = model.operation("extract.math/declared")
     assert weak.dependencies == ("text.formal_evidence/source-native",)
     assert {role.name for role in weak.roles if role.direction == "input"} == {"source", "formal"}
     assert {role.name for role in strong.roles if role.direction == "input"} == {
@@ -336,6 +342,21 @@ def test_analysis_operations_compile_with_explicit_weak_and_contextual_dependenc
         "inherited",
         "ancestor_sources",
     }
+    lexical_rules = {
+        "text.formal_evidence/examined-scope",
+        "text.formal_evidence/lexical-inventory-links",
+        "text.formal_evidence/literal-source-geometry",
+        "text.formal_evidence/member-local-addresses",
+        "text.formal_evidence/occurrence-origin",
+    }
+    positioned_rules = lexical_rules | {"text.formal_evidence/symbolic-inventory-positions"}
+    for operation, expected_rules in (
+        (weak, lexical_rules),
+        (strong, positioned_rules),
+        (occurrence, positioned_rules),
+    ):
+        (formal,) = (role for role in operation.roles if role.name == "formal")
+        assert set(formal.required_rules) == expected_rules
     assert all(part.complete for part in model.implementation_slices), [
         (part.root, [(issue.location, issue.reason, issue.required) for issue in part.unknowns])
         for part in model.implementation_slices
