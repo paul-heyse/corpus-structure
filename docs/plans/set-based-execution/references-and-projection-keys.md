@@ -192,16 +192,15 @@ the installed successor and remaining families. A retained projection carries ad
 membership while each lookup acquires its current authority. Keep authorized absence distinct
 from a withheld parent. [Post-pilot review I02/I03](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I03)
 
-**Native grouping investigation · Scheduled · 2026-11-22.** Publication and projected adoption
-already validate declared references in the native owner. Its contiguous-partition reuse can
-re-expand a partition when references interleave. Inspect that path in the installed fork.
-Reuse one address index per exact authorized producing input and partition, or group requested
-addresses by those keys and use native cardinality and anti-join checks if repeated expansion
-makes grouping useful. Retain stable failure order and exact slot/address diagnostics,
-malformed keys, member and occurrence multiplicity, and publication/adoption atomicity.
-SBX-04 still establishes specialized layout, token and dependency premises. Use Arrow or DuckDB
-only as an independent comparison over an already typed dense input where it answers a real
-question. [Native validator](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_reference_native.py#L124)
+**Native address reuse · Tested · 2026-11-22.** Ordinary publication and projected adoption
+share the native validator. It now indexes each distinct admitted product, collection and
+partition once per validation invocation. Every reference still checks binding and multiplicity.
+The private regression reproduced three acquisitions for interleaved `b, a, b` on the earlier
+source (`710e6a47b7874989811a3cb1c07ccbc6`). The replacement acquired two, reacquired both in a
+second invocation and reported the first invalid slot in order. All 12 reference and structural
+closure cases passed (`uv run ci test --workers 1 --native-host private`,
+`0c35a442b72e46a1b185e727141016bb`). Final integrated publication and adoption evidence stays open.
+[Native validator](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_reference_native.py#L124)
 
 **Keyed live-read slice · Conditional · 2026-11-22.** Start with the scalar construction slot
 in the installed successor. The existing `ReferenceResolver`, guarded exact-parent acquisition
@@ -211,6 +210,11 @@ then reuse the resolver and partition index while reauthorizing each lookup. The
 `LiveReferenceAccess` single-binding contract needs explicit extension before use with labelled
 or multiple occurrences. Keep exact product/member/kind matching and independently compare
 current attachment with historical reference meaning.
+
+**Placement · Inspected · 2026-11-22.** The fork test exercises the scalar construction
+address. The production assessment reader uses that address within a wider witness graph, which
+also uses partition placement and order. This baseline has no qualifying scalar production caller.
+SBX-11 owns the optimization unless a later family migration supplies one.
 
 Advance this slice within SBX-05 only if its actual ordinary caller uses the final reference
 contract, avoids full selected-closure preparation and passes within the normal 8 MiB examined
@@ -231,6 +235,22 @@ actual addressed target, native closure and ordinary, evaluation and detached re
 original producing bindings separately from exact current support and retire the replaced
 reference types and resolver at their last caller. Preserve genuine source pins and deliberate
 composition and rich-support variants.
+
+**Structural contribution facets · Tested by selected identity · 2026-11-22.** Selected
+facets now follow the same structural-reference checks as direct structural reads
+before yielding rows. A condition publishes a facet under its admitted original attachment
+and refuses an equal-content replacement that does not authorize that attachment.
+Twenty-six existing identities passed in `1be4a2f8a3554d01af9ebaac4f1d74c3`. The new
+test passed after a test-fixture correction (`f57a12efaeef45cda8153c648e53ca8a`). The
+rich support carrier still describes the exact selected support occurrences.
+
+**Bound contextual witness outputs · Tested by selected identity · 2026-11-22.** Published
+carrier and cue references address exact admitted contribution members through the frozen
+`cues` role and its occurrence labels. Authored request pins still govern acquisition.
+The prepared witness suite passed 15 tests (`61a68b1c01084ab4931d6ccbe0917821`).
+Native publication and detached replay passed in the selected current-source identity
+(`f6887f3302c24cce9fa12cc67321c07a`). The earlier parallel run
+(`00f660a4a27744bdad5841f6191463bb`) refused changed source custody during setup.
 
 **Contextual witness references · Tested · 2026-11-22.** Witness bindings declare whole-role
 references to the producing query and inventory. Retrieval requires exact original-to-current

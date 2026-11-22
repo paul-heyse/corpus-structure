@@ -201,6 +201,20 @@ class ContextualWitnessOperation:
                 "input_role": "inventory",
                 "variant": "product",
             },
+            {
+                "output_role": "result",
+                "path": "/carrier_input",
+                "input_role": "cues",
+                "variant": "member",
+                "occurrence_binding": True,
+            },
+            {
+                "output_role": "result",
+                "path": "/hypotheses/*/cue_refs/*",
+                "input_role": "cues",
+                "variant": "member",
+                "occurrence_binding": True,
+            },
         ],
         "opaque": [
             {

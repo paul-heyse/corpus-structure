@@ -38,7 +38,17 @@ def witness_case():
     context = source_context
     support = (ComputationalSupportReference(derivation_id="unadmitted:cue-episode"),)
 
-    def role(name, product, body, *, member=None, selected=context, evidence=support, position=0):
+    def role(
+        name,
+        product,
+        body,
+        *,
+        member=None,
+        selected=context,
+        evidence=support,
+        position=0,
+        occurrence_label=None,
+    ):
         return CPUInputRole(
             name,
             position,
@@ -54,10 +64,16 @@ def witness_case():
             )
             if any(isinstance(ref, ComputationalSupportReference) for ref in evidence)
             else None,
+            occurrence_label=occurrence_label,
         )
 
     carrier = role(
-        "cues", "unadmitted:report", occurrence, member="subject", selected=source_context
+        "cues",
+        "unadmitted:report",
+        occurrence,
+        member="subject",
+        selected=source_context,
+        occurrence_label="cue:0",
     )
     other_body = dict(occurrence, contribution_id="source-contribution:" + "b" * 64)
     other = role(
@@ -68,6 +84,7 @@ def witness_case():
         # Distinct retained member addresses can share a producer output position.
         position=0,
         selected=source_context,
+        occurrence_label="cue:1",
     )
 
     def ref(value):
@@ -131,7 +148,7 @@ def project(frame, context, roles):
 
 
 def test_private_binding_preserves_competing_authored_assertions_and_exact_carrier():
-    frame, context, roles, other = witness_case()
+    frame, context, roles, _ = witness_case()
     result = project(frame, context, roles)
     assert result["standing"] == "private_authored_source_binding_hypotheses"
     assert result["support_state"] == "unassessed"
@@ -144,8 +161,11 @@ def test_private_binding_preserves_competing_authored_assertions_and_exact_carri
     assert all(row["evidence_ids"] == ["source-contribution:" + "a" * 64] for row in witnesses)
     assert result["query_input"] == {"variant": "product", "role": "query"}
     assert result["inventory_input"] == {"variant": "product", "role": "inventory"}
-    assert other not in result["hypotheses"][0]["cue_refs"]
-    assert result["hypotheses"] == roles[3].body["hypotheses"]
+    carrier = dict(variant="member", role="cues", occurrence="cue:0", member_id="subject")
+    assert result["carrier_input"] == carrier
+    assert result["hypotheses"] == [
+        {**assertion, "cue_refs": [carrier]} for assertion in roles[3].body["hypotheses"]
+    ]
     roles[1] = replace(roles[1], product_id="unadmitted:equivalent-query")
     roles[2] = replace(roles[2], product_id="unadmitted:equivalent-inventory")
     assert project(frame, context, roles) == result
@@ -383,6 +403,10 @@ def test_acquisition_pins_original_query_cut_and_refuses_missing_cues(
             (roles[4].product_id, "subject"),
             (roles[5].product_id, "unrelated"),
         }
+        assert {value.member: value.occurrence_label for value in cue_set.entries} == {
+            "subject": "cue:1",
+            "unrelated": "cue:0",
+        }
 
 
 def test_each_compatible_relation_keeps_exact_cited_carriers_without_same_span_substitution():
@@ -411,6 +435,14 @@ def test_each_compatible_relation_keeps_exact_cited_carriers_without_same_span_s
     assert all(
         row["basis"] == "producer_group" and row["support_state"] == "unassessed"
         for row in witnesses
+    )
+    assert all(
+        assertion["cue_refs"]
+        == [
+            dict(variant="member", role="cues", occurrence="cue:0", member_id="subject"),
+            dict(variant="member", role="cues", occurrence="cue:1", member_id="unrelated"),
+        ]
+        for assertion in result["hypotheses"]
     )
     assert result["author_assertion"] == "unadmitted author assertion"
     # The first cue shares its physical span with the second but has its own

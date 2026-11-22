@@ -397,6 +397,10 @@ def acquire_contextual_witness_selection(connection, selection, *, project_id, q
         raise ValueError(
             "witness acquisition requires distinct cues including its exact query carrier"
         )
+    if any(ref.member_id is None for ref in refs):
+        raise ValueError("witness cues require true admitted contribution members")
+    # Bind stable labels for this frozen selection irrespective of the caller's list order.
+    cue_refs = sorted(refs, key=lambda ref: (ref.product_id, ref.member_id or ""))
     pin = body["source_pin"]
     source = DeclaredProductRef(
         product_id=pin["source_product"],
@@ -470,7 +474,16 @@ def acquire_contextual_witness_selection(connection, selection, *, project_id, q
             (selected_entry,) = candidates
             return selected_entry
 
-        source_entry, cue_entries = entry(source), tuple(entry(value) for value in refs)
+        source_entry = entry(source)
+        cue_entries = []
+        for ordinal, ref in enumerate(cue_refs):
+            selected = entry(ref)
+            cue_entries.append(
+                replace(
+                    selected,
+                    entry=replace(selected.entry, occurrence_label=f"cue:{ordinal}"),
+                )
+            )
     return ContextualVectorSelection(
         (
             *selection.source_sets,

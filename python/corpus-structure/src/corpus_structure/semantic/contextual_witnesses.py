@@ -80,6 +80,7 @@ def project_contextual_witnesses(input_basis, frame_record, *, check_active):
         for index, cell in enumerate(node.get("data", {}).get("table_cells", ())):
             nodes[f"{pointer}/data/table_cells/{index}"] = cell
     cues = {}
+    labels = set()
     for row in roles["cues"]:
         if not row.support or any(
             not isinstance(value, ComputationalSupportReference) for value in row.support
@@ -101,9 +102,22 @@ def project_contextual_witnesses(input_basis, frame_record, *, check_active):
         )
         if len(products) != 1 or any(anchor["precision"] != "exact" for anchor in body["anchors"]):
             raise ValueError("witness cue lacks its actual exact source anchors")
-        cues[key] = body
+        if row.member_id is None or row.occurrence_label is None:
+            raise ValueError("witness cue requires a frozen occurrence and admitted member")
+        if row.occurrence_label in labels:
+            raise ValueError("witness cue population repeats a frozen occurrence")
+        labels.add(row.occurrence_label)
+        cues[key] = (
+            body,
+            SemanticReference.member(
+                "cues", row.member_id, occurrence=row.occurrence_label
+            ).occurrence_member_value(),
+        )
     carrier_key = canonical_bytes(carrier.model_dump(mode="json"))
-    if carrier_key not in cues or cues[carrier_key]["occurrence_id"] != query["occurrence_id"]:
+    if (
+        carrier_key not in cues
+        or cues[carrier_key][0]["occurrence_id"] != query["occurrence_id"]
+    ):
         raise ValueError(
             "witness binding lacks the exact query carrier, including same-span role identity"
         )
@@ -117,7 +131,7 @@ def project_contextual_witnesses(input_basis, frame_record, *, check_active):
     if not authored or not hypotheses["author_assertion"]:
         raise ValueError("witness hypotheses lack their explicit admitted authored attribution")
     target_ids = set(inventory.target_ids)
-    selected, seen = [], set()
+    selected, bound_hypotheses, seen = [], [], set()
     for assertion in hypotheses["hypotheses"]:
         if assertion["hypothesis_id"] in seen or assertion["target_id"] not in target_ids:
             raise ValueError(
@@ -136,6 +150,7 @@ def project_contextual_witnesses(input_basis, frame_record, *, check_active):
             raise ValueError(
                 "authored witness requires its exact qualifying carrier and selected cue refs"
             )
+        bound_hypotheses.append({**assertion, "cue_refs": [cues[key][1] for key in keys]})
         witness_id = identity(
             "contextual-authored-witness",
             [
@@ -169,7 +184,8 @@ def project_contextual_witnesses(input_basis, frame_record, *, check_active):
         authored_support=source_value(authored),
         query_input=SemanticReference.whole("query").whole_value(),
         inventory_input=SemanticReference.whole("inventory").whole_value(),
-        hypotheses=hypotheses["hypotheses"],
+        carrier_input=cues[carrier_key][1],
+        hypotheses=bound_hypotheses,
         witnesses=source_value(selected),
     )
 

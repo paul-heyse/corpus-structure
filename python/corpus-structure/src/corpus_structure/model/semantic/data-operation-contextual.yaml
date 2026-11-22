@@ -150,14 +150,22 @@ classes:
       channel_budget: {range: integer, required: true, minimum_value: 1}
       constraints: {range: SourceValue, inlined: true, required: true}
       exclusions: {range: SourceValue, inlined: true, required: true}
-  DdoContextualWitnessHypothesis:
+  DdoContextualWitnessAssertion:
     is_a: SourceRecordProduct
+    abstract: true
     attributes:
       hypothesis_id: {required: true}
       target_id: {required: true}
       relation: {required: true, pattern: '^(denotes|alias-of|defined-by|specializes|compared-with|participates-in|cites-section)$(?![\s\S])'}
       asserted_basis: {required: true, pattern: '^(explicit_source_cue|producer_group|geometry|model_reading|admitted_derivation)$(?![\s\S])'}
+  DdoContextualWitnessHypothesis:
+    is_a: DdoContextualWitnessAssertion
+    attributes:
       cue_refs: {range: DdoContextualCarrierInput, inlined_as_list: true, multivalued: true, required: true, minimum_cardinality: 1}
+  DdoContextualBoundWitnessHypothesis:
+    is_a: DdoContextualWitnessAssertion
+    attributes:
+      cue_refs: {range: DdoSemanticReference, inlined_as_list: true, multivalued: true, required: true, minimum_cardinality: 1}
   DdoContextualWitnessHypotheses:
     is_a: SourceRecordProduct
     attributes:
@@ -172,7 +180,8 @@ classes:
       authored_support: {range: SourceValue, inlined: true, required: true}
       query_input: {range: DdoSemanticReference, inlined: true, required: true}
       inventory_input: {range: DdoSemanticReference, inlined: true, required: true}
-      hypotheses: {range: DdoContextualWitnessHypothesis, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      carrier_input: {range: DdoSemanticReference, inlined: true, required: true}
+      hypotheses: {range: DdoContextualBoundWitnessHypothesis, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
       witnesses: {range: SourceValue, inlined: true, required: true}
   DdoContextualNativeScoreHit:
     is_a: SourceRecordProduct

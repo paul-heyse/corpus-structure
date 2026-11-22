@@ -63,7 +63,16 @@ def test_actual_private_source_binding_retains_authorship_and_competing_alternat
     (product,) = retained_products(case.kernel, demand, "DdoContextualWitnessedRetrievalProduct")
     (binding,) = retained_products(case.kernel, demand, "DdoContextualWitnessBindings")
     assert binding.body["author_assertion"] == "controlled contextual test author"
-    assert binding.body["hypotheses"] == submitted
+    carrier = {
+        "variant": "member",
+        "role": "cues",
+        "occurrence": "cue:0",
+        "member_id": case.query.body["carrier"]["member_id"],
+    }
+    assert binding.body["carrier_input"] == carrier
+    assert binding.body["hypotheses"] == [
+        {**hypothesis, "cue_refs": [carrier]} for hypothesis in submitted
+    ]
     assert binding.body["support_state"] == product.body["support_state"] == "unassessed"
     assert product.body["witness_standing"] == "private_authored_source_binding_hypotheses"
     assert binding.body["query_input"] == {"variant": "product", "role": "query"}
@@ -103,7 +112,12 @@ def test_actual_private_source_binding_retains_authorship_and_competing_alternat
             index,
         ):
             rows = index.mapping("kb.data_product", ("id",))
-            for retained, field in ((binding, "query_input"), (product, "witness_input")):
+            for retained, field in (
+                (binding, "query_input"),
+                (binding, "carrier_input"),
+                (binding, "hypotheses"),
+                (product, "witness_input"),
+            ):
                 body = decode_semantic_value(rows[retained.row["product_id"]]["canonical_body"])
                 assert body[field] == retained.body[field]
     elif outcome == "ambiguous":
@@ -140,9 +154,7 @@ def test_native_binding_refuses_changed_claims_atomically_with_original_cpu_rece
             elif corruption == "invent-author":
                 body["author_assertion"] = "invented independent provider"
             else:
-                body["hypotheses"][0]["cue_refs"][0]["contribution_id"] = (
-                    "source-contribution:" + "f" * 64
-                )
+                body["hypotheses"][0]["cue_refs"][0]["occurrence"] = "missing-cue"
             bad["completion"]["outputs"][0]["product"]["body"] = semantic_value(body)
             assert (
                 bad["completion"]["execution_evidence"]
