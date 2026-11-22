@@ -9,11 +9,12 @@ from __future__ import annotations
 import inspect
 import json
 import os
+from collections.abc import Mapping
 from contextlib import contextmanager, nullcontext
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from hashlib import file_digest, sha256
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
@@ -23,6 +24,9 @@ from .identity import canonical_bytes
 from .pdf_record_reader import PdfRecognitionInventory
 from .product_reference import ProductReference
 from .types import SourceArtifact
+
+if TYPE_CHECKING:
+    from .runtime_slice import AuthenticatedSlice
 
 
 class PdfEnrichmentOptions(BaseModel):
@@ -799,7 +803,12 @@ def _selected_pdf_execution(
 class PreparedPdfTransform:
     prepared: Any
     model: Any
-    record: dict[str, Any]
+    record: Mapping[str, Any]
+
+    def __post_init__(self):
+        from .native_source_view import freeze_native
+
+        object.__setattr__(self, "record", freeze_native(self.record))
 
     @property
     def mode(self):
@@ -1202,7 +1211,8 @@ class PreparedPdfTransform:
         check_active()
         conversion = _conversion_from_product(selected.product, recipe_bytes, selected.candidates)
         organized = organize(
-            conversion.native, TypeAdapter(SectionPolicy).validate_python(self.record["options"])
+            conversion.native,
+            TypeAdapter(SectionPolicy).validate_python(dict(self.record["options"])),
         )
         check_active()
         draft = native_publication_draft(
@@ -1421,44 +1431,61 @@ class PreparedPdfTransformPort:
     authorize: Any
     custody: tuple
     sources: Any
+    _verification: AuthenticatedSlice = field(init=False, repr=False, compare=False)
+    _receiver: type = field(init=False, repr=False, compare=False)
+    logical_signature: inspect.Signature = field(init=False, repr=False, compare=False)
     native_selections = ()
 
-    @property
-    def logical_signature(self):
-        signature = inspect.signature(_endpoint(self.profile.mode).run, eval_str=True)
-        return signature.replace(parameters=tuple(signature.parameters.values())[1:])
-
-    def _verify(self):
-        from .data_operation_prepared_products import verify_prepared_product
+    def __post_init__(self):
+        from .data_operation_ports import PortRefusal
+        from .data_operation_prepared_products import (
+            authenticated_prepared_product,
+            verify_prepared_product,
+        )
+        from .file_custody import FileCustodyError, verified_file
 
         record = self.profile.record
-        specification = pdf_transform_specification(self.profile.mode)
+        mode = self.profile.mode
+        specification = pdf_transform_specification(mode)
         if specification.functions[0][0] != self.operation.callable_surfaces[0].declaration:
-            from .data_operation_ports import PortRefusal
-
             raise PortRefusal("PDF selected endpoint differs from its admitted declaration")
-        if any(
-            (_root() / name).read_bytes() != bytes.fromhex(content)
-            for name, content in record["files"]
-        ):
-            raise ValueError("PDF transformation implementation changed after acquisition")
-        if self.profile.mode == "recognized" and (
-            _file_hash(record["resources"]["script"]) != record["worker_digest"]
-            or _file_hash(record["resources"]["python"]) != record["interpreter_digest"]
-        ):
-            raise ValueError("recognition worker/interpreter changed after acquisition")
         capture_role = next(role for role in self.operation.roles if role.direction == "input")
-        if self.profile.mode != "organized" and capture_role.selected != record["input_operation"]:
+        if mode != "organized" and capture_role.selected != record["input_operation"]:
             raise ValueError("PDF transformation input differs from its frozen exact producer")
         asset = next(
-            item
-            for item in self.custody
-            if item.name == "pdf-" + self.profile.mode + "/execution-custody"
+            item for item in self.custody if item.name == "pdf-" + mode + "/execution-custody"
         )
         if canonical_bytes(record) != asset.content:
             raise ValueError(
                 "PDF transformation resource profile differs from immutable acquired custody"
             )
+        root = _root()
+        try:
+            files = [
+                verified_file(root / name, sha256(bytes.fromhex(content)).hexdigest())
+                for name, content in record["files"]
+            ]
+        except (FileCustodyError, OSError) as error:
+            raise ValueError(
+                "PDF transformation implementation changed after acquisition: " + str(error)
+            ) from error
+        if mode == "recognized":
+            try:
+                files.extend(
+                    (
+                        verified_file(Path(record["resources"]["script"]), record["worker_digest"]),
+                        # Follow bytes at the admitted spelling, preserving the virtualenv.
+                        verified_file(
+                            Path(record["resources"]["python"]), record["interpreter_digest"]
+                        ),
+                    )
+                )
+            except (FileCustodyError, OSError) as error:
+                raise ValueError(
+                    "recognition worker/interpreter changed after acquisition: " + str(error)
+                ) from error
+        required_sources = specification.capture(root)
+        functions = specification.functions
         verify_prepared_product(
             self.identity,
             self.profile.model,
@@ -1468,12 +1495,31 @@ class PreparedPdfTransformPort:
             assets=(
                 asset,
                 pdf_transform_assets(record),
-                *((recognition_policy_asset(record),) if self.profile.mode == "recognized" else ()),
+                *((recognition_policy_asset(record),) if mode == "recognized" else ()),
             ),
-            functions=specification.functions,
+            functions=functions,
             authorize=self.authorize,
-            required_sources=specification.capture(_root()),
+            required_sources=required_sources,
         )
+        verification = authenticated_prepared_product(
+            self.sources, functions, required_sources=required_sources
+        )
+        verification.files = tuple(
+            {file.path: file for file in (*verification.files, *files)}.values()
+        )
+        receiver = _endpoint(mode)
+        signature = inspect.signature(receiver.run, eval_str=True)
+        object.__setattr__(self, "_verification", verification)
+        object.__setattr__(self, "_receiver", receiver)
+        object.__setattr__(
+            self,
+            "logical_signature",
+            signature.replace(parameters=tuple(signature.parameters.values())[1:]),
+        )
+
+    def _verify(self):
+        self._verification.check()
+        self.authorize(self.identity)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from corpus_structure.core.work import PreparedWork
@@ -1483,7 +1529,6 @@ class PreparedPdfTransformPort:
         from .data_operation_ports import PortCompletion, PortRefusal, RoleValue
         from .data_operation_values import semantic_value
 
-        self._verify()
         if binding is None or not binding.sufficient or binding.subject_context is None:
             raise PortRefusal(
                 "PDF transformation requires an authenticated sufficient subject context"
@@ -1512,7 +1557,7 @@ class PreparedPdfTransformPort:
 
         def compute():
             self._verify()
-            receiver = _endpoint(self.profile.mode)(
+            receiver = self._receiver(
                 self.profile,
                 binding=binding,
                 execution_owner=execution_owner,
@@ -1563,8 +1608,6 @@ def resolve_pdf_transform_port(
     profile = PreparedPdfTransform(prepared, model, json.loads(records[0].content))
     if profile.mode != mode:
         raise ValueError("PDF transformation profile changes its acquired capability")
-    port = PreparedPdfTransformPort(
+    return PreparedPdfTransformPort(
         identity, model.operation(operation), profile, authorize, custody, sources
     )
-    port._verify()
-    return port

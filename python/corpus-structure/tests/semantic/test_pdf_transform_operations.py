@@ -83,6 +83,7 @@ def test_pdf_mode_captures_only_its_explicit_profile_and_exact_discovery(
         else None
     )
     input_operation = "source.pdf_sections/organize" if organized else "source.pdf/capture"
+    worker = tmp_path / "explicit-worker.py"
     if mode == "enriched":
         transformed = pdf_transform_operation_sources(
             mode,
@@ -95,7 +96,6 @@ def test_pdf_mode_captures_only_its_explicit_profile_and_exact_discovery(
         operation = "source.pdf_math/enrich"
         expected_effect = PDF_ENRICHMENT_EFFECT
     else:
-        worker = tmp_path / "explicit-worker.py"
         worker.write_text("raise AssertionError('preparation cannot invoke a provider')\n")
         resources = PdfRecognitionResources(
             python=sys.executable,
@@ -223,6 +223,41 @@ def test_pdf_mode_captures_only_its_explicit_profile_and_exact_discovery(
         model.operation(composition).callable_surfaces[0].declaration
         == "corpus_structure.methods.full_document_composition.ComposeFullDocumentOperation.run"
     )
+
+    if mode == "integrated" and not organized:
+        _assert_independent_transform_verification(acquired, prepared, model, worker, monkeypatch)
+
+
+def _assert_independent_transform_verification(acquired, prepared, model, worker, monkeypatch):
+    from corpus_structure.semantic import data_operation_prepared_products, pdf_transforms
+    from semantic.test_pdf_resource_custody import acquired_port
+
+    captured = (acquired.bundle, acquired.sources, prepared, model)
+    recognition, observation_checks, observation_identity = acquired_port(
+        captured, "source.pdf_recognition/observe"
+    )
+    integration, reconciliation_checks, reconciliation_identity = acquired_port(
+        captured, "source.pdf_integrated/reconcile"
+    )
+
+    def unexpected_recomputation(*args, **kwargs):
+        pytest.fail("runtime verification rebuilt the acquired PDF source or profile")
+
+    monkeypatch.setattr(
+        data_operation_prepared_products, "compile", unexpected_recomputation, raising=False
+    )
+    monkeypatch.setattr(pdf_transforms, "pdf_transform_assets", unexpected_recomputation)
+    with pytest.raises(TypeError):
+        recognition.profile.record["resources"]["script"] = str(worker.with_name("other.py"))
+
+    recognition._verify()
+    assert observation_checks == [observation_identity, observation_identity]
+    worker.write_text("raise AssertionError('changed recognition worker')\n")
+    with pytest.raises(ValueError, match=r"acquired file changed:.*explicit-worker.py"):
+        recognition._verify()
+    assert observation_checks == [observation_identity, observation_identity]
+    integration._verify()
+    assert reconciliation_checks == [reconciliation_identity, reconciliation_identity]
 
 
 @pytest.mark.parametrize("pages", [(1, 1), (2,)])
