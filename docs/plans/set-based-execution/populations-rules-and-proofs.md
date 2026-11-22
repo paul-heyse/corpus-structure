@@ -317,10 +317,11 @@ current release, and binding checks admissible witnesses within the locked suppo
 
 The compiler covers native paired references and producer attestations over a whole product or
 partition. The producer attestation builder derives the same premise from a fresh output
-packet. It supports observed fields and explicit source/context pins. Attested checks that
-observe a separate selected input, including producer-attested partition pairs, still need that
-input represented explicitly before adoption in SBX-04. Existing validator families retain their
-receipt path until SBX-04 migrates them. SBX-03 exercises the first real converted producer chain.
+packet. It supports observed fields, explicit source/context pins and declared selected input
+role paths. Native settlement reconstructs the selected path values from the producing role
+bindings. SBX-04 still owns broader checker and consumer adoption, including any attestation
+that needs an exact pair of input partitions. Existing validator families retain their receipt
+path for the uncovered checks. SBX-03 exercises the first real converted producer chain.
 
 **First-population fit · Inspected 2026-11-21.** Unique addresses, dense ordinals, ordering,
 local spans, and exact item membership fit the declared forms. A required nonempty span can
@@ -394,6 +395,10 @@ definition cases passed (`ea29fc34aa564baba414dc14b0d2465b`), along with seven c
 and CPU authority cases (`075365d01bed4d3ca79febc23861cdd8`).
 The real HanLP-to-declaration syntax chain passed under native settlement
 (`ce9ecaff99cb4d2c9ce00cfdd29fdc05`).
+The later private PostgreSQL and CUDA selection verified annotation-to-canonical production,
+the authorized native/Python projection digest comparison on actual admitted annotation
+metadata, the unchanged repeat, and construction's exact partition references
+(`uv run ci test --providers-only`, `a6e497e3d88a413895eb8b59461cfe1e`, passed).
 Source validation decodes the annotation row view once and locates the native-piece range from
 indexed source offsets. Maverick groups the selected block's token spans by sentence ordinal.
 The retired packet producer, native block/token/sentence member kinds, synthetic token and sentence
@@ -462,6 +467,37 @@ and migrate predicate and learned ingress. Standalone input continues to have it
 boundary.
 The same native provider selection as the T1 run passed the actual construction publication and
 its selected citation to an admitted annotation row (`2ab6fb4e448b4dccb9863d4f116a2184`).
+
+**Admitted annotation consumers · 2026-11-21.** The admitted construction, predicate and
+learned paths use selected binding and declared annotation layout, membership and coverage
+proofs according to what they read. Canonical projection now binds membership and coverage.
+Producer and standalone validation retain their own boundaries. The combined projection,
+annotation and reference selection passed 36 cases (`670d348f1f4e4a2489a47780987193f1`).
+The integrated CUDA annotation-to-canonical chain passed on owned PostgreSQL
+(`uv run ci test --providers-only`, `ae8d693ab805499d8f6ae39848f1708e`), including exact
+partition references and an unchanged demand repeat with zero new receipts.
+The owned native CUDA construction test stopped before proof publication at the exact sentence
+runtime/parser custody check (`55c2cfb4141c4534abbbf069e87550f3`). A stable-source retry
+with artifact-specific refusal details passed actual CUDA construction publication and exact
+row readback (`uv run ci test --providers-only --native-host private`,
+`5a5f8110626c4902837727f780b750ca`). The initial mismatch did not recur.
+
+HanLP now declares partition ordinals and publishes selected-source and canonical
+attestations for token order, constituent and role spans, and native coverage. Declaration
+syntax requires them. Sixteen focused controls, including CUDA HanLP, passed
+(`uv run ci test`, `7427680d824e4032ae0ec2548f7579cb`). The integrated HanLP-to-declaration
+journey passed on private PostgreSQL at `0d6055488` (`uv run ci test --providers-only`,
+`0647a867060f46dca5fdc64a2f88c6d4`). The previous invocation reached an upstream sentence
+execution-custody refusal (`394183cc420b46daaeb0cb6da3a82edb`). An additional hard link
+reproduced a file-stamp change with identical model bytes. The passing retry used an
+isolated copy of the same spaCy model files and preserved launch-time custody checks.
+The integrated canonical and HanLP cases passed together again with the exact source-proof
+correction (`uv run ci test --providers-only`, `cee750ab2b274d66bed4bf20f3ee3cff`).
+
+The refreshed native T1 journey passed on the source with the separate computation basis.
+It exercised CUDA annotation acquisition, the native external task handoff, controlled
+authorship, publication and rich query readback
+(`uv run ci test --providers-only`, `676b3e680be74fd5a2e0daaeb13cdcad`).
 
 **Vision.** Sentence annotation, canonical projection and HanLP publish partitions. Their
 consumers read partitions through one row view and name tokens and sentences by address.
@@ -550,23 +586,53 @@ packed choice members. Primary construction declares both requirements. Three co
 including prepared completion emission and independently authored invalid inputs
 (`6ec9873a380e4d27b92bc3b922163032`). The compiled consumer confirmed both requirements
 (`07cba3252a7348aaa3a1bcc0f92921f0`).
+Construction and contextual completion now attest body coverage independently of their source
+selectors. The checker binds family uniqueness, the coverage of analytical members, the
+reported availability and examined status, and empty and complete claims. Contextual
+evaluation requires the resulting proof on construction inputs. All 25 focused identities
+passed across the initial selection and the exact retry with its domain configuration restored
+(`uv run ci test`, `c118b876f3bc4e46b9e891cac5168d82` and
+`bea3f24ffba445cd8b64a3ba58d3f601`).
+Lexical and contextual mathematical analysis, mathematical occurrence extraction, and the
+learned and contextual native producers now bind the formal conclusions they use. Seventeen
+math, acquired downstream, learned and standalone structural cases passed
+(`uv run ci test`, `7cf958a121414ee48ba9908fb4b4ed9b`). The first standalone structural
+attempt failed because the model imported the formal kind without the attested rule owner
+(`bb4ecad88ae545febe3c3771097be183`). Standalone preparation now acquires that producer's
+captured rule declarations. The optional formal role still uses only its explicit frozen
+source set. Five private native and preparation controls passed
+(`uv run ci test`, `91bf7cab9fd046f18f9ea0bc386ebdf1`). They covered the standalone
+model and comparison without formal inputs. The integrated comparison with a selected formal
+source set reached native publication after the selected-output proof correction. Its
+`threshold_unit` dimension returned an empty left group (`uv run ci test`,
+`452918a0eccd49ef951b7ea1103ee2a9`, failed). The retained trace leaves formal role binding,
+normalization and containment of the reading by an admitted focus or condition unresolved.
 
 Removed the coordinate, role, endpoint, coverage and choice side tables from the target compiler
 and generated wire. The generated successor passed rollback-only candidate authoring against N47
 (`27c37c0e9aaa403ebbb53817d6cee671`). Native binding uses derivation output position and
 multiplicity. Native product admission still checks exact nominal member rows. The rest of the
 formal inventory graph, numeric normalization and occurrence ID checks,
-the remaining construction and contextual graph, cross-product, selector and coverage checks,
+the remaining construction and contextual graph, cross-product and source-relative coverage checks,
 remaining consumer declarations, and `ProductValidation` receipt retirement remain open. Resolve
 member-level output retirement against the actual output declarations and native consumers before
 deleting that path.
 
 Formal completion still needs separate internal graph, normalization and occurrence identity
-conclusions alongside the existing nominal member enforcement. Bind
-the needed proofs on mathematical and learned consumers and optional structural formal inputs.
-Construction and contextual completion still need their graph, cross-input and coverage authority.
+conclusions alongside the existing nominal member enforcement.
+Construction and contextual completion still need their graph, cross-input and source-relative
+coverage authority. The exact selector depends on the native source index and the occurrence
+geometry check depends on the native source view. The captured checker must include those
+decisions before either can replace its existing validation.
 Remove the shared completion receipt field, binding projection and settlement programs after those
 three producer families have replaced their obligations.
+
+**Checker capture · Inspected 2026-11-21.** The attempted formal split hit unresolved source
+and callable determinants in the graph, normalization and occurrence checkers
+(`uv run ci test`, `5cc6e93778fa4a5dbedd7df433ca8243`,
+`2f3eb050d9974a7c8835c3775c415fb3` and `18a251456152429aa96e7c7cb1419e14`, failed).
+The attempted declarations were withdrawn. Close the actual checker capture for those
+groups, then migrate their consumers and retire the associated receipt path.
 
 **Vision.** Every existing semantic validator becomes one or more rules. Consumers accept proofs
 and no hand-off differs in stance.

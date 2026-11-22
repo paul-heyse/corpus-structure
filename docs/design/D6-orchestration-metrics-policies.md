@@ -247,13 +247,29 @@ owns PE-S25 implementation, provider/fault qualification and remaining whole-boo
 
 > Decision: [ADR-0125](../adr/0125-process-owned-execution-host.md)
 
-**Accepted UDM target.** The readiness watermark represents current prerequisite input values.
+**Accepted UDM recovery target.** In the current planner the readiness watermark represents prerequisite input values.
 Kernel generation has its own acquisition identity; replacing it does not alone wake waiting
 work. An acknowledged draft stays under bounded custody and retains attributable producer
 evidence during authorized adoption. Exact managed stop asks the owning host to drain; host
 retirement or quarantine remains independently established.
 
 > Decision: [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md)
+
+**Accepted SBX target · 2026-11-21.** Governed native transitions publish durable scoped
+changes. The existing executor reconsiders affected waiters and settles demanded work through
+immediate dependencies. Readiness, computation equality and settlement coverage have distinct
+meanings. Named selections advance to explicit admitted demands under a generation fence.
+Native coverage binds the settled position to the acquired cut. The SBX coordinator owns
+replacement of recursive watermark discovery and verification of affected consumers.
+
+> Decision: [ADR-0149](../adr/0149-contextual-requests-and-projected-computation.md)
+
+**Tested slice · 2026-11-21.** Native admission advances the exact named demand under a
+generation fence. Publication and enrollment retain exact pending origins when their
+transactions overlap. An explicit fulfilled-use origin drives one scalar binding hop through
+the existing orchestrator. The planner still uses watermark-based discovery while native
+recipient settlement and the scoped cut are developed.
+[SBX-06 evidence](../plans/set-based-execution/references-and-projection-keys.md#sbx-06)
 
 ## Characterization layer lifecycle
 

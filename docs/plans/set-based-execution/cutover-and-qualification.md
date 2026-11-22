@@ -87,6 +87,52 @@ The successor with the regenerated report schemas and selected rich read authori
 preview and rollback-only authoring (`e144d0867344411ab6fe1b96eef1c015`,
 `31a8c3350bfa478da58f8a4caf3bab85`).
 
+**Projection and activation checkpoint · 2026-11-21.** The partial integrated source at
+`2375de39b` passed managed rollback-only authoring against the exact N47 predecessor
+(`uv run ci model change candidate`, `359a2c8ce289405cb53ee328fa894b38`). The authoring
+database was the dedicated development target at N29. The earlier attempt
+(`f93d402290d84b2e89575bb2235725f6`) refused the missing explicit retirement list.
+The retry named only the recorded immutability triggers on the five retired projection
+families. The result describes the captured source and authoring boundary. Later program
+and schema changes require their own candidate comparison.
+
+The next checkpoint at `38c12391d` passed rollback-only candidate authoring with immutable
+canonical computation bases and the exact named publication and reconciliation relations
+(`uv run ci model change preview` `ec360bd003474cae84c83ad42a6eea0e` and
+`uv run ci model change candidate` `e8564e0d615340cdb66544dca5d7492a`).
+`uv run ci model change inspect-candidate` confirmed N47 as the predecessor. Maintenance
+readback confirmed the stage remains at N47.
+
+The source at `3f413bbac` also passed rollback-only authoring with the native one-hop
+recipient routine and its writer grant, the role-relative clause anchor and broader
+formal rule consumers (`uv run ci model change preview` `110674f50a8241f59d5f02d2e00e4bae`,
+`uv run ci model change candidate` `8db1a135ce6b41c48ada8895b0b00d2e`).
+The inspected candidate retained the exact N47 predecessor.
+
+The authorized source-universe routing correction at `fadf20e0f` passed rollback-only
+authoring (`uv run ci model change candidate` `d7916674edf74a5d97a9c293f47eb49d`) and
+both exact canonical and HanLP provider cases on private PostgreSQL
+(`uv run ci test --providers-only` `0828f95372a34af7ab77c094850c6768`).
+The exact selected-output validity correction at `ba5a17c10` passed rollback-only
+authoring against N47 (`uv run ci model change preview` `e02b3da039824e3d83598f94d8751a46`,
+`uv run ci model change candidate` `2b9add969deb46b08cc02aa638337831`).
+The same source passed all 13 selected native source-proof, publication, computation-key and
+executor controls (`uv run ci test`, `ada90cfedcbe4a878b1e7563c80d4415`).
+The live canonical and HanLP cases passed on that source
+(`uv run ci test --providers-only`, `cee750ab2b274d66bed4bf20f3ee3cff`).
+Maintenance readback reported development N29 and stage N47.
+
+The consolidated CPU and executor selection passed 39 tests (`uv run ci test`,
+`8dee86b4b0ba425aaf2b3aa418cae2ac`). Some earlier isolated receipts stopped being
+queryable when their worktrees were removed. Current retained results supply new verification
+for the covered slices. The 45-case private run `924a287626da4b85b8f4243e181ec265` retained
+its failed outcome when a synthetic fixture left temporary source files. Recovery settled
+process custody and `uv run ci test coverage` found all 45 selected tests passed. The fixture
+lifetime repair passed all five private executor controls with clean teardown
+(`6a67b97f41344d459afeed333fd7972d`). The wider fixture run also cleaned up and reported
+two executor collaborator failures against fixtures that use the older preparation interface
+(`59f7534a27d848d88e07b031de4bb3b9`).
+
 These results establish the early partition, proof and reference path for the tested chain.
 SBX-20 owns the single registered Revision A cutover and SBX-22 the assembled required union.
 [Review I05](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I05)

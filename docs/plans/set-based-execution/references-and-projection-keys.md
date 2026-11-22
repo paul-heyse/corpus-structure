@@ -1,6 +1,6 @@
 # References and projection keys
 
-**Status:** SBX-05 in progress. SBX-06 and SBX-07 proposed.
+**Status:** SBX-05 and SBX-06 in progress. SBX-07 proposed.
 Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
@@ -266,11 +266,33 @@ converting references. Migrate affected serving and evaluation readers to supply
 bindings and exact current support. Remove the old model types, native reference paths, and
 producer checks after their consumers move.
 Native settlement and the detached adapter can already consult a declared occurrence field on a
-multivalued input. Live selected-use metadata currently exposes only scalar producing roles.
-Extend that projection for the migrated multivalued roles using their declared occurrence field
-and exact current support match. Refuse missing or repeated occurrence values before resolving
-the original member or partition. Positional ordering of the selected list provides no semantic
-occurrence evidence.
+multivalued input. The live selected-use projection and resolver now use the declared slot's
+occurrence field and exact current support, including address and multiplicity. Acquired body
+authority gates discriminator reads. The selected CLI/native and reference tests cover missing
+and repeated occurrence, hidden support and equal-content substitution refusal.
+`uv run ci test` passed 13 targeted controls on the shared resolver slice
+(`73b1d966a4d0429eb0fe1146f987a18f`, 2026-11-21). The remaining reference families still
+need to adopt the shared carrier and their actual occurrence determinants.
+
+Contextual and model characterization readers now resolve admitted graph member packets.
+The focused suites passed 49 cases (`08d9c872f479491484d04da474735440`) and three addressed
+packet corruption controls passed (`e382ddbd9e064444a382fc6a722c308e`).
+Clause predicate-frame slots bind actual members of the exact `predicates` input.
+Their 12 focused producer and read controls passed (`af5f5c74718442b995e8fdf972b8fcc6`).
+The clause report's whole predicate-input anchor now uses the same producing role. Selected
+readback checks the original whole input against current support, including when the report
+inspected no frames. It acquires only the predicate metadata for that anchor. Nineteen
+focused and compiled profile cases passed, alongside six private native closure controls
+(`2a26d12c7cf14c8da0b845401e8efb87`, `d839653e6751473ba2d16cbc1044c523`).
+Contextual carrier conversion, clause learned-function references and the other structural,
+contribution and rich families remain open.
+
+The named-definition basis witness uses nullable shared report fields. Its current compiled
+schema lowers those nullable objects to JSON, so native witness paths cannot traverse them
+(`uv run ci test`, `eef88ba16c1a4888b26057ccdfad1eea`, failed at model capture).
+The other producers of that shared report lack the named definition's annotation and
+construction roles. Give the named occurrence its own declared shape or establish an
+operation-specific reference contract before changing the shared report.
 
 **Vision.** Every reference in the model declares its target; bodies refer by role; one carrier
 and one resolver serve all families; closure is a declared rule or an attested one.
@@ -307,6 +329,100 @@ exercises this interface before the remaining families migrate.
 <a id="sbx-06"></a>
 ## SBX-06 — Projection-keyed request identity
 
+**Compiler checkpoint · 2026-11-21.** Input roles can declare whole, partition or bounded
+halo reads. The compiler emits versioned projection identities and typed edges to the
+observed fields and collection properties. Undeclared roles keep their whole-input contract.
+`uv run ci test` passed the selected 148 compiler, rule and projection cases
+(`85f2a8444bb443b4af48235b47887ef1`). The compiler slice preserves the existing request
+determinant until native binding and the execution envelope use the same projection.
+
+**Native and execution checkpoint · 2026-11-21.** The canonical port now supplies declared
+geometry and observed header, membership, order and placement through the synchronous and
+spawned CPU routes. `uv run ci test` passed 19 focused cases on that slice
+(`51c6b3aec36b47e9b2fbcd3b867322d4`) and 36 projection, annotation and reference cases
+after integration (`670d348f1f4e4a2489a47780987193f1`). Canonical code custody still rules
+out cross-request reuse. The compiler and applied envelope do not enable a new request key.
+
+The private native projection digest uses the exact authorized binding and the selected
+product's stored group commitments. A rollback-only fixture removed the partition body column
+and still matched the independently constructed Python projection digest for its declared
+header and metadata cases. The installed projection, partition admission and nearby tests
+passed (`9329b0a2588f40d5854667a94a4ee054`). This establishes a scalar whole-product primitive
+for the binding owner. The additional provider exercise on the isolated source stopped during
+sentence-port asset custody (`91a74b75f09d465dabe2ff96e1d63e6a`).
+The main checkout's private PostgreSQL and CUDA retry passed the authorized parity check
+on the actual annotation and canonical chain and passed the construction reference journey
+(`uv run ci test --providers-only`, `a6e497e3d88a413895eb8b59461cfe1e`).
+
+`uv run ci test` passed the installed activation transition and selected support revocation
+controls (`d34aeeee6ab14bd089f1ce96f792225b`). Native activation writes one immutable
+transition with its compare-and-swap. An obsolete token leaves that history unchanged.
+For eligible value uses, validity now requires selected support. The test withdraws current
+support while the historical episode remains valid, and separately withdraws the historical
+support while the current use remains valid. The output correspondence obligation remains open.
+The structural comparison exposed an output-proof consumer that expected both validity
+nodes in the closure seeded by the use. Exact source acquisition now checks current-use
+validity first and evaluates historical episode and producing-use validity for the exact
+disclosed support walk separately. Twelve source-acquisition and disclosure controls passed,
+including authentic, foreign, forged and revoked support
+(`uv run ci test`, `4ada684bcff24ce3abd10a7ac64ef204`).
+`uv run ci test` also passed two effective operation change and reachability controls
+(`675a6857ba37487396ed900081bb6114`). These changes do not yet deliver origin changes to
+waiters or establish scoped settlement coverage.
+
+The native admission owner now advances a named selection with exact prior demand and
+generation, and retains every successor in immutable native history. The owned installed
+controls exercised role refusal, cross-project and cancelled demands, same-name races,
+independent-name progress, stale/ABA refusal and historical exact replay
+(`uv run ci test`, `f863654ea0e64c138f78214996f192a0`, passed).
+Selection advancement supplies a fence. Scoped readiness and settlement remain open.
+
+Native publication records a pending receipt for each named head whose exact demand gained
+a fulfilled use in the same statement. Rollback, exact publication replay, independent
+demands and late publication against a superseded head passed in the installed target
+(`uv run ci test`, `ee73278ea98e458bb317b762693ae7ff`). The exact demand, use and receipt
+are also retained when the publication transaction cannot see a concurrent named enrollment.
+The current generation can reconcile the missed receipt after both commits. Native controls
+passed both transaction orders, retry, cancellation, supersession and rollback
+(`uv run ci test`, `42816203f05147da97a75a6abf196566`). Readiness arising outside publication
+and delivery from a pending origin to a recipient still require coverage.
+
+The existing planner can now start from an exact native fulfilled use and check one direct,
+same-source scalar recipient under the current named generation and acquired read. It uses
+the declared output and input role occurrences, then delegates to existing native binding and
+attachment. The private PostgreSQL control exercised a recipient with no prior request,
+an independent selection, a superseded generation and a use created by reuse attachment
+without a fresh publication receipt (`uv run ci test`, `374183446a6e4d7383321b1d28adcec0`).
+The actual canonical input declaration was also lowered through the native definition owner.
+The installed source guard accepted its selected original and refused a different one
+(`778354f107084349bd55376509a957f5`).
+The first combined provider run found that routing excluded the admitted source universe
+(`5fcdb3933847449781ff7d5cd64cb3c4`). Routing now checks that the acquired cut authorizes
+the universe before admitting the ordinary or source product. The live canonical chain,
+its stored key and exact publication recipient, and the HanLP declaration chain passed
+together (`uv run ci test --providers-only`, `0828f95372a34af7ab77c094850c6768`).
+This covers directed binding preparation for that route. Automatic pending-origin selection
+and durable successor settlement are still open.
+
+The executor's explicit named-origin pass uses the same pinned page, preparation and claim
+boundary. Its controlled test verified that only the selected recipient reached hydration,
+claim and publication (`uv run ci test`, `9ce1c3847bd84ff6b9bc24ee94949752`, five passed).
+When native attachment creates a successor, its `use_id` identifies the exact recipient's
+retained use. The binding obligation in the attach result can identify another obligation
+that shares that request. Before closing the origin, record the checked role occurrence
+against the actual successor use and preserve pending status while that successor or a join
+arm remains unresolved.
+
+The native attachment owner records a project-scoped canonical computation key beside an exact
+new request generation, leaving the retained request row and its execution-origin snapshot shape
+intact. PostgreSQL and Python agree on the admitted recipe, parameters, inference and projected
+input digest. An installed writer test scheduled distinct exact requests with the same computation
+key inside one project and scheduled a distinct key for another project. It refused to use a
+prior contextual result as the new request's publication
+(`uv run ci test`, `8f55c7a9f62f4bf09480b12e70fc5c28`, three passed).
+The execution eligibility and independent current-occurrence authority still govern any future
+adoption of a retained result.
+
 **Target · Proposed.** Consumer roles declare projections, kernels receive those projections,
 and reusable computation uses their versioned specifications and digests. PostgreSQL acquires
 the digest tuple from authenticated stored metadata before hydration. Python computes the same
@@ -320,23 +436,24 @@ their own observations.
 supersedes the contextual identity decision for computation lookup. It separates reusable computation identity from
 exact current occurrence binding and publication; project/original/analyzed-context custody
 remains authenticated, and any context fact determining output remains in the projection.
-The current request row has a unique key and also owns exact project, release, runtime,
-subject context, binding and generation. Lowering the hash alone would let distinct
-occurrences collide at the claim owner. Specify separate computation lookup and exact
-request, claim and use identities in the successor, including the admitted reuse namespace
-and the transition of Python and native key constructors. The use authenticates its current
-selection and the derivation retains its producing inputs. Reuse follows the declared
-substitution policy and ADR-0146's independent proof and authority requirements.
+The request row has a unique key and owns the exact project, release, runtime, subject context,
+binding and generation. The computation basis has a separate project-scoped index over exact
+request generations. The use authenticates its current selection and the derivation retains its
+producing inputs. Retained-result adoption must follow the declared substitution policy and
+ADR-0146's independent proof and authority requirements.
 [Native attachment](../../../python/corpus-structure/src/corpus_structure/semantic/request_attachment_native.py#L1535) ·
 [Validity decision](../../adr/0146-sbx-content-validity.md)
 
 **Target review · 2026-11-21.** The accepted execution scope incorporates the selected
-computation and native delivery contracts in RC01 and RC02. F01 requires an enforced input
-projection before enabling a narrowed key. F02 requires current selected support even while
-historical support remains healthy, and independently admitted output correspondence. F03
-requires origin and enrollment reconciliation. F04 requires unbroken pending coverage through
-handoffs and both current join arms. These findings remain open until the native acceptance
-cases establish them.
+computation and native delivery contracts in RC01 and RC02.
+
+| Finding | Current disposition |
+|---|---|
+| F01 | The canonical envelope and authenticated whole-role key have scoped evidence. Opaque code custody still prevents actual reuse and leaves the projected acquisition cutoff open. |
+| F02 | Native validity requires selected support even with a healthy historical episode. Exact source proof acquisition verifies historical output validity under its own reached seeds. Actual retained-result adoption awaits independently admitted current output correspondence and the integrated refusal controls. |
+| F03 | Activation and named selections have durable fenced transitions. Publication and enrollment overlap is recoverable for exact uses. An explicit origin can drive one bounded scalar binding hop through the executor. Automatic recipient delivery, other origin types and exact waiter enrollment remain open. |
+| F04 | Pending publication is visible at its selected generation. Continuous predecessor and successor settlement, unchanged branch evidence, joins and the scoped settled cut remain open. |
+
 [Independent SBX-06 review](../../design_review/reviews/design_review_sbx06-computation-and-delivery_2026-11-21.md#F01)
 
 <a id="change-origins"></a>
@@ -348,12 +465,9 @@ cases establish them.
 | Release activation | Compare effective recipes and relevant policies for computation, and eligibility, membership and dependency declarations for discovery or binding. A new release identifier or descriptive edit can leave both determinants stable. Capture actual activation with old and new coordinates and the owning generation. |
 | Native publication | Use the committed output role, addresses, collections, fields and scope, including membership and placement changes, as the basis for matching immediate consumers. |
 
-The current acquisition and demand paths establish exact pins. The scoped inspection found
-no general live selection owner there. Start with a native, authorized selection of an exact
-demand for the early scope. Confirm whether an existing native selection can hold the
-governed name and its explicit successor. Add that scoped relation at the native selection
-owner if a compatible one is unavailable. Review the owner and authority with SBX-11 before
-fixing the acquisition contract.
+Demand acquisition establishes exact pins. Native admission now holds the named selection of an
+exact demand and its explicit successor. Review the scoped coverage and disclosure contract with
+SBX-11 before fixing its read acquisition interface.
 
 Derive reverse selectors from the effective model in PostgreSQL. Existing uses contribute
 their actual selected addresses, including substitutions. Declared population and waiting
@@ -434,6 +548,22 @@ detached evidence.
 [Planner waiting decision](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_demands.py#L739) ·
 [Executor sweep](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py#L2240) ·
 [Record-grade read](../../../python/corpus-structure/src/corpus_structure/semantic/record_grade_native.py#L447)
+
+**Current consumers · inspected 2026-11-21.** The planner saves the page watermark in
+waiting-use selection and skips an unchanged `awaiting-inputs`, `awaiting-population` or
+`awaiting-discovery` obligation. The native page currently includes fulfilled prerequisites,
+exact pins, eligible same-demand unpinned matches, populations, original admissions and
+the trust snapshot. The executor repeats pinned, bounded sweeps to see later publication
+and drive discovery from the producing episode. Keep each wait route until its governed
+origin can wake the exact affected binding through resume, including a first match without
+a prior address. The record-grade census also participates in native cut acquisition and
+completion, so moving scheduler wakeups does not replace its historical cut and completion
+authority. Demand result consumers for status, visual evidence and interpretation still
+need their existing pinned page answers while the scheduler moves to native readiness.
+[Waiting-use gate](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_demands.py#L739) ·
+[Watermark components](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_projections.py#L2005) ·
+[Discovery sweep](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py#L2327) ·
+[Record-grade completion](../../../python/corpus-structure/src/corpus_structure/semantic/record_grade_native.py#L1439)
 
 **Order within the package.** Settle the origin, selector and identity design together.
 Confirm direct keyed replay versus a transactional reference per origin from the authoritative
