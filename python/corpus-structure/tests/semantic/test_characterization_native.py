@@ -249,6 +249,8 @@ def test_native_current_summary_omits_members_and_preserves_unknown_coverage(
 def test_native_current_cpu_receipts_retain_actual_fence_and_replay(
     characterization_source, commit_db_engine
 ):
+    from corpus_structure.semantic.identity import canonical_bytes
+
     source = characterization_source
     demand, _, snapshot = source.run(FORMAL)
     use = operation_use(snapshot, FORMAL)
@@ -277,7 +279,10 @@ def test_native_current_cpu_receipts_retain_actual_fence_and_replay(
     assert evidence["holder"] == intent["producer_holder"]
     (receipt,) = evidence["cpu_receipts"]
     assert receipt["pid"] != os.getpid() and receipt["main_thread"] is True
-    assert receipt["result_digest"] == sha256(evidence["cpu_replies"][0].encode()).hexdigest()
+    # The formal worker returns this canonical product value. Its receipt is
+    # retained independently of the optional duplicate physical-reply body.
+    published = decode_semantic_value(operation_product(snapshot, FORMAL)["body"])
+    assert receipt["result_digest"] == sha256(canonical_bytes(published)).hexdigest()
     assert evidence["provider_receipts"] == evidence["host_receipts"] == []
     replay, repeated = source.advance(demand)
     assert replay.receipt_count == 0
