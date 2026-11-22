@@ -290,6 +290,38 @@ The assessment fixtures now pass all 33 selected cases with the carried construc
 (`b0de9837d0794da8ad1f6f7a402a7f83`). Reconcile unresolved ordinary and provider identities
 using smaller cohorts. The development database still awaits integrated acceptance.
 
+**Repaired root installation · Tested by selected scope · 2026-11-22.** The event frame
+resolves its definition component through the admitted nominal member of the authenticated
+report. All nine private event-program checks passed (`11f685287b2a4fedb73879ccfd90af70`).
+Composition sends canonical acquired source bytes in the authenticated worker packet and
+restores each source carrier in the child. The spawned-worker control matched synchronous
+composition on two independently placed source regions.
+
+Native rule settlement now shares output premises by the projection the rule reads and
+shares original input observations within the producing episode. The two private rule
+establishment cases passed (`d9732b15b9964b3481a49245bc94af42`). They checked exact
+fingerprints, independent checker identities and refusal after a change to an observed
+input. The actual M1 publication retry owns acceptance of the prior timeout.
+
+Managed preview `c68950dfbc0d462d93a476e7830ec868`, apply
+`baf8221c0f8048f7927dc349aef2b10b`, rollback-only candidate
+`7438679df46c47c2b3828bf64890f519` and registration
+`59df3f1e7be7414fa35d5f26ea41c5cd` passed in the assembly checkout. Inspection confirmed
+the null predecessor and absence of data steps. `uv run ci db init` installed the sole root
+on `corpus_structure_sbx09_repaired_qualification` (OID `136314657`). Its native descriptor
+matched the registered body. Maintenance readback confirmed purpose-role grants and five
+empty project, document, original, demand and product relations. `just model check` passed.
+The registered-root event and provider selections continue in managed results
+`c1bc745541c246ee8184a53541707d2f` and `ecb00e443c4d4e68a867d9f5dafb0352`.
+
+The earlier narrower ordinary retry `bb88c40af25747379252b2200d868f52` and provider
+retry `ecc12c5ea60343d6a61e19362b24d20c` drained before the refreshed root landed on
+main. They retain 790 ordinary and eight provider-lane passes, together with their failed
+and incomplete cases. The two provider attempts cover 25 of 38 selected identities by
+managed coverage comparison. Assess that evidence against the changed executable root.
+The fresh provider selection addresses the ten outstanding identities outside the three
+journeys already running on the refreshed root.
+
 Keep one authentic cross-boundary producer, publication and export journey. Reader-only checks
 can consume its authenticated artifacts while their producer, prepared release, wire and authority
 premises remain applicable. Give these checks independent expected meaning, malformed-input and
