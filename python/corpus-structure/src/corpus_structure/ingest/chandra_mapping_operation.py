@@ -94,11 +94,9 @@ class ChandraMappingFamily:
     def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
         from corpus_structure.semantic.visual_requests import PreparedVisualMappingPort
 
-        port = PreparedVisualMappingPort(
+        return PreparedVisualMappingPort(
             identity, model, model.operation(operation), prepared, authorize, custody, sources
         )
-        port.verify()
-        return port
 
     def run(self, observation: dict) -> dict:
         return map_chandra_observation(observation)

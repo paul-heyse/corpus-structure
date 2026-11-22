@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import inspect
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -18,6 +18,7 @@ from corpus_structure.semantic.input_values import _untrusted_value
 from .data_operation_ports import PortCompletion, PortRefusal, RoleValue
 from .data_operation_values import decode_semantic_value, semantic_value
 from .identity import canonical_bytes
+from .runtime_slice import AuthenticatedSlice
 from .types import SourceArtifact, SourceBundle
 
 TARGET = "source.pdf_region/render"
@@ -147,6 +148,8 @@ class PreparedPdfRegionPort:
     authorize: Any
     custody: tuple
     sources: Any
+    _verification: AuthenticatedSlice = field(init=False, compare=False, repr=False)
+    logical_signature: inspect.Signature = field(init=False, compare=False, repr=False)
     native_selections = ()
 
     @property
@@ -158,47 +161,62 @@ class PreparedPdfRegionPort:
             PdfRegionOperation if self.operation.semantic_id == TARGET else PdfVisualInputOperation
         )
 
-    @property
-    def logical_signature(self):
-        signature = inspect.signature(self.implementation.run, eval_str=True)
-        return signature.replace(parameters=tuple(signature.parameters.values())[1:])
-
-    def verify(self):
-        from .data_operation_prepared_products import verify_prepared_product
+    def __post_init__(self):
+        from .data_operation_prepared_products import (
+            authenticated_prepared_product,
+            verify_prepared_product,
+        )
+        from .file_custody import verified_file
 
         if (
             self.operation.semantic_id not in {TARGET, VISUAL_INPUT_TARGET}
             or self.operation.effects
         ):
             raise PortRefusal("renderer requires its exact declared pure computation")
+        bridge_name, bridge = (
+            ("execute_pdf_region", execute_pdf_region)
+            if self.operation.semantic_id == TARGET
+            else ("execute_pdf_visual_input", execute_pdf_visual_input)
+        )
+        functions = (
+            (self.operation.callable_surfaces[0].declaration, self.implementation.run),
+            ("corpus_structure.semantic.native_requests." + bridge_name, bridge),
+            ("corpus_structure.semantic.native_requests.PreparedPdfRegionPort.render", self.render),
+        )
+        asset = pdf_region_profile()
         verify_prepared_product(
             self.identity,
             self.model,
             self.operation,
             self.sources,
             self.custody,
-            assets=(pdf_region_profile(),),
-            functions=(
-                (self.operation.callable_surfaces[0].declaration, self.implementation.run),
-                (
-                    "corpus_structure.semantic.native_requests."
-                    + (
-                        "execute_pdf_region"
-                        if self.operation.semantic_id == TARGET
-                        else "execute_pdf_visual_input"
-                    ),
-                    execute_pdf_region
-                    if self.operation.semantic_id == TARGET
-                    else execute_pdf_visual_input,
-                ),
-                (
-                    "corpus_structure.semantic.native_requests.PreparedPdfRegionPort.render",
-                    self.render,
-                ),
-            ),
+            assets=(asset,),
+            functions=functions,
             authorize=self.authorize,
             required_sources=self.sources,
         )
+        verification = authenticated_prepared_product(
+            self.sources, functions, required_sources=self.sources
+        )
+        root = Path(__file__).parents[1]
+        files = tuple(
+            verified_file(root / name, sha256(bytes.fromhex(content)).hexdigest())
+            for name, content in json.loads(asset.content)["files"]
+        )
+        verification.files = tuple(
+            {file.path: file for file in (*verification.files, *files)}.values()
+        )
+        object.__setattr__(self, "_verification", verification)
+        signature = inspect.signature(self.implementation.run, eval_str=True)
+        object.__setattr__(
+            self,
+            "logical_signature",
+            signature.replace(parameters=tuple(signature.parameters.values())[1:]),
+        )
+
+    def verify(self):
+        self._verification.check()
+        self.authorize(self.identity)
 
     def render(
         self,
@@ -344,7 +362,6 @@ class PreparedPdfRegionPort:
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from corpus_structure.core.method import PreparedWork
 
-        self.verify()
         if (
             binding is None
             or not binding.sufficient

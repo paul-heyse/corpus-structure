@@ -10,7 +10,7 @@ from __future__ import annotations
 import inspect
 import json
 from contextlib import ExitStack
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from hashlib import sha256
 from io import BytesIO
@@ -26,6 +26,7 @@ from .data_operation_json import json_bytes, wire_json_loads
 from .data_operation_ports import PortCompletion, PortRefusal, RoleValue
 from .data_operation_values import decode_semantic_value, semantic_value
 from .identity import canonical_bytes
+from .runtime_slice import AuthenticatedSlice
 from .types import SourceArtifact
 
 VISUAL_RECOGNIZE = "source.visual/recognize"
@@ -256,7 +257,7 @@ def map_chandra_observation(observation: dict) -> dict:
         observation=observation,
         parse_status=parsed.status.value,
         completion=parsed.completion.value,
-        issues=[issue.value for issue in parsed.issues],
+        issues=tuple(issue.value for issue in parsed.issues),
         mapped_hex="" if mapped is None else mapped.hex(),
         mapping_outcome="unknown" if mapped is None else "partial" if parsed.issues else "coarse",
         source_fidelity="unassessed",
@@ -273,45 +274,67 @@ class PreparedVisualMappingPort:
     authorize: Any
     custody: tuple
     sources: Any
+    _verification: AuthenticatedSlice = field(init=False, compare=False, repr=False)
+    logical_signature: inspect.Signature = field(init=False, compare=False, repr=False)
     native_selections = ()
 
-    @property
-    def logical_signature(self):
+    def __post_init__(self):
         from corpus_structure.ingest.chandra_mapping_operation import ChandraMappingOperation
 
-        signature = inspect.signature(ChandraMappingOperation.run, eval_str=True)
-        return signature.replace(parameters=tuple(signature.parameters.values())[1:])
-
-    def verify(self):
-        from corpus_structure.ingest.chandra_mapping_operation import ChandraMappingOperation
-
-        from .data_operation_prepared_products import verify_prepared_product
+        from .data_operation_prepared_products import (
+            authenticated_prepared_product,
+            verify_prepared_product,
+        )
+        from .file_custody import verified_file
 
         if self.operation.semantic_id != VISUAL_MAP or self.operation.effects:
             raise PortRefusal("mapping requires its exact declared pure computation")
+        asset = visual_mapping_profile()
+        functions = (
+            (self.operation.callable_surfaces[0].declaration, ChandraMappingOperation.run),
+            (
+                "corpus_structure.semantic.visual_requests.map_chandra_observation",
+                map_chandra_observation,
+            ),
+        )
         verify_prepared_product(
             self.identity,
             self.model,
             self.operation,
             self.sources,
             self.custody,
-            assets=(visual_mapping_profile(),),
-            functions=(
-                (self.operation.callable_surfaces[0].declaration, ChandraMappingOperation.run),
-                (
-                    "corpus_structure.semantic.visual_requests.map_chandra_observation",
-                    map_chandra_observation,
-                ),
-            ),
+            assets=(asset,),
+            functions=functions,
             authorize=self.authorize,
             required_sources=self.sources,
         )
+        verification = authenticated_prepared_product(
+            self.sources, functions, required_sources=self.sources
+        )
+        root = Path(__file__).parents[1]
+        files = tuple(
+            verified_file(root / name, sha256(bytes.fromhex(content)).hexdigest())
+            for name, content in json.loads(asset.content)["files"]
+        )
+        verification.files = tuple(
+            {file.path: file for file in (*verification.files, *files)}.values()
+        )
+        object.__setattr__(self, "_verification", verification)
+        signature = inspect.signature(ChandraMappingOperation.run, eval_str=True)
+        object.__setattr__(
+            self,
+            "logical_signature",
+            signature.replace(parameters=tuple(signature.parameters.values())[1:]),
+        )
+
+    def verify(self):
+        self._verification.check()
+        self.authorize(self.identity)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from corpus_structure.core.method import PreparedWork
         from corpus_structure.ingest.chandra_mapping_operation import ChandraMappingOperation
 
-        self.verify()
         if binding is None or not binding.sufficient or binding.operation != VISUAL_MAP:
             raise PortRefusal("mapping requires its actual sufficient binding")
         ids = {(item.owner, item.domain): item.key for item in self.model.identities}

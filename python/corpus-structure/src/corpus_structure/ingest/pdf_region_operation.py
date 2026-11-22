@@ -101,11 +101,9 @@ class PdfRegionFamily:
     def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
         from corpus_structure.semantic.native_requests import PreparedPdfRegionPort
 
-        port = PreparedPdfRegionPort(
+        return PreparedPdfRegionPort(
             identity, model, model.operation(operation), prepared, authorize, custody, sources
         )
-        port.verify()
-        return port
 
     def __init__(self, port, *, binding, execution_owner, check_active):
         self.port, self.binding, self.execution_owner, self.check_active = (
