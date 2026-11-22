@@ -19,10 +19,41 @@ def test_native_codec_profiles_bind_real_library_symbols_and_files():
         "datetime",
         "base64",
         "hashlib",
+        "json",
     }
     for item in contracts:
-        assert len(item.digest) == 64 and item.files and item.symbols
+        assert len(item.digest) == 64 and item.files
+        assert bool(item.symbols) == (item.reference != "json")
         item.check()
+
+
+def test_standard_json_keeps_canonical_utf8_and_live_custody(monkeypatch):
+    import json
+
+    from corpus_structure.semantic.external_runtime import acquire_standard_json_runtime
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    runtime = acquire_standard_json_runtime()
+    text = "é\x1f"
+    assert canonical_bytes({"text": text}) == b'{"text":"\xc3\xa9\\u001f"}'
+    assert json.loads(b'{"text":"\xc3\xa9\\u001f"}') == {"text": text}
+
+    with monkeypatch.context() as patch:
+        patch.setattr(json.encoder, "encode_basestring", lambda value: repr(value))
+        with pytest.raises(ValueError, match="standard JSON native implementation binding"):
+            runtime.check()
+        with pytest.raises(ValueError, match="standard JSON native implementation binding"):
+            acquire_standard_json_runtime()
+
+    with monkeypatch.context() as patch:
+        patch.setattr(json._default_encoder, "ensure_ascii", False)
+        with pytest.raises(ValueError, match="standard JSON default wrapper"):
+            runtime.check()
+
+    with monkeypatch.context() as patch:
+        patch.setattr(json.loads, "__code__", (lambda value, **kwargs: {}).__code__)
+        with pytest.raises(ValueError, match="standard JSON wrapper differs"):
+            runtime.check()
 
 
 def test_native_callable_replacement_before_acquisition_is_refused(monkeypatch):
@@ -165,6 +196,13 @@ def test_unadmitted_python_codec_remains_unknown(tmp_path):
     )
     assert not identity.complete
     assert any("json" in item.reason for item in identity.unknowns)
+    selected = capture_code_identity(
+        root,
+        ("codec_unknown.entry",),
+        callables=("codec_unknown.entry.read",),
+        external_runtime=acquire_codec_runtime(standard_json_io=True),
+    )
+    assert selected.complete, selected.unknowns
 
 
 def test_native_namespace_cannot_admit_an_unselected_native_function(tmp_path):
