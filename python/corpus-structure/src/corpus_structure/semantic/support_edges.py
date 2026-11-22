@@ -201,16 +201,13 @@ def support_edge_queries(
         .correlate(uses)
         .exists()
     )
-    choices = (
-        select(literal(1).label("alternative"))
-        .union_all(select(literal(2)).where(substitute))
-        .lateral("validity_choice")
+    # A value use relies on its authenticated selection. The producing episode
+    # retains historical support but cannot rehabilitate the current selection.
+    choice = (
+        case((substitute, 2), else_=1)
+        if profile == "validity" or selected_support
+        else literal(0)
     )
-    use_rows = uses.join(choices, true()) if profile == "validity" else uses
-    choice = choices.c.alternative if profile == "validity" else literal(0)
-    if selected_support:
-        use_rows = uses
-        choice = case((substitute, 2), else_=1)
     null_text = cast(literal(None), Text())
 
     def edge(alternative, target, child):
@@ -247,18 +244,18 @@ def support_edge_queries(
             kind == "episode", originals.c.derivation_id == identity
         ),
         "use-choice": edge(choice, null_text, null_text)
-        .select_from(use_rows)
+        .select_from(uses)
         .where(kind == "use", uses.c.id == identity),
         "use-producer": edge(choice, "producer", uses.c.derivation_id)
-        .select_from(use_rows)
+        .select_from(uses)
         .where(kind == "use", uses.c.id == identity),
         "use-episode": edge(choice, episode_kind(uses.c.derivation_id), uses.c.derivation_id)
-        .select_from(use_rows)
+        .select_from(uses)
         .where(
             kind == "use", uses.c.id == identity, choice == 1 if profile == "validity" else true()
         ),
         "use-selected-support": edge(choice, reference_kind, reference_id)
-        .select_from(use_rows.join(selected, true()))
+        .select_from(uses.join(selected, true()))
         .where(
             kind == "use",
             uses.c.id == identity,
@@ -267,7 +264,7 @@ def support_edge_queries(
         ),
         "use-population": edge(choice, "population", populations.c.id)
         .select_from(
-            use_rows.join(selected_populations, true()).join(
+            uses.join(selected_populations, true()).join(
                 populations,
                 and_(
                     populations.c.id == selected_populations.c.value["population_id"].astext,

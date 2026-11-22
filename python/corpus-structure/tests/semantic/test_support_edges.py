@@ -309,6 +309,26 @@ def _assert_selected_substitution_scope(
     scope = _support_walk(get_metadata(), seed, name="selected_scope_nodes")
     with engine.begin() as connection:
         assert set(connection.execute(select(scope))) == expected
+        with connection.begin_nested() as current_revocation:
+            DataOperationStorage(connection).revoke_data_support(
+                type_cast(
+                    WireRevokeDataSupportRequest,
+                    dict(
+                        project_id="ddo-test",
+                        original_source="source:test",
+                        selector_kind="derivation",
+                        selector=current_evidence["derivation_id"],
+                        reason="withdraw current support while producing support still stands",
+                    ),
+                )
+            )
+            assert connection.scalar(
+                text("SELECT ops.ddo_node_valid('episode',:episode)"), {"episode": old_child}
+            ) is True
+            assert connection.scalar(
+                text("SELECT ops.ddo_node_valid('use',:use)"), {"use": chosen["use_id"]}
+            ) is False
+            current_revocation.rollback()
         DataOperationStorage(connection).revoke_data_support(
             type_cast(
                 WireRevokeDataSupportRequest,
