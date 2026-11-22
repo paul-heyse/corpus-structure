@@ -234,17 +234,37 @@ interrupted). The generated native schema now dispatches on the field name or re
 validating its payload. Required fields check presence by name after the item schema accounts for
 payload validity. Sixteen projection controls passed (`uv run ci test`,
 `93a691c437e148009661f0cfd04daf74`), including valid deep nesting, invalid tags and missing fields.
-Fresh full replay on products emitted with the new schema remains required.
+The next private capture (`b566ee9f99d84de0bdd4a361fbbcb1bd`) produced both contextual archives.
+The older in-process reader re-entered generic DTO validation, so that managed invocation was
+interrupted after export. The validated native completion now carries through the typed leaf.
+The detached reader also treats an omitted computational support kind as the native schema's
+declared computation variant. All twenty leaf controls (`dd927263d1334f14bc7e571420dfb3a9`)
+and fifty-two demand-result and manifest controls (`dcc08e9620e84c359dc1cc0a3378d01a`) passed.
+Both freshly exported archives then passed direct `verified_demand_export` replay, including
+the selected relation types and the exact query, inventory and witness references. Their
+manifest digests are `f6a06f057656a83afa4ea839f0b56f75f51ebdf15edb07611a648af1bbcecc53`
+and `96f35b886261f87da8e6f0e69e1567dbf63d414d865064db15ecfa3cc544e7f9`. The joined managed
+journey on the final registered root remains open.
 
 **Artifact sources · Tested by selected identity · 2026-11-22.** Artifacts verify their
 exact source pins through the original binding and reference witness. The redundant
 source and report rosters are gone. The nineteen passing identities in
 `964cbda823c848449920eed08ac40adc` and the exact compiled profile retry
-`22576b9e004c4f2e855c3402f819b521` cover this slice (`uv run ci test`). Nomination
-references need a captured occurrence key on the scoped report. The nomination set can
-include two reports with the same source pin and the same contribution member. The
-producer must declare a key that distinguishes both selected occurrences before native
-and detached resolution can follow the member.
+`22576b9e004c4f2e855c3402f819b521` cover this slice (`uv run ci test`).
+
+**Artifact nomination occurrence · Tested by selected scope · 2026-11-22.** A nomination
+set can include two scoped reports with the same source pin and contribution member. The
+caller assigns a unique occurrence label when freezing each exact whole report. The producing
+binding and sealed input carry that association. The body names the role, label and admitted
+contribution member. Current and detached readers follow the same address using their acquired
+authority. Set `occurrence_label` on the entries in `artifact-nominations` and use its value as
+`report_occurrence` with `contribution_id` in `nomination_selections`. Thirty-six isolated
+`uv run ci test --native-host private` controls passed
+(`1ca7281ba20d4b95a72f143477bf7a55`), including overlap, duplicate-label refusal and native
+and detached resolution. The final input basis selection covered 58 passing identities,
+including relabel refusal and selected lookup (`8a43ad9b7d6a4ddb9e82aecbb3e600de`). Its native
+parity fixture needed the current definition fields and passed on exact retry
+(`d1e5922d71614b5dbc94de9b0b54080a`).
 
 **Learned dependency custody · Tested · 2026-11-22.** Learned observation bodies and
 manifests no longer copy dependency rosters. The concrete Maverick and D1 candidate manifests
@@ -460,6 +480,12 @@ leave the scheduling watermark unchanged (`uv run ci test --native-host private`
 `355750c8b2b542509328604615716461`). Fulfilled prerequisite and base discovery routes still use the
 watermark.
 
+**Publication and trust replay · Tested · 2026-11-22.** The private publication-delivery
+control passed (`uv run ci test --native-host private`, `cc2f8fa7b3444e14824fb44a68ca5235`).
+It verified the exact selected recipient fence, ordered publication and enrollment, replay
+under the same origin and binding reconsideration after revocation. This covers the selected
+scalar publication route. Broader scoped settlement and proof establishments remain open.
+
 **Actual canonical adoption · Tested · 2026-11-22.** Two genuine annotation captures
 with different batch sizes prepare distinct releases and annotation recipes with the same
 canonical recipe. A private real-provider run passed the initial chain and failed on the
@@ -644,9 +670,9 @@ computation and native delivery contracts in RC01 and RC02.
 
 | Finding | Current disposition |
 |---|---|
-| F01 | The canonical envelope and authenticated whole-role key have scoped evidence. Opaque code custody still prevents actual reuse and leaves the projected acquisition cutoff open. |
-| F02 | Native validity requires selected support even with a healthy historical episode. Exact source proof acquisition verifies historical output validity under its own reached seeds. Actual retained-result adoption awaits independently admitted current output correspondence and the integrated refusal controls. |
-| F03 | Activation and named selections have durable fenced transitions. Publication and enrollment overlap is recoverable for exact uses. An explicit origin can drive one bounded scalar binding hop through the executor. Automatic recipient delivery, other origin types and exact waiter enrollment remain open. |
+| F01 | The canonical envelope and authenticated whole-role key have scoped evidence. The real cross-release CUDA case attached the retained canonical derivation with zero new generations. Integrated cutoff coverage across move, reconversion and the remaining declared input shapes stays open. |
+| F02 | Native validity and the actual canonical adoption use separate current support and historical producer custody. The native discovery control refused an earlier demand's genuine use of the same episode. The remaining occurrence correspondence and cross-scope refusal controls stay open. |
+| F03 | Activation and named selections have durable fenced transitions. Native tests cover direct scalar work and exact-pin, original, selected-population and dependency-free local input wakes. Automatic delivery from the remaining governed origins and broader enrollment recovery stay open. |
 | F04 | Pending publication is visible at its selected generation. Continuous predecessor and successor settlement, unchanged branch evidence, joins and the scoped settled cut remain open. |
 
 [Independent SBX-06 review](../../design_review/reviews/design_review_sbx06-computation-and-delivery_2026-11-21.md#F01)
@@ -744,13 +770,13 @@ detached evidence.
 [Executor sweep](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py#L2240) ·
 [Record-grade read](../../../python/corpus-structure/src/corpus_structure/semantic/record_grade_native.py#L447)
 
-**Current consumers · inspected 2026-11-21.** The planner saves the page watermark in
+**Current consumers · inspected 2026-11-22.** The planner saves the remaining page watermark in
 waiting-use selection and skips an unchanged `awaiting-inputs`, `awaiting-population` or
-`awaiting-discovery` obligation. The native page currently includes fulfilled prerequisites,
-exact pins, eligible same-demand unpinned matches, populations, original admissions and
-the trust snapshot. The executor repeats pinned, bounded sweeps to see later publication
-and drive discovery from the producing episode. Keep each wait route until its governed
-origin can wake the exact affected binding through resume, including a first match without
+`awaiting-discovery` obligation. The remaining fingerprint covers fulfilled prerequisites and
+base discovery populations. The native page separately supplies exact-pin, original, selected
+population, local-input and authority changes. The executor repeats pinned, bounded sweeps to
+see later publication and drive discovery from the producing episode. Keep each wait route until
+its governed origin can wake the exact affected binding through resume, including a first match without
 a prior address. The record-grade census also participates in native cut acquisition and
 completion, so moving scheduler wakeups does not replace its historical cut and completion
 authority. Demand result consumers for status, visual evidence and interpretation still
@@ -769,7 +795,7 @@ interfaces. Enforce the declared envelope before enabling projection-based reuse
 runnable SBX-03–05 slices and shared SBX-02 premises to prove native publication, cutoff and
 readiness in the [early Revision A chain](cutover-and-qualification.md#early-revision-a-integration).
 Extend writer and consumer adoption from that slice and close each replacement path before
-retiring its old reader. SBX-20 owns the registered cutover.
+retiring its old reader. SBX-20 owns the stage cutover.
 
 **Failure behaviour.** A kernel that reads a field group outside its projection fails with the
 group named, because the value is absent. A role with no declared projection defaults to whole
@@ -815,6 +841,15 @@ the other, and checked one memo hit, changed body and current placement against 
 calculation. Renaming the block caused a miss and produced its current address
 (`uv run ci test`, `70f0850b5bf14af892a565d2a1499b29`, passed). Retention is local to a live worker
 process. A different process reacquires its own memo.
+
+**Pointer rename · Tested · 2026-11-22.** The canonical worker retains one charged immutable
+frame for the local projection. Current assembly fills its exact reference addresses and hashes
+the completed frame. Equal typed rows reuse after a pointer rename and retain the new addresses,
+order and placement. A different project gets its own memo. Ten selected partition, source and
+real spawned-worker controls passed (`uv run ci test`, `0f867b8b822d4391be68bbdbeb6a854f`), including
+independent byte and digest comparison, escaped pointers, dates and decimals, the short-address
+storage bound and invalid-address refusal. The installed canonical edit and reconversion journey
+remains open.
 
 Keep whole-result execution for the other current hosts. The spaCy and HanLP provider fixtures
 establish partition addressing and typed publication without establishing identical results and
