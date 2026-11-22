@@ -186,6 +186,12 @@ made batch-independent.
 <a id="sbx-05"></a>
 ## SBX-05 — One reference model
 
+**Pilot readback · Proposed · 2026-11-22.** Use the original producing roles and exact
+current support for both branches of the
+[annotation-fork pilot](common-analytical-basis.md#typed-population-pilot). Exercise a
+missing member within a disclosed parent and a separate withheld-parent outcome. A retained
+projection can carry admitted membership. Each use still acquires its own authority.
+
 **Remaining family order · Proposed · 2026-11-22.** Complete construction and contextual
 premises with SBX-04, then characterization and declaration nodes, artifact and contextual witness
 reports, and contribution, facet and rich records. Each move includes the nominal declaration,
@@ -433,6 +439,11 @@ exercises this interface before the remaining families migrate.
 
 <a id="sbx-06"></a>
 ## SBX-06 — Projection-keyed request identity
+
+The [common projection pilot](common-analytical-basis.md#typed-population-pilot) exercises
+stable computational keys across representation and unobserved placement changes while
+binding exact selected support. Native settlement can proceed on the runnable existing
+slices while the pilot compares physical routes.
 
 **Remaining delivery sequence · Proposed · 2026-11-22.** Start from the direct scalar
 settlement and pinned-read controls in `285ce76aa`. Use authoritative publication, attachment,
@@ -830,6 +841,10 @@ stopping, join, supersession, lost acknowledgement and exact-pin wake evidence.
 
 <a id="sbx-07"></a>
 ## SBX-07 — Partition memo for block-local kernels
+
+The [common projection contract](common-analytical-basis.md#projection-contract) carries
+block-local meaning separately from observed placement and current address. Exercise that
+distinction through the pilot's real canonical branch, using the memo control when runnable.
 
 **Canonical adoption checkpoint · 2026-11-21.** The spawned canonical calculation memoizes the
 local row transformation under the runtime-byte owner for its deterministic single-result policy.

@@ -97,6 +97,18 @@ schema digest and its verified logical digest, accepted by the status check, the
 encoding and the certifier. A replay file verified at acknowledgement yields a handle; it is
 verified again at the copy into PostgreSQL and after any gap in custody, and nowhere else.
 
+**Common analytics amendment · Scheduled · 2026-11-22.** SBX-12's frozen selected-review
+archive is the first persisted Parquet boundary. PDF page IPC retains its acknowledgement,
+verified replay handle and recovery locator responsibilities under SBX-14–17. Reconsider Parquet
+for PDF transport only when a named retained consumer can remove repeated work across the full
+write, recovery and read route. Any selected replacement must preserve acknowledgement custody,
+restart and digest behavior, with a genuinely recovered spool in acceptance. Immediate reuse uses
+in-memory batches and the existing spill owner handles transient pressure. SBX-17 settles its
+external-sort choice below from the complete operation.
+[Review I04](../../plan_improvement_reviews/set-based-execution-common-analytics_2026-11-22.md#I04) ·
+[Selected structural replay owner](owner-resolved-reads.md#sbx-12) ·
+[PDF streaming custody](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_streaming.py#L71)
+
 **The build identifier is supplied at load.** Replay rows carry no build columns. The adopt
 program fills them from its argument. Files become independent of the build, recovery stops
 rewriting them, and recertification checks the original files' digests.

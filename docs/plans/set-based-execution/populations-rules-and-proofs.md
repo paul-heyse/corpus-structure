@@ -358,6 +358,12 @@ authoring. SBX-20 owns registration of the integrated Revision A, including subs
 <a id="sbx-03"></a>
 ## SBX-03 — The first populations
 
+**Early placement comparison · Proposed · 2026-11-22.** Use the runnable partition and
+binding slices for the [annotation-fork pilot](common-analytical-basis.md#typed-population-pilot)
+before finishing the affected migrations. Canonical, HanLP and declaration exercise one branch.
+Primary construction reads annotations and formal evidence on the other. Integrate the chosen
+route across these consumers, including ordinary publication and exact selected readback.
+
 **Declaration ingress · Tested by selected identity · 2026-11-22.** The declaration
 kernel acquires its canonical and HanLP rows through the same immutable partition
 decoder and verifies their commitments. It resolves frozen keys through the shared
@@ -555,6 +561,12 @@ A constructions result on the fixture equals today's after mapping token ids to 
 
 <a id="sbx-04"></a>
 ## SBX-04 — One stance on validity
+
+**Common projection · Proposed · 2026-11-22.** The pilot compares relational rule
+establishment on the admitted population with the current work. Apply the same rule premises
+and retain eligible establishments for each scope. Remove repeated checks only after the
+replacement establishes their facts at the governing boundary. Keep ingress validation and
+atomic native publication. [Projection contract](common-analytical-basis.md#projection-contract)
 
 **Remaining execution · Proposed · 2026-11-22.** Use the selected construction and contextual
 dependency-member rules and released attachment-policy witness already declared. Migrate external

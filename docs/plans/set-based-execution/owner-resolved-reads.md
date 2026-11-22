@@ -5,7 +5,8 @@
 
 This companion owns the read side: what a reader may ask PostgreSQL, what the replaying readers
 carry, and how answers are paged and cached. It owns SBX-11 to SBX-13 and is carried by native
-revision B. Source facts are **Inspected** at `7a415d18d`.
+revision B. Source facts are **Inspected** at `7a415d18d`. The common analytics amendment
+schedules review I04 below against source `d884fa8a2` and review commit `8fab53dd5`.
 
 ## Baseline
 
@@ -67,6 +68,15 @@ graph inspection alone commits the receipt and releases first.
 episode, request, output and recipe facts that the binding established and that the completion
 guards recompute. One check has no database equivalent: authored reference coordinates against
 retained source text.
+
+**Common analytics baseline · Inspected 2026-11-22.** The selected structural review exports,
+replays immediately, and later reopens the frozen archive for verification. The Parquet option
+also emits JSONL, while replay reconstructs a SQLite index from JSONL. This repeated conversion
+makes that archive the first persisted Parquet boundary in this series. The retained pinned-build
+probe establishes fixture-level Arrow and Parquet behavior, including refusal of a truncated
+footer. Integrated archive publication and recovery still require the SBX-12 evidence below.
+[Review I04](../../plan_improvement_reviews/set-based-execution-common-analytics_2026-11-22.md#I04) ·
+[Pinned-build evidence](../../design_review/evidence/2026-11-22_sbx-common-analytics/README.md)
 
 ## Target
 
@@ -139,20 +149,34 @@ offline. The end the replay serves is that someone without the database can conf
 response follows from the exported closure; one implementation over two sources is what carries
 it.
 
-**Replay relations are typed.** The export already writes Parquet per relation from a captured
-Arrow schema. The replaying readers read typed relations through one interface with the five
-access shapes they use (keyed get, children by foreign key, filtered scan, embedded reference,
-whole-relation iteration), backed online by rows from the support program and offline by the
-export's files. Tagged bodies stay JSON text inside those relations, since Arrow cannot hold
-their value forms exactly, and the cut and frontier bytes stay retained bytes. The custody end of
-"same bytes as acquired" is served by a digest per relation in the manifest. The SQLite index of
-JSON blobs and the second copy of the closure as JSON lines are retired.
+**Replay relations are typed.** Derive relation schemas under the
+[common projection contract](common-analytical-basis.md#projection-contract). Replaying readers
+use one interface with keyed get, children by foreign key, filtered scan, embedded reference,
+and whole-relation iteration. Its live backing acquires rows through the scoped native read
+owner, while its detached backing reads the sealed Parquet archive directly. Preserve canonical
+encoded body fields wherever their exact value forms need that representation, and retain cut
+and frontier bytes. Both backings feed the same structural projection and reference interpretation.
 
-**Carrier today.** Typed relations in process as Arrow tables; set work over them where a
-replaying reader needs a join, through the analytical owner; keyed access through an index built
-once per relation. The need is "typed relations with five access shapes from two sources"; if
-point lookups remain dominant after online readers leave, a dictionary index is sufficient and
-DuckDB is not introduced here.
+**Acquire the shape the consumer uses.** Compare direct Parquet keyed and filtered scans with
+an Arrow relation and a once-built lookup index for the actual structural projection. Use the
+analytical owner for set work that combines relations. Select the simplest complete route across
+first replay and subsequent rereads, including verification, file reads, derivation, buffering and
+cleanup. Immediate reuse uses in-memory batches, and transient pressure uses the existing spill
+owner. A whole-relation consumer can acquire the whole relation, while keyed consumers follow
+only the governing keys and required support. Remove duplicate closure and index construction as
+their consumers move. Persist a derived dossier relation only when a named rereading consumer
+avoids repeated derivation after accounting for its full write and read cost. Such a relation
+carries its implementation and determining input identities under the same projection contract.
+
+**Seal the archive at its manifest.** The manifest binds relation schemas, selected scope,
+completeness, row order, lineage and file digests. Record an authorized empty relation explicitly.
+Compression and row-group layout are physical choices outside semantic identity. Verify the
+relation file digests and the declared logical content and ordering, including partition and root
+commitments. Publish the sealed manifest only when its complete file set is ready. An interruption
+before sealing leaves an incomplete archive that readers refuse. Restart through the existing
+publication owner and either finish that exact archive or report its unusable state. Detached
+replay interprets the captured cut and custody. Each live acquisition and continuation establishes
+current authority at its requested cut, including when local payload or a derived answer is reused.
 
 **One cursor.** Version, implementation identity, selection digest, cut, and a position that is a
 keyset where the data is row-addressable and an ordinal where rows are derived. Clients do not
@@ -235,6 +259,13 @@ and original support.
 <a id="sbx-12"></a>
 ## SBX-12 — Replay, export, cursor and cache
 
+**Common analytics amendment · Scheduled · 2026-11-22.** Implement the frozen selected-review
+archive as the first Parquet boundary using the typed relation and sealing contract above. This
+package consumes the projection decision from the early pilot and the scoped authority interface
+from SBX-11. The archive comparison itself follows its runnable proof, reference and export
+prerequisites and remains scheduled after the SBX-09 cold root.
+[Review I04](../../plan_improvement_reviews/set-based-execution-common-analytics_2026-11-22.md#I04)
+
 **Owns.** The typed relation interface and its two backings; the export's relation list,
 including partitions and proof rows; the manifest's per-relation digests; the detached verifier's
 treatment of partitions (recompute each partition digest and the root) and of proofs (custody of
@@ -260,6 +291,19 @@ export with one altered partition body refuses, naming the partition. A cached a
 after an unrelated revocation and after a fresh cut, and is not served after a revocation that
 affects a product it read; in every case the per-call authority check ran, asserted by counting.
 A reader's trust locks are released before its Python derivation begins.
+
+Extend that evidence through selected structural export, immediate replay and a later reopened
+verification. Include a dossier larger than the present derived-row cache can retain. Compare
+independently expected selected answers through all five relation access shapes online and
+offline. Include an authorized empty relation, private and withheld leaves, schema or ordering
+mismatch, altered digests and truncated files. Interrupt before manifest sealing and after sealing,
+then restart through the real archive publication route and verify its completeness outcome.
+Check that compression or row-group changes preserve logical answers and identities. Reuse at a
+live cut still acquires authority, while detached replay of an earlier authorized cut keeps its
+captured interpretation after live selection or support changes. Move the independent malformed
+input and semantic expectations with the replacement as JSONL, SQLite and duplicate closure
+machinery retire. Timing is needed only if scans, memory or reread work can decide between
+conforming routes.
 
 Use authenticated artifacts for reader-only checks when their producer, wire, release and
 captured authority premises still apply. Move malformed relation, digest mutation, independent

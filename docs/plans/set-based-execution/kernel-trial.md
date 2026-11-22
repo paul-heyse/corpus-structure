@@ -9,6 +9,17 @@ facts are **Inspected** at `7a415d18d`; the library behaviour cited is reproduce
 checks in `docs/design_review/evidence/2026-11-21_columnar-execution-review/` and by the checks
 the trial investigation ran, which are re-run and retained by SBX-18.
 
+**Scheduled amendment · 2026-11-22.** The [common analytics review I02](../../plan_improvement_reviews/set-based-execution-common-analytics_2026-11-22.md#I02)
+and [I03](../../plan_improvement_reviews/set-based-execution-common-analytics_2026-11-22.md#I03)
+expand the comparison to captured DuckDB SQL and PostgreSQL-native set work. The
+[common analytical basis](common-analytical-basis.md#typed-population-pilot) owns the earlier
+annotation-fork pilot and its pre-SBX-09 decision. SBX-18/19 use its implemented projection and
+transfer results when applicable and keep their complete family trial downstream. The
+[pinned-build probe](../../design_review/evidence/2026-11-22_sbx-common-analytics/README.md)
+establishes fixture-level DuckDB 2.0.0 and PyArrow 26.0.0 behavior, including a typed window
+through the existing owner and blocked connection use until an active result is drained.
+Production adoption and integrated qualification remain open.
+
 ## Why a trial and not a commitment
 
 The review sampled kernels and found the procedural cores dominant. A first proposal for a
@@ -39,42 +50,64 @@ token tables, is the natural second family.
 
 ## Target for the trial
 
-**Tables, built in process.** From the inputs' carriers: source pieces and items with table cells
-unnested; navigation records, roles and extents; formal inputs, symbols and occurrences;
-predicate frames, readings and qualifiers; passages. Each carries an ordinal, because every
-current index returns rows in original order and relational results have none.
+**Prepared relations.** Derive shapes from the [model projection contract](common-analytical-basis.md#projection-contract)
+and acquire each input once. Compare in-process Arrow and DuckDB work with PostgreSQL-native
+preparation and set checks over the same admitted scope, accounting for transfer, JSON unpacking,
+typed storage and any return to Python. Prepare source pieces and items with table cells
+unnested, navigation records with roles and extents, formal inputs with symbols and occurrences,
+predicate frames with readings and qualifiers, and passages from the acquired carriers. Each carries an ordinal, because every
+current index returns rows in original order and relational results have none. Prepare one
+formal inventory keyed by selected product, projection, pointer, source start, representation
+and formal input. Retain explicit input occurrence wherever required to disambiguate a reference.
+The inventory serves all formula questions in the invocation.
 
 **The relational steps.** Pieces within selected ranges; table geometry and header paths as
 range joins; mention to caption by a grouped count; the earlier row with the same parent as a
 window; formal symbols per equation as one join in place of a re-scan per declaration;
 participants to passages and to source intervals by containment and overlap.
 
-**The seam.** Regular expressions, `casefold`, pydantic row validation, and all identity
-computation stay Python functions over rows. Participants are staged before anchors, anchors
-before ids, ids before relations, because each id depends on the stage before it. Emission order
+**The seam.** Regular expressions, `casefold`, edit distance and canonical identity encoding
+use the existing Python semantics wherever the pinned engine differs. Reconsider an individual
+field only after independent positive and negative parity cases. Acquire typed rows and their
+established invariants under SBX-08/04 before reuse. External input and conversions that can
+change meaning receive their own validation at acquisition. Participants are staged before
+anchors, anchors before ids, and ids before relations, because each id depends on the stage before it. Emission order
 across the kernel's phases is reproduced by an explicit sequence column.
 
-**Carriers today, per step.**
+**Compared implementations.** Use the same named relational steps and independent expected
+answers for the existing typed-expression route, captured DuckDB SQL, and PostgreSQL-native set
+work. Direct Arrow compute remains useful for simple column transforms. Choose one coherent
+implementation for the selected family after accounting for its conversion, preparation and
+cleanup. Capture explicit ordering, NULL placement, join multiplicity and same-position tie
+semantics, including any ASOF match and ordered aggregate. Keep the existing canonical encoder
+at publication.
 
-| Step | Carrier | Why | Change if |
-|---|---|---|---|
-| Range and containment joins, header paths, windows | DuckDB relations through the analytical owner, as typed expressions | PyArrow has no inequality join; these are the steps that are quadratic or re-scanned today | Per-call size stays so small that a sorted list with bisection is as clear |
-| Equality joins, grouped counts, membership | DuckDB in the same connection, or PyArrow `join` and `group_by` | Either expresses them; one engine per kernel is simpler | — |
-| Regular expressions, case folding, edit distance | Python | The engine functions differ silently on non-ASCII input | Never for identity-bearing text |
-| Ids and canonical bytes | Python, the existing encoder | DuckDB's JSON differs for floats, decimals and control-character escapes | Never |
+The [PostgreSQL placement and transfer comparison](common-analytical-basis.md#postgresql-placement-and-transfer)
+owns the shared cut, authorization, ADBC baseline and conditional extension investigation. Feed
+its findings into this family's complete comparison. SQL authoring changes follow the
+[decision routes](common-analytical-basis.md#decision-routes) before production adoption.
 
 <a id="sbx-18"></a>
 ## SBX-18 — The analytical owner states the fidelity rules
 
-**Owns.** In `cs/analytics.py`: binary collation fixed beside the time zone; a grouped aggregate
-that takes typed group keys, which the wrapper lacks today; a window helper; sort helpers that
-require NULL placement; an ASOF join that requires a tie-break; an ordered-list aggregate that
-requires an order; a scan of Arrow tables with an ordinal; a connection that lives as long as a
-worker, beside the per-invocation one. Regular expressions, edit distance and JSON text for
-identity are not offered, with the reason stated where a kernel author will look. The evidence
-script is extended with the new findings (upper-case hex in control-character escapes; a
-connection costs about ten milliseconds to open and a reused one one to three per join, observed
-on synthetic data and stated as such).
+**Owns.** In `cs/analytics.py`, the configured analytical execution boundary, fidelity
+contract, captured query custody, input and output checks and connection/resource policy.
+Set binary collation beside UTC, require explicit order and NULL placement where observable,
+and declare multiplicity and tie behavior. Use the existing typed window capability before
+adding helpers. Add a grouped aggregate or other helper only when the complete implementation
+needs it and the helper simplifies the owned operation.
+
+Compare captured named DuckDB SQL with typed expressions. Each maintained query has one owner,
+exact captured definition, versioned dependencies, model-checked input/output shape and bound
+values. Validate its declared relations before executing and preserve release correspondence
+and production observability. PostgreSQL comparisons may use reviewed static SQL where installed
+catalog, descriptor, privilege and candidate checks can establish the same guarantees as the
+generated route. Keep caller values separate from query definitions. The actual selected SQL
+policy follows the [decision routes](common-analytical-basis.md#decision-routes).
+
+Retain the earlier synthetic timing observations with their original evidence and scope.
+Compare production work qualitatively and time it only when setup, transfer, memory or spill
+uncertainty can decide between conforming routes.
 
 **Conditions.** DuckDB's and Arrow's thread pools are outside the worker's thread limit and the
 pool inventory that receipts record. The owner configures
@@ -84,11 +117,12 @@ and `temp_directory` from the existing worker policy.
 `set_io_thread_count` configure process pools once through that owner, avoiding competing settings
 per relation.
 
-**Each job owns resources.** A worker connection is shared, while each computation owns its
-temporary relations, registered inputs, readers and spill. Success, failure and stop release
-those resources before another job uses the connection. Retire the connection if cleanup cannot
-establish a usable state. The existing invocation connection's private spill-directory lifecycle
-is the starting integration, preserved for callers that still use it.
+**Each job owns resources.** Invocation-owned connections and private spill directories are
+the baseline. Consider worker-wide reuse only when it removes material setup work. Each
+computation owns its temporary relations, registered inputs, readers and spill. Success,
+failure and stop must drain or abort the active result and release those resources before
+another job uses a retained connection. Retire the connection if cleanup cannot establish a
+usable state. Establish job isolation through the real worker route before selecting reuse.
 
 DuckDB 2.0.0 `DuckDBPyRelation.to_arrow_reader` provides an Arrow `RecordBatchReader`. Compare
 batch consumption with `to_arrow_table` for the actual operator and consume incrementally where
@@ -102,12 +136,15 @@ These APIs are exposed by the pinned bindings. Their worker lifecycle behaviour 
 package's verification responsibility, integrating
 [I08](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I08).
 
-**Evidence.** Each helper refuses its unsafe form: a sort without NULL placement, an ASOF join
-without a tie-break, an ordered aggregate without an order, a string where an expression is
-required. In the actual worker, two jobs share one connection while the second cannot reach the
-first job's temporary relations, registered inputs or spill. Failure and interruption checks
-establish the current result's outcome and cleanup, including whether the connection is reusable
-or must be retired.
+**Evidence.** Use independent expected answers for ordering, NULL placement, same-position
+candidates, ordered aggregates and join multiplicities under each candidate. Verify bound
+parameter handling, captured query/dependency correspondence and declared input/output shapes.
+For a selected static PostgreSQL route, exercise the candidate and installed privilege checks.
+In the actual worker, establish the chosen connection lifetime, cancellation outcome and spill
+cleanup. If reuse is selected, a second job must be unable to reach the first job's temporary
+relations, registered inputs or spill after success, failure and interruption. Exercise a
+partially consumed reader before the next job and verify either safe reuse or connection
+retirement. Preserve the prior I08 resource and interruption obligations.
 
 <a id="sbx-19"></a>
 ## SBX-19 — Scoped relations as set operations
@@ -122,32 +159,43 @@ the analytical owner establishes a narrower determining scope. Trial preparation
 on its stated dependencies. Any qualification of projection-keyed reuse consumes SBX-06's
 runnable binding contract.
 
-**Vision.** `discover_relations` becomes: build tables from carriers; a sequence of named
-relational steps; the Python seam for text rules, anchors and ids; assembly of the report. The
-repeated re-acquisition and re-validation at the kernel's entry is already gone by SBX-08.
+**Vision.** `discover_relations` acquires its admitted projections, prepares the shared
+inventories, performs named relational steps, applies the Python seam, and assembles the report.
+Qualify the selected implementation through native publication and exact artifact nomination.
+The artifact consumer must follow the independently selected report occurrence and its actual
+source. SBX-08's acquired inputs and SBX-04's established premises remove repeated entry
+re-acquisition, validation and inventory reconstruction for the covered scope.
 
 **Success criteria.**
+
 1. The published report is byte-identical on every fixture and on recorded real sections, apart
    from identities this series deliberately changes, which are listed.
 2. Every per-item question in the current kernel is part of one batched step, and no step
    re-scans an input per item.
 3. The relational steps are stated as a short named list that a reader can check against the
    kernel's description.
-4. Each fidelity trap is handled by the seam or reproduced and tested.
-5. A functional run on a real source view establishes worker-connection and per-job resource
-   lifetimes and scoped access. The adoption decision explains the material reduction in repeated
-   work or implementation complexity, including conversion, ordering, cleanup and the Python seam.
+4. Each fidelity trap is handled by the seam or reproduced and tested. Independent cases cover
+   Unicode cues, repeated formulas at distinct pointers, decimals, null and absence, phase order,
+   tie order and scope-specific missing members.
+5. A functional run on a real source view establishes the chosen connection and per-job resource
+   lifetimes and scoped access through publication, selected readback and artifact nomination. The
+   adoption decision explains the material reduction in repeated work or implementation complexity,
+   including conversion, ordering, cleanup and the Python seam.
 6. Judge adoption qualitatively from the complete implementation and semantic evidence. Use a
    timed comparison only when it would decide between plausible implementations. Line counts and
    setup ratios are optional observations, with their conditions stated.
 
-**Findings that stop the trial.** Most steps remain per-item or procedural after the rewrite. A
-step needs SQL text where typed expressions are required. Ids can be reproduced only by calling
-Python per row from inside the engine. The complete route adds complexity or repeated work once
-emission ordering, conversion, cleanup and the Python seam are included. A material uncertainty
-between plausible routes can justify a focused comparison before the decision.
+**Findings that stop adoption.** Most steps remain per-item after the rewrite, or the complete
+route adds complexity or repeated work after accounting for emission ordering, conversion,
+preparation, cleanup and the Python seam. A failure to preserve exact canonical bytes, reference
+meaning, current selected authority or publication custody disqualifies the candidate. Needing
+captured SQL feeds the authoring comparison and its decision route. A material uncertainty
+between plausible implementations can justify a focused comparison before the decision.
 
-**Decision.** The package ends with a recorded decision, with the criteria above as its
-evidence: continue to a second family (predicate evidence, then constructions' region handling,
-source preparation, math layout), or stop and keep the Python span vocabulary of SBX-10 as the
-kernels' basis. Either is an acceptable outcome of the series.
+**Decision.** Record adopt, adjust or stop with the criteria above and the typed-expression,
+captured SQL and native comparison. Integrate the chosen family route with its consumers and
+remove its displaced implementation and mechanism-specific tests while preserving independent
+expectations. Record whether a second family should follow, considering predicate evidence, then
+constructions' region handling, source preparation and math layout. If the trial stops, retain
+the Python span vocabulary of SBX-10 as the kernels' basis. A second-family recommendation
+enters the existing scope and decision route before execution.

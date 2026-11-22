@@ -27,7 +27,9 @@ the integrated source against an empty authoring target on the dedicated Postgre
 
 ### Development reset through SBX-09
 
-1. Integrate the functional changes through SBX-09 and run their scoped checks. Retire the active
+1. Decide the [typed population pilot](common-analytical-basis.md#typed-population-pilot),
+   integrate its chosen route and affected consumers, and finish the functional changes through
+   SBX-09. Run their scoped checks. Retire the active
    legacy Alembic chain and its predecessor-specific data-step code. Preserve generic successor
    authoring. Record the old stage predecessor and its Git baseline for SBX-20. Create an empty
    authoring database on `18/corpus` with `uv run ci db init --creation-only`. Bind the reader
@@ -43,7 +45,9 @@ the integrated source against an empty authoring target on the dedicated Postgre
    provider paths. Use private native runs for isolated journeys, and the dedicated shared
    host for shared authentication and durability. Run the ordinary executor against fresh
    fixtures through the committed propagation, binding, recovery, memo and hand-off scenarios.
-   Keep one authentic finite and rich publication-to-export replay. Record managed IDs,
+   Exercise the chosen annotation fork through publication and exact selected readback, including
+   the relevant occurrence, support, provider and worker controls. Keep one authentic finite and
+   rich publication-to-export replay. Record managed IDs,
    selected identities, exact source, revision and context. Preserve failed and interrupted
    results and reconcile retries by identity. Complete required acceptance before resetting.
 3. Recheck the dedicated cluster and the exact `corpus_structure_dev` maintenance identity
@@ -262,6 +266,11 @@ and re-key everything downstream again, and outstanding receipts would be invali
 <a id="sbx-20"></a>
 ## SBX-20 — Register the revisions and install stage
 
+Attribute installed effects from the selected [population and analytical routes](common-analytical-basis.md#decision-routes)
+and the [replay contract](owner-resolved-reads.md#sbx-12) to the revisions that carry them.
+Use the existing exact predecessor, candidate and stage checks for changes to native types,
+programs, descriptors, grants or wire contracts.
+
 **Order for fresh qualification inputs.** Start with PDF capture and publication under
 revision C, then exercise the operation chains under A in dependency order, each product admitted
 with its partitions and proofs. Exercise reads and exports under B. Establish coverage for the
@@ -315,6 +324,10 @@ specific to the old mechanism.
   independent evaluator coordinates and protected-reference controls as duplicate preflight is
   removed. Preserve malformed input, interpretation and current-authority expectations through
   the corresponding replacements.
+- Confirm that adopted population and scoped-relations routes removed the repeated preparation,
+  conversions and validation they replaced. Follow their worker, publication and selected-reader
+  consumers. Confirm the frozen archive no longer rebuilds its covered JSONL/SQLite closure.
+  Preserve independent refusal and semantic tests in the respective owners.
 - Confirm retirement of covered recursive readiness watermarks, stored wait hashes and repeated
   discovery sweeps after SBX-06 validates their replacement. Follow consumers in the planner,
   execution, demand reads, record grading and retained evidence. Preserve ordinary pinned reads,
@@ -348,6 +361,12 @@ Use the shared [change scenarios](#change-scenarios) throughout implementation a
 applicable results for assembled qualification. Derive expected effects from the declarations
 and observed checker or consumer boundary before executing a case. Preserve independent
 expectations when testing the rule or projection mechanism itself.
+
+On final source, include the adopted population route, the scoped-relations producer through
+exact artifact nomination, and live and detached selected structural replay. Reuse independent
+expectations from the owning packages. Include interruption and recovery where the chosen
+worker or archive lifecycle changes. The historical DuckDB and Arrow fixture results establish
+their recorded library behavior. Use managed final-source results for installed qualification.
 
 Qualify the native stopping cases, readiness-only wake, join, supersession, recovery and read
 visibility on the registered source and appropriate targets. Keep the textbook MCP closure

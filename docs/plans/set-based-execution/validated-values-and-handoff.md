@@ -106,6 +106,13 @@ it does not detect a file changed during the run.
 <a id="sbx-08"></a>
 ## SBX-08 — Validated carriers
 
+**Population hand-off · Proposed · 2026-11-22.** Supply the runnable acquired carriers
+to the [annotation-fork pilot](common-analytical-basis.md#typed-population-pilot). The
+pilot decides whether model-derived typed batches or an owned Arrow worker transfer can
+replace a full reconstruction path. Finish affected migrations on that decision and carry
+the admitted shape through ordinary and spawned consumers. Keep sealed ingress, byte
+admission, attempt correspondence and cleanup under their existing owners.
+
 **Remaining carrier order · Proposed · 2026-11-22.** Finish formal evidence, construction
 and contextual products, then retained characterization and enriched composition. Migrate
 ordinary and spawned consumers together. Adopt acquired source and exact pin in the secondary
@@ -213,6 +220,15 @@ declared lifetime.
 
 <a id="sbx-09"></a>
 ## SBX-09 — One verification bracket
+
+**Executable custody comparison · Proposed · 2026-11-22.** Independently assess whether
+an immutable execution capture could simplify the verification bracket. Inspect what the
+actual worker can load after admission, including late imports and assets, and what binds
+the capture to the executing attempt and returned reply. Change the bracket only if a
+simpler route can enforce those guarantees and pass the existing tamper and refusal controls
+on the normal worker route. Otherwise retain the current checks inside work admission and
+after reply collection. Keep this choice independent of the analytical engine and preserve
+native descriptor, fencing and acknowledgement checks. [Review custody findings](../../plan_improvement_reviews/set-based-execution-common-analytics_2026-11-22.md#which-checks-earn-their-place)
 
 **Remaining execution · Proposed · 2026-11-22.** Migrate both PDF region modes and visual
 mapping to a retained authenticated slice. Acquire it with exact model, implementation and
