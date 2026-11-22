@@ -229,21 +229,30 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
             demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
                 frozen, project=PROJECT, release=kernel.prepared.release_id, runtime=kernel.runtime
             )["demand_id"]
-        # Capture and discover within this demand's admitted producer scope.
-        # Stop after the two source sweeps so the analytical families remain pending.
+        # The existing capture may be attached immediately. Stop at the first
+        # pinned read that contains the source-view publication, before its
+        # population makes downstream analytical tasks ready.
         with controlled_pdf_converter(section_content(rows)):
-            result = execute_data_demand(
-                kernel.purpose("write"),
-                demand,
-                source_root=ROOT / "python/corpus-structure/src",
-                admission_engine=kernel.purpose("admit"),
-                project_id=PROJECT,
-                database_capacity=6,
-                max_rounds=2,
-            )
-        assert result.receipt_count == 2
-        with kernel.purpose("write").begin() as connection:
-            snapshot = DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(demand)
+            for _ in range(3):
+                with kernel.purpose("write").begin() as connection:
+                    planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+                    snapshot = planner.resume(demand)
+                if any(
+                    row["operation_id"] == producer and row["fate"] == "fulfilled"
+                    for row in snapshot["obligations"]
+                ):
+                    break
+                execute_data_demand(
+                    kernel.purpose("write"),
+                    demand,
+                    source_root=ROOT / "python/corpus-structure/src",
+                    admission_engine=kernel.purpose("admit"),
+                    project_id=PROJECT,
+                    database_capacity=6,
+                    max_rounds=1,
+                )
+            else:
+                pytest.fail("native source-view publication did not settle")
         obligations = {row["obligation_id"]: row for row in snapshot["obligations"]}
         (discovered,) = [
             use
