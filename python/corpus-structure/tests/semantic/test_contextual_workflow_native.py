@@ -522,7 +522,12 @@ def test_native_applicability_refuses_same_component_from_a_different_actual_rep
     )
     with case.kernel.engine.connect() as connection:
         before = connection.execute(counts).one()
-    with pytest.raises(NativeDemandExecutionError):
+    with pytest.raises(NativeDemandExecutionError) as refusal:
         execute(case.kernel, applicability_request(case, introduction=True, components=other))
+    assert any(
+        "contextual applicability substitutes the original component report/member/producer support"
+        in str(cause)
+        for cause in refusal.value.exceptions
+    )
     with case.kernel.engine.connect() as connection:
         assert connection.execute(counts).one() == before

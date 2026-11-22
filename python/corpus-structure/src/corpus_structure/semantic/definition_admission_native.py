@@ -8,6 +8,7 @@ from sqlalchemy import (
     Integer,
     MetaData,
     Text,
+    and_,
     cast,
     column,
     exists,
@@ -387,7 +388,13 @@ def definition_admission_native_programs(
                 ),
             ),
             If(
-                input_role(model, r("release_id"), r("operation_id"), "query"),
+                or_(
+                    input_role(model, r("release_id"), r("operation_id"), "query"),
+                    and_(
+                        input_role(model, r("release_id"), r("operation_id"), "components"),
+                        input_role(model, r("release_id"), r("operation_id"), "relationship"),
+                    ),
+                ),
                 (Perform(func.ops.ddo_require_contextual_definition_lineage(r(), completion)),),
             ),
         ),
