@@ -427,6 +427,22 @@ def test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_ty
         port.invoke_python(values(port, source=source.value, formal=(primary,), sentences=unbacked))
     inputs = values(port, source=source.value, formal=(primary,), sentences=native)
     expected = port.invoke_python(inputs)
+    from corpus_structure.semantic import data_operation_prepared_products as prepared_products
+
+    checked = port._verification.check
+    checks = []
+    compilations = []
+
+    def observed_check():
+        checks.append(True)
+        checked()
+
+    def observed_compile(*args, **kwargs):
+        compilations.append(args[1])
+        return compile(*args, **kwargs)
+
+    monkeypatch.setattr(port._verification, "check", observed_check)
+    monkeypatch.setattr(prepared_products, "compile", observed_compile, raising=False)
     cpu = CPUExecutionScope(
         prepared,
         CharacterizationExecutionPolicy(
@@ -439,6 +455,8 @@ def test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_ty
             port.plan_python(inputs, execution_owner=SimpleNamespace(cpu=cpu, reservation=None)),
             lambda: None,
         )
+        assert checks == [True, True]
+        assert compilations == []
         assert actual.outputs[0].content == expected.outputs[0].content
         body = decode_semantic_value(json.loads(actual.outputs[0].meaning))
         assert body["outcome"] == "partial"

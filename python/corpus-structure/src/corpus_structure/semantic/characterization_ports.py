@@ -6,8 +6,9 @@ import inspect
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from dataclasses import dataclass, replace
-from functools import lru_cache
+from dataclasses import dataclass, field, replace
+from functools import cached_property, lru_cache
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -358,6 +359,10 @@ class PreparedCharacterizationPort(ABC):
     authorize: Callable
     custody: tuple[SourceArtifact, ...]
     sources: PythonSourceCollection
+    _verification: Any = field(init=False, repr=False, compare=False)
+    _descriptor: Any = field(init=False, repr=False, compare=False)
+    _signature: inspect.Signature = field(init=False, repr=False, compare=False)
+    _asset_digest: str = field(init=False, repr=False, compare=False)
 
     native_selections: ClassVar[tuple] = ()
     family: ClassVar[str]
@@ -377,23 +382,34 @@ class PreparedCharacterizationPort(ABC):
         return signature.replace(parameters=tuple(signature.parameters.values())[1:])
 
     def construction_options(self):
+        return self._construction_options
+
+    @cached_property
+    def _construction_options(self):
         assets = {asset.name: asset for asset in self.custody}
         return ConstructionOptions.model_validate_json(
             assets["characterization/construction-configuration"].content
         )
 
-    def _verify(self):
+    def _acquire_verification(self):
         import sys
 
+        from .data_operation_cpu import prepared_cpu_descriptor
         from .data_operation_ports import PortRefusal
-        from .data_operation_prepared_products import verify_prepared_product
+        from .data_operation_prepared_products import (
+            authenticated_prepared_product,
+            verify_prepared_product,
+        )
+        from .file_custody import verified_file
 
         bridge_name = "execute_" + self.family + "_profile"
         if getattr(sys.modules[self.endpoint.run.__module__], bridge_name) is not self.bridge:
             raise PortRefusal("prepared endpoint no longer binds its admitted resource bridge")
+        entry = self.kernel.__module__ + "." + self.kernel.__name__
         functions = (
             (self.operation.callable_surfaces[0].declaration, self.endpoint.run),
             ("corpus_structure.semantic.characterization_ports." + bridge_name, self.bridge),
+            (entry, self.kernel),
         )
         if self.family != "view":
             from .construction_products import (
@@ -404,12 +420,6 @@ class PreparedCharacterizationPort(ABC):
 
             functions = (
                 *functions,
-                (
-                    "corpus_structure.semantic.characterization_ports.execute_"
-                    + self.family
-                    + "_kernel",
-                    self.kernel,
-                ),
                 (
                     "corpus_structure.semantic.construction_products.verify_interpreted_literal_source",
                     verify_interpreted_literal_source,
@@ -423,32 +433,65 @@ class PreparedCharacterizationPort(ABC):
                     verify_interpreted_source_coverage,
                 ),
             )
+        semantic = _semantic_assets(self.family)
+        transport = _execution_custody()
+        required = self.operation_sources(
+            include_dependencies=False,
+            **(
+                {"construction_options": self.construction_options()}
+                if self.family == "construction"
+                else {}
+            ),
+        )
+        assets = (semantic, transport)
+        if self.family == "construction":
+            assets = (*assets, construction_configuration(self.construction_options()))
         verify_prepared_product(
             self.identity,
             self.model,
             self.operation,
             self.sources,
             self.custody,
-            assets=(
-                _semantic_assets(self.family),
-                _execution_custody(),
-                *(
-                    (construction_configuration(self.construction_options()),)
-                    if self.family == "construction"
-                    else ()
-                ),
-            ),
+            assets=assets,
             functions=functions,
             authorize=self.authorize,
-            required_sources=self.operation_sources(
-                include_dependencies=False,
-                **(
-                    {"construction_options": self.construction_options()}
-                    if self.family == "construction"
-                    else {}
-                ),
+            required_sources=required,
+        )
+        verification = authenticated_prepared_product(
+            self.sources, functions, required_sources=required
+        )
+        root = Path(__file__).parent
+        sources = []
+        files = []
+        for name, content in json.loads(transport.content)["files"]:
+            path = (root / name).resolve()
+            acquired = bytes.fromhex(content)
+            module = "corpus_structure." + path.relative_to(root.parent).as_posix().removesuffix(
+                ".py"
+            ).replace("/", ".")
+            sources.append((module, str(path), acquired))
+            files.append(verified_file(path, sha256(acquired).hexdigest()))
+        files.extend(
+            verified_file(root.parent / name, sha256(bytes.fromhex(content)).hexdigest())
+            for name, content in json.loads(semantic.content)["assets"]
+        )
+        verification.files = tuple(
+            {file.path: file for file in (*verification.files, *files)}.values()
+        )
+        object.__setattr__(self, "_verification", verification)
+        object.__setattr__(self, "_signature", inspect.signature(self.kernel, eval_str=True))
+        object.__setattr__(self, "_asset_digest", semantic.digest)
+        object.__setattr__(
+            self,
+            "_descriptor",
+            prepared_cpu_descriptor(
+                tuple(sources), entry, None, tuple(file.receipt() for file in files)
             ),
         )
+
+    def _verify(self):
+        self._verification.check()
+        self.authorize(self.identity)
 
     def _roles(self, values, binding):
         from .data_operation_ports import PortRefusal, PythonRoleValue
@@ -848,11 +891,11 @@ class PreparedCharacterizationPort(ABC):
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from .construction_products import validate_interpreted_product
-        from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
+        from .data_operation_cpu import plan_cpu_call
 
-        self._verify()
         inputs = self._inputs(values, binding)
         if isinstance(inputs, _DocumentInputs) and not inputs.sources:
+            self._verify()
             return self._completion(None, binding)
         arguments: dict[str, Any]
         if isinstance(inputs, _DocumentInputs):
@@ -871,7 +914,7 @@ class PreparedCharacterizationPort(ABC):
                 required_families=tuple(
                     characterization_profiles(self.prepared).get("full_characterization", ())
                 ),
-                assets=_semantic_assets(self.family).digest,
+                assets=self._asset_digest,
                 check_active=check_active,
             )
         elif isinstance(inputs, _ConstructionInputs):
@@ -883,7 +926,7 @@ class PreparedCharacterizationPort(ABC):
                 ),
                 options=self.construction_options(),
                 contracts=interpreted_member_contracts(self.prepared, self.model),
-                assets=_semantic_assets(self.family).digest,
+                assets=self._asset_digest,
                 native=CharacterizationSnapshot(
                     inputs.native.semantic_id, inputs.native.content, inputs.native.partitions
                 ),
@@ -902,39 +945,15 @@ class PreparedCharacterizationPort(ABC):
                 ),
                 symbolic=tuple(product.reference for product in constructions),
                 contracts=interpreted_member_contracts(self.prepared, self.model),
-                assets=_semantic_assets(self.family).digest,
+                assets=self._asset_digest,
                 check_active=check_active,
             )
         else:
             raise TypeError("unknown prepared characterization input profile")
-        signature = inspect.signature(self.kernel, eval_str=True)
-        owned = json.loads(_execution_custody().content)["files"]
-        root = Path(__file__).parent
-        sources = tuple(
-            (
-                "corpus_structure."
-                + (root / name)
-                .resolve()
-                .relative_to(root.parent)
-                .as_posix()
-                .removesuffix(".py")
-                .replace("/", "."),
-                str((root / name).resolve()),
-                bytes.fromhex(content),
-            )
-            for name, content in owned
-        )
-        descriptor = PythonCPUDescriptor(
-            sources,
-            self.kernel.__module__ + "." + self.kernel.__name__,
-            (),
-            verification="prepared-kernel",
-            control_parameter="check_active",
-        )
         reply = yield from plan_cpu_call(
-            descriptor,
-            signature.bind(**arguments),
-            signature,
+            self._descriptor,
+            self._signature.bind(**arguments),
+            self._signature,
             verify=self._verify,
             execution_owner=execution_owner,
             check_active=check_active,
@@ -963,7 +982,6 @@ class PreparedCharacterizationPort(ABC):
                 (*inputs.formal, *inputs.supporting, *inputs.constructions),
                 product_type=ContextualMeaningProduct,
             )
-        self._verify()
         source = (
             inputs.source if isinstance(inputs, (_ConstructionInputs, _ContextualInputs)) else None
         )
@@ -1040,7 +1058,7 @@ def _resolve(port_type, prepared, model, operation, *, identity, authorize, cust
         or selected.callable_surfaces[0].declaration != declaration
     ):
         raise PortRefusal("operation is outside its concrete acquired characterization profile")
-    port._verify()
+    port._acquire_verification()
     return port
 
 
