@@ -159,6 +159,22 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
     assert not incomplete, incomplete
     assert preparation.version == "semantic-2"
 
+    clause = operations["structure.clause_classification/declared"]
+    predicate_links = {
+        (target.output_role, target.path, target.variant, target.input_kind)
+        for target in clause.reference_targets
+        if target.input_role == "predicates"
+    }
+    predicate_kind = (
+        "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/"
+        "DdoPredicateInspectionReport"
+    )
+    assert predicate_links == {
+        ("result", "/clause_classification/readings/*/selection/frame", "member", predicate_kind),
+        ("result", "/clause_classification/inspected_frames/*", "member", predicate_kind),
+        ("result", "/clause_classification/unprojectable_frames/*", "member", predicate_kind),
+    }
+
     components = operations["structure.definition_components/declared"]
     assert components.dependencies == ("text.gliner_definitions/source-native",)
     inputs = {role.name: role for role in components.roles if role.direction == "input"}

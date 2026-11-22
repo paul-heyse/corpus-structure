@@ -150,29 +150,11 @@ def test_context_question_cannot_substitute_for_exact_clause_and_wrong_pair_refu
 def current_focus_inputs():
     from methods.declared_primary_fixture import selected_source
 
-    from corpus_structure.semantic.declared_structural_references import DeclaredContributionRef
-    from corpus_structure.semantic.structural_products import (
-        DeclaredClauseFocusSelection,
-        StructuralPassage,
-    )
+    from corpus_structure.semantic.structural_products import StructuralPassage
 
     text = " " * 20 + "Before. Focus. Next."
-    _, frame, context = selected_source(text)
+    _, frame, _context = selected_source(text)
     contribution_id = "source-contribution:" + "a" * 64
-    selection = DeclaredClauseFocusSelection(
-        passage_id="sample",
-        frame=DeclaredContributionRef(
-            product_id="unadmitted:predicate-product",
-            member_id="unadmitted:predicate-member",
-            contribution_id=contribution_id,
-            kind_contract="unadmitted:predicate-kind",
-            project_id=context.project_id,
-            subject=context.subject,
-            subject_definition=context.subject_definition,
-            original_source=context.original_source,
-            analyzed_scope_meaning=frame.pin.values()["analyzed_scope_meaning"],
-        ),
-    )
     passage = StructuralPassage(
         passage_id="sample",
         source_ref="source",
@@ -213,7 +195,7 @@ def current_focus_inputs():
     canonical = canonical_context_rows(
         dict(rows=partition_header(packets)), packets, text_length=len(text)
     )
-    return selection, passage, frame, contributions, canonical
+    return contribution_id, passage, frame, contributions, canonical
 
 
 @pytest.mark.parametrize("policy", ["exact_focus", "adjacent_sentences"])
@@ -241,7 +223,7 @@ def test_declared_clause_focus_preserves_original_extent_and_source_owned_contex
 
 @pytest.mark.parametrize("change", ["partial", "foreign-source", "ambiguous-frame"])
 def test_declared_clause_focus_refuses_partial_foreign_and_ambiguous_retained_frames(change):
-    selection, passage, frame, contributions, canonical = current_focus_inputs()
+    contribution_id, passage, frame, contributions, canonical = current_focus_inputs()
     if change == "partial":
         contributions[0]["component"]["focus_state"] = "partial"
     elif change == "foreign-source":
@@ -252,28 +234,22 @@ def test_declared_clause_focus_refuses_partial_foreign_and_ambiguous_retained_fr
         contributions.append(deepcopy(contributions[0]))
     with pytest.raises(ValueError, match=r"exactly one|actual retained native predicate scope"):
         declared_clause_focus(
-            selection, passage, frame, contributions, canonical, context_policy="adjacent_sentences"
+            contribution_id,
+            passage,
+            frame,
+            contributions,
+            canonical,
+            context_policy="adjacent_sentences",
         )
 
 
 def test_target_clause_inventory_keeps_unknown_frames():
-    from corpus_structure.semantic.declared_structural_references import (
-        DeclaredContributionRef,
-    )
+    from corpus_structure.semantic.data_product_reference import SemanticReference
     from corpus_structure.semantic.structural_products import (
         DeclaredClauseClassificationProduct,
     )
 
-    reference = DeclaredContributionRef(
-        product_id="product:predicates",
-        kind_contract="kind:predicate",
-        project_id="p",
-        subject="native:source",
-        original_source="book",
-        analyzed_scope_meaning="{}",
-        contribution_id="source-contribution:" + "a" * 64,
-        subject_definition="original-source-view",
-    )
+    reference = SemanticReference.member("predicates", "contribution:test-frame").member_value()
     partial = DeclaredClauseClassificationProduct(
         context_policy="exact_focus",
         readings=(),
@@ -299,6 +275,94 @@ def test_target_clause_inventory_keeps_unknown_frames():
         DeclaredClauseClassificationProduct(
             context_policy="exact_focus", readings=(), inspected_frames=(reference,)
         )
+
+
+def test_selected_clause_requires_the_original_predicate_member(monkeypatch):
+    from corpus_structure.semantic import selected_structural_projection
+    from corpus_structure.semantic.data_operation_values import semantic_value
+    from corpus_structure.semantic.data_product_reference import SemanticReference
+    from corpus_structure.semantic.structural_products import DeclaredClauseClassificationProduct
+
+    member_id = "contribution:frame"
+    reference = SemanticReference.member("predicates", member_id)
+    choice = reference.member_value()
+    clause = DeclaredClauseClassificationProduct(
+        context_policy="exact_focus",
+        readings=(),
+        inspection_outcome="partial",
+        inspected_frames=(choice,),
+        unprojectable_frames=(choice,),
+    )
+    report = SimpleNamespace(condition_qualification=None, clause_classification=clause)
+    monkeypatch.setattr(
+        selected_structural_projection,
+        "read_nonrich_root",
+        lambda _model, _selected: SimpleNamespace(structural=report),
+    )
+
+    operation = "structure.clause_classification/declared"
+    target = {
+        "output_role": "result",
+        "path": "/clause_classification/inspected_frames/*",
+        "input_role": "predicates",
+        "variant": "member",
+        "input_kind": "predicates-report",
+    }
+    original = {"role": "predicates", "product_id": "original", "position": 0, "multiplicity": 1}
+    inputs = [original]
+    actual_body = {
+        "candidate_type": "contribution",
+        "component": {"kind": "predicate_frame"},
+        "contribution_id": "frame",
+    }
+    members = {("original", member_id): {"body": semantic_value(actual_body)}}
+    maps = {
+        "ops.demand_use": {
+            "use": {
+                "fate": "fulfilled",
+                "derivation_id": "episode",
+                "selection": {"inputs": inputs},
+            },
+        },
+        "ops.data_derivation": {"episode": {"release_id": "release"}},
+        "sem.data_operation_definition": {
+            ("release", operation): {"support_contract": {"reference_targets": [target]}},
+        },
+        "kb.data_product": {
+            "original": {"project_id": "project", "kind_contract": "kind:predicates"}
+        },
+        "kb.data_product_member": members,
+        "kb.data_product_partition": {},
+        "sem.data_kind_contract": {"kind:predicates": {"kind": target["input_kind"]}},
+    }
+
+    def original_edges(relation, **fields):
+        assert relation == "ops.data_derivation_input"
+        assert fields == {"derivation_id": "episode", "role": "predicates"}
+        return (original,)
+
+    scope = SimpleNamespace(
+        model=object(),
+        cut=SimpleNamespace(record={"project_id": "project"}),
+        index=SimpleNamespace(
+            mapping=lambda relation, _: maps[relation],
+            rows_for=original_edges,
+        ),
+    )
+    selected = SimpleNamespace(
+        operation_id=operation, derivation_id="episode", use_id="use", output={"role": "result"}
+    )
+    assert selected_structural_projection.structural_report(scope, selected) is report
+
+    members["original", member_id]["body"] = semantic_value(
+        {**actual_body, "component": {"kind": "qualification"}}
+    )
+    with pytest.raises(ValueError, match="does not resolve its predicate contribution"):
+        selected_structural_projection.structural_report(scope, selected)
+
+    inputs[0] = {**original, "product_id": "equal-content-substitute"}
+    with pytest.raises(ValueError, match="unavailable in the exact selected use"):
+        selected_structural_projection.structural_report(scope, selected)
 
 
 def test_current_clause_answer_preserves_overlaps_raw_scores_and_exact_focal_scope():

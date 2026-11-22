@@ -31,7 +31,25 @@ class ClauseClassificationOperation:
                 "input_role": "canonical",
                 "variant": "partition-item",
                 "collection": "rows",
-            }
+            },
+            {
+                "output_role": "result",
+                "path": "/clause_classification/readings/*/selection/frame",
+                "input_role": "predicates",
+                "variant": "member",
+            },
+            {
+                "output_role": "result",
+                "path": "/clause_classification/inspected_frames/*",
+                "input_role": "predicates",
+                "variant": "member",
+            },
+            {
+                "output_role": "result",
+                "path": "/clause_classification/unprojectable_frames/*",
+                "input_role": "predicates",
+                "variant": "member",
+            },
         ],
         "roles": [
             {

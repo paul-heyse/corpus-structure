@@ -24,7 +24,11 @@ from .artifact_identity import (
     artifact_nomination_invariants,
     source_artifact_invariants,
 )
-from .data_product_reference import SemanticMemberReference, SemanticPartitionReference
+from .data_product_reference import (
+    SemanticMemberReference,
+    SemanticPartitionReference,
+    read_semantic_reference,
+)
 from .declared_structural_references import (
     DeclaredComponentRef,
     DeclaredContributionRef,
@@ -671,7 +675,7 @@ class DeclaredDefinitionProduct(StructuralValue):
 
 class DeclaredClauseFocusSelection(StructuralValue):
     passage_id: Nonempty
-    frame: DeclaredContributionRef
+    frame: SemanticMemberReference
 
 
 class DeclaredClauseModelReading(StructuralValue):
@@ -697,13 +701,14 @@ class DeclaredClauseClassificationProduct(StructuralValue):
     context_policy: Literal["exact_focus", "adjacent_sentences"]
     readings: tuple[DeclaredClauseModelReading, ...]
     inspection_outcome: Literal["complete", "partial"] = "complete"
-    inspected_frames: tuple[DeclaredContributionRef, ...] = ()
-    unprojectable_frames: tuple[DeclaredContributionRef, ...] = ()
+    inspected_frames: tuple[SemanticMemberReference, ...] = ()
+    unprojectable_frames: tuple[SemanticMemberReference, ...] = ()
 
     @model_validator(mode="after")
     def inspected_closure(self) -> Self:
-        inspected, unavailable = set(self.inspected_frames), set(self.unprojectable_frames)
-        projected = {reading.selection.frame for reading in self.readings}
+        inspected = {read_semantic_reference(ref) for ref in self.inspected_frames}
+        unavailable = {read_semantic_reference(ref) for ref in self.unprojectable_frames}
+        projected = {read_semantic_reference(reading.selection.frame) for reading in self.readings}
         if (
             len(inspected) != len(self.inspected_frames)
             or len(unavailable) != len(self.unprojectable_frames)
@@ -1062,23 +1067,17 @@ def _structural_report_invariants(value: Any) -> Any:
     if value.clause_classification is not None:
         by_id = {p.passage_id: p for p in value.inputs.passages}
         readings = value.clause_classification.readings
-        if any(
-            reference.product_id not in value.inputs.dependencies
-            or reference.contribution_id not in value.inputs.dependencies
-            for reference in value.clause_classification.inspected_frames
-        ):
-            raise ValueError(
-                "clause inspection lacks its actual retained native frame dependencies"
-            )
-        if len({r.selection for r in readings}) != len(readings):
+        if len(
+            {
+                (row.selection.passage_id, read_semantic_reference(row.selection.frame))
+                for row in readings
+            }
+        ) != len(readings):
             raise ValueError("clause classification requires distinct selected focuses")
         for row in readings:
             passage = by_id.get(row.selection.passage_id)
-            if (
-                passage is None
-                or row.selection.frame.contribution_id not in value.inputs.dependencies
-            ):
-                raise ValueError("clause classification lacks its selected source dependency")
+            if passage is None:
+                raise ValueError("clause classification lacks its selected source passage")
             if value.clause_classification.context_policy == "exact_focus" and (
                 row.preceding is not None or row.following is not None
             ):

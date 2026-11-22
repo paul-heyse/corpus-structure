@@ -39,11 +39,11 @@ def structural_report(scope, selected):
     root = read_nonrich_root(scope.model, selected)
     if root.structural is None:
         raise ValueError("selected output has no current structural report contract")
+    from .data_product_reference import read_semantic_reference
+    from .live_reference_resolution import require_selected_output_reference
+
     condition = root.structural.condition_qualification
     if condition is not None:
-        from .data_product_reference import read_semantic_reference
-        from .live_reference_resolution import require_selected_output_reference
-
         attachment = read_semantic_reference(condition.attachment)
         body = require_selected_output_reference(
             scope, selected, attachment, path="/condition_qualification/attachment"
@@ -57,6 +57,26 @@ def structural_report(scope, selected):
             or attachment.member_id != "contribution:" + identifier
         ):
             raise ValueError("selected condition attachment does not resolve its qualification")
+    clause = root.structural.clause_classification
+    if clause is not None:
+        # The report constructor ensures that every focus or unprojectable
+        # frame is in the inspected inventory.
+        for value in clause.inspected_frames:
+            reference = read_semantic_reference(value)
+            body = require_selected_output_reference(
+                scope, selected, reference, path="/clause_classification/inspected_frames/*"
+            )
+            identifier = body.get("contribution_id") if isinstance(body, dict) else None
+            if (
+                not isinstance(body, dict)
+                or body.get("candidate_type") != "contribution"
+                or (body.get("component") or {}).get("kind") != "predicate_frame"
+                or not isinstance(identifier, str)
+                or reference.member_id != "contribution:" + identifier
+            ):
+                raise ValueError(
+                    "selected clause frame does not resolve its predicate contribution"
+                )
     return root.structural
 
 

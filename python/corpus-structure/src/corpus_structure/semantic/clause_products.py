@@ -108,14 +108,14 @@ def canonical_context_rows(header, packets, *, text_length):
     return result
 
 
-def declared_clause_focus(selection, passage, frame, contributions, canonical, *, context_policy):
+def declared_clause_focus(
+    contribution_id, passage, frame, contributions, canonical, *, context_policy
+):
     from .data_product_reference import SemanticReference
     from .sentence_partitions import COLLECTION
     from .structural_products import LocatedDefinitionSpan
 
-    rows = tuple(
-        row for row in contributions if row["contribution_id"] == selection.frame.contribution_id
-    )
+    rows = tuple(row for row in contributions if row["contribution_id"] == contribution_id)
     if len(rows) != 1:
         raise ValueError("clause selection requires exactly one actual retained predicate frame")
     row = rows[0]
@@ -364,9 +364,10 @@ def execute_clause_classification(
     from .contributions import contribution_identity
     from .data_operation_admission import bound_data_operation_model
     from .data_operation_json import json_bytes
+    from .data_product_reference import SemanticReference
     from .declared_candidate_products import candidate_member_values
     from .declared_structural_calls import PreparedStructuralInputs
-    from .declared_structural_references import DeclaredContributionRef, DeclaredStructuralSource
+    from .declared_structural_references import DeclaredStructuralSource
     from .enriched_document_products import RetainedCharacterizationProduct
     from .observations import source_python
     from .structural_products import (
@@ -554,11 +555,16 @@ def execute_clause_classification(
     by_passage = {passage.passage_id: passage for passage in chosen_passages}
     if len(by_passage) != len(chosen_passages):
         raise ValueError("clause projection repeats an authored passage identity")
-    frames = {
-        row["contribution_id"]: row
-        for row in rows
-        if row.get("component", {}).get("kind") == "predicate_frame"
-    }
+    frames = {}
+    for packet in predicate["members"]:
+        row = packet["body"]
+        component = row.get("component") or {}
+        if row["candidate_type"] != "contribution" or component.get("kind") != "predicate_frame":
+            continue
+        identifier = row["contribution_id"]
+        if identifier in frames or packet["member_id"] != "contribution:" + identifier:
+            raise ValueError("clause focus differs from its admitted predicate member address")
+        frames[identifier] = (packet["member_id"], component)
     chosen = tuple(focuses) if focuses else tuple(frames)
     if len(set(chosen)) != len(chosen) or not set(chosen) <= frames.keys():
         raise ValueError(
@@ -568,18 +574,16 @@ def execute_clause_classification(
     (predicate_member,) = profile.members("predicates")
     for identifier in chosen:
         profile.check_active()
-        reference = DeclaredContributionRef.from_bound(
-            predicate_member, project=profile.context.project_id, contribution_id=identifier
-        )
+        member_id, component = frames[identifier]
+        reference = SemanticReference.member("predicates", member_id).member_value()
         inspected.append(reference)
-        component = frames[identifier]["component"]
         passage = by_passage.get(component["scope"])
         if passage is None or component.get("focus_state") != "exact":
             unavailable.append(reference)
             continue
         selection = DeclaredClauseFocusSelection(passage_id=passage.passage_id, frame=reference)
         focus, preceding, following, canonical_references = declared_clause_focus(
-            selection, passage, frame, rows, canonical_rows, context_policy=context_policy
+            identifier, passage, frame, rows, canonical_rows, context_policy=context_policy
         )
         examined = (
             preceding.start if preceding is not None else focus.start,
@@ -627,9 +631,7 @@ def execute_clause_classification(
         sources=(source_ref,),
         passages=chosen_passages,
         dependencies=tuple(
-            dict.fromkeys(
-                [member.product for role in profile.roles for member in role.members] + list(chosen)
-            )
+            dict.fromkeys(member.product for role in profile.roles for member in role.members)
         ),
     )
     result = DeclaredClauseReport(
