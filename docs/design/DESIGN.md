@@ -391,13 +391,13 @@ semantic decoder fallback.
 > Decision: [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md)
 
 **Accepted SBX cutover target · implementation and qualification Proposed · 2026-11-21.**
-Affected derived values are regenerated through the target population, reference and identity
-contracts. Original custody, native publication and current-authority guarantees govern the
-new effects. Retained artifacts keep their dated evidence standing. The
-[SBX series](../plans/set-based-execution_2026-11-21.md) owns this direct cutover and its final
-qualification, with coordinated identity, read and PDF revisions.
+The development cutover through SBX-09 installs a current-model root into an empty database.
+Source custody, native publication and current authority govern new inputs and effects.
+Retained evidence keeps its dated standing. The
+[SBX series](../plans/set-based-execution_2026-11-21.md) owns the cutover, stage installation
+and final qualification.
 
-> Decision: [ADR-0143](../adr/0143-sbx-direct-cutover.md)
+> Decision: [ADR-0150](../adr/0150-sbx-empty-development-cutover.md)
 
 **Accepted kernel-trial target · implementation and qualification Proposed · 2026-11-21.**
 One scoped-relations family is rebuilt through typed set operations under the analytical owner.
@@ -946,7 +946,7 @@ reference carrier resolves role-relative addresses through original derivation i
 explicit product-index and rich-support variants owned by the reference contract. Unknown
 dependencies conservatively widen the premise. [Shared SBX contracts](../plans/set-based-execution_2026-11-21.md#shared-contracts)
 
-> Decision: [ADR-0143](../adr/0143-sbx-direct-cutover.md), [ADR-0144](../adr/0144-sbx-partitioned-products.md), [ADR-0146](../adr/0146-sbx-content-validity.md), [ADR-0148](../adr/0148-sbx-kernel-trial.md)
+> Decision: [ADR-0150](../adr/0150-sbx-empty-development-cutover.md), [ADR-0144](../adr/0144-sbx-partitioned-products.md), [ADR-0146](../adr/0146-sbx-content-validity.md), [ADR-0148](../adr/0148-sbx-kernel-trial.md)
 
 **Accepted validated-carrier target · implementation and qualification Proposed · 2026-11-21.**
 The admitting constructor retains immutable bytes and one frozen interpreted value through the

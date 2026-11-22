@@ -96,13 +96,13 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0140](0140-durable-recovery-and-exact-stop.md) | Recover acknowledged work and stop an exact managed invocation | 2026-11-18 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
 | [ADR-0141](0141-serving-continuation-and-reuse.md) | Separate continuation compatibility from cache reuse | 2026-11-20 | [§B3](../design/DESIGN.md#section-b3) | Proposed | [ADR-0137](0137-serving-code-and-model-custody.md) |
 | [ADR-0142](0142-structured-selected-result-delivery.md) | Deliver selected results as bounded structured JSON | 2026-11-20 | [§B3](../design/DESIGN.md#section-b3) | Proposed |  |
-| [ADR-0143](0143-sbx-direct-cutover.md) | Regenerate derived data at the set-based cutover | 2026-11-21 | [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0144](0144-sbx-partitioned-products.md) | Store homogeneous populations as declared partitions | 2026-11-21 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0145](0145-sbx-custody-boundary.md) | Carry validation between unchanged custody boundaries | 2026-11-21 | [§B5](../design/DESIGN.md#section-b5), [§B6](../design/DESIGN.md#section-b6) | Proposed |  |
 | [ADR-0146](0146-sbx-content-validity.md) | Key validity by rule and evaluated content | 2026-11-21 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0147](0147-sbx-owner-resolved-reads.md) | Resolve online reads at the native disclosure owner | 2026-11-21 | [§B3](../design/DESIGN.md#section-b3), [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
 | [ADR-0148](0148-sbx-kernel-trial.md) | Trial set operations on one kernel family | 2026-11-21 | [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0149](0149-contextual-requests-and-projected-computation.md) | Keep contextual custody separate from projected computation and delivery | 2026-11-21 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0100](0100-ddo-contextual-identities.md) |
+| [ADR-0150](0150-sbx-empty-development-cutover.md) | Start SBX development from an empty current-model database | 2026-11-21 | [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed | ADR-0143 |
 
 ## Superseded, still in the tree
 

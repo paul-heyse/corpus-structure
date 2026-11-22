@@ -14,9 +14,10 @@ Design changes are **Proposed** unless marked accepted. Implementation and measu
 carry their own evidence and dates. `cs/` means `python/corpus-structure/src/corpus_structure/`.
 
 **Framing (operator, 2026-11-21).** This is a hard pivot in the design phase. The series goes
-directly to the target design and validates it once. There is no compatibility layer, no dual
-shape and no preserved identity; all derived data is regenerated. Existing plan series are not
-edited by this series and will be superseded separately.
+directly to the target design with one active representation and execution path. Through SBX-09,
+discard the old development data and install the cutover in an empty database. Qualify with
+fresh fixtures. Migration and regeneration of discarded data are outside this cutover. Stage
+installation remains with SBX-20. [Development reset](set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09)
 
 ## Outcome
 
@@ -54,7 +55,7 @@ dependent work.
 
 | Change | Decision | Route |
 |---|---|---|
-| Direct cutover: regenerate, no compatibility, no preserved identities | Accepted | ADR (cutover policy for this series) |
+| Direct cutover to an empty development database with one current shape | Accepted | [ADR-0150](../adr/0150-sbx-empty-development-cutover.md) |
 | Product body and identity: populations stored once and validated as sets; derived addresses | Accepted | ADR; native revision A |
 | Custody mechanisms simplified, ends kept | Accepted | ADR; edits to the stated custody comments with the code |
 | Proof of validity generalized | Accepted | ADR; native revision A |
@@ -104,7 +105,7 @@ Each contract has one owning document. Other documents link to it and do not res
 | Validated carrier, single constructor, verification bracket | [Validated values and hand-off](set-based-execution/validated-values-and-handoff.md) |
 | Read programs, answer shapes and freshness disclosure, replay relations, cursor, cache key | [Owner-resolved reads](set-based-execution/owner-resolved-reads.md) |
 | PDF rebuild, access derivation, verified carriers, build identifier | [The PDF path](set-based-execution/pdf-path.md) |
-| Early integration, native revisions, regeneration order, shared scenarios, assembled evidence | [Cutover and qualification](set-based-execution/cutover-and-qualification.md) |
+| Early integration, development reset, native revisions, shared scenarios, assembled evidence | [Cutover and qualification](set-based-execution/cutover-and-qualification.md) |
 
 ## The design in one page
 
@@ -183,7 +184,7 @@ capability consumed.
 | SBX-17 | Certification without round trips; typed validation capture; logical rows by column | SBX-16 | [PDF](set-based-execution/pdf-path.md#sbx-17) |
 | SBX-18 | Analytical fidelity rules, worker-lifetime connection, isolated job resources and cleanup | — | [KT](set-based-execution/kernel-trial.md#sbx-18) |
 | SBX-19 | Scoped relations rebuilt as set operations; recorded decision on other families | SBX-18, SBX-08, SBX-05 | [KT](set-based-execution/kernel-trial.md#sbx-19) |
-| SBX-20 | Native revisions A, B and C registered after predecessor comparisons; regeneration in order | packages they carry | [CQ](set-based-execution/cutover-and-qualification.md#sbx-20) |
+| SBX-20 | Native revisions A, B and C registered after applicable comparisons and installed on stage | packages they carry | [CQ](set-based-execution/cutover-and-qualification.md#sbx-20) |
 | SBX-21 | Retirement sweep, including superseded readiness watermarks and sweeps | replacement paths and migrated consumers | [CQ](set-based-execution/cutover-and-qualification.md#sbx-21) |
 | SBX-22 | Final-source qualification, including the shared change scenarios | SBX-20, SBX-21 | [CQ](set-based-execution/cutover-and-qualification.md#sbx-22) |
 
@@ -201,7 +202,7 @@ capability consumed.
    Agree the freshness interface with SBX-06 during that work and integrate it when native
    coverage is runnable. Register B after A.
 3. *PDF strand, revision C:* SBX-14 to SBX-17 can develop alongside the other strands. Candidate
-   comparisons account for shared installed effects, and final regeneration begins with the PDF products.
+   comparisons account for shared installed effects, and fresh qualification starts with PDF capture.
 
 SBX-07 follows the runnable identity and population contracts. The kernel trial follows its
 own input, carrier and reference dependencies. SBX-20 to SBX-22 close the series.
@@ -215,8 +216,8 @@ re-keys all proofs).
 <a id="sbx-00"></a>
 ## SBX-00 — Decisions, entry checks and baseline
 
-**Decisions recorded · 2026-11-21.** ADR-0143 through ADR-0148 record the accepted targets and
-their governing design sections. The focused
+**Decisions recorded · 2026-11-21.** ADR-0144 through ADR-0148 and ADR-0150 record the accepted
+targets and their governing design sections. The focused
 [Revision A target review](../design_review/reviews/design_review_sbx-revision-a-identity-and-authority_2026-11-21.md)
 set the acceptance for F01–F04. It separated content from placement and ordering, required
 parent authority before fetching partition bodies, and distinguished current-use selection
@@ -350,7 +351,7 @@ interest and explicit effect authority.
 ## Completion
 
 The series is complete when revision A, B and C are registered and deployed on the stage target;
-the retained book is regenerated through the new path; SBX-22's assembled evidence is recorded,
+the whole-book qualification input runs through the new path; SBX-22's assembled evidence is recorded,
 including the [shared change scenarios](set-based-execution/cutover-and-qualification.md#change-scenarios)
 and the applicable native propagation and read coverage;
 superseded machinery and its mechanism-specific tests are gone, with independent semantic

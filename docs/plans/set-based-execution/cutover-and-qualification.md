@@ -13,15 +13,29 @@ owns current package state and review dispositions.
 
 ## Cutover policy
 
-Direct cutover (operator, 2026-11-21). No compatibility layer and no dual shapes. Products of
-every changed kind are regenerated through the new path; retained products of the old shapes are
-not read by the new code. Data is regenerable, and the cost of the pivot is regeneration and one
-qualification.
+The operator authorized an empty development database for the hard cutover through SBX-09
+on 2026-11-21. Discard the old development data, including source and derived rows. Work on
+clean native targets with new fixtures and delete superseded runtime paths as their replacements
+land. Development acceptance requires no data migration, restore, backfill or regeneration.
+Stage installation belongs to [SBX-20](#sbx-20).
 
 **Testing during development** follows the repository's rule: compile checks and targeted
-functional tests for the scope just implemented, no integrated gate after a slice. Native
-candidates are authored against the working database with rollback-only authoring until a
-revision is registered.
+functional tests for the scope just implemented. For this cutover, author a cold root from
+the integrated source against an empty authoring target on the dedicated PostgreSQL cluster.
+
+### Development reset through SBX-09
+
+1. Complete the packages through SBX-09 and run the ordinary executor against newly created
+   native fixtures. Verify committed propagation, current binding and recovery through the
+   acceptance scenarios owned by [SBX-06](references-and-projection-keys.md#sbx-06), then verify
+   the canonical partition memo, validated carriers and execution brackets on the same source.
+2. Preview, author and inspect `semantic_sbx_current_root` with no native predecessor. Register
+   the new root and retire the superseded active development migration chain. Install the
+   registered root cold on a fresh target and verify descriptor, roles and ordinary execution.
+3. Confirm the dedicated cluster and exact `corpus_structure_dev` database identity, drain its
+   writers, and drop and recreate that database at the registered root. Verify the new database
+   identity, native revision, roles and empty application relations. Stage stays on its installed
+   revision until SBX-20.
 
 Keep one authentic cross-boundary producer, publication and export journey. Reader-only checks
 can consume its authenticated artifacts while their producer, prepared release, wire and authority
@@ -134,12 +148,12 @@ two executor collaborator failures against fixtures that use the older preparati
 (`59f7534a27d848d88e07b031de4bb3b9`).
 
 These results establish the early partition, proof and reference path for the tested chain.
-SBX-20 owns the single registered Revision A cutover and SBX-22 the assembled required union.
+The development reset above establishes the fresh SBX-09 baseline. SBX-20 owns stage installation
+and SBX-22 owns the assembled required union.
 [Review I05](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I05)
 
 **Next early slice · Proposed.** Extend the same annotation-to-canonical chain after the
-relevant SBX-03–05 contracts are runnable. Settle the SBX-06 identity decision before changing
-native keys. In a rollback-only Revision A candidate, drive a governed commit through native
+relevant SBX-03–05 contracts are runnable. On a fresh target, drive a governed commit through native
 delivery, current binding and settlement. Check that an unread lexical edit preserves canonical
 computation and that a materially changed producer can settle an equal declared output with no
 downstream attempt. Contrast the local-geometry case with a moved block whose observed placement
@@ -190,13 +204,13 @@ and request identity effects in each case.
 and re-key everything downstream again, and outstanding receipts would be invalidated repeatedly.
 
 <a id="sbx-20"></a>
-## SBX-20 — Register the revisions and regenerate
+## SBX-20 — Register the revisions and install stage
 
-**Order of regeneration.** PDF capture and publication under revision C; then the operation
-chains under A in dependency order, each product admitted with its partitions and proofs;
-reads and exports under B. Recreate the retained book's project binding and establish coverage
-for the newly governed selection from the regenerated facts. A newly selected scope needs an
-established position before a current read can report it as settled.
+**Order for fresh qualification inputs.** Start with PDF capture and publication under
+revision C, then exercise the operation chains under A in dependency order, each product admitted
+with its partitions and proofs. Exercise reads and exports under B. Establish coverage for the
+newly governed selection from those facts. A newly selected scope needs an established position
+before a current read can report it as settled.
 
 **Checks at each registration.** The repository's native candidate comparison accounts for direct
 and shared changes against the exact predecessor. The release prepares under the new kernel,
@@ -211,7 +225,7 @@ one export with verification for B; one document's capture, publication, validat
 recovery for C). Reuse applicable authentic artifacts for reader-only checks under the testing
 policy above. Establish same-target interruption recovery for the registered transition. A
 rollback-only candidate establishes its captured authoring and validation scope.
-Registration, application admission and regenerated production results require their own managed
+Registration, application admission and fresh production results require their own managed
 receipts.
 
 For A, include a committed change and a native settlement or recoverable pending outcome on
