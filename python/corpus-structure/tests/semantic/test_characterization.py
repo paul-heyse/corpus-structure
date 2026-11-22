@@ -395,7 +395,7 @@ def test_synthetic_boundary_is_distinct_from_empty_literal_source(graph_source):
     )
     for term in body["terms"]:
         term["occurrences"] = [body["occurrences"][0]["local_id"]]
-    with pytest.raises(ValueError, match=r"nonempty|literal"):
+    with pytest.raises(ValueError, match="changes original positioned source"):
         current_product(graph_source, body)
 
 

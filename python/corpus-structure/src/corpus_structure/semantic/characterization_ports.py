@@ -115,6 +115,16 @@ def _execution_custody() -> SourceArtifact:
     )
 
 
+def _geometry_runtime() -> SourceArtifact:
+    from .external_runtime import acquire_bisect_runtime
+    from .native_source_view import bisect_left
+
+    runtime = acquire_bisect_runtime()
+    if dict(runtime.symbols)["bisect.bisect_left"] is not bisect_left:
+        raise ValueError("positioned source checker differs from its acquired native search")
+    return SourceArtifact("characterization/source-geometry-runtime", bytes.fromhex(runtime.digest))
+
+
 def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
     path = Path(__file__)
     sources = (
@@ -125,13 +135,18 @@ def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
         sources += (
             ("semantic.construction_products", path.with_name("construction_products.py")),
             ("semantic.source_products", path.with_name("source_products.py")),
+            ("semantic.native_source_view", path.with_name("native_source_view.py")),
         )
     return PythonSourceCollection(
         tuple(
             PythonSource("corpus_structure." + name, file.read_bytes(), str(file))
             for name, file in sources
         ),
-        boundary_contracts=(_semantic_assets(profile), _execution_custody()),
+        boundary_contracts=(
+            _semantic_assets(profile),
+            _execution_custody(),
+            *(() if profile == "view" else (_geometry_runtime(),)),
+        ),
     )
 
 
@@ -415,6 +430,7 @@ class PreparedCharacterizationPort(ABC):
             from .construction_products import (
                 verify_interpreted_body_coverage,
                 verify_interpreted_literal_source,
+                verify_interpreted_positioned_geometry,
                 verify_interpreted_source_coverage,
             )
 
@@ -429,12 +445,14 @@ class PreparedCharacterizationPort(ABC):
                     verify_interpreted_body_coverage,
                 ),
                 (
+                    "corpus_structure.semantic.construction_products.verify_interpreted_positioned_geometry",
+                    verify_interpreted_positioned_geometry,
+                ),
+                (
                     "corpus_structure.semantic.construction_products.verify_interpreted_source_coverage",
                     verify_interpreted_source_coverage,
                 ),
             )
-        semantic = _semantic_assets(self.family)
-        transport = _execution_custody()
         required = self.operation_sources(
             include_dependencies=False,
             **(
@@ -443,16 +461,16 @@ class PreparedCharacterizationPort(ABC):
                 else {}
             ),
         )
-        assets = (semantic, transport)
-        if self.family == "construction":
-            assets = (*assets, construction_configuration(self.construction_options()))
+        assets = {asset.name: asset for asset in required.boundary_contracts}
+        semantic = assets["characterization/" + self.family + "-assets"]
+        transport = assets["characterization/execution-custody"]
         verify_prepared_product(
             self.identity,
             self.model,
             self.operation,
             self.sources,
             self.custody,
-            assets=assets,
+            assets=required.boundary_contracts,
             functions=functions,
             authorize=self.authorize,
             required_sources=required,
@@ -806,6 +824,9 @@ class PreparedCharacterizationPort(ABC):
                     "source": (RuleObservedInput(source.value),)
                 },
                 "corpus_structure.semantic.construction_products.verify_interpreted_body_coverage": None,
+                "corpus_structure.semantic.construction_products.verify_interpreted_positioned_geometry": {
+                    "source": (RuleObservedInput(source.value),)
+                },
                 "corpus_structure.semantic.construction_products.verify_interpreted_source_coverage": {
                     "source": (RuleObservedInput(source.value),)
                 },

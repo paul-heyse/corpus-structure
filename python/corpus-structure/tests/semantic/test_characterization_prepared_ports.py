@@ -552,6 +552,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired)
         PreparedConstructionProfile,
         PreparedContextualProfile,
         verify_interpreted_literal_source,
+        verify_interpreted_positioned_geometry,
         verify_interpreted_source_coverage,
     )
 
@@ -585,7 +586,8 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired)
         prefix = operation.partition("/")[0]
         coverage_rule = prefix + "/body-coverage"
         selected_rule = prefix + "/selected-source-coverage"
-        assert set(proofs) == {required, coverage_rule, selected_rule}
+        geometry_rule = prefix + "/positioned-source-geometry"
+        assert set(proofs) == {required, coverage_rule, selected_rule, geometry_rule}
         assert all(proof.output_role == "result" for proof in proofs.values())
         assert all(proof.output_position == 0 for proof in proofs.values())
 
@@ -598,12 +600,14 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired)
         assert changed_proofs[coverage_rule].premise == proofs[coverage_rule].premise
         assert changed_proofs[required].premise != proofs[required].premise
         assert changed_proofs[selected_rule].premise != proofs[selected_rule].premise
+        assert changed_proofs[geometry_rule].premise != proofs[geometry_rule].premise
 
     consumer = model.operation("text.contextual_evaluation/source-native")
     (role,) = (role for role in consumer.roles if role.name == "constructions")
     assert role.required_rules == (
         "text.constructions/body-coverage",
         "text.constructions/literal-source",
+        "text.constructions/positioned-source-geometry",
         "text.constructions/selected-source-coverage",
     )
     (reference_target,) = model.operation("text.constructions/source-native").reference_targets
@@ -639,6 +643,20 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired)
     verify_interpreted_source_coverage((covered,), source.value)
     with pytest.raises(ValueError, match="leaves eligible source scope unexamined"):
         verify_interpreted_source_coverage(({**covered, "examined": ()},), source.value)
+
+    extent = {
+        "projection": source.value["source"]["projection"],
+        "native_pointer": "#/texts/0",
+        "start": 0,
+        "end": 3,
+        "text": "All",
+        "synthetic": False,
+    }
+    packet = {"body": {"record_type": "occurrence", "extents": [extent]}}
+    verify_interpreted_positioned_geometry((packet,), source.value)
+    extent["synthetic"] = True
+    with pytest.raises(ValueError, match="changes original positioned source"):
+        verify_interpreted_positioned_geometry((packet,), source.value)
 
 
 def test_primary_support_uses_real_annotation_rows_and_preserves_formal_premises():

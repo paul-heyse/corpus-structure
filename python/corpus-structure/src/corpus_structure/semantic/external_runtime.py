@@ -65,66 +65,69 @@ _PROFILES = (
 
 def acquire_codec_runtime() -> tuple[ExternalRuntime, ...]:
     """Acquire the selected finite CPython and RapidJSON native API profiles."""
-    result = []
-    for public_name, native_name, names, constants in _PROFILES:
-        public = importlib.import_module(public_name)
-        native = importlib.import_module(native_name)
-        captured = []
-        modules = tuple(dict(((public_name, public), (native_name, native))).items())
-        paths = {Path(sys.executable).resolve()}
-        for name, module in modules:
-            spec = module.__spec__
-            if spec is None or spec.name != name:
-                raise ValueError("external codec module has no original import specification")
-            if spec.origin not in {"built-in", "frozen"}:
-                if spec.origin is None or module.__file__ is None:
-                    raise ValueError("external codec module has no original file")
-                origin = Path(spec.origin).resolve()
-                if Path(module.__file__).resolve() != origin:
-                    raise ValueError("external codec module origin differs: " + name)
-                paths.add(origin)
-        for name in names:
-            native_symbol = "openssl_sha256" if public_name == "hashlib" else name
-            value = getattr(native, native_symbol)
-            if getattr(public, name) is not value:
-                raise ValueError(
-                    "external codec wrapper binding differs: " + public_name + "." + name
-                )
-            if inspect.isbuiltin(value):
-                if value.__self__ is not native or value.__name__ != native_symbol:
-                    raise ValueError("external codec native callable differs: " + name)
-            elif isinstance(value, type):
-                if not value.__flags__ & (1 << 8) or value.__name__ != name:
-                    raise ValueError("external codec type is not an immutable native type")
-            elif public_name != "datetime" or name != "UTC" or value is not native.timezone.utc:
-                raise ValueError("unsupported external codec symbol: " + name)
-            captured.extend(
-                dict(
-                    ((public_name + "." + name, value), (native_name + "." + native_symbol, value))
-                ).items()
-            )
-        for name, expected in constants:
-            value = getattr(public, name)
-            if type(value) is not int or value != expected:
-                raise ValueError("external codec constant differs: " + name)
-            captured.append((public_name + "." + name, value))
-        files = tuple(observed_file(path) for path in sorted(paths))
-        payload = dict(
-            profile="native-codec-api-v1",
-            module=public_name,
-            symbols=[name for name, _ in captured],
-            constants=constants,
-            python=sys.version,
-            files=[(str(file.path), file.digest) for file in files],
+    return (*(_acquire_native_api(*profile) for profile in _PROFILES), _base64_runtime())
+
+
+def acquire_bisect_runtime() -> ExternalRuntime:
+    """Own the native ordered search used by positioned source checking."""
+    return _acquire_native_api("bisect", "_bisect", ("bisect_left",), ())
+
+
+def _acquire_native_api(public_name, native_name, names, constants):
+    public = importlib.import_module(public_name)
+    native = importlib.import_module(native_name)
+    captured = []
+    modules = tuple(dict(((public_name, public), (native_name, native))).items())
+    paths = {Path(sys.executable).resolve()}
+    for name, module in modules:
+        spec = module.__spec__
+        if spec is None or spec.name != name:
+            raise ValueError("external codec module has no original import specification")
+        if spec.origin not in {"built-in", "frozen"}:
+            if spec.origin is None or module.__file__ is None:
+                raise ValueError("external codec module has no original file")
+            origin = Path(spec.origin).resolve()
+            if Path(module.__file__).resolve() != origin:
+                raise ValueError("external codec module origin differs: " + name)
+            paths.add(origin)
+    for name in names:
+        native_symbol = "openssl_sha256" if public_name == "hashlib" else name
+        value = getattr(native, native_symbol)
+        if getattr(public, name) is not value:
+            raise ValueError("external codec wrapper binding differs: " + public_name + "." + name)
+        if inspect.isbuiltin(value):
+            if value.__self__ is not native or value.__name__ != native_symbol:
+                raise ValueError("external codec native callable differs: " + name)
+        elif isinstance(value, type):
+            if not value.__flags__ & (1 << 8) or value.__name__ != name:
+                raise ValueError("external codec type is not an immutable native type")
+        elif public_name != "datetime" or name != "UTC" or value is not native.timezone.utc:
+            raise ValueError("unsupported external codec symbol: " + name)
+        captured.extend(
+            dict(
+                ((public_name + "." + name, value), (native_name + "." + native_symbol, value))
+            ).items()
         )
-        digest = sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
-        capability = ExternalRuntime(
-            public_name, "native-codec-api-v1", digest, tuple(captured), modules, files
-        )
-        capability.check()
-        result.append(capability)
-    result.append(_base64_runtime())
-    return tuple(result)
+    for name, expected in constants:
+        value = getattr(public, name)
+        if type(value) is not int or value != expected:
+            raise ValueError("external codec constant differs: " + name)
+        captured.append((public_name + "." + name, value))
+    files = tuple(observed_file(path) for path in sorted(paths))
+    payload = dict(
+        profile="native-codec-api-v1",
+        module=public_name,
+        symbols=[name for name, _ in captured],
+        constants=constants,
+        python=sys.version,
+        files=[(str(file.path), file.digest) for file in files],
+    )
+    digest = sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+    capability = ExternalRuntime(
+        public_name, "native-codec-api-v1", digest, tuple(captured), modules, files
+    )
+    capability.check()
+    return capability
 
 
 def _verify_base64(module, native):

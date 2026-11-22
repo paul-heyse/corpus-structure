@@ -18,9 +18,11 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
+from corpus_structure.semantic.native_source_view import matches_positioned_source_extent
 from corpus_structure.semantic.source_products import (
     native_selected_ranges,
     native_selected_unprojected_atoms,
+    native_selector_covers_extent,
     native_selector_facts,
 )
 
@@ -56,7 +58,6 @@ from .sentence_products import (
 )
 from .source_products import (
     FrozenNativeSource,
-    source_extent_selected,
     source_subject,
 )
 from .types import PreparedRelease, SourceArtifact, SourceBundle
@@ -896,6 +897,30 @@ def verify_interpreted_source_coverage(coverage, source):
             raise ValueError("complete or empty family leaves eligible source scope unexamined")
 
 
+def verify_interpreted_positioned_geometry(packets, source):
+    """Bind occurrence geometry to the exact selected extents, pointers and piece placement."""
+    parents, pages = native_selector_facts(source["items"], source["ancestors"])
+    projection = source["source"]["projection"]
+    limit = len(source["text"])
+    pieces = source["pieces"]
+    ends = tuple(piece["end"] for piece in pieces)
+    native = tuple(piece for piece in pieces if piece["kind"] == "native_text")
+    native_ends = tuple(piece["end"] for piece in native)
+    for packet in packets:
+        body = packet["body"]
+        if body["record_type"] != "occurrence":
+            continue
+        for extent in body["extents"]:
+            if (
+                extent["projection"] != projection
+                or not native_selector_covers_extent(
+                    parents, pages, source["selectors"], extent, limit
+                )
+                or not matches_positioned_source_extent(pieces, ends, native, native_ends, extent)
+            ):
+                raise ValueError("construction occurrence changes original positioned source")
+
+
 def validate_interpreted_product(
     prepared,
     model,
@@ -935,15 +960,10 @@ def validate_interpreted_product(
             raise ValueError("construction packet changes admitted nominal meaning or identity")
     indexes = {name: {row["local_id"]: row for row in rows} for name, rows in inventory.items()}
     choices = {address: group for address, (group, _) in alternatives.items()}
-    selector_index = source.selector_index()
     for occurrence in inventory["occurrences"]:
         if occurrence["local_id"] != occurrence_id(selected["source"], occurrence["extents"]):
             raise ValueError("construction occurrence changes original source identity")
-        for extent in occurrence["extents"]:
-            if not source_extent_selected(
-                selected, extent, selector_index=selector_index
-            ) or not source.view.matches_occurrence_extent(extent):
-                raise ValueError("construction occurrence changes original positioned source")
+    verify_interpreted_positioned_geometry(packets, selected)
     dependencies = {product_id: json.loads(content) for product_id, content in selected_products}
     external = {
         (product_id, packet["member_id"]): packet["body"]

@@ -274,17 +274,6 @@ def native_selected_ranges(value, selectors, parents, pages, *, include_unknown=
     return tuple(merged)
 
 
-def selected_source_unprojected_atoms(value, selectors, *, selector_index, include_unknown=False):
-    """Preserve selected formula atoms without projected characters."""
-    return native_selected_unprojected_atoms(
-        value,
-        selectors,
-        selector_index.parents,
-        selector_index.pages,
-        include_unknown=include_unknown,
-    )
-
-
 def native_selected_unprojected_atoms(value, selectors, parents, pages, *, include_unknown=False):
     """Lower whole-source selectors to exact original unprojected formula atoms."""
     projected = {piece["item_ref"] for piece in value["pieces"] if piece["kind"] == "native_text"}
@@ -310,18 +299,6 @@ def native_selected_unprojected_atoms(value, selectors, parents, pages, *, inclu
             ):
                 selected |= {pointer}
     return frozenset(selected)
-
-
-def source_extent_selected(value, extent, *, selector_index):
-    """A positioned native-piece extent stays within one actual frozen selector."""
-    pointer = extent["native_pointer"]
-    if pointer not in selector_index.selected:
-        return False
-    if extent["projection"] != value["source"]["projection"]:
-        return False
-    return native_selector_covers_extent(
-        selector_index.parents, selector_index.pages, value["selectors"], extent, len(value["text"])
-    )
 
 
 def _projection_body(

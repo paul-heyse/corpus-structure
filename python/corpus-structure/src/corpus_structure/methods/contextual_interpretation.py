@@ -20,6 +20,28 @@ class ContextualEvaluationOperation:
         "id": "text.contextual_evaluation/source-native",
         "rules": [
             {
+                "id": "text.contextual_evaluation/positioned-source-geometry",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualMeaningProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.contextual_evaluation/source-native",
+                "checker_callable": "corpus_structure.semantic.construction_products.verify_interpreted_positioned_geometry",
+                "parameters": {
+                    "paths": ["members"],
+                    "input_reads": {
+                        "source": [
+                            "source.projection",
+                            "selectors",
+                            "text",
+                            "items",
+                            "ancestors",
+                            "pieces",
+                        ]
+                    },
+                },
+            },
+            {
                 "id": "text.contextual_evaluation/selected-source-coverage",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualMeaningProduct",
                 "scope": "product",
@@ -118,6 +140,7 @@ class ContextualEvaluationOperation:
                     "text.constructions/body-coverage",
                     "text.constructions/selected-source-coverage",
                     "text.constructions/literal-source",
+                    "text.constructions/positioned-source-geometry",
                 ],
                 "minimum": 1,
                 "maximum": None,
@@ -194,6 +217,11 @@ class ContextualEvaluationOperation:
             ],
         },
         "opaque": [
+            {
+                "reference": "bisect.bisect_left",
+                "contract": "characterization/source-geometry-runtime",
+                "role": "native-codec",
+            },
             {
                 "reference": (
                     "corpus_structure.semantic.characterization_ports.execute_contextual_profile"

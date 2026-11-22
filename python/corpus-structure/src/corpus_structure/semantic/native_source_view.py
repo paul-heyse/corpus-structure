@@ -51,6 +51,27 @@ def thaw_native(value: Any) -> Any:
     return value
 
 
+def matches_positioned_source_extent(pieces, ends, native_pieces, native_ends, extent):
+    """Match an extent to the exact retained piece and its original native pointer."""
+    start, end = extent["start"], extent["end"]
+    index = int(bisect_left(ends, end))
+    if index == len(pieces):
+        return False
+    piece = pieces[index]
+    if not piece["start"] <= start <= end <= piece["end"]:
+        return False
+    if "item_ref" in piece and piece["item_ref"] is not None:
+        pointer = piece["item_ref"]
+    else:
+        nearest = int(bisect_left(native_ends, start))
+        if nearest == len(native_pieces):
+            return False
+        pointer = native_pieces[nearest]["item_ref"]
+    return extent["native_pointer"] == pointer and extent["synthetic"] == (
+        start == end or piece["kind"] != "native_text"
+    )
+
+
 @dataclass(frozen=True)
 class NativeSourceView:
     """One authenticated projection; never a cross-request authority cache."""
@@ -196,21 +217,8 @@ class NativeSourceView:
 
     def matches_occurrence_extent(self, extent: Mapping[str, Any]) -> bool:
         """Match construction coordinates to one retained projection piece."""
-        start, end = extent["start"], extent["end"]
-        index = bisect_left(self.ends, end)
-        if index == len(self.pieces):
-            return False
-        piece = self.pieces[index]
-        if not piece["start"] <= start <= end <= piece["end"]:
-            return False
-        pointer = piece.get("item_ref")
-        if pointer is None:
-            nearest = bisect_left(self.native_ends, start)
-            if nearest == len(self.native_pieces):
-                return False
-            pointer = self.native_pieces[nearest]["item_ref"]
-        return extent["native_pointer"] == pointer and extent["synthetic"] == (
-            start == end or piece["kind"] != "native_text"
+        return matches_positioned_source_extent(
+            self.pieces, self.ends, self.native_pieces, self.native_ends, extent
         )
 
     def native_gap(self, start: int, end: int) -> bool:

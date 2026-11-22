@@ -17,6 +17,28 @@ class ConstructionOperation:
         "id": "text.constructions/source-native",
         "rules": [
             {
+                "id": "text.constructions/positioned-source-geometry",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.constructions/source-native",
+                "checker_callable": "corpus_structure.semantic.construction_products.verify_interpreted_positioned_geometry",
+                "parameters": {
+                    "paths": ["members"],
+                    "input_reads": {
+                        "source": [
+                            "source.projection",
+                            "selectors",
+                            "text",
+                            "items",
+                            "ancestors",
+                            "pieces",
+                        ]
+                    },
+                },
+            },
+            {
                 "id": "text.constructions/selected-source-coverage",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
                 "scope": "product",
@@ -192,6 +214,11 @@ class ConstructionOperation:
             ],
         },
         "opaque": [
+            {
+                "reference": "bisect.bisect_left",
+                "contract": "characterization/source-geometry-runtime",
+                "role": "native-codec",
+            },
             {
                 "reference": (
                     "corpus_structure.semantic.characterization_ports.execute_construction_profile"
