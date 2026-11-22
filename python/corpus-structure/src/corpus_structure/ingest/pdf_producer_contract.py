@@ -29,6 +29,7 @@ STANDARD_MODULES = (
     "core/work",
     "semantic/file_custody",
     "semantic/identity",
+    "semantic/data_operation_json",
     "semantic/correction_detail",
     "semantic/value_codec",
     "semantic/value_codec_core",

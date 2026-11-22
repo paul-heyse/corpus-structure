@@ -94,13 +94,16 @@ def test_selected_population_wakes_only_exact_waiter(commit_db_engine, tmp_path)
     }
 
 
-@pytest.mark.parametrize("complete,values,minimum,expected", [
-    (False, (), 1, "pending"),
-    (True, (), 1, "unavailable"),
-    (True, (5,), 1, "unavailable"),
-    (True, (15,), 2, "unavailable"),
-    (True, (), 0, "settled"),
-])
+@pytest.mark.parametrize(
+    "complete,values,minimum,expected",
+    [
+        (False, (), 1, "pending"),
+        (True, (), 1, "unavailable"),
+        (True, (5,), 1, "unavailable"),
+        (True, (15,), 2, "unavailable"),
+        (True, (), 0, "settled"),
+    ],
+)
 def test_native_closed_population_decision_preserves_pending_and_min_zero(
     commit_db_engine, native_settings, tmp_path, complete, values, minimum, expected
 ):
@@ -109,17 +112,29 @@ def test_native_closed_population_decision_preserves_pending_and_min_zero(
     declarations = json.loads(POPULATION.declaration_content)
     consumer = next(row for row in declarations["operations"] if row["id"] == "urn:consumer")
     next(role for role in consumer["roles"] if role["name"] == "items")["minimum"] = minimum
-    recipe = replace(POPULATION, name="bounded-population-decision",
-                     declaration_content=canonical_bytes(declarations))
+    if minimum == 0:
+        next(role for role in consumer["roles"] if role["name"] == "items")["presence"] = "optional"
+    recipe = replace(
+        POPULATION,
+        name="bounded-population-decision",
+        declaration_content=canonical_bytes(declarations),
+    )
     prepared = prepare_kernel(recipe, directory=tmp_path / "population-decision")
     with commit_db_engine.begin() as connection:
         kernel = admit_kernel(connection, recipe, engine=commit_db_engine, preparation=prepared)
     demand, selected, _ = discover(kernel, complete=complete, values=values)
     with commit_db_engine.begin() as connection:
-        advance_demand_selection(connection, "ddo-test", "population-decision", demand["demand_id"],
-                                 expected_demand_id=None, expected_generation=0)
+        advance_demand_selection(
+            connection,
+            "ddo-test",
+            "population-decision",
+            demand["demand_id"],
+            expected_demand_id=None,
+            expected_generation=0,
+        )
     writer = principal_engine(native_settings, "write", commit_db_engine.url.database)
     try:
+
         def resume():
             with writer.begin() as connection:
                 return DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(
@@ -128,10 +143,16 @@ def test_native_closed_population_decision_preserves_pending_and_min_zero(
 
         def ready(page):
             with writer.begin() as connection:
-                return DemandPlanner(kernel.model, DataOperationStorage(connection)).ready(page, authorization=b"{}")
+                return DemandPlanner(kernel.model, DataOperationStorage(connection)).ready(
+                    page, authorization=b"{}"
+                )
 
         def target(page):
-            return next(row for row in page["obligations"] if row["obligation_id"] == selected["obligation_id"])
+            return next(
+                row
+                for row in page["obligations"]
+                if row["obligation_id"] == selected["obligation_id"]
+            )
 
         before = resume()
         assert target(before)["binding_unavailable"] is False
@@ -164,6 +185,11 @@ def test_native_closed_population_decision_preserves_pending_and_min_zero(
         elif expected == "pending":
             assert target(final)["binding_unavailable"] is False and scope["pending_count"] >= 1
         else:
-            assert scope["unavailable_count"] == scope["pending_count"] == scope["uncovered_count"] == 0
+            assert (
+                scope["unavailable_count"]
+                == scope["pending_count"]
+                == scope["uncovered_count"]
+                == 0
+            )
     finally:
         writer.dispose()

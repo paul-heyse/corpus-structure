@@ -349,8 +349,10 @@ def test_retained_linguistic_roles_join_action_to_its_real_scoped_artifact():
     assert links["uses_artifact"][1]["text"] == "Table 5.1"
     from pathlib import Path
 
-    from corpus_structure.semantic.contribution_input_references import split_contribution_evidence
-    from corpus_structure.semantic.contributions import bind_contributions
+    from corpus_structure.semantic.contributions import (
+        bind_contributions,
+        split_contribution_evidence,
+    )
     from corpus_structure.semantic.observations import observation_inputs
     from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.types import SourceArtifact, SourceBundle
@@ -502,8 +504,11 @@ def test_retained_predicate_publication_preserves_exact_hosts_and_refuses_swappe
     from pathlib import Path
 
     from corpus_structure.ingest.annotations import AnnotationProfile
-    from corpus_structure.semantic.contribution_input_references import split_contribution_evidence
-    from corpus_structure.semantic.contributions import bind_contributions, contribution_identity
+    from corpus_structure.semantic.contributions import (
+        bind_contributions,
+        contribution_identity,
+        split_contribution_evidence,
+    )
     from corpus_structure.semantic.observations import observation_inputs
     from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.types import SourceArtifact, SourceBundle

@@ -119,7 +119,7 @@ def test_named_rules_execute_upstream_once_and_replay_exact_roles_without_nlp(
     changed = rules[0].model_copy(update={"pattern": [{"TEXT": "Y"}]})
     assert identities[("repeat", "two")] == rule_identity(rules[0])
     assert identities[("repeat", "two")] != rule_identity(changed)
-    assert all(ref.product_id == produced.semantic_id for ref in references.values())
+    assert all(ref.product.product_id == produced.semantic_id for ref in references.values())
 
 
 @pytest.mark.parametrize(

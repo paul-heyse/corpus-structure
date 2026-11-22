@@ -82,10 +82,12 @@ def test_reservation_is_acquired_on_renewal_thread_before_owner_yield_and_releas
 def test_single_retry_uses_sqlstate_after_successful_rollback_regardless_of_message(kind):
     conn = fixture_connection()
     engine, acquired, released = fake_engine(conn)
+    entered = Event()
     completed = Event()
     calls = []
 
     def renew(connection, owned):
+        assert entered.wait(3)
         calls.append(owned.task_id)
         if len(calls) == 1:
             raise DBAPIError("renew", {}, kind("arbitrary localized cause"))
@@ -94,6 +96,7 @@ def test_single_retry_uses_sqlstate_after_successful_rollback_regardless_of_mess
         completed.set()
 
     with maintained_claims(engine, [claim()], "owner", interval=0.001, renew=renew) as owner:
+        entered.set()
         assert completed.wait(3)
     assert calls == [1, 1]
     assert len(acquired) == 1 and released.is_set()

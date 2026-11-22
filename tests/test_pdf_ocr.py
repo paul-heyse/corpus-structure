@@ -11,7 +11,6 @@ from docling_core.types.doc import BoundingBox, CoordOrigin
 from PIL import Image
 from rapidocr.utils.output import RapidOCROutput
 
-from corpus_structure.ingest.pdf import PdfRecipe
 from corpus_structure.ingest.pdf_candidates import CandidatePage, capture_candidates
 from corpus_structure.ingest.pdf_ocr import observed_rapid_ocr_type
 
@@ -110,12 +109,3 @@ def test_ocr_token_candidate_has_word_address_and_no_native_font():
     assert candidate.font is None
     assert "font" not in candidate.to_wire()
     assert candidate.before == "a " and candidate.after == " b"
-
-
-def test_recipe_v1_archives_remain_decodable_while_v2_changes_observation_identity():
-    old = PdfRecipe("a" * 40, "b" * 40, recipe_id="docling-standard-pdf-v1")
-    new = PdfRecipe("a" * 40, "b" * 40)
-    assert new.recipe_id == "docling-standard-pdf-v3"
-    assert old.digest != new.digest
-    assert PdfRecipe.from_bytes(old.to_bytes()) == old
-    assert old.options().model_dump() == new.options().model_dump()

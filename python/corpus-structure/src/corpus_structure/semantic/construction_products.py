@@ -1113,13 +1113,11 @@ def verify_interpreted_dependency_members(product, nodes, dependencies, *, inclu
     if "formal_support" in product:
         for packet in product["members"]:
             body = packet["body"]
-            public_nodes = (
-                (body, *body.get("members", ())) if body.get("record_type") == "choice" else (body,)
-            )
+            public_nodes = (body, *body["members"]) if body["record_type"] == "choice" else (body,)
             for public in public_nodes:
-                for record in (public, public.get("basis", {})):
+                for record in (public, _inventory_field(public, "basis", {})):
                     if any(
-                        record.get(field)
+                        _inventory_field(record, field, ())
                         for field in ("external_premises", "required_external_choices")
                     ):
                         raise ValueError("construction product retains a computed formal input pin")

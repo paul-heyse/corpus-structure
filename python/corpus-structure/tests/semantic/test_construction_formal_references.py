@@ -108,3 +108,42 @@ def test_formal_support_refuses_unresolved_or_inconsistent_graph_slots(mutation)
         value["annotation_support"] = [dict(owner="node", use="external_premise", position=0)]
     with pytest.raises(ValueError):
         project_construction_formal_support(value, parents)
+
+
+@pytest.mark.parametrize("location", ["term", "basis", "packed-choice"])
+@pytest.mark.parametrize("field", ["external_premises", "required_external_choices"])
+def test_dependency_checker_rejects_unstaged_computed_formal_pins(location, field):
+    from corpus_structure.semantic.construction_products import (
+        verify_interpreted_dependency_members,
+    )
+
+    reference = {"product_id": "formal:original", "member_id": "formal:node"}
+    node = {"local_id": "node", "record_type": "term"}
+    if location == "basis":
+        node["basis"] = {field: [reference]}
+    elif location == "packed-choice":
+        node.update(record_type="choice", members=[{"local_id": "alternative", field: [reference]}])
+    else:
+        node[field] = [reference]
+    product = {
+        "formal_support": [],
+        "dependencies": [{"product_id": "formal:original"}],
+        "members": [{"member_id": "node", "body": node}],
+    }
+    dependencies = (
+        (
+            "formal:original",
+            {
+                "members": [
+                    {
+                        "member_id": "formal:node",
+                        "body": {"record_type": "choice_member", "local_id": "formal:node"},
+                    }
+                ]
+            },
+        ),
+    )
+    with pytest.raises(ValueError, match="retains a computed formal input pin"):
+        verify_interpreted_dependency_members(product, {}, dependencies, include_annotations=False)
+    product["members"] = []
+    verify_interpreted_dependency_members(product, {}, dependencies, include_annotations=False)

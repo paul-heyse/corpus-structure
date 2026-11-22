@@ -2,6 +2,7 @@
 
 from dataclasses import asdict
 from functools import cache
+from hashlib import sha256
 from typing import Any
 
 from evaluate.declared_record_policy_support import source
@@ -46,7 +47,7 @@ def current():
 
 
 def cut():
-    prepared, _ = current()
+    prepared, model = current()
     return CutSelection(
         canonical_bytes(
             dict(
@@ -55,7 +56,15 @@ def cut():
                 read_id="read:source",
                 release_id=prepared.release_id,
                 runtime_id="runtime:source",
-                selection={},
+                selection=dict(
+                    version="data-demand-public-selection-v1",
+                    model=sha256(model.content).hexdigest(),
+                    intent_digest="controlled-intent:source",
+                    roots=[],
+                    targets=["resolve.m1_readings/declared"],
+                    root_operations=["resolve.m1_readings/declared"],
+                    discovery=[],
+                ),
                 trust_snapshot={},
                 read_snapshot="1:2:",
                 frontier_at="2026-11-15T00:00:00Z",

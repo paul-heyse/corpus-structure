@@ -15,7 +15,7 @@ depends_on = None
 NATIVE_UPGRADE_FILE = "semantic_sbx_current_root_upgrade.txt"
 NATIVE_UPGRADE_SHA256 = "3859d43349f0837696fe667a80448786691086b2c24bba3b2c2cb7d7d2a53a78"
 NATIVE_STATE_FILE = "semantic_sbx_current_root_native.json"
-NATIVE_STATE_SHA256 = "3d7424c7c732c3ce3de1203b4e9742291e11774b8594e66a39b0e1e653daa57e"
+NATIVE_STATE_SHA256 = "c58d18f5f0ab973284ed1557619dbb455fd3e25b5ced7df75aa749c3ffe41310"
 NATIVE_ADMISSION_FILE = "semantic_sbx_current_root_admission.sql"
 NATIVE_ADMISSION_SHA256 = "75dbc35d832ea6e628f63bcad2c21af03bb1d89711a207e18339ff6e3af9ae53"
 

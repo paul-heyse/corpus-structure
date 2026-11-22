@@ -25,7 +25,16 @@ def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> Generator[None]:
     for item in items:
-        group = preparation_group(item)
+        try:
+            group = preparation_group(item)
+        except pytest.UsageError as error:
+            # xdist forwards collection reports but can schedule partial items
+            # from a worker whose collection hook terminates with UsageError.
+            items.clear()
+            config.hook.pytest_collectreport(
+                report=pytest.CollectReport(item.nodeid, "failed", str(error), [])
+            )
+            break
         if group is not None:
             item.own_markers[:] = [mark for mark in item.own_markers if mark.name != "xdist_group"]
             if not any(item.iter_markers("xdist_group")):

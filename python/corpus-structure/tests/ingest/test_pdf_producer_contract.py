@@ -22,6 +22,7 @@ def _small_contract():
         "_query_custody",
         "semantic/file_custody",
         "semantic/identity",
+        "semantic/data_operation_json",
         "ingest/pdf_producer_contract",
         "ingest/pdf_stream_types",
         "ingest/pdf",

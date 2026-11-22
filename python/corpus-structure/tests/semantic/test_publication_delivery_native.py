@@ -303,9 +303,11 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
 
     uses = physical.tables["ops.demand_use"]
 
-    def snapshot(demand):
+    def snapshot(demand, *, settlement=False):
         with writer.begin() as connection:
-            return DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(demand)
+            return DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(
+                demand, settlement=settlement
+            )
 
     def recipient(frontier):
         return next(row for row in frontier["obligations"] if row["operation_id"] == CONSUMER)
@@ -339,9 +341,14 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
     frontier_b = snapshot(b)
     target_a = recipient(frontier_a)
     assert target_a.get("request_id") is None
-    assert origin_work(snapshot(c)) == ()
+    frontier_c = snapshot(c, settlement=True)
+    assert frontier_c["scheduler_settlement"]["selections"] == []
+    (c_work,) = origin_work(frontier_c)
+    assert c_work["obligation_id"] == recipient(frontier_c)["obligation_id"]
+    assert c_work["origin_id"] != use_a
     (other_work,) = origin_work(frontier_b)
     assert other_work["origin_id"] != use_a
+    assert c_work["origin_id"] != other_work["origin_id"]
     (work,) = origin_work(frontier_a)
     assert work["origin_id"] == use_a
     assert work["obligation_id"] == target_a["obligation_id"] and work["input_role"] == "source"
@@ -451,7 +458,10 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
         )
     revoked = snapshot(demand)
     assert recipient(revoked)["binding_authority_changed"] is True
-    assert recipient(revoked)["native_readiness"]["ready"] is False
+    with writer.begin() as connection:
+        assert all(request.operation != CONSUMER for request in DemandPlanner(
+            kernel.model, DataOperationStorage(connection)
+        ).bound_requests(revoked, authorization=b"{}"))
     assert origin_work(revoked) == (pending_work,)
     remember_wait(revoked)
     assert recipient(snapshot(demand))["binding_authority_changed"] is False

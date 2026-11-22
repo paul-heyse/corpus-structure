@@ -51,9 +51,78 @@ def operation_identity(*values: Any, **dimensions: Any) -> str:
     return _identity("contribution-operation", [values, dimensions])
 
 
-def contribution_identity_and_evidence(row: Mapping[str, Any]):
-    from .contribution_input_references import split_contribution_evidence
+CONTRIBUTION_PRIMARY_FIELDS = frozenset(
+    {
+        "primary_node",
+        "primary_marker",
+        "primary_choices",
+        "primary_condition_parts",
+        "declaration_node",
+        "syntax_parent_node",
+    }
+)
+CONTRIBUTION_REPEATED_FIELDS = frozenset({"primary_choices", "primary_condition_parts"})
 
+
+def split_contribution_evidence(row):
+    """Separate known structural evidence fields, preserving source/domain coordinates."""
+    value = dict(row)
+    evidence = []
+    changed = [0]
+    if not row.get("semantic_type", "").startswith("structural."):
+        return value, evidence
+    from copy import deepcopy
+
+    from .observations import source_python, source_value
+
+    def encoded_primary(node):
+        if node.get("kind") == "object":
+            return any(
+                field["name"] in CONTRIBUTION_PRIMARY_FIELDS or encoded_primary(field["value"])
+                for field in node.get("fields", ())
+            )
+        if node.get("kind") == "array":
+            return any(encoded_primary(item) for item in node.get("items", ()))
+        return False
+
+    def walk(node, path):
+        if isinstance(node, dict):
+            for field in tuple(node):
+                child = node[field]
+                if field in CONTRIBUTION_PRIMARY_FIELDS:
+                    references = child if field in CONTRIBUTION_REPEATED_FIELDS else (child,)
+                    for position, reference in enumerate(references or ()):
+                        if reference is None:
+                            continue
+                        if not isinstance(reference, dict) or set(reference) != {
+                            "product_id",
+                            "member_id",
+                        }:
+                            raise ValueError(
+                                "contribution evidence requires its exact original member"
+                            )
+                        evidence.append(("/".join((*path, field)), position, reference))
+                    del node[field]
+                    changed[0] += 1
+                else:
+                    walk(child, (*path, field))
+        elif isinstance(node, (tuple, list)):
+            for position, child in enumerate(node):
+                walk(child, (*path, str(position)))
+
+    if value.get("component") is not None:
+        value["component"] = deepcopy(value["component"])
+        walk(value["component"], ("component",))
+    if value.get("value") is not None and encoded_primary(value["value"]):
+        meaning = source_python(value["value"])
+        before = changed[0]
+        walk(meaning, ("value",))
+        if changed[0] != before:
+            value["value"] = source_value(meaning)
+    return value, evidence
+
+
+def contribution_identity_and_evidence(row: Mapping[str, Any]):
     meaning, evidence = split_contribution_evidence(dict(row))
     return _identity(
         "source-contribution", {k: v for k, v in meaning.items() if k != "contribution_id"}

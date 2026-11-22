@@ -1,78 +1,19 @@
 """Producer-owned evidence for reusable source contributions."""
 
-from copy import deepcopy
 from typing import Any
 
-from .data_product_reference import SemanticReference, read_semantic_reference
+from .contributions import (
+    CONTRIBUTION_PRIMARY_FIELDS as PRIMARY_FIELDS,
+)
+from .contributions import (
+    CONTRIBUTION_REPEATED_FIELDS as REPEATED_FIELDS,
+)
+from .contributions import (
+    split_contribution_evidence,
+)
 from .observations import source_python, source_value
 
-PRIMARY_FIELDS = frozenset(
-    {
-        "primary_node",
-        "primary_marker",
-        "primary_choices",
-        "primary_condition_parts",
-        "declaration_node",
-        "syntax_parent_node",
-    }
-)
-REPEATED_FIELDS = frozenset({"primary_choices", "primary_condition_parts"})
 SUPPORT_FIELDS = ("construction_support", "formal_support", "inherited_support")
-
-
-def split_contribution_evidence(row):
-    """Separate known structural evidence fields, preserving source/domain coordinates."""
-    value = dict(row)
-    evidence = []
-    changed = [0]
-    if not row.get("semantic_type", "").startswith("structural."):
-        return value, evidence
-
-    def encoded_primary(node):
-        if node.get("kind") == "object":
-            return any(
-                field["name"] in PRIMARY_FIELDS or encoded_primary(field["value"])
-                for field in node.get("fields", ())
-            )
-        if node.get("kind") == "array":
-            return any(encoded_primary(item) for item in node.get("items", ()))
-        return False
-
-    def walk(node, path):
-        if isinstance(node, dict):
-            for field in tuple(node):
-                child = node[field]
-                if field in PRIMARY_FIELDS:
-                    references = child if field in REPEATED_FIELDS else (child,)
-                    for position, reference in enumerate(references or ()):
-                        if reference is None:
-                            continue
-                        if not isinstance(reference, dict) or set(reference) != {
-                            "product_id",
-                            "member_id",
-                        }:
-                            raise ValueError(
-                                "contribution evidence requires its exact original member"
-                            )
-                        evidence.append(("/".join((*path, field)), position, reference))
-                    del node[field]
-                    changed[0] += 1
-                else:
-                    walk(child, (*path, field))
-        elif isinstance(node, (tuple, list)):
-            for position, child in enumerate(node):
-                walk(child, (*path, str(position)))
-
-    if value.get("component") is not None:
-        value["component"] = deepcopy(value["component"])
-        walk(value["component"], ("component",))
-    if value.get("value") is not None and encoded_primary(value["value"]):
-        meaning = source_python(value["value"])
-        before = changed[0]
-        walk(meaning, ("value",))
-        if changed[0] != before:
-            value["value"] = source_value(meaning)
-    return value, evidence
 
 
 def _dependencies(row):
@@ -92,6 +33,7 @@ def pack_contribution_input_support(
     rows, roles, *, inherited=(), primary_evidence=()
 ) -> tuple[tuple[dict[str, Any], ...], dict[str, list[dict[str, Any]]]]:
     """Bind fresh evidence once; copied predicate members keep their original owner."""
+    from .data_product_reference import SemanticReference
     from .declared_candidate_products import candidate_member_id
 
     inherited = {row["contribution_id"]: row for row in inherited}
@@ -184,6 +126,7 @@ def pack_contribution_input_support(
 
 def project_contribution_input_support(report, member):
     """Restore a private working projection using the predicate's original bindings."""
+    from .data_product_reference import read_semantic_reference
     from .declared_candidate_products import candidate_member_values
     from .reference_resolution import selected_producing_reference_bindings
 
@@ -232,6 +175,7 @@ def project_contribution_input_support(report, member):
 def check_contribution_input_support(report):
     """Check ownership, canonical domain identities and exact logical evidence slots."""
     from .contributions import contribution_identity
+    from .data_product_reference import read_semantic_reference
 
     members = {packet["member_id"]: packet["body"] for packet in report["members"]}
     if len(members) != len(report["members"]):
@@ -278,6 +222,7 @@ def require_selected_contribution_input_support(scope, selected):
     from functools import partial
 
     from .contextual_input_references import require_contextual_choice_alternative
+    from .data_product_reference import read_semantic_reference
     from .live_reference_resolution import PreparedSelectedOutputReferences
 
     report = selected.body

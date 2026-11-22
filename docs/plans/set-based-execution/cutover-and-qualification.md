@@ -179,7 +179,7 @@ publication (`4dd80f50071c4096a2f95292c779a806`), and the two-report constructio
 publication before a fixture compared the local current request IDs to those of the original
 independent reports. Its corrected check uses the exact producing derivations and admitted uses.
 
-**Final root authoring and installation · Tested · 2026-11-22.** Managed model preview
+**First assembled root installation · Tested · 2026-11-22.** Managed model preview
 `a850d08e091b4912868483c935ca0162`, apply `d70bcfa5b6874e71b5d4ddaa1d02602b`, and rollback-only
 candidate `13c1631f45dc4a8e9ef1b494cfe26754` passed. Candidate inspection confirmed a null
 predecessor. `uv run ci model change register` installed the sole revision file set in the
@@ -189,6 +189,26 @@ Maintenance readback matched the installed native descriptor to the registered o
 reader, writer and evaluator grants, refused reader scheduling and direct writer publication,
 and found zero projects, documents, originals, demands and products. The development reset
 follows integrated functional and provider acceptance.
+
+**Assembled campaign correction · Tested by selected scope · 2026-11-22.** Repository
+checks passed on the first assembled root (`uv run ci check`, `7360d586ec654eae947a5cf485afa29e`).
+The ordinary campaign exposed an unsupported dictionary call in the formal-premise attestation
+checker and was interrupted so it could be repaired (`5adddd3b9f9845a1a47a6b4ede822cca`).
+The replacement uses the existing compiler-supported inventory accessor. Actual operation
+compilation and 12 other focused cases passed (`f6b311166e7a4cb2b18bd96087fed54a`). The
+native readiness result passed the incomplete, complete-empty, filtered-empty and
+complete-insufficient cases (`9b8d01f321f84eada5bed8399075b014`). The minimum-zero case required
+an optional role in its fixture. Read, publication and evaluation fixtures now use their
+current native contracts. Focused claim renewal and affinity diagnostics passed after the
+test race and collection reporting were corrected (`8b88ef0c82d54a7c87ba4549a1ff9e16`).
+The construction fix changes captured source, so the corrected root is recaptured and
+qualified from its own registered revision artifact.
+
+**Corrected root installation · Tested · 2026-11-22.** Preview `3fa54691c2ff44d298193069b6be47e0`,
+rollback-only candidate `f5b28c5b5ac240d69fb9eb857dd531ea`, and registration
+`8aa866c625664aefb97a3c12a4f052da` passed. `uv run ci db init` installed the corrected root on
+`corpus_structure_sbx09_final_qualification`. Maintenance readback verified the exact native
+descriptor, purpose-role grants and empty project, source, demand and product state.
 
 Keep one authentic cross-boundary producer, publication and export journey. Reader-only checks
 can consume its authenticated artifacts while their producer, prepared release, wire and authority
