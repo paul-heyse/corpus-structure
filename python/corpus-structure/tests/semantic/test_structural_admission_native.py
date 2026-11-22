@@ -894,7 +894,8 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
         )
     with kernel.purpose("read").begin() as connection:
         current = inspect_selected_gap(connection, gap)
-    assert current["rows"] and all(row["status"] == "unavailable" for row in current["rows"])
+    assert current["availability"] == "outside_selection"
+    assert current["rows"] == []
     with kernel.purpose("read").begin() as connection:
         withdrawn = inspect_selected_structures(connection, support_request)
     assert withdrawn["reports"][0]["availability"] == "outside_selection"
