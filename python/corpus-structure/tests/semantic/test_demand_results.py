@@ -401,8 +401,14 @@ def test_detached_verifier_uses_disk_index_and_independent_identity_support_cont
         wrong["uses"][0]["products"][0]["body"] = semantic_value({"amount": Decimal("12.341")})
         with pytest.raises(ValueError, match="selected body"):
             verify_detached_result(wrong, index=index, wire_schema={})
+        duplicate = {**records[0], "key": "another-product-record"}
+        index.append(json_bytes(duplicate))
+        with pytest.raises(ValueError, match="repeat a nominal identity"):
+            verify_detached_result(native, index=index, wire_schema={})
     finally:
         index.close()
+    with pytest.raises(ValueError, match="repeat a nominal identity"):
+        verify_detached_result(native, records=[*records, duplicate], wire_schema={})
     altered = deepcopy(records)
     altered[0]["record"]["canonical_body"] = semantic_value({"amount": Decimal("12.341")})
     with pytest.raises(ValueError, match="semantic identity"):

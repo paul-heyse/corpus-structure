@@ -642,9 +642,14 @@ def verify_detached_result(
             for row in rows(name)
         }
 
-    actual_kinds = row_map("sem.data_kind_contract", "kind_contract")
-    if kinds is not None and any(kinds.get(key) != value for key, value in actual_kinds.items()):
-        raise ValueError("detached kind differs from its captured release contract")
+    actual_kinds = {}
+    for value in rows("sem.data_kind_contract"):
+        key = value["kind_contract"]
+        if key in actual_kinds:
+            raise ValueError("detached records repeat a nominal identity")
+        if kinds is not None and kinds.get(key) != value:
+            raise ValueError("detached kind differs from its captured release contract")
+        actual_kinds[key] = value
 
     def checked_context(context, *, release_id=None, subject_definition=None):
         from .data_operation_model import validate_subject_context
@@ -659,12 +664,15 @@ def verify_detached_result(
         validate_subject_context(models[release], context, subject_definition=subject_definition)
 
     products = row_map("kb.data_product", "id")
+    product_headers = {}
     member_relation = "kb.data_product_member"
     members = row_map(member_relation, "product_id", "member_id")
     partition_relation = "kb.data_product_partition"
     seen_partition_count = 0
     seen_member_count = 0
-    for product in products.values() if validate_closure else ():
+    for product in rows("kb.data_product") if validate_closure else ():
+        if product["id"] in product_headers:
+            raise ValueError("detached records repeat a nominal identity")
         kind = actual_kinds[product["kind_contract"]]
         decoded = decode_semantic_value(product["canonical_body"])
         if (
@@ -778,6 +786,10 @@ def verify_detached_result(
             != product["id"]
         ):
             raise ValueError("detached product differs from its semantic identity")
+        product_headers[product["id"]] = {
+            "project_id": product["project_id"],
+            "kind_contract": product["kind_contract"],
+        }
     if validate_closure and seen_partition_count != len(
         row_map(partition_relation, "product_id", "collection", "partition_key")
     ):
@@ -968,7 +980,7 @@ def verify_detached_result(
 
     def binding_endpoints(binding):
         for selected_input in binding.get("inputs", ()):
-            required(products, selected_input["product_id"], "selected input product")
+            required(product_headers, selected_input["product_id"], "selected input product")
             if selected_input.get("member_id") is not None:
                 required(
                     members,
@@ -1077,6 +1089,7 @@ def verify_detached_result(
                     targets=targets,
                     input_roles=definition["input_roles"],
                     outputs=payload["outputs"],
+                    product_headers=product_headers,
                 )
             for occurrence, reference in enumerate(payload["support"]):
                 kind = support_reference(reference)
@@ -1319,7 +1332,7 @@ def verify_detached_result(
     ):
         if (
             edge["derivation_id"] not in episodes
-            or edge["product_id"] not in products
+            or edge["product_id"] not in product_headers
             or (
                 edge["member_id"] is not None
                 and (edge["product_id"], edge["member_id"]) not in members

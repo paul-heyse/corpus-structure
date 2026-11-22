@@ -117,8 +117,8 @@ def expand_selected_contextual_proxies(value, index, cut, product_id):
 
     from .data_product_reference import DataProductReference, member_reference
     from .live_reference_resolution import (
+        PreparedSelectedOutputReferences,
         reference_input_address,
-        require_selected_output_reference,
     )
 
     targets = _declared_proxy_targets(value)
@@ -137,9 +137,10 @@ def expand_selected_contextual_proxies(value, index, cut, product_id):
             operation_id=request["operation_id"],
             output=output,
         )
+        prepared = PreparedSelectedOutputReferences(scope, selected)
         references = {}
         for owner, (target, path) in targets.items():
-            body = require_selected_output_reference(scope, selected, target, path=path)
+            body = prepared.resolve(target, path=path)
             if (
                 not isinstance(body, dict)
                 or body.get("record_type") not in {"annotation", "term"}

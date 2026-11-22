@@ -176,6 +176,187 @@ def reference_input_address(pin, *, occurrence_binding=False, occurrence_positio
     )
 
 
+class PreparedSelectedOutputReferences:
+    """One acquired cut/use with reusable exact target bindings and resolvers.
+
+    Preparation is invocation-owned. Each resolution still checks its declared
+    slot, unique producing occurrence and actual parent access; memoized content
+    never authorizes a different current use or a different target path.
+    """
+
+    def __init__(self, scope, selected):
+        from .detached_reference_resolution import IndexedReferenceAccess
+
+        def row_map(relation, *fields):
+            return scope.index.mapping(relation, fields)
+
+        cut = scope.cut.record
+        # An ordinary report disclosed through a protected issuer can be selected
+        # by its exact support edge even when it is outside the issuer frontier.
+        use = row_map("ops.demand_use", "id").get(selected.use_id)
+        if (
+            use is None
+            or use["fate"] != "fulfilled"
+            or use["derivation_id"] != selected.derivation_id
+        ):
+            raise ValueError("selected reference lacks its exact fulfilled producing use")
+        selection = use["selection"]
+        episode = row_map("ops.data_derivation", "id")[selected.derivation_id]
+        definitions = row_map("sem.data_operation_definition", "release_id", "operation_id")
+        definition = definitions[episode["release_id"], selected.operation_id]
+        self.index = scope.index
+        self.derivation_id = selected.derivation_id
+        self.output_role = selected.output["role"]
+        self.project_id = cut["project_id"]
+        self.selection = selection
+        self.definition = definition
+        self.access = IndexedReferenceAccess(row_map, cut["project_id"])
+        self.targets = {}
+
+    @staticmethod
+    def _require_slot(reference, target):
+        uses_occurrence = (
+            target.get("occurrence_field") is not None
+            or target.get("occurrence_binding", False)
+            or target.get("occurrence_position", False)
+        )
+        if (reference.role, reference.variant, reference.collection) != (
+            target["input_role"],
+            target["variant"],
+            target.get("collection"),
+        ) or (reference.occurrence is not None) != uses_occurrence:
+            raise ValueError("reference differs from its declared slot target")
+
+    def _prepare(self, path, reference):
+        from .detached_reference_resolution import (
+            reference_input_occurrence,
+            reference_role_contracts,
+        )
+
+        if path in self.targets:
+            return self.targets[path]
+        selection, definition, access = self.selection, self.definition, self.access
+        targets = tuple(
+            target
+            for target in definition["support_contract"].get("reference_targets", ())
+            if target["output_role"] == self.output_role
+            and target.get("output_collection") is None
+            and target["path"] == path
+        )
+        if len(targets) != 1:
+            raise ValueError("selected reference requires its one declared output target")
+        (target,) = targets
+        contracts = reference_role_contracts(definition["input_roles"], target)
+        role = target["input_role"]
+        occurrence_field = target.get("occurrence_field")
+        occurrence_binding = target.get("occurrence_binding", False)
+        occurrence_position = target.get("occurrence_position", False)
+        uses_occurrence = occurrence_field is not None or occurrence_binding or occurrence_position
+        current_support = {
+            reference_input_address(
+                pin, occurrence_binding=occurrence_binding, occurrence_position=occurrence_position
+            )
+            for pin in selection["inputs"]
+            if pin["role"] == role
+        }
+        originals = tuple(
+            self.index.rows_for(
+                "ops.data_derivation_input", derivation_id=self.derivation_id, role=role
+            )
+        )
+        if not uses_occurrence and len(originals) != 1:
+            raise ValueError("selected reference lacks its scalar original input")
+        self._require_slot(reference, target)
+        bindings = []
+        for original in originals:
+            product_id, member_id = original["product_id"], original.get("member_id")
+            label = original.get("occurrence_label")
+            address = reference_input_address(
+                original,
+                occurrence_binding=occurrence_binding,
+                occurrence_position=occurrence_position,
+            )
+            if address not in current_support:
+                continue
+            parent = access.product_header(product_id)
+            if parent is None or parent["project_id"] != self.project_id:
+                continue
+            bound_packet = (
+                parent if member_id is None else access.members.get((product_id, member_id))
+            )
+            if bound_packet is None:
+                continue
+            kind_contract = bound_packet["kind_contract"]
+            if kind_contract not in access.kinds or kind_contract not in contracts:
+                raise ValueError(
+                    "selected reference differs from its declared producing input kind"
+                )
+            binding = ProducingReferenceInput(
+                role, product_id, kind_contract, member_id, multiplicity=original["multiplicity"]
+            )
+            if occurrence_binding:
+                binding = replace(binding, occurrence=label, occurrence_binding=True)
+            elif occurrence_position:
+                binding = replace(
+                    binding, occurrence=str(original["position"]), occurrence_position=True
+                )
+            elif occurrence_field is not None:
+                body_field = "canonical_body" if member_id is None else "body"
+                occurrence_packet = (
+                    access.products.get(product_id) if member_id is None else bound_packet
+                )
+                if occurrence_packet.get(body_field) is None:
+                    continue
+                binding = replace(
+                    binding,
+                    occurrence=reference_input_occurrence(access, binding, occurrence_field),
+                    occurrence_field=occurrence_field,
+                )
+            bindings.append(binding)
+
+        if not bindings:
+            raise ValueError("original reference parent is unavailable in the exact selected use")
+        producing = ProducingReferenceBindings(self.derivation_id, tuple(bindings))
+        resolver = ReferenceResolver(producing, access)
+        prepared = target, producing, resolver
+        self.targets[path] = prepared
+        return prepared
+
+    def resolve(self, reference, *, path, metadata_only=False, with_binding=False):
+        target, producing, resolver = self._prepare(path, reference)
+        access = self.access
+        role = target["input_role"]
+        occurrence_field = target.get("occurrence_field")
+        occurrence_binding = target.get("occurrence_binding", False)
+        occurrence_position = target.get("occurrence_position", False)
+        self._require_slot(reference, target)
+
+        binding = producing.resolve(
+            reference,
+            occurrence_field=occurrence_field,
+            occurrence_binding=occurrence_binding,
+            occurrence_position=occurrence_position,
+        )
+        if metadata_only:
+            if reference.variant != "product" or binding.member_id is not None:
+                raise ValueError("reference metadata requires its exact whole producing input")
+            access.authorize(binding)
+            return binding
+        value = resolver.resolve(
+            reference,
+            ReferenceTarget(
+                role,
+                target["variant"],
+                binding.kind_contract,
+                target.get("collection"),
+                occurrence_field,
+                occurrence_binding,
+                occurrence_position,
+            ),
+        )
+        return (binding, value) if with_binding else value
+
+
 @overload
 def require_selected_output_reference(
     scope, selected, reference, *, path, metadata_only: Literal[True]
@@ -198,127 +379,6 @@ def require_selected_output_reference(
     scope, selected, reference, *, path, metadata_only=False, with_binding=False
 ):
     """Resolve a declared reference or authenticate its exact whole-product binding."""
-    from .detached_reference_resolution import (
-        IndexedReferenceAccess,
-        reference_input_occurrence,
-        reference_role_contracts,
+    return PreparedSelectedOutputReferences(scope, selected).resolve(
+        reference, path=path, metadata_only=metadata_only, with_binding=with_binding
     )
-
-    def row_map(relation, *fields):
-        return scope.index.mapping(relation, fields)
-
-    cut = scope.cut.record
-    # An ordinary report disclosed through a protected issuer can be selected
-    # by its exact support edge even when it is outside the issuer frontier.
-    use = row_map("ops.demand_use", "id").get(selected.use_id)
-    if use is None or use["fate"] != "fulfilled" or use["derivation_id"] != selected.derivation_id:
-        raise ValueError("selected reference lacks its exact fulfilled producing use")
-    selection = use["selection"]
-    episode = row_map("ops.data_derivation", "id")[selected.derivation_id]
-    definitions = row_map("sem.data_operation_definition", "release_id", "operation_id")
-    definition = definitions[episode["release_id"], selected.operation_id]
-    targets = tuple(
-        target
-        for target in definition["support_contract"].get("reference_targets", ())
-        if target["output_role"] == selected.output["role"]
-        and target.get("output_collection") is None
-        and target["path"] == path
-    )
-    if len(targets) != 1:
-        raise ValueError("selected reference requires its one declared output target")
-    (target,) = targets
-    contracts = reference_role_contracts(definition["input_roles"], target)
-    role = target["input_role"]
-    occurrence_field = target.get("occurrence_field")
-    occurrence_binding = target.get("occurrence_binding", False)
-    occurrence_position = target.get("occurrence_position", False)
-    uses_occurrence = occurrence_field is not None or occurrence_binding or occurrence_position
-    current_support = {
-        reference_input_address(
-            pin, occurrence_binding=occurrence_binding, occurrence_position=occurrence_position
-        )
-        for pin in selection["inputs"]
-        if pin["role"] == role
-    }
-    originals = tuple(
-        scope.index.rows_for(
-            "ops.data_derivation_input", derivation_id=selected.derivation_id, role=role
-        )
-    )
-    if not uses_occurrence and len(originals) != 1:
-        raise ValueError("selected reference lacks its scalar original input")
-    if (reference.role, reference.variant, reference.collection) != (
-        role,
-        target["variant"],
-        target.get("collection"),
-    ) or (reference.occurrence is not None) != uses_occurrence:
-        raise ValueError("reference differs from its declared slot target")
-
-    access = IndexedReferenceAccess(row_map, cut["project_id"])
-    bindings = []
-    for original in originals:
-        product_id, member_id = original["product_id"], original.get("member_id")
-        label = original.get("occurrence_label")
-        address = reference_input_address(
-            original,
-            occurrence_binding=occurrence_binding,
-            occurrence_position=occurrence_position,
-        )
-        if address not in current_support:
-            continue
-        parent = access.products.get(product_id)
-        if parent is None or parent["project_id"] != cut["project_id"]:
-            continue
-        bound_packet = parent if member_id is None else access.members.get((product_id, member_id))
-        if bound_packet is None:
-            continue
-        kind_contract = bound_packet["kind_contract"]
-        if kind_contract not in access.kinds or kind_contract not in contracts:
-            raise ValueError("selected reference differs from its declared producing input kind")
-        binding = ProducingReferenceInput(
-            role, product_id, kind_contract, member_id, multiplicity=original["multiplicity"]
-        )
-        if occurrence_binding:
-            binding = replace(binding, occurrence=label, occurrence_binding=True)
-        elif occurrence_position:
-            binding = replace(
-                binding, occurrence=str(original["position"]), occurrence_position=True
-            )
-        elif occurrence_field is not None:
-            body_field = "canonical_body" if member_id is None else "body"
-            if bound_packet.get(body_field) is None:
-                continue
-            binding = replace(
-                binding,
-                occurrence=reference_input_occurrence(access, binding, occurrence_field),
-                occurrence_field=occurrence_field,
-            )
-        bindings.append(binding)
-
-    if not bindings:
-        raise ValueError("original reference parent is unavailable in the exact selected use")
-    producing = ProducingReferenceBindings(selected.derivation_id, tuple(bindings))
-    binding = producing.resolve(
-        reference,
-        occurrence_field=occurrence_field,
-        occurrence_binding=occurrence_binding,
-        occurrence_position=occurrence_position,
-    )
-    if metadata_only:
-        if reference.variant != "product" or binding.member_id is not None:
-            raise ValueError("reference metadata requires its exact whole producing input")
-        access.authorize(binding)
-        return binding
-    value = ReferenceResolver(producing, access).resolve(
-        reference,
-        ReferenceTarget(
-            role,
-            target["variant"],
-            binding.kind_contract,
-            target.get("collection"),
-            occurrence_field,
-            occurrence_binding,
-            occurrence_position,
-        ),
-    )
-    return (binding, value) if with_binding else value

@@ -20,7 +20,7 @@ from .reference_resolution import (
 class IndexedReferenceAccess:
     """Keyed body packets from a support index already acquired by its caller."""
 
-    def __init__(self, row_map, project_id: str):
+    def __init__(self, row_map, project_id: str, *, product_headers=None):
         self.project_id = project_id
         self.products = row_map("kb.data_product", "id")
         self.members = row_map("kb.data_product_member", "product_id", "member_id")
@@ -28,9 +28,21 @@ class IndexedReferenceAccess:
             "kb.data_product_partition", "product_id", "collection", "partition_key"
         )
         self.kinds = row_map("sem.data_kind_contract", "kind_contract")
+        self._product_headers = {} if product_headers is None else product_headers
+        self._complete_product_headers = product_headers is not None
+
+    def product_header(self, product_id: str) -> dict[str, str] | None:
+        if product_id not in self._product_headers and not self._complete_product_headers:
+            row = self.products.get(product_id)
+            if row is None:
+                return None
+            self._product_headers[product_id] = {
+                field: row[field] for field in ("project_id", "kind_contract") if field in row
+            }
+        return self._product_headers.get(product_id)
 
     def authorize(self, binding: ProducingReferenceInput) -> None:
-        row = self.products.get(binding.product_id)
+        row = self.product_header(binding.product_id)
         if row is None or row["project_id"] != self.project_id:
             raise ValueError("captured reference parent is outside the authenticated closure")
 
@@ -42,7 +54,10 @@ class IndexedReferenceAccess:
 
     def partition(self, product_id: str, collection: str, partition_key: str):
         partition = self.partitions[product_id, collection, partition_key]
-        kind = self.kinds[self.products[product_id]["kind_contract"]]
+        parent = self.product_header(product_id)
+        if parent is None:
+            raise KeyError(product_id)
+        kind = self.kinds[parent["kind_contract"]]
         spec = kind["collections"]["declarations"][collection]
         return AcquiredReferencePartition(
             partition["partition_digest"], partition["body"], tuple(spec["address"])
@@ -118,9 +133,10 @@ def require_detached_output_references(
     targets: list[dict],
     input_roles: Sequence[dict],
     outputs: Sequence[WireOutputMember],
+    product_headers=None,
 ) -> None:
     """Check output references after authenticating their producing derivation and manifest."""
-    access = IndexedReferenceAccess(row_map, project_id)
+    access = IndexedReferenceAccess(row_map, project_id, product_headers=product_headers)
     captured = tuple(rows_for("ops.data_derivation_input", derivation_id=derivation_id))
     for target in targets:
         contracts = reference_role_contracts(input_roles, target)
@@ -131,7 +147,7 @@ def require_detached_output_references(
         for row in captured:
             if row["role"] != target["input_role"]:
                 continue
-            parent = access.products.get(row["product_id"])
+            parent = access.product_header(row["product_id"])
             if parent is None:
                 raise ValueError("captured reference is missing its producing input")
             member_id = row.get("member_id")

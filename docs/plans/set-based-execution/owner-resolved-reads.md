@@ -308,10 +308,15 @@ verification and exact contextual replay took 163.0 seconds. Timings cover this 
 observed 78 seconds of detached verification. Of those, 40 seconds were spent in 360 full-record
 product lookups over a closure containing 13 products. Contextual expansion then took 83
 seconds, with 78 seconds in 358 product lookups for 179 exact references. File checksums took
-0.12 seconds. Prepare exact selected-use reference bindings once and reuse authenticated product
-headers and member relations before considering worker parallelism. Product-local validators can
-consume independent immutable batches. Keep closure completeness and cross-product relationships
-with the shared archive verifier.
+0.12 seconds.
+
+**Prepared replay · Tested and measured · 2026-11-22.** The verifier reuses authenticated product
+headers for closure links, and contextual replay prepares the exact use and slot bindings once per
+declared path. The same sealed D1 archive verified in 35.0 seconds with six full-record product
+lookups. Contextual expansion took 0.13 seconds with one full-record lookup and recovered all 179
+captured member addresses. The measurements cover offline replay of the retained archive.
+The 86 selected `uv run ci test` detached, authority and reference controls passed
+(`4bcf7cdb1b0a4a378b64760e0b9a1605`).
 
 **Common analytics amendment · Scheduled · 2026-11-22.** Implement the frozen selected-review
 archive as the first Parquet boundary using the typed relation and sealing contract above. This
