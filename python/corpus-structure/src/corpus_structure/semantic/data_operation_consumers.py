@@ -115,14 +115,13 @@ def hydrate_consumer_selection(
     """
     from itertools import batched
 
-    from sqlalchemy import BigInteger, and_, cast, column, select, values
+    from sqlalchemy import BigInteger, and_, cast, column, func, select, values
 
     from .data_operation_json import json_loads
     from .data_operation_jsonb import json_context_equal, json_context_value
     from .data_operation_projections import binding_columns
     from .data_operation_storage import admitted_data_read
     from .data_operation_support import support_reference_records
-    from .data_operation_values import decode_semantic_value
     from .identity import canonical_bytes
 
     binding = selection.binding
@@ -229,7 +228,12 @@ def hydrate_consumer_selection(
             for name in pin_names
         ]
         query = (
-            select(pins.c.role_ordinal, pins.c.member_ordinal, relation.c.meaning_body)
+            select(
+                pins.c.role_ordinal,
+                pins.c.member_ordinal,
+                relation.c.meaning_body,
+                func.data.ddo_json(relation.c.meaning_body).label("json_body"),
+            )
             .select_from(pins.join(relation, and_(*predicates)))
             .limit(len(page) + 1)
         )
@@ -243,13 +247,12 @@ def hydrate_consumer_selection(
                     raise ValueError("retained consumer member no longer has one admitted body")
                 found.add(key)
                 member = members[key]
-                content = canonical_bytes(decode_semantic_value(row.meaning_body))
-                used += len(content) * member.multiplicity
+                content = canonical_bytes(row.json_body)
+                meaning = canonical_bytes(row.meaning_body)
+                used += (len(content) + len(meaning)) * member.multiplicity
                 if used > max_bytes:
                     raise ValueError("complete consumer inputs exceed owned packet capacity")
-                hydrated[key] = SelectedConsumerValue(
-                    member, content, canonical_bytes(row.meaning_body)
-                )
+                hydrated[key] = SelectedConsumerValue(member, content, meaning)
         if found != members.keys():
             raise ValueError("retained consumer member no longer has one admitted body")
     hydrated, used = _hydrate_partitions(connection, model, read, hydrated, used, max_bytes)

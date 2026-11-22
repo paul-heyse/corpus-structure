@@ -4,6 +4,7 @@ from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
+from pydantic_core import to_jsonable_python
 from sqlalchemy import cast, event, values
 
 from corpus_structure.semantic.data_operation_bindings import BindingResult
@@ -71,7 +72,7 @@ def _admitted_rows(records):
             "member": member.member,
             "provider_identity": member.provider_identity,
             "alternative_identity": member.alternative_identity,
-            "body": body,
+            "body": to_jsonable_python(body),
             "meaning_body": semantic_value(body),
         }
         rows.append(
@@ -251,12 +252,12 @@ def test_hydration_refuses_duplicate_admitted_bodies(hydration_case):
 def test_hydration_packet_limit_applies_across_values_pages(hydration_case):
     hydrate, statements = hydration_case
     member = _member()
-    # Each canonical body is one byte. The second page must not reset ownership.
+    # Both stored buffers count. The second page must not reset ownership.
     with pytest.raises(ValueError, match="packet capacity"):
         hydrate(
             [(member, 7)],
             (ResolvedRoleBinding("left", "present", (member,) * 1025),),
-            capacity=1024,
+            capacity=1024 * (len(b"7") + len(b'["integer","7"]')),
         )
     assert len(statements) == 2
 
@@ -267,3 +268,30 @@ def test_hydration_refuses_kind_outside_declared_input_family(hydration_case):
     with pytest.raises(ValueError, match="one admitted body"):
         hydrate([(member, "body")], (ResolvedRoleBinding("left", "present", (member,)),))
     assert statements == []
+
+
+def test_hydration_keeps_typed_values_and_accounts_for_received_buffers(hydration_case):
+    from datetime import date
+
+    from corpus_structure.semantic.data_operation_values import CollectionValue, OptionalValue
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    hydrate, _ = hydration_case
+    member = _member()
+    body = {
+        "when": date(2026, 11, 21),
+        "choice": OptionalValue("unknown"),
+        "values": CollectionValue("set", (2, 7)),
+    }
+    result = hydrate([(member, body)], (ResolvedRoleBinding("left", "present", (member,)),))
+    (value,) = result.role("left")
+    assert value.value() == body
+    assert value.content == b'{"choice":null,"values":[2,7],"when":"2026-11-21"}'
+    assert value.meaning == canonical_bytes(semantic_value(body))
+    assert result.measured_bytes == len(value.content) + len(value.meaning)
+    with pytest.raises(ValueError, match="packet capacity"):
+        hydrate(
+            [(member, body)],
+            (ResolvedRoleBinding("left", "present", (member,)),),
+            capacity=result.measured_bytes - 1,
+        )
