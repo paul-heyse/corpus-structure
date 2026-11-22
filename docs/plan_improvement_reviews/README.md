@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Python validation and PostgreSQL execution through SBX-09](set-based-execution-validation-and-postgresql_2026-11-22.md).
+  Compares admitted-page reuse on the exact live read with targeted PostgreSQL
+  attribution, worker and witness preparation, and typed replay placement.
+
 - [Set-based execution through SBX-09 after the typed-population pilot](set-based-execution-through-sbx09_2026-11-22.md).
   Recommends an installed successor, reusable construction premises, bounded selected reads,
   native settlement and registered-root qualification. Assesses broader Arrow, DuckDB and

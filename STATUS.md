@@ -40,7 +40,7 @@ _Updated 2026-11-22. The SBX hard cutover is in qualification through SBX-09. Ma
 **Documentation · 2026-11-22.** `uv run ci docs check` passed for the post-pilot amendment
 (`f82642b2dda447b1844995e2b782841c`) and the earlier common analytics amendment
 (`71cef8befe5542c7a1ac9dc40f3eb4dc`). Product qualification is `not_run` for the plan
-revision and remains with the linked SBX packages.
+revision and remains with the linked SBX packages. The [efficiency review](docs/plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md) recommends the tested isolated live-page draft before broad qualification. Native event internals remain under investigation.
 
 ## Retained scoped evidence · 2026-11-21
 

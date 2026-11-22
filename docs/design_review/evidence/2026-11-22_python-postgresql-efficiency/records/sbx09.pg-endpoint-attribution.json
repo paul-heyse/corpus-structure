@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "id": "sbx09.pg-endpoint-attribution",
+  "title": "Native read, attachment and completion timing boundaries",
+  "group": "python-postgresql-efficiency",
+  "package": "SBX-09",
+  "finalized": "2026-11-22",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which PostgreSQL boundaries account for observed SBX event time, and what can be attributed beneath the wrappers?",
+  "answers": [
+    "I02",
+    "I03",
+    "I04"
+  ],
+  "method": "Extract normalized statements from one exact retained event fixture. Measure separate native JSON primitives on a verified empty target. Use a private three-product fixture with authentic selected support and a late nested-plan sample.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-22_python-postgresql-efficiency/postgresql/retained_event_statements.py",
+    "uv run python docs/design_review/evidence/2026-11-22_python-postgresql-efficiency/postgresql/codec_probe.py",
+    "uv run ci test --native-host private --workers 1 --test-timeout 300 --json -- python/corpus-structure/tests/semantic/test_demand_export_native.py::test_selected_product_scope_filters_inside_native_page_and_keeps_support"
+  ],
+  "agents": [
+    {
+      "role": "PostgreSQL evidence and attribution",
+      "model": "Codex (inherited session model)",
+      "brief": null,
+      "separation": "Read-only retained logs, guarded read-only qualification probe, and owned private native fixture."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "postgresql/codec_probe.py",
+      "role": "reproducible source or owned observation route",
+      "sha256": "2caaf97bec75c67d8f300e81bd69b256f2d7d38bd1bc55128048ed3e868ad90e"
+    },
+    {
+      "path": "postgresql/retained_event_statements.py",
+      "role": "reproducible source or owned observation route",
+      "sha256": "5705456bf21718de37eca84132fc1af59c0648d3fbb545422b1da59c1d3cacbd"
+    },
+    {
+      "path": "postgresql/private_observation.py",
+      "role": "reproducible source or owned observation route",
+      "sha256": "4ff1f3f235df95d65dfc2121c363a7f3ce498f0aaafdc1fcb7082ad76f287bf0"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "postgresql/codec_results.json",
+      "role": "normalized timing or managed result",
+      "sha256": "9e92bd1758da8d637f50a42d1a8ab4307e5b06afead998dfd727a513db467fc8"
+    },
+    {
+      "path": "postgresql/event_statement_results.json",
+      "role": "normalized timing or managed result",
+      "sha256": "492abe69638051e0ca1a37d22c3b56865e51ee447de2af440b489921cd7eb6c1"
+    },
+    {
+      "path": "postgresql/selected_read_results.json",
+      "role": "normalized timing or managed result",
+      "sha256": "2277b174789cd86bc4241f4807902ee13e76a442a1804373660a8847c2d4ae66"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Logged event setup statement elapsed",
+      "value": 1046.887,
+      "of": null,
+      "unit": "s",
+      "note": "106 statements of at least 250 ms. Call times may overlap."
+    },
+    {
+      "name": "Private selected read case body",
+      "value": 1.195,
+      "of": null,
+      "unit": "s",
+      "note": "d414d2a65d6547ff931edb5c4bbff1b4, three scalar products and authenticated support."
+    },
+    {
+      "name": "Depth-32 PostgreSQL read-output schema median",
+      "value": 3.053,
+      "of": null,
+      "unit": "ms",
+      "note": "Synthetic JSON probe of the installed engine and exact read-output schema."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The shared log establishes material endpoint cost and the smaller admitted read passes. The synthetic read-output schema does not show repeated depth amplification. Late nested capture on the small private control leaves the wide event read, attachment and retention internals open.",
+  "consumed_by": [
+    "SBX-05",
+    "SBX-06",
+    "SBX-09",
+    "SBX-11"
+  ]
+}

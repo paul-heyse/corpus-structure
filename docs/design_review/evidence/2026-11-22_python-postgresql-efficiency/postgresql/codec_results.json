@@ -1,0 +1,319 @@
+{
+  "identity": [
+    "corpus_structure_sbx09_bounded_qualification",
+    136550030,
+    "7701811359771751232",
+    "18.7 (Ubuntu 18.7-1.pgdg24.04+5)"
+  ],
+  "samples": [
+    {
+      "case": "depth-0",
+      "bytes": 2160,
+      "operation": "jsonb_cast",
+      "median_ms": 0.1,
+      "samples_ms": [
+        0.503,
+        0.1,
+        0.052
+      ]
+    },
+    {
+      "case": "depth-0",
+      "bytes": 2160,
+      "operation": "pg_jsonschema",
+      "median_ms": 3.839,
+      "samples_ms": [
+        5.255,
+        3.839,
+        2.778
+      ]
+    },
+    {
+      "case": "depth-0",
+      "bytes": 2160,
+      "operation": "native_canonical_json",
+      "median_ms": 0.833,
+      "samples_ms": [
+        1.618,
+        0.833,
+        0.792
+      ]
+    },
+    {
+      "case": "depth-0",
+      "bytes": 2160,
+      "operation": "native_json_meaning",
+      "median_ms": 0.121,
+      "samples_ms": [
+        0.746,
+        0.121,
+        0.09
+      ]
+    },
+    {
+      "case": "depth-10",
+      "bytes": 2310,
+      "operation": "jsonb_cast",
+      "median_ms": 0.063,
+      "samples_ms": [
+        0.099,
+        0.057,
+        0.063
+      ]
+    },
+    {
+      "case": "depth-10",
+      "bytes": 2310,
+      "operation": "pg_jsonschema",
+      "median_ms": 2.629,
+      "samples_ms": [
+        2.743,
+        2.629,
+        2.598
+      ]
+    },
+    {
+      "case": "depth-10",
+      "bytes": 2310,
+      "operation": "native_canonical_json",
+      "median_ms": 0.799,
+      "samples_ms": [
+        0.922,
+        0.799,
+        0.795
+      ]
+    },
+    {
+      "case": "depth-10",
+      "bytes": 2310,
+      "operation": "native_json_meaning",
+      "median_ms": 0.149,
+      "samples_ms": [
+        0.16,
+        0.135,
+        0.149
+      ]
+    },
+    {
+      "case": "depth-20",
+      "bytes": 2460,
+      "operation": "jsonb_cast",
+      "median_ms": 0.051,
+      "samples_ms": [
+        0.076,
+        0.051,
+        0.041
+      ]
+    },
+    {
+      "case": "depth-20",
+      "bytes": 2460,
+      "operation": "pg_jsonschema",
+      "median_ms": 2.572,
+      "samples_ms": [
+        2.572,
+        2.579,
+        2.559
+      ]
+    },
+    {
+      "case": "depth-20",
+      "bytes": 2460,
+      "operation": "native_canonical_json",
+      "median_ms": 0.794,
+      "samples_ms": [
+        0.907,
+        0.794,
+        0.78
+      ]
+    },
+    {
+      "case": "depth-20",
+      "bytes": 2460,
+      "operation": "native_json_meaning",
+      "median_ms": 0.138,
+      "samples_ms": [
+        0.163,
+        0.138,
+        0.137
+      ]
+    },
+    {
+      "case": "depth-32",
+      "bytes": 2640,
+      "operation": "jsonb_cast",
+      "median_ms": 0.051,
+      "samples_ms": [
+        0.072,
+        0.051,
+        0.041
+      ]
+    },
+    {
+      "case": "depth-32",
+      "bytes": 2640,
+      "operation": "pg_jsonschema",
+      "median_ms": 3.053,
+      "samples_ms": [
+        3.053,
+        3.099,
+        2.756
+      ]
+    },
+    {
+      "case": "depth-32",
+      "bytes": 2640,
+      "operation": "native_canonical_json",
+      "median_ms": 0.845,
+      "samples_ms": [
+        1.031,
+        0.845,
+        0.806
+      ]
+    },
+    {
+      "case": "depth-32",
+      "bytes": 2640,
+      "operation": "native_json_meaning",
+      "median_ms": 0.194,
+      "samples_ms": [
+        0.239,
+        0.194,
+        0.183
+      ]
+    },
+    {
+      "case": "width-100",
+      "bytes": 3858,
+      "operation": "jsonb_cast",
+      "median_ms": 0.051,
+      "samples_ms": [
+        0.075,
+        0.051,
+        0.043
+      ]
+    },
+    {
+      "case": "width-100",
+      "bytes": 3858,
+      "operation": "pg_jsonschema",
+      "median_ms": 2.588,
+      "samples_ms": [
+        2.595,
+        2.588,
+        2.552
+      ]
+    },
+    {
+      "case": "width-100",
+      "bytes": 3858,
+      "operation": "native_canonical_json",
+      "median_ms": 0.962,
+      "samples_ms": [
+        1.075,
+        0.962,
+        0.938
+      ]
+    },
+    {
+      "case": "width-100",
+      "bytes": 3858,
+      "operation": "native_json_meaning",
+      "median_ms": 0.529,
+      "samples_ms": [
+        0.558,
+        0.527,
+        0.529
+      ]
+    },
+    {
+      "case": "width-1000",
+      "bytes": 19158,
+      "operation": "jsonb_cast",
+      "median_ms": 0.161,
+      "samples_ms": [
+        0.181,
+        0.161,
+        0.157
+      ]
+    },
+    {
+      "case": "width-1000",
+      "bytes": 19158,
+      "operation": "pg_jsonschema",
+      "median_ms": 2.914,
+      "samples_ms": [
+        2.93,
+        2.914,
+        2.853
+      ]
+    },
+    {
+      "case": "width-1000",
+      "bytes": 19158,
+      "operation": "native_canonical_json",
+      "median_ms": 2.774,
+      "samples_ms": [
+        2.919,
+        2.774,
+        2.713
+      ]
+    },
+    {
+      "case": "width-1000",
+      "bytes": 19158,
+      "operation": "native_json_meaning",
+      "median_ms": 5.128,
+      "samples_ms": [
+        5.133,
+        5.082,
+        5.128
+      ]
+    },
+    {
+      "case": "width-10000",
+      "bytes": 172158,
+      "operation": "jsonb_cast",
+      "median_ms": 1.45,
+      "samples_ms": [
+        1.661,
+        1.45,
+        1.343
+      ]
+    },
+    {
+      "case": "width-10000",
+      "bytes": 172158,
+      "operation": "pg_jsonschema",
+      "median_ms": 5.73,
+      "samples_ms": [
+        6.656,
+        5.722,
+        5.73
+      ]
+    },
+    {
+      "case": "width-10000",
+      "bytes": 172158,
+      "operation": "native_canonical_json",
+      "median_ms": 25.562,
+      "samples_ms": [
+        25.562,
+        25.567,
+        23.141
+      ]
+    },
+    {
+      "case": "width-10000",
+      "bytes": 172158,
+      "operation": "native_json_meaning",
+      "median_ms": 49.333,
+      "samples_ms": [
+        48.678,
+        49.907,
+        49.333
+      ]
+    }
+  ],
+  "scope": "client elapsed on read-only SELECT, three warm-session repetitions, 5s local statement limit"
+}

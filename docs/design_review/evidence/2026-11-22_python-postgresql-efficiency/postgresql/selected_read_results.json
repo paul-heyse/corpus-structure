@@ -1,0 +1,43 @@
+{
+  "receipt": "d414d2a65d6547ff931edb5c4bbff1b4",
+  "outcome": "passed",
+  "managed_seconds": 95.36408591270447,
+  "phases": [
+    {
+      "when": "setup",
+      "duration": 79.07426839799882,
+      "outcome": "passed",
+      "nodeid": "python/corpus-structure/tests/semantic/test_demand_export_native.py::test_selected_product_scope_filters_inside_native_page_and_keeps_support"
+    },
+    {
+      "when": "call",
+      "duration": 1.1945350329988287,
+      "outcome": "passed",
+      "nodeid": "python/corpus-structure/tests/semantic/test_demand_export_native.py::test_selected_product_scope_filters_inside_native_page_and_keeps_support"
+    },
+    {
+      "when": "teardown",
+      "duration": 0.04589331000170205,
+      "outcome": "passed",
+      "nodeid": "python/corpus-structure/tests/semantic/test_demand_export_native.py::test_selected_product_scope_filters_inside_native_page_and_keeps_support"
+    }
+  ],
+  "private_observation": {
+    "identity": {
+      "host": "127.0.0.1",
+      "port": 57795,
+      "system": "7711127031843004776"
+    },
+    "settings": {
+      "pg_stat_statements.track": "top",
+      "auto_explain.log_nested_statements": "off",
+      "auto_explain.log_min_duration": "-1",
+      "log_parameter_max_length": "0",
+      "log_parameter_max_length_on_error": "0",
+      "auto_explain.log_parameter_max_length": "-1"
+    },
+    "activity": []
+  },
+  "scope": "actual selected product filtering and complete authentic support; 3 scalar products; one private worker; session profiling enabled only near end of setup; no plans >=100ms were retained; custom Python observer did not load because managed native run reset PYTHONPATH",
+  "limitations": "Small fixture only. Does not explain wide event request attachment or completion retention. No full event rerun was performed."
+}

@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "id": "sbx09.live-validation-efficiency",
+  "title": "Admitted Python live page and exact tagged values",
+  "group": "python-postgresql-efficiency",
+  "package": "SBX-09",
+  "finalized": "2026-11-22",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can Python project an already admitted page without repeating depth-sensitive validation?",
+  "answers": [
+    "I01",
+    "I05",
+    "I06"
+  ],
+  "method": "Compare current raw projection and the draft admitted-page handoff on equal synthetic values, check direct tag and decimal boundaries, and exercise the independent native read and wire/cut controls on the isolated draft.",
+  "commands": [
+    "uv run --no-sync python <evidence-folder>/live_page.py",
+    "uv run --no-sync python docs/design_review/evidence/2026-11-22_python-postgresql-efficiency/value_boundaries.py",
+    "uv run ci test --native-host private --workers 1 --test-timeout 1800 --json -- python/corpus-structure/tests/semantic/test_demand_results.py python/corpus-structure/tests/semantic/test_demand_wire.py python/corpus-structure/tests/semantic/test_frontier_json_policy.py python/corpus-structure/tests/semantic/test_characterization_native.py::test_native_current_complete_selected_envelope_obeys_independent_read_bound"
+  ],
+  "agents": [
+    {
+      "role": "Independent recommendation challenge",
+      "model": "gpt-6.2-sol",
+      "brief": null,
+      "separation": "Read-only source challenge of shape parity, worker witness and retained authority."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "live_page.py",
+      "role": "reproducible live comparison",
+      "sha256": "7f73f623cf4325e67f332d0e995c92c86883f01ee8d083caf0267abd537f2c94"
+    },
+    {
+      "path": "value_boundaries.py",
+      "role": "tag and decimal controls",
+      "sha256": "c8aeea3fcb49a6195c267294b4ce7016453e5bb34060b3c1b3e8296c25da0239"
+    },
+    {
+      "path": "live-page-candidate.patch",
+      "role": "isolated proposal",
+      "sha256": "91eb2f2d58ac0f5ee9b330b489efd04a1c02f2704cc5daadf034f08e27811fd3"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/live_page.json",
+      "role": "shape-sensitive measurements and negative controls",
+      "sha256": "41a488ab59b61332620e0762ae543fd1e38ec97b08c73473751b375bfdec6d50"
+    },
+    {
+      "path": "raw/value_boundaries.json",
+      "role": "tag and decimal observations",
+      "sha256": "14e53a0aa25402e3f4ec65d39b0e90f37cb07d14eeeb95fcd483f128e43ad867"
+    },
+    {
+      "path": "raw/native-live-result.json",
+      "role": "managed selection summary and fixture phases",
+      "sha256": "9fc260287725eb896d28c2d776cc1bc6a51fff7919561bec53bb843a849dc8d7"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Depth-20 raw projection",
+      "value": 9797.235,
+      "of": null,
+      "unit": "ms",
+      "note": "Single synthetic page with one leaf."
+    },
+    {
+      "name": "Depth-20 acquired serialization freeze cut and projection",
+      "value": 0.568,
+      "of": null,
+      "unit": "ms",
+      "note": "Same page, same cut bytes and selected rows. The initial check and database are outside these steps."
+    },
+    {
+      "name": "Selected controls passed",
+      "value": 78,
+      "of": 78,
+      "unit": null,
+      "note": "Managed a091707e98c443ae954a80a58ad2b01e, captured bounded native root and isolated draft."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Admitted-page handoff removes measured depth amplification in the projection step and passes the exact read-budget case. Keep strict raw ingress and exact cut checks. The private run and pre-change watchdog differ in source and context, so no end-to-end speedup is claimed.",
+  "consumed_by": [
+    "SBX-08",
+    "SBX-09",
+    "SBX-11",
+    "SBX-12"
+  ]
+}

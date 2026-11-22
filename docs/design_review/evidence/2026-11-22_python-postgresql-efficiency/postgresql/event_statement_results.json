@@ -1,0 +1,1143 @@
+{
+  "receipt": "f02c6b33e0d14cd4b77b97c5a3394854",
+  "node": "test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private_basis@operation-event-native",
+  "database": "cs_sem_test_2734530_72524f379178",
+  "source_log": "/var/log/postgresql/postgresql-18-corpus.log",
+  "threshold_ms": 250,
+  "phases": {
+    "setup": [
+      1795383377.811186,
+      1795384810.5910687,
+      1432.7798834290006
+    ],
+    "call": [
+      1795384810.5912957,
+      1795384921.197452,
+      110.60615781100205
+    ]
+  },
+  "statements": [
+    {
+      "phase": "setup",
+      "operation": "COPY",
+      "seconds": 0.264063,
+      "line": 18450,
+      "pid": 2746639,
+      "principal": "paul"
+    },
+    {
+      "phase": "setup",
+      "operation": "sem.publish_release_archive",
+      "seconds": 3.36011,
+      "line": 18455,
+      "pid": 2746639,
+      "principal": "paul"
+    },
+    {
+      "phase": "setup",
+      "operation": "sem.admit_data_operation_definitions",
+      "seconds": 1.6784169999999998,
+      "line": 18463,
+      "pid": 2746639,
+      "principal": "paul"
+    },
+    {
+      "phase": "setup",
+      "operation": "data.require_execution_release",
+      "seconds": 3.540597,
+      "line": 18469,
+      "pid": 2746639,
+      "principal": "paul"
+    },
+    {
+      "phase": "setup",
+      "operation": "sem.register_runtime_binding",
+      "seconds": 1.323198,
+      "line": 18475,
+      "pid": 2746639,
+      "principal": "paul"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.register_data_demand",
+      "seconds": 1.466606,
+      "line": 18484,
+      "pid": 2746859,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.attach_data_requests",
+      "seconds": 0.5660810000000001,
+      "line": 18488,
+      "pid": 2746894,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.ddo_settle_pending_discovery",
+      "seconds": 0.465528,
+      "line": 18954,
+      "pid": 2747767,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.attach_data_requests",
+      "seconds": 0.642018,
+      "line": 18955,
+      "pid": 2747768,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.ddo_settle_pending_discovery",
+      "seconds": 0.929851,
+      "line": 18957,
+      "pid": 2747771,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.ddo_settle_pending_discovery",
+      "seconds": 1.002485,
+      "line": 18958,
+      "pid": 2747778,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.attach_data_requests",
+      "seconds": 2.97177,
+      "line": 18962,
+      "pid": 2747779,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.publish_data_derivation",
+      "seconds": 0.500669,
+      "line": 18966,
+      "pid": 2747837,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.publish_data_derivation",
+      "seconds": 0.478107,
+      "line": 18969,
+      "pid": 2747884,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.resume_data_demand",
+      "seconds": 0.294274,
+      "line": 18970,
+      "pid": 2747963,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.ddo_settle_pending_discovery",
+      "seconds": 0.99451,
+      "line": 18971,
+      "pid": 2747964,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.attach_data_requests",
+      "seconds": 4.005215,
+      "line": 18972,
+      "pid": 2747968,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.claim_data_requests",
+      "seconds": 0.276075,
+      "line": 18976,
+      "pid": 2747974,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.claim_data_requests",
+      "seconds": 0.27531700000000003,
+      "line": 18977,
+      "pid": 2747977,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.retain_data_completion_intent",
+      "seconds": 2.464347,
+      "line": 18978,
+      "pid": 2747995,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.publish_data_derivation",
+      "seconds": 9.090639999999999,
+      "line": 18987,
+      "pid": 2747999,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.retain_data_completion_intent",
+      "seconds": 2.510913,
+      "line": 19001,
+      "pid": 2748033,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.renew_data_request",
+      "seconds": 0.256913,
+      "line": 19005,
+      "pid": 2746891,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.publish_data_derivation",
+      "seconds": 9.650547000000001,
+      "line": 19031,
+      "pid": 2748042,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.resume_data_demand",
+      "seconds": 3.130038,
+      "line": 19041,
+      "pid": 2748208,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.ddo_settle_pending_discovery",
+      "seconds": 1.1048900000000001,
+      "line": 19045,
+      "pid": 2748339,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "WITH",
+      "seconds": 0.265195,
+      "line": 19049,
+      "pid": 2748416,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "WITH",
+      "seconds": 3.8466419999999997,
+      "line": 19101,
+      "pid": 2748416,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "WITH",
+      "seconds": 4.02101,
+      "line": 19265,
+      "pid": 2748416,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.attach_data_requests",
+      "seconds": 17.700126,
+      "line": 19433,
+      "pid": 2748416,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.claim_data_requests",
+      "seconds": 0.315682,
+      "line": 19437,
+      "pid": 2749564,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "FETCH",
+      "seconds": 3.627519,
+      "line": 19438,
+      "pid": 2749608,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "FETCH",
+      "seconds": 3.616652,
+      "line": 19455,
+      "pid": 2749608,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.claim_data_requests",
+      "seconds": 0.277017,
+      "line": 19460,
+      "pid": 2749827,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "FETCH",
+      "seconds": 3.5344360000000004,
+      "line": 19461,
+      "pid": 2749864,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "FETCH",
+      "seconds": 3.389631,
+      "line": 19478,
+      "pid": 2749864,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.retain_data_completion_intent",
+      "seconds": 4.523366,
+      "line": 19483,
+      "pid": 2749950,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.renew_data_request",
+      "seconds": 0.255392,
+      "line": 19487,
+      "pid": 2746891,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.publish_data_derivation",
+      "seconds": 1.631724,
+      "line": 19488,
+      "pid": 2749964,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.retain_data_completion_intent",
+      "seconds": 4.801192,
+      "line": 19492,
+      "pid": 2749967,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.publish_data_derivation",
+      "seconds": 1.791075,
+      "line": 19496,
+      "pid": 2750148,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.resume_data_demand",
+      "seconds": 8.937839,
+      "line": 19503,
+      "pid": 2750156,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.ddo_settle_pending_discovery",
+      "seconds": 0.992287,
+      "line": 19511,
+      "pid": 2750223,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.resume_data_demand",
+      "seconds": 8.631834999999999,
+      "line": 19520,
+      "pid": 2750281,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 12.609012,
+      "line": 19718,
+      "pid": 2750330,
+      "principal": "corpus_sem_reader"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 9.26903,
+      "line": 19746,
+      "pid": 2750635,
+      "principal": "corpus_sem_reader"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 5.4427460000000005,
+      "line": 19908,
+      "pid": 2750906,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 9.164967,
+      "line": 19920,
+      "pid": 2750906,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.register_data_demand",
+      "seconds": 16.046212,
+      "line": 20136,
+      "pid": 2751039,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 2.966163,
+      "line": 20146,
+      "pid": 2751039,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.resume_data_demand",
+      "seconds": 3.389757,
+      "line": 20150,
+      "pid": 2751390,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "WITH",
+      "seconds": 19.015375,
+      "line": 20354,
+      "pid": 2751438,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.attach_data_requests",
+      "seconds": 42.245137,
+      "line": 20792,
+      "pid": 2751438,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.claim_data_requests",
+      "seconds": 6.273255,
+      "line": 20805,
+      "pid": 2752589,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "FETCH",
+      "seconds": 18.707201,
+      "line": 20990,
+      "pid": 2752599,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.renew_data_request",
+      "seconds": 6.006428,
+      "line": 21171,
+      "pid": 2751389,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 5.49192,
+      "line": 21175,
+      "pid": 2752785,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 18.917408,
+      "line": 21214,
+      "pid": 2752785,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.renew_data_request",
+      "seconds": 6.249955,
+      "line": 21389,
+      "pid": 2751389,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 19.277968,
+      "line": 21397,
+      "pid": 2752785,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 19.310669,
+      "line": 21409,
+      "pid": 2752785,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.renew_data_request",
+      "seconds": 5.756408,
+      "line": 21418,
+      "pid": 2751389,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 20.201254000000002,
+      "line": 21422,
+      "pid": 2752785,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 17.335044999999997,
+      "line": 21428,
+      "pid": 2752785,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.renew_data_request",
+      "seconds": 6.588629,
+      "line": 21432,
+      "pid": 2751389,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 18.010568,
+      "line": 21436,
+      "pid": 2752785,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 19.385013,
+      "line": 21440,
+      "pid": 2752785,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.renew_data_request",
+      "seconds": 6.266116,
+      "line": 21444,
+      "pid": 2751389,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 19.057365,
+      "line": 21448,
+      "pid": 2752785,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 16.952372,
+      "line": 21452,
+      "pid": 2752785,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.renew_data_request",
+      "seconds": 6.410986,
+      "line": 21460,
+      "pid": 2751389,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 18.942487,
+      "line": 21464,
+      "pid": 2752785,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 17.743349,
+      "line": 21491,
+      "pid": 2752785,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.renew_data_request",
+      "seconds": 5.755236,
+      "line": 21505,
+      "pid": 2751389,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 16.551794,
+      "line": 21509,
+      "pid": 2752785,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 15.70354,
+      "line": 21513,
+      "pid": 2752785,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.retain_data_completion_intent",
+      "seconds": 50.595559,
+      "line": 21517,
+      "pid": 2759266,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.renew_data_request",
+      "seconds": 6.559061,
+      "line": 21521,
+      "pid": 2751389,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.publish_data_derivation",
+      "seconds": 5.730599,
+      "line": 21525,
+      "pid": 2759869,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.resume_data_demand",
+      "seconds": 9.064535,
+      "line": 21529,
+      "pid": 2759905,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.resume_data_demand",
+      "seconds": 8.549515,
+      "line": 21533,
+      "pid": 2760628,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 8.483607,
+      "line": 21548,
+      "pid": 2760782,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.register_data_demand",
+      "seconds": 14.35446,
+      "line": 21552,
+      "pid": 2760887,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 2.871848,
+      "line": 21556,
+      "pid": 2760887,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.resume_data_demand",
+      "seconds": 3.1317559999999998,
+      "line": 21560,
+      "pid": 2761234,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "WITH",
+      "seconds": 6.025317,
+      "line": 21564,
+      "pid": 2761308,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.attach_data_requests",
+      "seconds": 29.379493999999998,
+      "line": 21700,
+      "pid": 2761308,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.claim_data_requests",
+      "seconds": 5.540419,
+      "line": 21704,
+      "pid": 2761862,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "FETCH",
+      "seconds": 6.418564999999999,
+      "line": 21708,
+      "pid": 2761888,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_selected_feature_fit_frame",
+      "seconds": 11.271033,
+      "line": 21725,
+      "pid": 2762034,
+      "principal": "corpus_sem_fitter"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.renew_data_request",
+      "seconds": 5.577361,
+      "line": 21729,
+      "pid": 2761233,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.retain_data_completion_intent",
+      "seconds": 63.405944000000005,
+      "line": 21733,
+      "pid": 2762145,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.renew_data_request",
+      "seconds": 6.295355,
+      "line": 21737,
+      "pid": 2761233,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.publish_data_derivation",
+      "seconds": 6.5212259999999995,
+      "line": 21741,
+      "pid": 2763322,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.resume_data_demand",
+      "seconds": 8.981076,
+      "line": 21745,
+      "pid": 2763340,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "WITH",
+      "seconds": 5.5530919999999995,
+      "line": 21749,
+      "pid": 2763498,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "WITH",
+      "seconds": 6.122860999999999,
+      "line": 21817,
+      "pid": 2763498,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.attach_data_requests",
+      "seconds": 107.342572,
+      "line": 21996,
+      "pid": 2763498,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.claim_data_requests",
+      "seconds": 5.500109,
+      "line": 22008,
+      "pid": 2765259,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "FETCH",
+      "seconds": 5.882668,
+      "line": 22017,
+      "pid": 2765286,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.retain_data_completion_intent",
+      "seconds": 63.306336,
+      "line": 22302,
+      "pid": 2765349,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.renew_data_request",
+      "seconds": 6.178086,
+      "line": 22306,
+      "pid": 2761233,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.publish_data_derivation",
+      "seconds": 5.906836,
+      "line": 22315,
+      "pid": 2766339,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.resume_data_demand",
+      "seconds": 9.300165000000002,
+      "line": 22325,
+      "pid": 2766361,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.resume_data_demand",
+      "seconds": 8.249602000000001,
+      "line": 22329,
+      "pid": 2766384,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "seconds": 8.342655,
+      "line": 22338,
+      "pid": 2766496,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "call",
+      "operation": "ops.read_demand_result",
+      "seconds": 8.279817999999999,
+      "line": 22342,
+      "pid": 2766542,
+      "principal": "corpus_sem_evaluator"
+    },
+    {
+      "phase": "call",
+      "operation": "ops.read_demand_result",
+      "seconds": 8.344196,
+      "line": 22346,
+      "pid": 2766629,
+      "principal": "corpus_sem_reader"
+    },
+    {
+      "phase": "call",
+      "operation": "ops.register_data_demand",
+      "seconds": 20.963826,
+      "line": 22352,
+      "pid": 2766666,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "call",
+      "operation": "ops.resume_data_demand",
+      "seconds": 1.55832,
+      "line": 22356,
+      "pid": 2766958,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "call",
+      "operation": "WITH",
+      "seconds": 6.140686,
+      "line": 22360,
+      "pid": 2766961,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "call",
+      "operation": "WITH",
+      "seconds": 9.007155000000001,
+      "line": 22948,
+      "pid": 2766961,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "call",
+      "operation": "ops.attach_data_requests",
+      "seconds": 34.647597000000005,
+      "line": 23133,
+      "pid": 2766961,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "call",
+      "operation": "ops.claim_data_requests",
+      "seconds": 2.813594,
+      "line": 23145,
+      "pid": 2767657,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "call",
+      "operation": "ops.renew_data_request",
+      "seconds": 2.871436,
+      "line": 23155,
+      "pid": 2766957,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "call",
+      "operation": "FETCH",
+      "seconds": 8.100831,
+      "line": 23159,
+      "pid": 2767663,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "call",
+      "operation": "ops.resume_data_demand",
+      "seconds": 3.013263,
+      "line": 23176,
+      "pid": 2767734,
+      "principal": "corpus_sem_writer"
+    },
+    {
+      "phase": "call",
+      "operation": "ops.resume_data_demand",
+      "seconds": 3.010686,
+      "line": 23180,
+      "pid": 2767741,
+      "principal": "corpus_sem_writer"
+    }
+  ],
+  "summary": [
+    {
+      "phase": "setup",
+      "operation": "COPY",
+      "count": 1,
+      "sum_seconds": 0.264063,
+      "max_seconds": 0.264063
+    },
+    {
+      "phase": "setup",
+      "operation": "FETCH",
+      "count": 7,
+      "sum_seconds": 45.176672,
+      "max_seconds": 18.707201
+    },
+    {
+      "phase": "setup",
+      "operation": "WITH",
+      "count": 7,
+      "sum_seconds": 44.849492,
+      "max_seconds": 19.015375
+    },
+    {
+      "phase": "setup",
+      "operation": "data.require_execution_release",
+      "count": 1,
+      "sum_seconds": 3.540597,
+      "max_seconds": 3.540597
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.attach_data_requests",
+      "count": 8,
+      "sum_seconds": 204.852413,
+      "max_seconds": 107.342572
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.claim_data_requests",
+      "count": 7,
+      "sum_seconds": 18.457874,
+      "max_seconds": 6.273255
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.ddo_settle_pending_discovery",
+      "count": 6,
+      "sum_seconds": 5.489551,
+      "max_seconds": 1.1048900000000001
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.publish_data_derivation",
+      "count": 9,
+      "sum_seconds": 41.301423,
+      "max_seconds": 9.650547000000001
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_demand_result",
+      "count": 22,
+      "sum_seconds": 302.03078,
+      "max_seconds": 20.201254000000002
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.read_selected_feature_fit_frame",
+      "count": 1,
+      "sum_seconds": 11.271033,
+      "max_seconds": 11.271033
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.register_data_demand",
+      "count": 3,
+      "sum_seconds": 31.867278,
+      "max_seconds": 16.046212
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.renew_data_request",
+      "count": 13,
+      "sum_seconds": 68.155926,
+      "max_seconds": 6.588629
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.resume_data_demand",
+      "count": 11,
+      "sum_seconds": 71.660392,
+      "max_seconds": 9.300165000000002
+    },
+    {
+      "phase": "setup",
+      "operation": "ops.retain_data_completion_intent",
+      "count": 7,
+      "sum_seconds": 191.607657,
+      "max_seconds": 63.405944000000005
+    },
+    {
+      "phase": "setup",
+      "operation": "sem.admit_data_operation_definitions",
+      "count": 1,
+      "sum_seconds": 1.678417,
+      "max_seconds": 1.6784169999999998
+    },
+    {
+      "phase": "setup",
+      "operation": "sem.publish_release_archive",
+      "count": 1,
+      "sum_seconds": 3.36011,
+      "max_seconds": 3.36011
+    },
+    {
+      "phase": "setup",
+      "operation": "sem.register_runtime_binding",
+      "count": 1,
+      "sum_seconds": 1.323198,
+      "max_seconds": 1.323198
+    },
+    {
+      "phase": "call",
+      "operation": "FETCH",
+      "count": 1,
+      "sum_seconds": 8.100831,
+      "max_seconds": 8.100831
+    },
+    {
+      "phase": "call",
+      "operation": "WITH",
+      "count": 2,
+      "sum_seconds": 15.147841,
+      "max_seconds": 9.007155000000001
+    },
+    {
+      "phase": "call",
+      "operation": "ops.attach_data_requests",
+      "count": 1,
+      "sum_seconds": 34.647597,
+      "max_seconds": 34.647597000000005
+    },
+    {
+      "phase": "call",
+      "operation": "ops.claim_data_requests",
+      "count": 1,
+      "sum_seconds": 2.813594,
+      "max_seconds": 2.813594
+    },
+    {
+      "phase": "call",
+      "operation": "ops.read_demand_result",
+      "count": 2,
+      "sum_seconds": 16.624014,
+      "max_seconds": 8.344196
+    },
+    {
+      "phase": "call",
+      "operation": "ops.register_data_demand",
+      "count": 1,
+      "sum_seconds": 20.963826,
+      "max_seconds": 20.963826
+    },
+    {
+      "phase": "call",
+      "operation": "ops.renew_data_request",
+      "count": 1,
+      "sum_seconds": 2.871436,
+      "max_seconds": 2.871436
+    },
+    {
+      "phase": "call",
+      "operation": "ops.resume_data_demand",
+      "count": 3,
+      "sum_seconds": 7.582269,
+      "max_seconds": 3.013263
+    }
+  ],
+  "limitations": "Logged statement durations may overlap and count only >=250ms. auto_explain plan entries excluded. Source phase timestamps classify statement finish time. Nested plans unavailable."
+}
