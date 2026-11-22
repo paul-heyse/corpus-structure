@@ -1,20 +1,26 @@
 """Pinned sealed-publication reads share the existing native section projector."""
 
+from __future__ import annotations
+
 import inspect
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import TypeAdapter
 from sqlalchemy import func, select
 
 from .data_operation_outcomes import successful_return_outcome
-from .data_operation_values import decode_semantic_value, semantic_value
+from .data_operation_values import decode_semantic_value
 from .identity import canonical_bytes
 from .source_discovery import PreparedSourceDiscovery
 from .source_products import FrozenNativeSource
 from .types import SourceArtifact
+
+if TYPE_CHECKING:
+    from .runtime_slice import AuthenticatedSlice
 
 
 def pdf_views_assets():
@@ -29,6 +35,9 @@ def pdf_views_assets():
 def pdf_views_custody():
     root = Path(__file__).parents[1]
     files = (
+        "ingest/pdf_health.py",
+        "ingest/pdf_hierarchy.py",
+        "ingest/pdf_section_views.py",
         "semantic/pdf_views.py",
         "semantic/pdf_record_reader.py",
         "semantic/pdf_domain.py",
@@ -171,7 +180,7 @@ class PreparedPdfViews:
                     items=row.items,
                     ancestors=row.ancestors,
                     recognition=row.health.get("formula_outcomes", ()),
-                ).value
+                )
                 for row in projections
             )
         check_active()
@@ -202,38 +211,61 @@ class PreparedPdfViewsPort:
     authorize: Any
     custody: tuple
     sources: Any
+    _verification: AuthenticatedSlice = field(init=False, compare=False, repr=False)
+    logical_signature: inspect.Signature = field(init=False, compare=False, repr=False)
     native_selections = ()
 
-    @property
-    def logical_signature(self):
+    def __post_init__(self):
         from corpus_structure.ingest.pdf_views import PdfSourceViewsOperation
 
-        signature = inspect.signature(PdfSourceViewsOperation.run, eval_str=True)
-        return signature.replace(parameters=tuple(signature.parameters.values())[1:])
+        from .data_operation_prepared_products import (
+            authenticated_prepared_product,
+            verify_prepared_product,
+        )
+        from .file_custody import verified_file
 
-    def _verify(self):
-        from corpus_structure.ingest.pdf_views import PdfSourceViewsOperation
-
-        from .data_operation_prepared_products import verify_prepared_product
-
+        transport = pdf_views_custody()
+        functions = (
+            (self.operation.callable_surfaces[0].declaration, PdfSourceViewsOperation.run),
+            ("corpus_structure.semantic.pdf_views.execute_pdf_views", execute_pdf_views),
+            (
+                "corpus_structure.semantic.pdf_views.PreparedPdfViews.project",
+                PreparedPdfViews.project,
+            ),
+        )
         verify_prepared_product(
             self.identity,
             self.profile.model,
             self.operation,
             self.sources,
             self.custody,
-            assets=(pdf_views_assets(), pdf_views_custody()),
-            functions=(
-                (self.operation.callable_surfaces[0].declaration, PdfSourceViewsOperation.run),
-                ("corpus_structure.semantic.pdf_views.execute_pdf_views", execute_pdf_views),
-                (
-                    "corpus_structure.semantic.pdf_views.PreparedPdfViews.project",
-                    PreparedPdfViews.project,
-                ),
-            ),
+            assets=(pdf_views_assets(), transport),
+            functions=functions,
             authorize=self.authorize,
             required_sources=self.sources,
         )
+        verification = authenticated_prepared_product(
+            self.sources, functions, required_sources=self.sources
+        )
+        root = Path(__file__).parents[1]
+        files = tuple(
+            verified_file(root / name, sha256(bytes.fromhex(content)).hexdigest())
+            for name, content in json.loads(transport.content)["files"]
+        )
+        verification.files = tuple(
+            {file.path: file for file in (*verification.files, *files)}.values()
+        )
+        object.__setattr__(self, "_verification", verification)
+        signature = inspect.signature(PdfSourceViewsOperation.run, eval_str=True)
+        object.__setattr__(
+            self,
+            "logical_signature",
+            signature.replace(parameters=tuple(signature.parameters.values())[1:]),
+        )
+
+    def _verify(self):
+        self._verification.check()
+        self.authorize(self.identity)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from corpus_structure.core.work import PreparedWork
@@ -244,10 +276,8 @@ class PreparedPdfViewsPort:
             PortCompletion,
             PortRefusal,
             RoleValue,
-            project_product_members,
         )
 
-        self._verify()
         if (
             binding is None
             or not binding.sufficient
@@ -281,9 +311,6 @@ class PreparedPdfViewsPort:
                 check_active=check_active,
             ).run(capture, tuple(parameters["sections"]), parameters["membership"])
             output = next(role for role in self.operation.roles if role.direction == "output")
-            body = self.profile.prepared.validate_json(
-                "DdoSourceViewPopulation", population.content
-            ).model_dump(mode="python", exclude_unset=True)
             self._verify()
             return PortCompletion(
                 self.operation.semantic_id,
@@ -292,8 +319,8 @@ class PreparedPdfViewsPort:
                         output.name,
                         ids[output.kind, "kind"],
                         population.content,
-                        canonical_bytes(semantic_value(body)),
-                        project_product_members(self.profile.model, output.kind, body),
+                        population.meaning,
+                        population.members,
                     ),
                 ),
                 outcome=successful_return_outcome(self.operation),
@@ -317,8 +344,6 @@ def resolve_pdf_views_port(prepared, model, operation, *, identity, authorize, c
         or selected.effects
     ):
         raise ValueError("PDF views require their exact declared read-only discovery profile")
-    port = PreparedPdfViewsPort(
+    return PreparedPdfViewsPort(
         identity, selected, PreparedPdfViews(prepared, model), authorize, custody, sources
     )
-    port._verify()
-    return port

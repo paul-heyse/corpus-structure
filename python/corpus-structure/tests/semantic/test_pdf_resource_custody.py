@@ -1,7 +1,7 @@
 """Actual PDF port/resource correspondence only; no native or provider execution claim."""
 
 import json
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import pytest
@@ -23,7 +23,7 @@ from corpus_structure.semantic.pdf_transforms import (
     pdf_transform_operation_sources,
 )
 from corpus_structure.semantic.pdf_views import (
-    pdf_views_assets,
+    pdf_views_custody,
     pdf_views_operation_sources,
 )
 from corpus_structure.semantic.prepare import prepare_release
@@ -65,7 +65,21 @@ def captured_pdf_ports(tmp_path_factory):
 def acquired_port(captured, operation_id):
     bundle, sources, prepared, model = captured
     operation = model.operation(operation_id)
-    nominal = python_port_identity(model, sources, operation_id, schema=bundle, prepared=prepared)
+    archived = replace(
+        sources,
+        sources=tuple(
+            replace(source, filename=source.logical_filename) for source in sources.sources
+        ),
+    )
+    nominal = python_port_identity(model, archived, operation_id, schema=bundle, prepared=prepared)
+    source_root = Path(__file__).parents[2] / "src"
+    sources = replace(
+        sources,
+        sources=tuple(
+            replace(source, filename=str(source_root / source.logical_filename))
+            for source in sources.sources
+        ),
+    )
     boundaries = (
         *operation.assets,
         *(
@@ -98,14 +112,24 @@ def acquired_port(captured, operation_id):
 
 @pytest.fixture(scope="module")
 def captured_split_pdf_ports(worker_kernel_binding):
-    from corpus_structure.semantic.composed import read_data_operation_inputs
+    from corpus_structure.semantic.composed import (
+        read_data_operation_inputs,
+        runtime_transport_inputs,
+    )
     from semantic.current_pdf_integration_support import integrated_pdf_recipe
     from semantic.data_operation_kernel_support import prepare_worker_kernel
 
     prepared = prepare_worker_kernel(integrated_pdf_recipe(), worker_kernel_binding)
     captured = read_data_operation_inputs(prepared.dependencies)
     assert captured is not None and captured[1] is not None
-    return prepared.bundle, captured[1], prepared.prepared, prepared.model
+    sources = replace(
+        captured[1],
+        boundary_contracts=(
+            *captured[1].boundary_contracts,
+            *runtime_transport_inputs(prepared.runtime),
+        ),
+    )
+    return prepared.bundle, sources, prepared.prepared, prepared.model
 
 
 @pytest.mark.parametrize(
@@ -156,10 +180,10 @@ def test_stable_actual_pdf_resource_capture_verifies_without_native_execution(
 )
 @pytest.mark.parametrize("helper", ("pdf_health", "pdf_hierarchy", "pdf_build_spool"))
 def test_helper_mutation_respects_actual_capability_resources(
-    captured_pdf_ports, operation, helper, monkeypatch
+    captured_pdf_ports, operation, helper, monkeypatch, tmp_path
 ):
-    port, authorized, identity = acquired_port(captured_pdf_ports, operation)
     from corpus_structure.ingest import pdf_build_spool, pdf_health, pdf_hierarchy
+    from corpus_structure.semantic import file_custody
 
     module = {
         "pdf_health": pdf_health,
@@ -177,6 +201,16 @@ def test_helper_mutation_respects_actual_capability_resources(
         else before.replace(b"pdf-build-spool-1", b"pdf-build-spool-mutated", 1)
     )
     assert changed != before
+    held = tmp_path / path.name
+    held.write_bytes(before)
+    acquire_file = file_custody.verified_file
+
+    def acquired_file(source, digest):
+        return acquire_file(held if source.resolve() == path else source, digest)
+
+    monkeypatch.setattr(file_custody, "verified_file", acquired_file)
+    port, authorized, identity = acquired_port(captured_pdf_ports, operation)
+    held.write_bytes(changed)
 
     def altered(source):
         return changed if source.resolve() == path else original(source)
@@ -192,7 +226,8 @@ def test_helper_mutation_respects_actual_capability_resources(
         assert authorized == [identity, identity]
     else:
         with pytest.raises(
-            (PortRefusal, ValueError), match=r"resources differ|implementation changed"
+            (PortRefusal, ValueError),
+            match=r"resources differ|implementation changed|acquired file changed",
         ):
             port._verify()
         assert authorized == [identity]
@@ -201,7 +236,7 @@ def test_helper_mutation_respects_actual_capability_resources(
 def test_moved_health_bytes_belong_to_both_actual_resource_owners(captured_pdf_ports):
     from corpus_structure.ingest import pdf_health
 
-    files = dict(json.loads(pdf_views_assets().content)["files"])
+    files = dict(json.loads(pdf_views_custody().content)["files"])
     assert files["ingest/pdf_health.py"] == Path(pdf_health.__file__).read_bytes().hex()
     _, sources, _, _ = captured_pdf_ports
     capture = next(

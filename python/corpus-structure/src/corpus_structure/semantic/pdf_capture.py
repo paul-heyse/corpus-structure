@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 from sqlalchemy import func, select
@@ -15,6 +15,11 @@ from .data_operation_outcomes import successful_return_outcome
 from .identity import canonical_bytes
 from .source_products import source_product_inputs
 from .types import SourceArtifact, SourceBundle
+
+if TYPE_CHECKING:
+    from inspect import Signature
+
+    from .runtime_slice import AuthenticatedSlice
 
 _MODEL = Path(__file__).parents[1] / "model/semantic/data-operation-pdf-capture.yaml"
 
@@ -375,16 +380,22 @@ class PreparedPdfCapturePort:
     authorize: Any
     custody: tuple
     sources: Any
+    _verification: AuthenticatedSlice = field(init=False, compare=False, repr=False)
+    logical_signature: Signature = field(init=False, compare=False, repr=False)
     native_selections = ()
 
-    def _verify(self):
+    def __post_init__(self):
+        import inspect
+
         from corpus_structure.ingest.pdf_capture import PdfCaptureOperation
 
         from .data_operation_prepared_products import (
             PreparedProductDiagnostic,
             PreparedProductRefusal,
+            authenticated_prepared_product,
             verify_prepared_product,
         )
+        from .file_custody import FileCustodyError, verified_file
 
         contracts = {artifact.name: artifact for artifact in self.custody}
         acquired = contracts.get("pdf-capture/execution-custody")
@@ -392,17 +403,33 @@ class PreparedPdfCapturePort:
             raise ValueError("PDF capture has no exact acquired runtime custody")
         record = json.loads(acquired.content)
         root = Path(__file__).parents[1]
+        files = []
         for name, content in record["files"]:
             expected = sha256(bytes.fromhex(content)).hexdigest()
+            path = root / name
             try:
-                actual = sha256((root / name).read_bytes()).hexdigest()
-            except FileNotFoundError:
-                actual = None
-            if actual != expected:
+                files.append(verified_file(path, expected))
+            except (FileCustodyError, OSError) as error:
+                try:
+                    actual = sha256(path.read_bytes()).hexdigest()
+                except OSError:
+                    actual = None
                 raise PreparedProductRefusal(
                     "PDF capture implementation changed after acquisition",
                     PreparedProductDiagnostic(name, expected, actual, "pdf_runtime_custody"),
-                )
+                ) from error
+        functions = (
+            (self.operation.callable_surfaces[0].declaration, PdfCaptureOperation.run),
+            ("corpus_structure.semantic.pdf_capture.execute_pdf_capture", execute_pdf_capture),
+            (
+                "corpus_structure.semantic.pdf_capture.PreparedPdfCapture.capture",
+                PreparedPdfCapture.capture,
+            ),
+            (
+                "corpus_structure.semantic.pdf_capture.pdf_publication_value",
+                pdf_publication_value,
+            ),
+        )
         verify_prepared_product(
             self.identity,
             self.profile.model,
@@ -416,30 +443,27 @@ class PreparedPdfCapturePort:
                 ),
                 acquired,
             ),
-            functions=(
-                (self.operation.callable_surfaces[0].declaration, PdfCaptureOperation.run),
-                ("corpus_structure.semantic.pdf_capture.execute_pdf_capture", execute_pdf_capture),
-                (
-                    "corpus_structure.semantic.pdf_capture.PreparedPdfCapture.capture",
-                    PreparedPdfCapture.capture,
-                ),
-                (
-                    "corpus_structure.semantic.pdf_capture.pdf_publication_value",
-                    pdf_publication_value,
-                ),
-            ),
+            functions=functions,
             authorize=self.authorize,
             required_sources=self.sources,
         )
-
-    @property
-    def logical_signature(self):
-        import inspect
-
-        from corpus_structure.ingest.pdf_capture import PdfCaptureOperation
-
+        verification = authenticated_prepared_product(
+            self.sources, functions, required_sources=self.sources
+        )
+        verification.files = tuple(
+            {file.path: file for file in (*verification.files, *files)}.values()
+        )
+        object.__setattr__(self, "_verification", verification)
         signature = inspect.signature(PdfCaptureOperation.run, eval_str=True)
-        return signature.replace(parameters=tuple(signature.parameters.values())[1:])
+        object.__setattr__(
+            self,
+            "logical_signature",
+            signature.replace(parameters=tuple(signature.parameters.values())[1:]),
+        )
+
+    def _verify(self):
+        self._verification.check()
+        self.authorize(self.identity)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from corpus_structure.core.work import PreparedWork
@@ -448,7 +472,6 @@ class PreparedPdfCapturePort:
         from .data_operation_ports import PortCompletion, PortRefusal, RoleValue
         from .data_operation_values import semantic_value
 
-        self._verify()
         if binding is None or not binding.sufficient or binding.subject_context is None:
             raise PortRefusal("PDF capture requires its authenticated complete subject context")
         inputs = [role for role in self.operation.roles if role.direction == "input"]
@@ -527,8 +550,6 @@ def resolve_pdf_capture_port(prepared, model, operation, *, identity, authorize,
         record["nemotron_endpoint"],
         record["require_nemotron_handoff"],
     )
-    port = PreparedPdfCapturePort(
+    return PreparedPdfCapturePort(
         identity, model.operation(operation), profile, authorize, custody, sources
     )
-    port._verify()
-    return port
