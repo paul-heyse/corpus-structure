@@ -1,10 +1,10 @@
 ---
 id: ADR-0100
 title: Qualified subject context governs DDO request and product identity
-status: accepted
+status: superseded
 date: 2026-11-13
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0149
 design: [§B1, §B4, §B5]
 evidence: Proposed
 revisit: A supported consumer needs portable cross-project sharing or subject qualification beyond the declared source and analyzed scope.

@@ -43,7 +43,7 @@ separate from those producer facts; completion binds the actual PDF receipt and 
 No fresh-GPU byte equivalence or synthetic legacy run is inferred. The DDO coordinator owns
 PE-S09/35/39 implementation and native/provider/whole-book qualification.
 
-**Accepted target; integration Proposed · 2026-11-13.** Current DDO request and product
+**Accepted target; integration Proposed · 2026-11-21.** Exact DDO request and product
 identities include one explicit qualified subject context: project, local subject, original source
 and analyzed scope, with the mandatory checked subject-definition reference. Native authentication reconstructs that context from admitted custody. Local
 subject headers remain for display and joins; historical frozen interpretations retain their
@@ -69,7 +69,10 @@ Implementation/qualification is owned by the DDO coordinator.
 
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
 
-> Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0139](../adr/0139-compatible-pdf-checkpoint-custody.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
+A separate project-scoped lookup uses declared projections for reusable computation.
+Native current-use support and output custody remain independently established.
+
+> Decision: [ADR-0149](../adr/0149-contextual-requests-and-projected-computation.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0139](../adr/0139-compatible-pdf-checkpoint-custody.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
 
 ## Coherent characterization bounds and native demand anchors
 

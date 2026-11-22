@@ -178,6 +178,17 @@ families a per-operation declaration (the native effect) is already in place.
 
 ## DA-071 — Support-graph meaning is encoded three times and the change-impact copy disagrees
 
+**Scoped refresh, 2026-11-21, source `d918a09ea`.** The earlier three-way
+classification has changed. Native support uses declared edge and reference variants and
+one scope function. Change-impact revocation consumes the resulting native witness rows.
+The separate preview of changed operation definitions uses a projection of declared
+potential dependencies on both release sides. It reports operation-level candidates.
+It does not carry selected role occurrence or readiness evidence. The native validity
+closure and the preview therefore establish different facts.
+[Native support edges](../../../python/corpus-structure/src/corpus_structure/semantic/support_edges.py#L41) ·
+[Preview projection](../../../python/corpus-structure/src/corpus_structure/semantic/change_impact.py#L157) ·
+[Native witness consumption](../../../python/corpus-structure/src/corpus_structure/semantic/change_impact.py#L329)
+
 **Update, 2026-11-18, source `5139eaba3`.** Stands. `semantic/data_validity_native.py`,
 `semantic/change_impact.py` and `semantic/support_trust_native.py` have no commit in
 `d78c98765..5139eaba3`, so the disagreement is unchanged. `semantic/data_operation_projections.py`

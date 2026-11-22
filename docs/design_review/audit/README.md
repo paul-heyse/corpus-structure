@@ -23,6 +23,7 @@ nothing and authorizes no change.
 | Publication | The commit that publishes this account, distinct from the audited source |
 | Scoped refresh, 2026-11-18 | `d78c98765b2543a0a86515134257259debe75dfd`, committed `main`, read in a frozen export of that commit. DA-068 to DA-081, DA-033 and DA-058 were re-read, and the typed-program and generator layer was audited as new scope. The 27 earlier identities not re-examined are unchanged. Static reading only. See [the refresh](#refresh-2026-11-18) |
 | Update, 2026-11-18 | `5139eaba3097e457574feb9daef58c1c49dcc150`, committed `main`, read in a frozen export of that commit, 127 commits after the scoped refresh. Every production finding, DA-001 to DA-086, was re-read, and the reference inventories were rebuilt. Static reading only. This is the current baseline of every topic page. See [the update](#update-2026-11-18-5139eaba3) |
+| Scoped refresh, 2026-11-21 | `d918a09ea`, committed `main`. Re-read request and activation custody, readiness and adjacent native readers for the SBX-06 target review. The [DA-078](execution-fit.md#da-078) and [DA-071](semantic-model-and-authority.md#da-071) updates record the refreshed findings. Other findings retain their prior scope. |
 
 The refresh of 2026-11-17 replaced the stacked scoped entries of the earlier README with one
 current account. It was needed because the declared-data-operations work replaced most of the code

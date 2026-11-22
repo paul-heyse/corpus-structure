@@ -272,11 +272,11 @@ retire; reading recipes remain interpretation/producer determinants. D1 and D7 o
 
 > Decision: [ADR-0111](../adr/0111-contract-scoped-record-occurrences.md)
 
-**Accepted target · 2026-11-13.** DDO request and product identities carry complete qualified
-subject context: project, local subject, original source and analyzed scope. Local occurrence
-headers remain distinct from that context. D1 and the DDO coordinator own implementation scope.
+**Accepted target · 2026-11-21.** DDO exact request and product identities carry complete
+qualified subject context. A separate project-scoped lookup keys reusable computation on
+what the admitted operation reads. D1 and the SBX coordinator own the affected contracts.
 
-> Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md)
+> Decision: [ADR-0149](../adr/0149-contextual-requests-and-projected-computation.md)
 
 **Proposed accepted final execution target · 2026-11-11.** D1 uses CUDA/BF16 with120second inference; HanLP, GLiNER, Maverick, DiPO and spaCy learned inference target CUDA/FP32 in one shared root Python3.14 runtime host with model-local streams and the tested Protobuf override. Profile/device/precision/thread changes freeze before registration under their appropriate provenance; physical count/byte overrides preserve exact source, observation and retained batch identities. [D4](D4-method-catalog.md#selected-provider-execution-profiles-and-complete-settings) owns selected profiles and complete settings propagation.
 
@@ -695,11 +695,11 @@ cannot replace selected membership. Existing population custody remains authorit
 
 > Decision: [ADR-0104](../adr/0104-ddo-discovery-input-association.md)
 
-**Accepted target · 2026-11-13.** Native DDO attachment and publication reconstruct complete
-subject context from authenticated demand/request custody. Caller-supplied local names do not
-replace native context authority. D3 and the DDO coordinator own implementation scope.
+**Accepted target · 2026-11-21.** Native attachment and publication reconstruct complete
+subject context from authenticated custody. Current support, occurrence and settlement
+coverage retain their native owners. D3 and the SBX coordinator own integration scope.
 
-> Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md)
+> Decision: [ADR-0149](../adr/0149-contextual-requests-and-projected-computation.md)
 
 **Proposed accepted operation-lineage target · 2026-11-12.** Actual capture, primary and analytical
 runs share a typed operation identity in existing immutable native run options. Original product
@@ -1047,11 +1047,11 @@ no implicit origin preference or cross-product value deduplication supplies sele
 
 > Decision: [ADR-0104](../adr/0104-ddo-discovery-input-association.md)
 
-**Accepted target · 2026-11-13.** Current DDO identity projections use the same explicit qualified
-subject context in Python and native correspondence. JSON scope numbers retain decimal value
-meaning; historical frozen encodings retain their original interpretation.
+**Accepted target · 2026-11-21.** Python and native code agree on exact contextual identity
+and on the distinct computation projection. JSON scope numbers retain decimal value meaning.
+Historical frozen encodings retain their original interpretation.
 
-> Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md)
+> Decision: [ADR-0149](../adr/0149-contextual-requests-and-projected-computation.md)
 
 **Proposed accepted final execution target · 2026-11-11.** Result-neutral execution settings resolve through one policy owner; inference profile/device/precision/thread changes retain frozen result-affecting authority before registration. Freeze semantic demand, exact source/release/dependency selections and freshness seed once, then reuse them during supported recovery. BEP qualifies bounded actual-provider/consumer fixtures first; the full retained capture496/cut614 run (316views/518pages) and book acceptance are operator-deferred; acceptance of this target establishes neither implementation nor qualification. [D6](D6-orchestration-metrics-policies.md#final-characterization-policy-and-retained-recovery) owns the boundary; the [BEP coordinator](../plans/book-processing-efficiency-and-parallelism_2026-11-11.md) owns completion. Activation, selection and TC-plan reconciliation remain separate.
 

@@ -316,10 +316,8 @@ read-set analysis advises the declarations, and the envelope enforces them on al
 execution routes. SBX-02 can share keyed metadata acquisition while rules and kernels hash
 their own observations.
 
-**Binding decision dependency.** [ADR-0100](../../adr/0100-ddo-contextual-identities.md) currently
-requires the same complete SubjectContext in canonical request and native product identity.
-Before changing request identity, SBX-06 must record a scoped successor through the ADR route
-and update the owning architectural section. It separates reusable computation identity from
+**Binding decision · accepted 2026-11-21.** [ADR-0149](../../adr/0149-contextual-requests-and-projected-computation.md)
+supersedes the contextual identity decision for computation lookup. It separates reusable computation identity from
 exact current occurrence binding and publication; project/original/analyzed-context custody
 remains authenticated, and any context fact determining output remains in the projection.
 The current request row has a unique key and also owns exact project, release, runtime,
@@ -331,6 +329,15 @@ selection and the derivation retains its producing inputs. Reuse follows the dec
 substitution policy and ADR-0146's independent proof and authority requirements.
 [Native attachment](../../../python/corpus-structure/src/corpus_structure/semantic/request_attachment_native.py#L1535) ·
 [Validity decision](../../adr/0146-sbx-content-validity.md)
+
+**Target review · 2026-11-21.** The accepted execution scope incorporates the selected
+computation and native delivery contracts in RC01 and RC02. F01 requires an enforced input
+projection before enabling a narrowed key. F02 requires current selected support even while
+historical support remains healthy, and independently admitted output correspondence. F03
+requires origin and enrollment reconciliation. F04 requires unbroken pending coverage through
+handoffs and both current join arms. These findings remain open until the native acceptance
+cases establish them.
+[Independent SBX-06 review](../../design_review/reviews/design_review_sbx06-computation-and-delivery_2026-11-21.md#F01)
 
 <a id="change-origins"></a>
 ### Change origins and selectors

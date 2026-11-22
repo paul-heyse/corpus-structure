@@ -76,10 +76,10 @@ and DuckDB, PyArrow, PostgreSQL and plain Python are named as today's carriers o
 
 The operator confirmed that the model must express the exact input-to-output dependencies,
 including the independence of text and body-relative spans from page placement. SBX-06 must
-route the change to the reusable request determinant through a scoped successor to
-[ADR-0100](../adr/0100-ddo-contextual-identities.md) and its design owners before changing native
-keys. The successor preserves qualified occurrence binding, project custody, and publication
-identity. This amendment records the target and schedules the decision work.
+implement the scoped successor [ADR-0149](../adr/0149-contextual-requests-and-projected-computation.md)
+before enabling projected computation lookup. It preserves qualified occurrence binding,
+project custody and publication identity. The [independent target review](../design_review/reviews/design_review_sbx06-computation-and-delivery_2026-11-21.md)
+records the scope, acceptance and remaining native obligations.
 
 The operator selected an explicit freshness-aware read for a named, authorized selection on
 2026-11-21. The selection owner advances it explicitly, using an admitted successor demand

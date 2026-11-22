@@ -319,6 +319,21 @@ is unknown.
 
 ## DA-078 — The readiness watermark is coarser than the declared role dependencies
 
+**Scoped refresh, 2026-11-21, source `d918a09ea`.** Stands, with a changed footprint.
+The current digest includes visible use, population and original-admission identities,
+the frozen source sets and original pins, and the acquired trust snapshot. The kernel
+digest is absent from this expression. Exact pinned and dependency-free candidate routes
+use role matching, which can inspect member or product bodies. The recursive prerequisite
+component still scopes fulfilled uses by operation and original source. Native demand-result
+and record-grade reads use the same page projection. The planner compares its watermark
+when revisiting a waiting fate. An exact-pin control distinguishes a newly usable episode
+from an unrelated same-context product. Those observations are about readiness even when
+the product value remains equal. Source inspection establishes these paths and determinants.
+Examined work and skip rates were not measured.
+[Digest and page projection](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_projections.py#L2004) ·
+[Record-grade acquisition](../../../python/corpus-structure/src/corpus_structure/semantic/record_grade_native.py#L447) ·
+[Exact-pin control](../../../python/corpus-structure/tests/semantic/test_data_operation_pinned_reuse_native.py#L538)
+
 **Update, 2026-11-18, source `5139eaba3`.** Stands, with a changed footprint. The
 operation-granular component remains, and a second component was added (`6d699ab46`,
 `110e8aa1e`). `_unconstrained_watermark_uses`
