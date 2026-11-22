@@ -340,8 +340,11 @@ def test_component_cpu_retains_selected_source_member_and_requires_whole_primary
     # refusal after source custody. It cannot stand in for learned annotations.
     primary = {"source": source["source"], "selectors": source["selectors"], "blocks": []}
     if variant == "named":
+        from corpus_structure.semantic.data_operation_partitions import partition_header
+
+        header = {**primary, "rows": partition_header(()), "block_layouts": []}
         arguments = dict(
-            source=source, annotations={"header": primary, "partitions": []}, constructions=primary
+            source=source, annotations={"header": header, "partitions": []}, constructions=primary
         )
     else:
         from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
