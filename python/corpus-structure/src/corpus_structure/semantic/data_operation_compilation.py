@@ -2370,6 +2370,7 @@ def native_kind_dependencies(
     defer_invalid_members: bool = False,
 ) -> tuple[set[str], dict[str, tuple[str, ...]]]:
     """Resolve the nominal members represented in the installed kind contract."""
+    from .authored_interpretations import JUDGMENT_KIND_IRIS
     from .data_operation_kind_refinements import input_kind_refinements
     from .data_operation_member_contracts import derive_member_kinds
 
@@ -2380,6 +2381,13 @@ def native_kind_dependencies(
         if role.direction == "input"
     }
     used = {role.kind for operation in model.operations for role in operation.roles}
+    # Authored judgments can enter through original-source admission without
+    # ever filling a computational role.
+    used.update(
+        kind.semantic_id
+        for kind in model.kinds
+        if kind.category == "class" and kind.semantic_id in JUDGMENT_KIND_IRIS
+    )
     used.update(rule.kind for rule in model.rules)
     used.update(
         target

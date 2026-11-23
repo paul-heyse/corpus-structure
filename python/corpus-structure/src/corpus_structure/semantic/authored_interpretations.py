@@ -10,6 +10,10 @@ JUDGMENT_KINDS = {
     "DdoAuthoredMeasurementJudgment": "measurement.interpretation",
     "DdoAuthoredTerminologyJudgment": "terminology.interpretation",
 }
+JUDGMENT_KIND_IRIS = frozenset(
+    f"https://corpus-structure.dev/domains/statistics/terminology/{kind}"
+    for kind in JUDGMENT_KINDS
+)
 
 
 def checked_judgment(prepared, nominal, body):

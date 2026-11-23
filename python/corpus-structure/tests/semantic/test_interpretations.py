@@ -118,6 +118,22 @@ def test_released_subtype_and_semantic_closure(statistics_pack_prepared):
     assert value["decisions"][0]["mapping_predicate"].endswith("closeMatch")
 
 
+def test_no_match_requires_an_explicit_empty_candidate_collection(statistics_pack_prepared):
+    value = payload(statistics_pack_prepared)
+    decision = value["decisions"][0]
+    decision.update(candidates=[], outcome="no_match")
+    decision["focus"].update(source_piece="Weibull", end=len("Weibull"))
+    for field in ("selected_value", "mapping_predicate", "mapping_direction"):
+        del decision[field]
+
+    kind = "DdoAuthoredTerminologyJudgment"
+    statistics_pack_prepared.validate_json(kind, json.dumps(value).encode())
+    validate_interpretation_payload(statistics_pack_prepared, "terminology.interpretation", value)
+    del decision["candidates"]
+    with pytest.raises(ValueError, match="candidates"):
+        statistics_pack_prepared.validate_json(kind, json.dumps(value).encode())
+
+
 @pytest.mark.parametrize(
     "mutation", ["pin", "meaning", "selected", "duplicate", "predicate", "unresolved"]
 )

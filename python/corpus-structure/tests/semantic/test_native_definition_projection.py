@@ -9,6 +9,67 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
 
 
+@pytest.mark.parametrize(
+    ("namespace", "authored"),
+    [
+        ("https://corpus-structure.dev/domains/statistics/terminology/", True),
+        ("urn:unrelated:", False),
+    ],
+)
+def test_native_projection_keeps_exact_authored_judgments_without_computational_roles(
+    namespace, authored
+):
+    from corpus_structure.semantic.composed import data_operation_dependencies
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.data_operation_storage import data_operation_definition_projection
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
+
+    declaration = f"""id: urn:authored-judgment-projection
+name: judgments
+prefixes: {{j: '{namespace}'}}
+default_prefix: j
+default_range: string
+types:
+  string: {{base: str}}
+classes:
+  DdoAuthoredMeasurementJudgment:
+    attributes:
+      basis: {{required: true}}
+  DdoAuthoredTerminologyJudgment:
+    attributes:
+      term: {{required: true}}
+  UnusedAuthoredFact:
+    attributes:
+      fact: {{required: true}}
+""".encode()
+    prepared = prepare_release(
+        SourceBundle("judgments", (SourceArtifact("judgments", declaration),)),
+        data_operation_dependencies(ResolvedDependencies()),
+    )
+    model = bound_data_operation_model(prepared)
+    assert not model.operations
+    projection = read_native_definition_projection(
+        SimpleNamespace(
+            artifacts=(
+                SimpleNamespace(
+                    kind="data_operation_native_definitions.json",
+                    content=data_operation_definition_projection(
+                        prepared, model, native_digest="native-source-contract"
+                    ),
+                ),
+            )
+        ),
+        model=model,
+    )
+    expected = {
+        f"{namespace}DdoAuthoredMeasurementJudgment",
+        f"{namespace}DdoAuthoredTerminologyJudgment",
+    }
+    assert {row["kind"] for row in projection["kinds"]} == (expected if authored else set())
+    assert all(row["universe"] == "ordinary" for row in projection["kinds"])
+
+
 def test_native_projection_preserves_actual_timezone_aware_datetime_meaning():
     from datetime import UTC, datetime
 

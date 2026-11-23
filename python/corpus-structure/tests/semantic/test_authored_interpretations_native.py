@@ -237,7 +237,13 @@ def test_actual_authored_measurement_terminology_admission_and_grouped_private_r
         == "unassessed"
     )
 
-    generic = admit((("generic", "primitive:integer", 41),), "generic-authored-fact")
+    # Use the released subject-identifier kind, including any nominal type binding.
+    identifier_kind = journey.kernel.model.subject_definition(
+        source.context.subject_definition
+    ).identifier_kind
+    generic = admit(
+        (("generic", identifier_kind, source.context.subject),), "generic-authored-fact"
+    )
     generic_read, _ = _authored_read(journey, generic)
     with pytest.raises(ValueError, match="captured judgment kind"):
         _read(journey, selected.model_copy(update={"authored_reads": (generic_read,)}))
