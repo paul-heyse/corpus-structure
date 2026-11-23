@@ -117,7 +117,9 @@ sequence. A changed authority, custody or architectural rule follows the
 Once scoped read corrections pass, run heavyweight native cases and lighter cases as
 disjoint, bounded cohorts with exact selected identities and affinity groups preserved.
 Use measured host headroom for worker budgets and avoid concurrent changes to captured
-source or metadata. Reconcile managed results with `uv run ci test coverage` against the
+source or metadata. Run provider cohorts that use the same exclusive GPU lease in sequence
+unless the test exercises contention itself. Observe lease waiting separately from worker
+and native statement work. Reconcile managed results with `uv run ci test coverage` against the
 original required selection, retaining failed and interrupted evidence. Assess applicability
 by exact source and context and repeat affected identities as needed. An inconclusive
 optimization comparison creates no additional acceptance gate. Existing required
@@ -218,8 +220,10 @@ publication group with 16 calls and 89.22 seconds, and one completion-intent gro
 with 16 calls and 27.14 seconds. Maximum calls were 41.72, 28.43 and 8.21 seconds
 respectively. These are one fixture's per-statement groups. Nested costs and earlier
 release preparation are outside that observation. A concurrent annotation-fork
-worker waited for the same physical GPU lease held by the PM2 worker. Keep that wait
-separate from the cost of either worker's PostgreSQL transactions.
+worker reached the 15-minute test watchdog while waiting for the same physical GPU lease
+held by the PM2 cohort (`a7a7e1b66e944c08a54bff7dd16c67cb`). The suite retains ten
+passed identities and six missing-asset prerequisites. Retry the annotation fork with
+exclusive GPU scheduling and its exact existing limits.
 
 **Cold authoring checkpoint · 2026-11-21.** `uv run ci db init --creation-only` created
 `corpus_structure_sbx09_author` on the dedicated cluster. Managed preview

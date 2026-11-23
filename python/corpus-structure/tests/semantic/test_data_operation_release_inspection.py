@@ -5,12 +5,16 @@ Controlled connections establish Python boundaries; actual role/custody controls
 
 from unittest.mock import MagicMock
 
+import psycopg
 import pytest
 from sqlalchemy import Connection
+from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_wire import wire_contract_digest
 from corpus_structure.semantic.operation_value_types import NativeResultViolation
+from semantic.data_operation_kernel_support import STORAGE
 
 
 @pytest.mark.parametrize(
@@ -20,11 +24,20 @@ from corpus_structure.semantic.operation_value_types import NativeResultViolatio
         "{",
         "{}",
         '{"payload":{}}',
-        '{"payload":{"release_id":"r","model_digest":"wrong","native_digest":"' + "b" * 64 + '"}}',
+        {
+            "release_id": "r",
+            "model_digest": "wrong",
+            "native_digest": "b" * 64,
+            "conservative_operations": [],
+        },
     ],
 )
 def test_only_executed_result_decode_and_schema_failures_become_native_result_violation(encoded):
     connection = MagicMock(spec=Connection)
+    if isinstance(encoded, dict):
+        encoded = json_bytes(
+            {"payload": encoded, "contract_digest": wire_contract_digest()}
+        ).decode()
     connection.scalar.return_value = encoded
     with pytest.raises(NativeResultViolation) as caught:
         DataOperationStorage(connection).inspect_data_operation_release(
@@ -49,11 +62,22 @@ def test_native_statement_and_acquisition_defects_retain_their_exact_identity(fa
     assert caught.value is failure and not isinstance(caught.value, NativeResultViolation)
 
 
-def test_invalid_request_is_not_misreported_as_an_executed_native_result():
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+def test_invalid_request_is_not_misreported_as_an_executed_native_result(ddo_kernel):
+    with ddo_kernel.purpose("read").begin() as connection:
+        with pytest.raises(DBAPIError, match="wire.*input schema") as caught:
+            DataOperationStorage(connection)._invoke(
+                "inspect_data_operation_release", {"release_id": "r", "unknown": True}
+            )
+    assert isinstance(caught.value.orig, psycopg.Error)
+    assert caught.value.orig.sqlstate == "23514"
+
+
+def test_non_json_request_is_refused_before_executing_a_native_statement():
     connection = MagicMock(spec=Connection)
     with pytest.raises(ValueError) as caught:
         DataOperationStorage(connection)._invoke(
-            "inspect_data_operation_release", {"release_id": "r", "unknown": True}
+            "inspect_data_operation_release", {"release_id": object()}
         )
     assert not isinstance(caught.value, NativeResultViolation)
     connection.scalar.assert_not_called()
@@ -61,7 +85,7 @@ def test_invalid_request_is_not_misreported_as_an_executed_native_result():
 
 @pytest.fixture(scope="module")
 def inspected_prepared(tmp_path_factory):
-    from semantic.data_operation_kernel_support import STORAGE, prepare_kernel
+    from semantic.data_operation_kernel_support import prepare_kernel
 
     return prepare_kernel(STORAGE, directory=tmp_path_factory.mktemp("inspected-contract")).prepared
 
@@ -80,10 +104,14 @@ def test_inspection_checks_actual_attestation_without_calling_admission(
         release_id=inspected_prepared.release_id,
         model_digest=projection["model_digest"],
         native_digest=projection["native_digest"],
+        conservative_operations=[],
     )
     connection = MagicMock(spec=Connection)
     connection.scalar.return_value = json_bytes(
-        {"payload": {**attestation, **({"model_digest": "0" * 64} if mismatch else {})}}
+        {
+            "payload": {**attestation, **({"model_digest": "0" * 64} if mismatch else {})},
+            "contract_digest": wire_contract_digest(),
+        }
     ).decode()
     acquired = []
 
@@ -136,8 +164,9 @@ def test_malformed_native_inspection_carries_the_real_release_and_model_context(
     assert context.operation == "data.inspect_data_operation_release"
 
 
+@pytest.mark.parametrize("view", ["correspondence", "validity"])
 def test_actual_db_check_adapter_uses_read_inspection_and_reports_current_contract_ids(
-    cli, inspected_prepared, monkeypatch
+    cli, inspected_prepared, monkeypatch, view
 ):
     from contextlib import contextmanager
 
@@ -176,10 +205,11 @@ def test_actual_db_check_adapter_uses_read_inspection_and_reports_current_contra
         release_id=inspected_prepared.release_id,
         model_digest=projection["model_digest"],
         native_digest=projection["native_digest"],
+        conservative_operations=["urn:controlled:conservative"],
     )
 
-    def inspect(conn, prepared):
-        received.append((conn, prepared))
+    def inspect(conn, prepared, *, validity_only):
+        received.append((conn, prepared, validity_only))
         return "physical:installed", attestation
 
     target = storage_target.StorageTarget(
@@ -196,7 +226,9 @@ def test_actual_db_check_adapter_uses_read_inspection_and_reports_current_contra
     monkeypatch.setattr(storage_target, "acquired_target", lambda conn, *, purpose: target)
     monkeypatch.setattr(execution_admission, "admit_execution_release", forbidden)
     monkeypatch.setattr(data_operation_admission, "inspect_data_operation_release", inspect)
-    response = cli("db", "check", "--release", inspected_prepared.release_id, "--json")
+    response = cli(
+        "db", "check", "--release", inspected_prepared.release_id, "--view", view, "--json"
+    )
     assert response.exit_code == 0, (response.output, response.exception)
     assert json_loads(response.stdout) == {
         **attestation,
@@ -204,7 +236,7 @@ def test_actual_db_check_adapter_uses_read_inspection_and_reports_current_contra
         "target": "development",
         "acquired": target.model_dump(),
     }
-    assert received == [(connection, inspected_prepared)]
+    assert received == [(connection, inspected_prepared, view == "validity")]
 
 
 @pytest.mark.parametrize("state", ["23514", "40001", "23505", "42703"])
