@@ -479,20 +479,93 @@ check passed (`991db62ae0f54113adfef509b0353eee`). The populated native fixture 
 filtered paging and derivation-fact parity against the recorded binding and exact formal
 producer use (`64975a9001414921be232c776bd8dfc2`).
 
-**Open.** Protected structural admissions, complete source journeys and full graph inspection
-still need their existing support custody. The PDF publication catalog still uses the guarded
-PDF header reader per result. The non-output programs narrow support acquisition to the
-anchoring obligation. Exact point acceptance must also exercise unrelated support inside
-that obligation because support traversal still precedes the target-row filter. The full
-change-impact path, contextual witness and selected math still retain transitive acquisition
-where they need custody beyond the new answer shapes. The textbook direct, CLI and MCP
-journey, protected partition and proof coverage, scoped PostgreSQL attribution, and integrated
-consumer migration remain qualification and implementation obligations of SBX-11. Migrate
-those structural readers against the [early acquired interface](#sbx-acquired-reader).
-The [PDF access owner](pdf-path.md#sbx-15) supplies the batched publication headers.
+**Remaining at this checkpoint.** Protected structural admissions, complete source journeys
+and full graph inspection needed their existing support custody. The PDF publication catalog
+called the guarded header reader per result. The non-output programs narrowed support
+acquisition to the anchoring obligation, with additional related support still traversed before
+filtering in some point queries. The [successor below](#sbx-qualified-reads-checkpoint) records
+the subsequent acquisition changes.
+
+<a id="sbx-qualified-reads-checkpoint"></a>
+### Qualified reads development checkpoint
+
+**Installed · 2026-11-23.** The typed preview `abb9d01b18134ded87c7fab00f889e24` and
+rollback-only candidate `904350b9213a44599bad41c2e4c82889` passed against
+`semantic_sbx_answer_guards`. The candidate contains 75 native operations and one ordinary
+operation, with no privilege changes. Registration passed (`f23202e30b0440a6b9ccb711203a30e6`).
+`uv run ci model change deploy 904350b9213a44599bad41c2e4c82889` installed
+`semantic_sbx_qualified_reads` (`d077b3180afc4384b0a73751b369becf`) and maintenance
+readback confirmed the same registered head. This establishes development installation.
+
+**Tested by selected identity · 2026-11-23.** Two serial focused cohorts (`uv run ci test
+--workers 1`) passed 22 custody, archive-manifest and governed-read checks
+(`dea2454c2bfe406c8bb140e3145e2baf`) and 37 selected archive, reader, cache and CLI checks
+(`e8b001c5b8124624a28aad8551b8e134`) before the subsequent serving integration.
+The initial source-capture failure (`9e27ddc288bf49f4be2656436e65dd5e`) and the later fixture
+failure (`67d84e84e93c4dfa8b02aeaf0b5bd94c`) retain their failed scope. The first private serial
+cohort (`8309fbf3a24648498f4dc84d7d8ac5e1`) passed analyzed-scope selection and authorized
+historical freshness, and filtered output paging within one obligation. It failed on nested
+Parquet field naming and an explicit frozen source set in the installed math fixture.
+After the serving integrations, `uv run ci test --workers 1` passed all 135 selected archive,
+cursor, source-catalog, structural reader and runtime custody checks
+(`86fb6e86e1224ec6b2d635904b511199`). Its predecessor (`29ac37d6f47940f6bb85cf6282a2c012`)
+passed 101 cases and retained one obsolete test expectation about analyzed-scope support.
+The later compact cursor and replay cohort (`3e874af324a74887a904088e37417834`) passed 143 cases.
+Two detached fixture cases omitted the required output position and passed on the follow-up
+contribution-reference cohort (`d92ce4665794426cb6b55804ab07cca9`, 16 selected).
+The private serial textbook condition (`63e50273bf3c489fa49e59a0e8c8a325`) passed direct,
+installed CLI and stdio MCP reads of the same selected assertion. Its independent switched-role
+and unprivileged publication controls refused as expected.
+
+**Implemented · 2026-11-23.** Qualified coverage follows observed dependencies with exact
+source and analyzed-context selection. Current reads and independently authorized historical
+cuts retain separate criteria. Outputs choose bounded physical candidates before hydrating
+deliverable bodies. Point partition and proof reads narrow their validity seeds. Structural,
+contextual, math and graph consumers use shared acquired support, with graph derivation outside
+the acquiring transaction. Change impact uses one compact support-fact acquisition. The PDF
+publication catalog retrieves guarded receipt and metadata batches under the selected cut.
+Structural artifact navigation submits ordered Arrow coordinates after resolving each original
+producing occurrence. The existing guarded member program establishes each distinct exact
+address under the cut, then the caller restores order and multiplicity within the acquisition.
+The private cross-work artifact fixture (`a4b3fe95e36b4ef9b05540443a625b5e`) passed the live
+navigation path and established PDF catalog header parity against the installed scalar reader.
+
+**Open.** Other exact-reference consumers still need migration. Native physical examination and
+lock cost remain partially attributed. Readers that borrow lazy population items retain the
+acquiring transaction through their use. Independently pending analyzed siblings, cross-source
+role correspondence, protected partition and proof coverage, and combined installed read
+acceptance retain their individual evidence requirements.
 
 <a id="sbx-12"></a>
 ## SBX-12 — Replay, export, cursor and cache
+
+**Implementation checkpoint · 2026-11-23.** New v4 exports write model-derived typed Parquet
+support, population and proof data. Existing v3 JSONL closures enter through a read-only
+adapter. Detached replay authenticates an owned copy, checks complete native page order and
+the terminal boundary, and uses scoped Arrow scans. Structural replay charges logical
+records and bytes under its examined budget. Staged files and DuckDB sort scratch retain
+their existing store bounds. Demand, dossier, gap, contribution, rich, comparison and
+source-catalog continuations use compact pins and the shared codec. Native demand continuations
+carry positions and governed generation while reconstructing scope from the explicit request.
+Dossier presentation reuse establishes the current root and reference authority first.
+Wider substantive reuse, custody and integrated replay remain open.
+
+**Tested by selected identity · 2026-11-23.** The private serial native export retry
+(`ba8f7c5fe16e4d5fa52d82ab6426f4e6`) passed typed episode closure, detached identity and altered
+fragment refusal. The Parquet writer preserved the declared Arrow nested field names and nullability.
+The extended private textbook case (`3d3b20e1fbc74494ac162c0f0f60cc9a`) passed direct, CLI and
+MCP delivery, sealed its v4 structural review at the same cut, and reopened its exact published
+admission from captured custody.
+The candidate-conditioned D1 journey (`8120aa4120464a28a6dd3e1dc499533d`) reached genuine provider
+execution and sealed the v4 archive in 4.7 seconds on the selected fixture. Detached traversal
+then stopped because the verification budget wrapper lacked the exact item-read method. The
+wrapper now forwards exact item references through the authenticated population reader. The
+original failed result remains part of the acceptance history.
+`uv run ci review verify` then passed on the retained v4 archive under its explicit manifest
+digest. Direct replay with the same authenticated reader checked all 179 contextual member
+addresses against the original input ledger. On that replay, cold verification took 36.2
+seconds and reference expansion took 0.87 seconds. The end-to-end provider rerun remains
+separate from those offline results.
 
 **Native archive acquisition pulled forward · 2026-11-22.** Stage the finite authorized support
 keys once under the pinned export transaction. Use the shared support membership and disclosure

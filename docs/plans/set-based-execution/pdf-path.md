@@ -257,6 +257,15 @@ native publication receipt check, continuation and disclosure semantics. Visual 
 the same sparse address contract and retains submitted-page, coordinate and mapping-availability
 checks.
 
+**Catalog slice implemented with SBX-11 · 2026-11-23.** The selected publication catalog
+uses bounded ordered receipt and header batches. Each publication retains its exact selected
+use, product, release and physical revision checks. The scoped source-catalog cases passed
+within `86fb6e86e1224ec6b2d635904b511199`, including multiple publications, ambiguous
+headers and a foreign cut. Sparse item, region and certification access remain in SBX-15.
+The private cross-work artifact fixture (`a4b3fe95e36b4ef9b05540443a625b5e`) also verified
+header, health and release parity with the installed guarded scalar path.
+[SBX-11 checkpoint](owner-resolved-reads.md#sbx-qualified-reads-checkpoint)
+
 Use one bounded native evaluation for row delivery and exact size refusal before transfer.
 Consider an admitted address window with stored lengths only when those lengths refer to the
 same authorized snapshot and returned representation and would avoid material work. Qualify a

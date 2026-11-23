@@ -1174,6 +1174,14 @@ independently, including protected proof membership when a previously empty scop
 its first qualifying proof.
 [Post-SBX-09 review I08](../../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I08)
 
+**Installed and tested by selected identity · 2026-11-23.** `semantic_sbx_qualified_reads`
+matches the exact analyzed context in governed acquisition and follows enrolled dependency
+facts for the current selection. Historical reads establish authority against their pinned
+settled generation. The installed scalar fixture exercised matching and excluded analyzed
+contexts and historical reopening. Independent pending siblings and cross-source role
+correspondence retain their acceptance cases at the
+[selected read checkpoint](owner-resolved-reads.md#sbx-qualified-reads-checkpoint).
+
 <a id="readiness-delivery"></a>
 ### Readiness delivery and retirement
 

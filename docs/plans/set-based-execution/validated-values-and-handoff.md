@@ -525,6 +525,30 @@ existing conservative identity.
 [Continuation decision](../../adr/0141-serving-continuation-and-reuse.md) ·
 [Review I15](../../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I15)
 
+**Implemented · 2026-11-23.** Port, CPU helper and prepared runtime capture walk the admitted
+node inventory. Unrelated generic classes stay outside discovery. Consumed plain Python 3.14
+generic classes with unconstrained type parameters map to their actual class code and member
+definitions. Unsupported consumed generic shapes retain a closed refusal. The installed math
+fixture now requests lexical analysis, occurrences, symbolic normalization and scope under one
+selected demand, with the explicit empty optional ancestor source sets of a fresh profile.
+The serial focused cohort (`86fb6e86e1224ec6b2d635904b511199`) passed its selected runtime
+custody cases on 2026-11-23. The first installed math run, in `8309fbf3a24648498f4dc84d7d8ac5e1`,
+stopped during demand registration before exercising the newly selected math chain.
+The next private run (`840b76a34e754e8a8a6e2a7b0a45fbae`) reached scope execution and refused a
+missing binder policy. The fixture then captured one explicit policy shared by construction and
+the math producers.
+The next run (`02c19fde58604406be4584897752daf3`) executed the four operations and reached native
+selected readback. The exact-reference assertion conflated the use displayed in the current
+demand with the original admission-use identity. It now checks the original frozen request
+binding alongside the independently expected occurrence and symbolic product identities.
+
+**Installed math · Tested · 2026-11-23.** `uv run ci test --native-host private --workers 1`
+passed `test_actual_math_request_retains_source_coordinates_and_resumes_without_new_work`
+(`2ca4df7cc6094f66af1544d513bfb750`). The installed chain published lexical analysis,
+occurrences, symbolic normalization and scope. Reopened reads preserved source coordinates,
+configuration, products and original admission-use identities. Exact resume returned zero new
+receipts. This closes the development SBX-10 handoff and supplies installed input to SBX-19.
+
 Accept this slice with an unrelated generic helper, a consumed generic helper and an altered
 consumed member. Exercise cold and warmed execution and retain the late-import refusal. Qualify
 the installed math producer through occurrence, normalization and scope, reopening the published

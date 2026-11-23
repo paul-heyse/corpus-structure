@@ -1382,14 +1382,19 @@ for this consumer's qualification.
 and registered MCP `structural_products` use the same bounded run/cut reader. Reports retain
 `private_proposal` standing; optional publication/support facets carry separately admitted
 statements and exact witnesses. They do not promote every reported candidate or dossier member.
-Cursors bind selection and page scope through the existing query journey. Ordinary registration
-and retained reads do not start encoders, GLiNER, parsers or compiler work.
+Cursors bind the installed implementation, exact selection and acquired read. Native rows use
+seek coordinates. Derived rows use a finite ordinal. A governed cursor also carries its
+generation. The reader reconstructs native scope from the explicit request and establishes
+current authority for each live continuation. Ordinary registration and retained reads do not
+start encoders, GLiNER, parsers or compiler work.
 
 `ci review export` captures an explicit native project/demand through the common selected export
-owner. Its JSONL/Parquet archive retains actual products, support, contracts, runtime and source
-bytes under the acquiring read. `ci review verify` operates offline against an explicitly supplied
-trusted manifest digest. Selected structural reading/replay uses `ci structure export|verify`,
-which binds its request and installed interpretation to the authenticated native archive.
+owner. New exports seal typed Parquet relations together with their exact cut, products,
+support, contracts, runtime and source bytes. `ci review verify` operates offline against
+an explicitly supplied trusted manifest digest and owns the verified bytes through scan
+completion. Existing v3 JSONL closures enter the same verifier through bounded read-only
+conversion. Selected structural reading/replay uses `ci structure export|verify`, which
+binds its request and installed interpretation to the authenticated native archive.
 
 **Implemented; scoped installed and provider controls Tested · 2026-11-22.** Detached support acquisition stages relation keys in
 the acquiring PostgreSQL transaction and hydrates bounded batches after selecting their keys.
