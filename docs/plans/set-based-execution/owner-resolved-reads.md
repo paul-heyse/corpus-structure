@@ -564,8 +564,15 @@ original failed result remains part of the acceptance history.
 `uv run ci review verify` then passed on the retained v4 archive under its explicit manifest
 digest. Direct replay with the same authenticated reader checked all 179 contextual member
 addresses against the original input ledger. On that replay, cold verification took 36.2
-seconds and reference expansion took 0.87 seconds. The end-to-end provider rerun remains
-separate from those offline results.
+seconds and reference expansion took 0.87 seconds.
+
+**Candidate-conditioned D1 · Tested and measured · 2026-11-23.** `uv run ci test
+--native-host private --providers-only --workers 1` passed the genuine provider, exact selected
+export and detached contextual replay journey (`2e02f08907f24c36986694cc84b09cd1`) within the
+existing 15-minute watchdog. The test call took 468.7 seconds. Native setup took 238.5 seconds,
+provider execution took 185.4 seconds, and selected export took 4.8 seconds. One support stage
+took 0.62 seconds and 28 support fetches took 0.43 seconds in total. Detached verification and
+exact replay took 35.5 seconds. These measurements cover this fixture and execution context.
 
 **Native archive acquisition pulled forward · 2026-11-22.** Stage the finite authorized support
 keys once under the pinned export transaction. Use the shared support membership and disclosure
