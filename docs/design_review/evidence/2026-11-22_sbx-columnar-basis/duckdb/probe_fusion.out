@@ -1,0 +1,22 @@
+/home/paul/corpus-structure/docs/design_review/evidence/2026-11-22_sbx-columnar-basis/duckdb/probe_fusion.py:159: UserWarning: Arrow output on a DB-API result makes an extra copy of the rows, use con.sql(query).to_arrow_reader() instead.
+  r3 = con.execute("SELECT block_id, ordinal, sha256(text) AS h FROM tokens WHERE start < \"end\"").to_arrow_reader()
+duckdb 2.0.0 pyarrow 26.0.0
+G1 pulled after con.sql: 0; after to_arrow_reader(): 20; after first output batch: 20; total input batches 20
+G1 output batches 6 (batch_size=8), rows 40; distinct pulling threads 4; main thread among them: True
+G2 digests equal canonical_json sha256 for all blocks: True
+G2 blocks with diagnostics: [3, 5, 7, 9]
+   block 3: [('ordinal_contiguity', 11, 10), ('ordinal_contiguity', 12, 11), ('ordinal_contiguity', 13, 12), ('ordinal_contiguity', 14, 13), ('ordinal_contiguity', 15, 14), ('ordinal_contiguity', 16, 15), ('ordinal_contiguity', 17, 16), ('ordinal_contiguity', 18, 17), ('ordinal_contiguity', 19, 18), ('ordinal_contiguity', 20, 19), ('ordinal_contiguity', 21, 20), ('ordinal_contiguity', 22, 21), ('ordinal_contiguity', 23, 22), ('ordinal_contiguity', 24, 23), ('ordinal_contiguity', 25, 24), ('ordinal_contiguity', 26, 25), ('ordinal_contiguity', 27, 26), ('ordinal_contiguity', 28, 27), ('ordinal_contiguity', 29, 28), ('ordinal_contiguity', 30, 29), ('ordinal_contiguity', 31, 30), ('ordinal_contiguity', 32, 31), ('ordinal_contiguity', 33, 32), ('ordinal_contiguity', 34, 33), ('ordinal_contiguity', 35, 34), ('ordinal_contiguity', 36, 35), ('ordinal_contiguity', 37, 36), ('ordinal_contiguity', 38, 37), ('ordinal_contiguity', 39, 38), ('ordinal_contiguity', 40, 39), ('ordinal_contiguity', 41, 40), ('ordinal_contiguity', 42, 41), ('ordinal_contiguity', 43, 42), ('ordinal_contiguity', 44, 43), ('ordinal_contiguity', 45, 44), ('ordinal_contiguity', 46, 45), ('ordinal_contiguity', 47, 46), ('ordinal_contiguity', 48, 47), ('ordinal_contiguity', 49, 48), ('ordinal_contiguity', 99, 49), ('span_order', 99, 495)]
+   block 5: [('span_order', 20, 195)]
+   block 7: [('containment', 49, 500)]
+   block 9: [('unique_ordinal', 29, 2), ('ordinal_contiguity', 29, 30), ('unique_ordinal', 29, 2)]
+G2 diagnostics column type: list<l: struct<rule: string, ordinal: int64, detail: int64>>
+G3 re-reading the relation over the consumed RecordBatchReader -> InvalidInputException: Invalid Input Error: This RecordBatchReader has already been consumed and cannot be scanned again. A RecordBatchReader c
+G4 streaming projection: pulled 20/20 after first output batch
+G4 after close(): pulled 20; connection usable: True
+G5 execute().to_arrow_reader(): pulled 20/20 before any batch read
+G6 two references, CTE default: [(2000, 2000)] (expected (2000, 2000)), pulled 20
+G6 two references, CTE MATERIALIZED: [(2000, 2000)] (expected (2000, 2000)), pulled 20
+G6 two references, CTE NOT MATERIALIZED: [(2000, 2000)] (expected (2000, 2000)), pulled 20
+G8 COPY in CTE: returned 40 digest rows; parquet rows 46; kv b'probe'; pulled 20
+G9 temp table: diagnostics 46, digests 40, pulled 20
+plans written to probe_fusion.plans.txt

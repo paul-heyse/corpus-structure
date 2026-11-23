@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "id": "sbx.columnar-basis.identity-parity",
+  "title": "Partition identity from typed columns in DuckDB and PostgreSQL",
+  "group": "sbx-columnar-basis",
+  "package": "SBX-09",
+  "finalized": "2026-11-22",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the present partition identity be produced by a straight-line expression over typed columns in DuckDB and in PostgreSQL, equal to Python canonical_identity and the installed recursive data.ddo_identity?",
+  "answers": [
+    "I02",
+    "I03"
+  ],
+  "method": "Build 60 synthetic annotation-shaped partitions (440 items) with integer, boolean, string, list and absent fields, including control characters and non-ASCII text. Compare the Python reference with a DuckDB aggregate over an Arrow table, a PostgreSQL aggregate over a typed temporary relation, and data.ddo_identity over the tagged body. The PostgreSQL leg uses pg_temp in corpus_structure_dev and rolls back.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-11-22_sbx-columnar-basis/identity/identity_parity.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "identity/identity_parity.py",
+      "role": "reproducible source",
+      "sha256": "766f15c31915ef6545997b9148ae1c456cf23c568a9f17f71e181f877f9576a3"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "identity/raw/identity_parity.json",
+      "role": "normalized probe observations",
+      "sha256": "81d82bb1cf075b630d89c99b057e6d2bdac4f70bc67b96a1aa1693e0ca751a5e"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "DuckDB typed expression equals Python identity",
+      "value": 60,
+      "of": 60,
+      "unit": "partitions",
+      "note": "Synthetic rows of one shape."
+    },
+    {
+      "name": "PostgreSQL typed expression equals Python identity",
+      "value": 60,
+      "of": 60,
+      "unit": "partitions",
+      "note": "Set SQL over a typed temporary relation."
+    },
+    {
+      "name": "Installed recursive identity equals Python identity",
+      "value": 60,
+      "of": 60,
+      "unit": "partitions",
+      "note": "Development database holds a prior root."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "For integer, boolean, string, list and absent fields the existing identity is reproducible from typed columns in both engines without changing its definition. Absent fields need explicit presence handling; the first run failed until they had it. Decimals, floats, timestamps, sets, bags, optional-value tags and nested mappings are not covered.",
+  "consumed_by": [
+    "SBX-01",
+    "SBX-02",
+    "SBX-03"
+  ]
+}

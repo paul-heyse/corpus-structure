@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [A typed, set-shaped basis through SBX-09](set-based-execution-columnar-basis_2026-11-22.md).
+  Independent of the review below. Proposes typed relations in process, generic item rows and a
+  COPY boundary in PostgreSQL, the existing identity produced once as canonical item text, and
+  DuckDB as the one in-process relational engine, with Acero's place stated.
 - [Efficiency and analytical redesign through SBX-09](set-based-execution-efficiency-and-analytical-redesign_2026-11-22.md).
   Compares whole execution designs and proposes shared typed populations, scoped native
   authority and Arrow, DuckDB and ADBC adoption across complete producer and consumer paths.

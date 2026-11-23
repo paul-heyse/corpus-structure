@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "id": "sbx.columnar-basis.boundary",
+  "title": "A set-shaped typed PostgreSQL boundary on the pinned drivers",
+  "group": "sbx-columnar-basis",
+  "package": "SBX-09",
+  "finalized": "2026-11-22",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can typed rows be staged, processed by a set routine and returned as typed rows in one PostgreSQL transaction, and with what type fidelity?",
+  "answers": [
+    "I03",
+    "I06",
+    "I08"
+  ],
+  "method": "On a worker-owned scratch database (created and dropped) on PostgreSQL 18.7: stage a nested Arrow stream by COPY, call a set-returning routine with no document parameter under an advisory lock and SET LOCAL, fetch typed Arrow and commit; exercise rollback mid-ingest; sample COPY progress while streaming; round-trip a type matrix through ADBC and pgpq; check statement triggers, MERGE and array parameters. Purpose-role TEMP privilege read from the catalog of corpus_structure_dev.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-22_sbx-columnar-basis/boundary/staged_session_probe.py",
+    "uv run python docs/design_review/evidence/2026-11-22_sbx-columnar-basis/boundary/type_matrix_probe.py",
+    "uv run python docs/design_review/evidence/2026-11-22_sbx-columnar-basis/boundary/set_interfaces_probe.py",
+    "uv run python docs/design_review/evidence/2026-11-22_sbx-columnar-basis/boundary/ingest_streaming_probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "boundary/staged_session_probe.py",
+      "role": "reproducible source",
+      "sha256": "c24425dc74895e3b17e0f6ecc27d6839e0473f9a6b9ad1fdd970b682f8f5be75"
+    },
+    {
+      "path": "boundary/type_matrix_probe.py",
+      "role": "reproducible source",
+      "sha256": "fba41f282cc53b39c0f6c4e867921bdcfe9f44216e31775efc6cdd3744d81e05"
+    },
+    {
+      "path": "boundary/set_interfaces_probe.py",
+      "role": "reproducible source",
+      "sha256": "d0be47e9baca7c400dc8ce2d2ab5f4a33a5e205e0041067db4d645e0082c592b"
+    },
+    {
+      "path": "boundary/ingest_streaming_probe.py",
+      "role": "reproducible source",
+      "sha256": "ff17cb3866a47de9b2f002b543ed71da33fba9b7922754c5a560bfa4f9298371"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "boundary/raw/staged_session.json",
+      "role": "normalized probe observations",
+      "sha256": "11462591bd083c5c7d2270b28ad21507841d153d091a74c4b52fffbb81a60859"
+    },
+    {
+      "path": "boundary/raw/type_matrix.json",
+      "role": "normalized probe observations",
+      "sha256": "ce495a73a035ec24ae2dbcd670867bd33c6ee4b0baec2af7fa3c8e2cd887d8db"
+    },
+    {
+      "path": "boundary/raw/set_interfaces.json",
+      "role": "normalized probe observations",
+      "sha256": "68e7a234d405e0c69c0a407d416ff9eaaf072c0d07847b9d896015a6b8d5f38d"
+    },
+    {
+      "path": "boundary/raw/ingest_streaming.json",
+      "role": "normalized probe observations",
+      "sha256": "3bd60aa53e14f32bc6f9b841f374195e2b4efbb020ca1d9cf4dcd3a3d9758865"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Stage, set routine and typed result work in one session and one transaction on ADBC and on psycopg, with locks and local settings visible to the routine and rollback covering the unit. ADBC cannot join the SQLAlchemy transaction; pgpq on the borrowed psycopg connection can. Most purpose roles lack TEMP. ADBC silently truncates nanosecond timestamps on ingest and wraps infinity on fetch, cannot ingest structs, and returns numerics as text. Staging under a real purpose role was not tested.",
+  "consumed_by": [
+    "SBX-06",
+    "SBX-08",
+    "SBX-09",
+    "SBX-11",
+    "SBX-12"
+  ]
+}

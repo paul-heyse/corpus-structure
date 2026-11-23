@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "id": "sbx.columnar-basis.duckdb",
+  "title": "DuckDB 2.0.0 contracts for fused validation, digest and transfer",
+  "group": "sbx-columnar-basis",
+  "package": "SBX-09",
+  "finalized": "2026-11-22",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can one DuckDB plan validate, diagnose and digest a streamed typed population with canonical bytes, and what do its JSON, streaming and PostgreSQL-extension contracts allow?",
+  "answers": [
+    "I02",
+    "I05",
+    "I06",
+    "I07"
+  ],
+  "method": "Run a fused plan over a nested token stream with four invariants, typed diagnostics and a per-block digest, and compare digests with the repository canonical JSON. Compare to_json and json_normalize output with canonical bytes case by case. Read malformed JSON with an explicit schema. Observe reader streaming, single use and plan shapes. Attach corpus_structure_dev read-only through the postgres extension and observe pushed queries and type mapping.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-22_sbx-columnar-basis/duckdb/probe_fusion.py",
+    "uv run python docs/design_review/evidence/2026-11-22_sbx-columnar-basis/duckdb/probe_canonical.py",
+    "uv run python docs/design_review/evidence/2026-11-22_sbx-columnar-basis/duckdb/probe_json_ingest.py",
+    "uv run python docs/design_review/evidence/2026-11-22_sbx-columnar-basis/duckdb/probe_streaming.py",
+    "uv run python docs/design_review/evidence/2026-11-22_sbx-columnar-basis/duckdb/probe_plans.py",
+    "uv run python docs/design_review/evidence/2026-11-22_sbx-columnar-basis/duckdb/probe_constraints.py",
+    "duckdb -no-init -f docs/design_review/evidence/2026-11-22_sbx-columnar-basis/duckdb/pg_readonly_probe.sql"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "duckdb/probe_fusion.py",
+      "role": "reproducible source",
+      "sha256": "c740d7307c81b4b54295d2db84e4b4748f5dd1be9d43329fabd021d1220a5139"
+    },
+    {
+      "path": "duckdb/probe_canonical.py",
+      "role": "reproducible source",
+      "sha256": "4e1bcd473b1d89b2d988ce5494968928fc1254cd3f02ce99aeb36a0d090e18f5"
+    },
+    {
+      "path": "duckdb/probe_json_ingest.py",
+      "role": "reproducible source",
+      "sha256": "474f8303cf86f50d6854ce82e10edaee3edc678255b4efb4c006186a046b1ac4"
+    },
+    {
+      "path": "duckdb/probe_streaming.py",
+      "role": "reproducible source",
+      "sha256": "c169d320cf83132049b056968e0a22bbdca5cc580fed1ebe11724a538c51588c"
+    },
+    {
+      "path": "duckdb/probe_plans.py",
+      "role": "reproducible source",
+      "sha256": "45d32c5f9a20419c6796cebd372d08ba87756282ca06d256727fd70a4c2ce034"
+    },
+    {
+      "path": "duckdb/probe_constraints.py",
+      "role": "reproducible source",
+      "sha256": "c7312bca38b2dfd2006b2d7793e9c0d09ec131d31e24e2a856783a630465d48a"
+    },
+    {
+      "path": "duckdb/pg_readonly_probe.sql",
+      "role": "reproducible source",
+      "sha256": "3e6da0c212c4440d1d7a88f17510451338240a19e6066fec6bf80b4cd1bf4d6c"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "duckdb/probe_fusion.out",
+      "role": "probe output",
+      "sha256": "10b8b54766ce8685d873e50d2947f467f204fc82715330321485ae447b7db600"
+    },
+    {
+      "path": "duckdb/probe_fusion.plans.txt",
+      "role": "probe output",
+      "sha256": "8a98b2501dd6849a2d30916abe36209d812ce9067ebdd1bba396dce42e259a85"
+    },
+    {
+      "path": "duckdb/probe_canonical.out",
+      "role": "probe output",
+      "sha256": "fbdc7ad77e48189585a9e10ce1f6a4e0fc0224c8e8c60927a187b9320c055bf7"
+    },
+    {
+      "path": "duckdb/probe_json_ingest.out",
+      "role": "probe output",
+      "sha256": "aa7c300053d950e1c56695d5e686d702bf4dd2335732f22aa7aeb9a4684fe3e2"
+    },
+    {
+      "path": "duckdb/probe_streaming.out",
+      "role": "probe output",
+      "sha256": "51ea26fea9394bfadff61fdd12d1761e84187b0725cd91e0d140ef81f2815da5"
+    },
+    {
+      "path": "duckdb/probe_plans.out",
+      "role": "probe output",
+      "sha256": "92a2e55b3e98f1bf96ef101cc9476316a36578f82e450e0f009eef7413ca275d"
+    },
+    {
+      "path": "duckdb/probe_constraints.out",
+      "role": "probe output",
+      "sha256": "f9da6bc1b29ef3b271653d2c92fc9218448e5b3f2ea7e6076fc6fb67ae29dba7"
+    },
+    {
+      "path": "duckdb/pg_readonly_probe.out",
+      "role": "probe output",
+      "sha256": "d8fc5bfacf95ab9e950a57c3f4cc2befb03d90f013f27f3304149b82884411b0"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Fused-plan block digests equal canonical JSON digests",
+      "value": 40,
+      "of": 40,
+      "unit": "blocks",
+      "note": "Synthetic nested token stream."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "One statement validates, diagnoses and digests a typed population with canonical bytes when struct fields are declared in sorted order, presence is explicit, and nine upper-case control escapes are rewritten. JSON reading is a lossy cast, not shape validation. Readers are single use and estimated at one row. The postgres extension shares one exported snapshot across parallel binary COPY scans, opens a connection per scan task and maps unconstrained numeric to DOUBLE by default. Its write path was not exercised.",
+  "consumed_by": [
+    "SBX-12",
+    "SBX-17",
+    "SBX-18",
+    "SBX-19"
+  ]
+}

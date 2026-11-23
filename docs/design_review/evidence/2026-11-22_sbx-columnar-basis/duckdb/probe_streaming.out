@@ -1,0 +1,17 @@
+duckdb 2.0.0
+S1 threads=1 preserve_insertion_order=True: pulled at to_arrow_reader() 1/2000, after first batch 51/2000, after close 51/2000; connection reusable True
+S1 threads=1 preserve_insertion_order=False: pulled at to_arrow_reader() 1/2000, after first batch 51/2000, after close 51/2000; connection reusable True
+S1 threads=4 preserve_insertion_order=True: pulled at to_arrow_reader() 4/2000, after first batch 206/2000, after close 248/2000; connection reusable True
+S1 threads=4 preserve_insertion_order=False: pulled at to_arrow_reader() 4/2000, after first batch 205/2000, after close 285/2000; connection reusable True
+S2 from_arrow(reader).filter(k<5).to_arrow_reader(): pulled at reader 2000/2000; first batch rows 5; pulled 2000
+S3 'SELECT count(*) FROM src a JOIN src b USING (k)': InvalidInputException: Invalid Input Error: This RecordBatchReader has already been consumed and cannot be scanned again. A RecordBatchReader can be read only once; to scan its data m
+   plan: ╭─ Ungrouped Aggregate ───────╮ | │ Aggregates: count_star()    │ | │ ~1 row                      │ | ╰──────────────┬──────────────╯ | ╭─ Hash Join ──┴──────────────╮ | │ Join Type: INNER            │ | │ Conditions: k = k           │ | │ ~1 row                      │ | ╰──────────────┬──────────────╯ | ├────────────────────────────────╮ | ╭─ Python Arrow Scan ─────────╮  ╭─ Python Arrow Scan ───
+S3 'SELECT (SELECT count(*) FROM src) + (SELECT count(*) FROM src WHERE k >= 0)': InvalidInputException: Invalid Input Error: This RecordBatchReader has already been consumed and cannot be scanned again. A RecordBatchReader can be read only once; to scan its data m
+   plan: ╭─ Projection ─────────────────────╮ | │ Projections: SUBQUERY + SUBQUERY │ | │ ~1 row                           │ | ╰─────────────────┬────────────────╯ | ╭─ Cross Product ─┴────────────────╮ | ╰─────────────────┬────────────────╯ | ├──────────────────────────────────╮ | ╭─ Ungrouped Aggregate ────────────╮  ╭─ Ungrouped Aggregate ───────╮ | │ Aggregates: count_star()         │  │ Aggregates: cou
+S3 'WITH t AS NOT MATERIALIZED (SELECT * FROM src) SELECT count(*) FROM t a JOIN t b USING (k)': [(2000000,)] (expected 2000000 / 4000000), pulled 2000
+   plan: ╭─ CTE ──────────────────────────────╮ | │ CTE Name: t                        │ | │ Table Index: 0                     │ | │ Execution Mode: PIPELINE_DEPENDENT │ | │ ~1 row                             │ | ╰──────────────────┬─────────────────╯ | ├──────────────────────────────────╮ | ╭─ Python Arrow Scan ────────────────╮  ╭─ Ungrouped Aggregate ────╮ | │ Function: PYTHON_ARROW_SCAN        │  │ Ag
+S4 register + pushable filter k<5: pulled after build 0, at to_arrow_reader() 2000, after first batch 2000 of 2000
+S4 register + pushable non-selective filter k<1500000: pulled after build 0, at to_arrow_reader() 1, after first batch 51 of 2000
+S4 register + projection only: pulled after build 0, at to_arrow_reader() 1, after first batch 51 of 2000
+S4 from_arrow(reader), no filter: pulled after build 0, at to_arrow_reader() 1, after first batch 51 of 2000
+S4 from_arrow(reader) + sql non-pushable: pulled after build 0, at to_arrow_reader() 1, after first batch 51 of 2000

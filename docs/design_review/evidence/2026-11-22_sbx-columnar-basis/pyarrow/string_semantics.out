@@ -1,0 +1,22 @@
+{
+  "pyarrow": "26.0.0",
+  "utf8_length": [
+    2,
+    2
+  ],
+  "binary_length": [
+    3,
+    5
+  ],
+  "utf8_slice_codeunits_0_1": [
+    "é",
+    "😀"
+  ],
+  "utf8_normalize_nfc_combining": true,
+  "re2_backslash_w_matches_e_acute": [
+    false
+  ],
+  "utf8_is_alpha_e_acute": [
+    true
+  ]
+}

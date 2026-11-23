@@ -1,0 +1,48 @@
+duckdb 2.0.0 pyarrow 26.0.0 python 3.14.10
+SAME  C1 flat struct sorted fields, int/str/bool/null/min-bigint
+DIFF  C2 struct declared unsorted (b,a)
+      duckdb  : b'{"b":1,"a":2}'
+      python  : b'{"a":2,"b":1}'
+SAME  C3 json_normalize sorts keys recursively?
+DIFF  C4 single-character string escapes over 43 characters
+      U+000b  duckdb '"\\u000B"'  python '"\\u000b"'
+      U+000e  duckdb '"\\u000E"'  python '"\\u000e"'
+      U+000f  duckdb '"\\u000F"'  python '"\\u000f"'
+      U+001a  duckdb '"\\u001A"'  python '"\\u001a"'
+      U+001b  duckdb '"\\u001B"'  python '"\\u001b"'
+      U+001c  duckdb '"\\u001C"'  python '"\\u001c"'
+      U+001d  duckdb '"\\u001D"'  python '"\\u001d"'
+      U+001e  duckdb '"\\u001E"'  python '"\\u001e"'
+      U+001f  duckdb '"\\u001F"'  python '"\\u001f"'
+DIFF  C5 decomposed e+U+0301 without nfc_normalize
+      duckdb  : b'"e\xcc\x81"'
+      python  : b'"\xc3\xa9"'
+SAME  C5b with nfc_normalize()
+SAME  C6 HUGEINT 2^100
+SAME  C6b UBIGINT max
+INFO  C7 doubles to_json -> [1.0,0.1,1e-7,10000000000000000.0,0.000025]   python json.dumps -> [1.0,0.1,1e-07,1e+16,2.5e-05]
+INFO  C7b decimals to_json -> [1.5,0.1,0.0]   (canonical policy: decimal travels as canonical string, e.g. "1.5", "0.1", "0")
+INFO  C7c decimal ::VARCHAR -> ["1.500","1.5"]
+SAME  C8 struct null field emits "b":null (explicit null)
+SAME  C8b json_strip_nulls gives absent
+SAME  C8c MAP of present entries (b explicit null, c absent)
+SAME  C9 nested list/struct, empty list
+SAME  C9b empty MAP -> {}
+DIFF  C10 Arrow struct (z,a) -> declaration order
+      duckdb  : b'{"z":1,"a":"q"}'
+      python  : b'{"a":"q","z":1}'
+SAME  C11 per-group sha256 of ordered list (list(... ORDER BY) and string_agg forms)
+SAME  C12 sha256(VARCHAR) == sha256(BLOB of UTF-8)
+SAME  C12b sha256 hex equals hashlib
+INFO  C13 bit_xor(hash()) order-independent: True; bag (1,1,2) collides with (2): True
+INFO  C14 VARIANT round trip -> {"a":2,"b":1}; variant_normalize -> {"a":2,"b":1}
+INFO  C14b variant_normalize of struct -> {"a":{"c":"é","d":1.5},"b":1}
+SAME  C15 json_normalize(pretty, ascii-escaped, unsorted) == canonical_json
+INFO  C15b json_normalize numbers -> {"a":1.5,"b":100.0,"c":0,"d":10000000000000000000000}
+INFO  C15c json_normalize duplicate keys -> {"a":1,"a":2}  (canonical_json refuses duplicates after NFC)
+DIFF  C15d json_normalize(to_json(unsorted struct)) (no NFC applied)
+      duckdb  : b'{"a":{"c":"e\xcc\x81","d":[1,2]},"b":1}'
+      python  : b'{"a":{"c":"\xc3\xa9","d":[1,2]},"b":1}'
+INFO  L1 execute().fetchone() then execute(): allowed (open result replaced)
+INFO  L1b execute().fetchone() then sql(): ResourceInUseException
+INFO  C15e json_normalize control escapes -> ["\u001F\u000B"]  python -> ["\u001f\u000b"]

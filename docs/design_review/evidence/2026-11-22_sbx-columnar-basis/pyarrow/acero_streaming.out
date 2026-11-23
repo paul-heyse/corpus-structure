@@ -1,0 +1,140 @@
+{
+  "python": "3.14.10",
+  "pyarrow": "26.0.0",
+  "cpu_count": 32,
+  "io_thread_count": 8,
+  "source_batches": 400,
+  "rows_per_batch": 64,
+  "chain_use_threads_True": {
+    "pulled_at_first_output": 4,
+    "pulled_after_0.5s_without_consuming": 400,
+    "arrow_bytes_held_after_pause": 640000,
+    "pulled_total": 400,
+    "generator_native_threads": 1,
+    "generator_ran_on_main_thread": false,
+    "output_rows": 19200,
+    "output_ordinal_strictly_increasing": true
+  },
+  "chain_use_threads_False": {
+    "pulled_at_first_output": 4,
+    "pulled_after_0.5s_without_consuming": 34,
+    "arrow_bytes_held_after_pause": 101376,
+    "pulled_total": 400,
+    "generator_native_threads": 1,
+    "generator_ran_on_main_thread": false,
+    "output_rows": 19200,
+    "output_ordinal_strictly_increasing": true
+  },
+  "chain_early_close": {
+    "source_batches": 4000,
+    "pulled_at_close": 6,
+    "pulled_after_close_pause": 37
+  },
+  "anti_join_use_threads_True": {
+    "probe_pulled_at_first_output": 400,
+    "build_pulled_at_first_output": 10,
+    "output_rows": 18510,
+    "expected_rows": 18510,
+    "same_set_as_expected": true,
+    "output_ordinal_strictly_increasing": false
+  },
+  "anti_join_use_threads_False": {
+    "probe_pulled_at_first_output": 400,
+    "build_pulled_at_first_output": 10,
+    "output_rows": 18510,
+    "expected_rows": 18510,
+    "same_set_as_expected": true,
+    "output_ordinal_strictly_increasing": false
+  },
+  "join_output_batching_use_threads_False": {
+    "left anti/400": {
+      "probe_pulled_at_first_output": 400,
+      "first_batch_rows": 18510
+    },
+    "left anti/4000": {
+      "probe_pulled_at_first_output": 699,
+      "first_batch_rows": 32768
+    },
+    "inner/400": {
+      "probe_pulled_at_first_output": 400,
+      "first_batch_rows": 690
+    },
+    "inner/4000": {
+      "probe_pulled_at_first_output": 4000,
+      "first_batch_rows": 690
+    }
+  },
+  "aggregate_use_threads_True": {
+    "probe_pulled_at_first_output": 400,
+    "groups": 1600,
+    "groups_in_key_order": false,
+    "hash_list_members_in_input_order": true,
+    "output_schema": [
+      "block: string",
+      "rows: int64",
+      "tokens: int64",
+      "ordinals: list<item: int64>",
+      "  child 0, item: int64",
+      "first_texts: list<item: string>",
+      "  child 0, item: string"
+    ]
+  },
+  "aggregate_use_threads_False": {
+    "probe_pulled_at_first_output": 400,
+    "groups": 1600,
+    "groups_in_key_order": false,
+    "hash_list_members_in_input_order": true,
+    "output_schema": [
+      "block: string",
+      "rows: int64",
+      "tokens: int64",
+      "ordinals: list<item: int64>",
+      "  child 0, item: int64",
+      "first_texts: list<item: string>",
+      "  child 0, item: string"
+    ]
+  },
+  "source_error": "ValueError: source failure at batch 50",
+  "table_group_by_use_threads_false": {
+    "k": [
+      "b",
+      "a",
+      "c"
+    ],
+    "v_list": [
+      [
+        1,
+        3
+      ],
+      [
+        2,
+        5
+      ],
+      [
+        4
+      ]
+    ],
+    "v_first": [
+      1,
+      2,
+      4
+    ]
+  },
+  "union_via_base_options": {
+    "returncode": 0,
+    "stdout": "pyarrow.Table\nx: int64\n----\nx: [[1,2],[1,2]]",
+    "stderr": ""
+  },
+  "python_node_options": [
+    "AggregateNodeOptions",
+    "AsofJoinNodeOptions",
+    "ExecNodeOptions",
+    "FilterNodeOptions",
+    "HashJoinNodeOptions",
+    "OrderByNodeOptions",
+    "ProjectNodeOptions",
+    "RecordBatchReaderSourceNodeOptions",
+    "ScanNodeOptions",
+    "TableSourceNodeOptions"
+  ]
+}

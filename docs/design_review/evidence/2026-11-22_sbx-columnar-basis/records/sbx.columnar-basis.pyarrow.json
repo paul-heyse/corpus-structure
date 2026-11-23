@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "id": "sbx.columnar-basis.pyarrow",
+  "title": "PyArrow 26.0.0 contracts for a typed population carrier",
+  "group": "sbx-columnar-basis",
+  "package": "SBX-09",
+  "finalized": "2026-11-22",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which PyArrow contracts decide whether a typed relation can carry, validate, identify and stream a population?",
+  "answers": [
+    "I01",
+    "I02",
+    "I05",
+    "I06"
+  ],
+  "method": "Compare IPC bytes of logically equal batches built by different routes and find the normalizations that equalize them. Run one Acero plan (filter, project, left-anti join, grouped aggregate) over a counting generator source in both thread modes. Read malformed JSON with an explicit schema. Check string kernel units.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-22_sbx-columnar-basis/pyarrow/digest_determinism.py",
+    "uv run python docs/design_review/evidence/2026-11-22_sbx-columnar-basis/pyarrow/acero_streaming.py",
+    "uv run python docs/design_review/evidence/2026-11-22_sbx-columnar-basis/pyarrow/json_shape_decode.py",
+    "uv run python docs/design_review/evidence/2026-11-22_sbx-columnar-basis/pyarrow/string_semantics.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "pyarrow/digest_determinism.py",
+      "role": "reproducible source",
+      "sha256": "f47820f12ce1b252eac8173d2c86f14fb473571145cd9295aa8f12a118203f33"
+    },
+    {
+      "path": "pyarrow/acero_streaming.py",
+      "role": "reproducible source",
+      "sha256": "acc1ce3684f26b3dbfe80e8bf4489791103874d2da9c6647a4278198d95b326e"
+    },
+    {
+      "path": "pyarrow/json_shape_decode.py",
+      "role": "reproducible source",
+      "sha256": "3597d2425b2084eb33191bfebbb821dcd95ba9be81c56fdf7c673ca739e52c7c"
+    },
+    {
+      "path": "pyarrow/string_semantics.py",
+      "role": "reproducible source",
+      "sha256": "817fed2b71068b52bc80d2b654de66d9ce6e8bc0c84323e6b9cf474979fc0e7f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "pyarrow/digest_determinism.out",
+      "role": "probe output",
+      "sha256": "914136324dc8f5a94cb190e0a56a7fda90311d841e5e13c53b90b110a6e49406"
+    },
+    {
+      "path": "pyarrow/acero_streaming.out",
+      "role": "probe output",
+      "sha256": "3602681a3be259c38d619ed14ef03619ae1beb2ff86700578d20b6845fbd165d"
+    },
+    {
+      "path": "pyarrow/json_shape_decode.out",
+      "role": "probe output",
+      "sha256": "07baa7d510a3c5004ec08a9498c0d1e8f92dd7c73b9ad4c5fc0ea29a85e84b28"
+    },
+    {
+      "path": "pyarrow/string_semantics.out",
+      "role": "probe output",
+      "sha256": "2a4a510562a7c85289946874b90f20046e173310e5a6ffe5a8257fb2b6d26a5a"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "IPC bytes are not canonical for logically equal data (slices, bytes under null slots, dictionary order, chunking), so they can seal a transfer but not name content. Acero runs a fused plan lazily over a Python source, but to_reader applies no backpressure when threaded, joins and aggregates do not spill, and order is lost through joins. The JSON reader with an explicit schema rejects unknown, missing-required, mistyped, overflowing and duplicate-key input and merges absent with null. validate(full=True) does not enforce non-nullable fields.",
+  "consumed_by": [
+    "SBX-08",
+    "SBX-09",
+    "SBX-18"
+  ]
+}

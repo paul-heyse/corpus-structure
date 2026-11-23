@@ -1,0 +1,7 @@
+K1 constraint violation: ConstraintException: Constraint Error: CHECK constraint failed on table "tok" with expression CHECK(("start" < "end"))
+K1 rows retained after failed statement: 0
+K2 error() aborts at first failing row: InvalidInputException: Invalid Input Error: span_order at 1:1
+K3 TRY(error()): BinderException: Binder Error: TRY can not be used in combination with a volatile function
+K4 bool_and over empty group -> [(None,)] | coalesce(bool_and(x), true) -> [(True,)]
+K5 FILTER aggregates, several rules in one pass -> [(1, 1, 1), (2, 0, 0)]
+K6 UNNEST WITH ORDINALITY -> [(30, 3), (20, 2), (10, 1)]

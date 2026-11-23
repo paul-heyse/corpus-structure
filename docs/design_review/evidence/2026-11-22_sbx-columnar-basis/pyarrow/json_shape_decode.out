@@ -1,0 +1,148 @@
+{
+  "python": "3.14.10",
+  "pyarrow": "26.0.0",
+  "cases": {
+    "good": {
+      "ok": true,
+      "rows": [
+        {
+          "block": "b1",
+          "ordinal": 1,
+          "tokens": [
+            {
+              "text": "é",
+              "start": 0,
+              "stop": 1
+            }
+          ],
+          "amount": "1.500",
+          "note": null
+        }
+      ]
+    },
+    "extra_field_error_policy": {
+      "ok": false,
+      "error": "ArrowInvalid: JSON parse error: unexpected field"
+    },
+    "extra_field_ignore_policy": {
+      "ok": true,
+      "rows": [
+        {
+          "block": "b1",
+          "ordinal": 1,
+          "tokens": [
+            {
+              "text": "é",
+              "start": 0,
+              "stop": 1
+            }
+          ],
+          "amount": "1.500",
+          "note": null
+        }
+      ]
+    },
+    "missing_non_nullable_field": {
+      "ok": false,
+      "error": "ArrowInvalid: JSON parse error: a required field was absent"
+    },
+    "explicit_null_non_nullable": {
+      "ok": false,
+      "error": "ArrowInvalid: JSON parse error: a required field was null"
+    },
+    "absent_vs_null_nullable": {
+      "ok": true,
+      "rows": [
+        {
+          "block": "b1",
+          "ordinal": 1,
+          "tokens": [
+            {
+              "text": "é",
+              "start": 0,
+              "stop": 1
+            }
+          ],
+          "amount": "1.500",
+          "note": null
+        },
+        {
+          "block": "b1",
+          "ordinal": 1,
+          "tokens": [
+            {
+              "text": "é",
+              "start": 0,
+              "stop": 1
+            }
+          ],
+          "amount": "1.500",
+          "note": null
+        }
+      ]
+    },
+    "string_for_int": {
+      "ok": false,
+      "error": "ArrowInvalid: JSON parse error: Column(/ordinal) changed from number to string in row 0"
+    },
+    "float_for_int": {
+      "ok": false,
+      "error": "ArrowInvalid: Failed to convert JSON to int64, couldn't parse:1.0"
+    },
+    "int_overflow_int64": {
+      "ok": false,
+      "error": "ArrowInvalid: Failed to convert JSON to int64, couldn't parse:9223372036854775808"
+    },
+    "int32_overflow_in_nested": {
+      "ok": false,
+      "error": "ArrowInvalid: Failed to convert JSON to int32, couldn't parse:2147483648"
+    },
+    "missing_nested_non_nullable": {
+      "ok": false,
+      "error": "ArrowInvalid: JSON parse error: a required field was absent"
+    },
+    "extra_nested_field": {
+      "ok": false,
+      "error": "ArrowInvalid: JSON parse error: unexpected field"
+    },
+    "decimal_from_number_excess_scale": {
+      "ok": false,
+      "error": "ArrowInvalid: Failed to convert JSON to decimal128(18, 3): 1.23456 requires scale 5"
+    },
+    "decimal_from_string": {
+      "ok": true,
+      "rows": [
+        {
+          "block": "b1",
+          "ordinal": 1,
+          "tokens": [
+            {
+              "text": "é",
+              "start": 0,
+              "stop": 1
+            }
+          ],
+          "amount": "1.500",
+          "note": null
+        }
+      ]
+    },
+    "duplicate_key": {
+      "ok": false,
+      "error": "ArrowInvalid: JSON parse error: Column(/block) was specified twice in row 0"
+    },
+    "error_in_second_of_three_rows": {
+      "ok": false,
+      "error": "ArrowInvalid: JSON parse error: Column(/ordinal) changed from number to string in row 1"
+    },
+    "top_level_array_document": {
+      "ok": false,
+      "error": "ArrowInvalid: JSON parse error: Column() changed from object to array in row 0"
+    },
+    "column_of_json_text_rows": 5,
+    "canonical_extension_types": {
+      "json_accepts_invalid_text": "accepted: type=extension<arrow.json>",
+      "uuid_from_16_bytes": "accepted: type=extension<arrow.uuid>"
+    }
+  }
+}

@@ -1,0 +1,360 @@
+duckdb agent mode on: AI_AGENT is set and stdout is not a terminal; -no-agent turns it off, .help agent explains the output
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+
+SELECT oid, nspname
+FROM pg_namespace
+
+ORDER BY oid;
+
+SELECT pg_namespace.oid AS namespace_id, relname, relpages, attname,
+    pg_type.typname type_name, atttypmod type_modifier, pg_attribute.attndims ndim,
+    attnum, pg_attribute.attnotnull AS notnull, NULL constraint_id,
+    NULL constraint_type, NULL constraint_key, type_ns.nspname AS type_schema,
+    col_desc.description AS column_comment,
+    tbl_desc.description AS table_comment
+FROM pg_class
+JOIN pg_namespace ON relnamespace = pg_namespace.oid
+JOIN pg_attribute ON pg_class.oid=pg_attribute.attrelid
+JOIN pg_type ON atttypid=pg_type.oid
+JOIN pg_namespace type_ns ON pg_type.typnamespace = type_ns.oid
+LEFT JOIN pg_description col_desc ON col_desc.objoid=pg_class.oid AND col_desc.objsubid=pg_attribute.attnum
+LEFT JOIN pg_description tbl_desc ON tbl_desc.objoid=pg_class.oid AND tbl_desc.objsubid=0
+WHERE attnum > 0 AND relkind IN ('r', 'v', 'm', 'f', 'p') 
+UNION ALL
+SELECT pg_namespace.oid AS namespace_id, relname, NULL relpages, NULL attname, NULL type_name,
+    NULL type_modifier, NULL ndim, NULL attnum, NULL AS notnull,
+    pg_constraint.oid AS constraint_id, contype AS constraint_type,
+    conkey AS constraint_key, NULL AS type_schema,
+    NULL AS column_comment, NULL AS table_comment
+FROM pg_class
+JOIN pg_namespace ON relnamespace = pg_namespace.oid
+JOIN pg_constraint ON (pg_class.oid=pg_constraint.conrelid)
+WHERE relkind IN ('r', 'v', 'm', 'f', 'p') AND contype IN ('p', 'u') 
+ORDER BY namespace_id, relname, attnum, constraint_id;
+
+SELECT n.oid, enumtypid, typname, enumlabel
+FROM pg_enum e
+JOIN pg_type t ON e.enumtypid = t.oid
+JOIN pg_namespace AS n ON (typnamespace=n.oid)
+
+ORDER BY n.oid, enumtypid, enumsortorder;
+
+SELECT n.oid, t.typrelid AS id, t.typname as type, pg_attribute.attname, sub_type.typname,
+       sub_type_ns.nspname AS sub_type_schema
+FROM pg_type t
+JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+JOIN pg_class ON pg_class.oid = t.typrelid
+JOIN pg_attribute ON attrelid=t.typrelid
+JOIN pg_type sub_type ON (pg_attribute.atttypid=sub_type.oid)
+JOIN pg_catalog.pg_namespace sub_type_ns ON sub_type_ns.oid = sub_type.typnamespace
+WHERE pg_class.relkind IN ('c', 'r', 'v', 'm', 'f', 'p')
+AND t.typtype='c'
+AND pg_attribute.attnum > 0
+AND NOT pg_attribute.attisdropped
+
+ORDER BY n.oid, t.oid, attrelid, attnum;
+
+SELECT pg_namespace.oid, tablename, indexname
+FROM pg_indexes
+JOIN pg_namespace ON (schemaname=nspname)
+
+ORDER BY pg_namespace.oid;
+
+
+COMMIT
+
+PROJECTION (est=288579) Projections: member_id, kind_contract
+  POSTGRES_SCAN (est=288579) Table: data_product_member; Projections: kind_contract, member_id; Filters: (kind_contract = 'nonexistent'), (member_id > 'm')
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+SELECT pg_export_snapshot()
+
+COPY (SELECT "kind_contract" FROM "kb"."data_product_member" WHERE ctid BETWEEN '(0,0)'::tid AND '(1000,0)'::tid AND "kind_contract" = 'nonexistent' COLLATE "C") TO STDOUT (FORMAT "binary");
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+SET TRANSACTION SNAPSHOT '0000009E-000001BB-1'
+
+COPY (SELECT "kind_contract" FROM "kb"."data_product_member" WHERE ctid BETWEEN '(1000,0)'::tid AND '(2000,0)'::tid AND "kind_contract" = 'nonexistent' COLLATE "C") TO STDOUT (FORMAT "binary");
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+SET TRANSACTION SNAPSHOT '0000009E-000001BB-1'
+
+COPY (SELECT "kind_contract" FROM "kb"."data_product_member" WHERE ctid BETWEEN '(2000,0)'::tid AND '(3000,0)'::tid AND "kind_contract" = 'nonexistent' COLLATE "C") TO STDOUT (FORMAT "binary");
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+SET TRANSACTION SNAPSHOT '0000009E-000001BB-1'
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+COPY (SELECT "kind_contract" FROM "kb"."data_product_member" WHERE ctid BETWEEN '(3000,0)'::tid AND '(4000,0)'::tid AND "kind_contract" = 'nonexistent' COLLATE "C") TO STDOUT (FORMAT "binary");
+
+SET TRANSACTION SNAPSHOT '0000009E-000001BB-1'
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+COPY (SELECT "kind_contract" FROM "kb"."data_product_member" WHERE ctid BETWEEN '(4000,0)'::tid AND '(5000,0)'::tid AND "kind_contract" = 'nonexistent' COLLATE "C") TO STDOUT (FORMAT "binary");
+
+SET TRANSACTION SNAPSHOT '0000009E-000001BB-1'
+
+COPY (SELECT "kind_contract" FROM "kb"."data_product_member" WHERE ctid BETWEEN '(5000,0)'::tid AND '(6000,0)'::tid AND "kind_contract" = 'nonexistent' COLLATE "C") TO STDOUT (FORMAT "binary");
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+SET TRANSACTION SNAPSHOT '0000009E-000001BB-1'
+
+SET TRANSACTION SNAPSHOT '0000009E-000001BB-1'
+
+SET TRANSACTION SNAPSHOT '0000009E-000001BB-1'
+
+COPY (SELECT "kind_contract" FROM "kb"."data_product_member" WHERE ctid BETWEEN '(6000,0)'::tid AND '(7000,0)'::tid AND "kind_contract" = 'nonexistent' COLLATE "C") TO STDOUT (FORMAT "binary");
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+COPY (SELECT "kind_contract" FROM "kb"."data_product_member" WHERE ctid BETWEEN '(7000,0)'::tid AND '(8000,0)'::tid AND "kind_contract" = 'nonexistent' COLLATE "C") TO STDOUT (FORMAT "binary");
+
+COPY (SELECT "kind_contract" FROM "kb"."data_product_member" WHERE ctid BETWEEN '(8000,0)'::tid AND '(9000,0)'::tid AND "kind_contract" = 'nonexistent' COLLATE "C") TO STDOUT (FORMAT "binary");
+
+SET TRANSACTION SNAPSHOT '0000009E-000001BB-1'
+
+COPY (SELECT "kind_contract" FROM "kb"."data_product_member" WHERE ctid BETWEEN '(9000,0)'::tid AND '(10000,0)'::tid AND "kind_contract" = 'nonexistent' COLLATE "C") TO STDOUT (FORMAT "binary");
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+SET TRANSACTION SNAPSHOT '0000009E-000001BB-1'
+
+SET TRANSACTION SNAPSHOT '0000009E-000001BB-1'
+
+COPY (SELECT "kind_contract" FROM "kb"."data_product_member" WHERE ctid BETWEEN '(10000,0)'::tid AND '(11000,0)'::tid AND "kind_contract" = 'nonexistent' COLLATE "C") TO STDOUT (FORMAT "binary");
+
+COPY (SELECT "kind_contract" FROM "kb"."data_product_member" WHERE ctid BETWEEN '(11000,0)'::tid AND '(12000,0)'::tid AND "kind_contract" = 'nonexistent' COLLATE "C") TO STDOUT (FORMAT "binary");
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+SET TRANSACTION SNAPSHOT '0000009E-000001BB-1'
+
+COPY (SELECT "kind_contract" FROM "kb"."data_product_member" WHERE ctid BETWEEN '(12000,0)'::tid AND '(13000,0)'::tid AND "kind_contract" = 'nonexistent' COLLATE "C") TO STDOUT (FORMAT "binary");
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+SET TRANSACTION SNAPSHOT '0000009E-000001BB-1'
+
+COPY (SELECT "kind_contract" FROM "kb"."data_product_member" WHERE ctid BETWEEN '(13000,0)'::tid AND '(14000,0)'::tid AND "kind_contract" = 'nonexistent' COLLATE "C") TO STDOUT (FORMAT "binary");
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+SET TRANSACTION SNAPSHOT '0000009E-000001BB-1'
+
+COPY (SELECT "kind_contract" FROM "kb"."data_product_member" WHERE ctid BETWEEN '(14000,0)'::tid AND '(15000,0)'::tid AND "kind_contract" = 'nonexistent' COLLATE "C") TO STDOUT (FORMAT "binary");
+
+COPY (SELECT "kind_contract" FROM "kb"."data_product_member" WHERE ctid BETWEEN '(15000,0)'::tid AND '(4294967295,0)'::tid AND "kind_contract" = 'nonexistent' COLLATE "C") TO STDOUT (FORMAT "binary");
+
+COMMIT
+
+| n:BIGINT |
+|---|
+| 0 |
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+COPY (SELECT NULL FROM "kb"."data_product_member"  LIMIT 1) TO STDOUT (FORMAT "binary");
+
+COMMIT
+
+| body_type:VARCHAR | scope_type:VARCHAR |
+|---|---|
+| VARCHAR | VARCHAR |
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+COMMIT
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+COPY (SELECT 1.50::numeric AS a, 12345678901234567890123456789012345678901.5::numeric AS b, 1.50::numeric(10,2) AS c, '2026-11-22 10:00:00.123456+00'::timestamptz AS d, '{"b":1,"a":[1.0,"é"]}'::jsonb AS e) TO STDOUT (FORMAT "binary");
+
+COMMIT
+
+| ta:VARCHAR | a:DOUBLE | tb:VARCHAR | b:DOUBLE | tc:VARCHAR | c:DECIMAL(10,2) | td:VARCHAR | d:TIMESTAMP WITH TIME ZONE | te:VARCHAR | e:VARCHAR |
+|---|---|---|---|---|---|---|---|---|---|
+| DOUBLE | 1.5 | DOUBLE | 1.2345678901234568e+40 | DECIMAL(10,2) | 1.50 | TIMESTAMP WITH TIME ZONE | 2026-11-22 05:00:00.123456-05 | VARCHAR | {"a": [1.0, "é"], "b": 1} |
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+COMMIT
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+COPY (SELECT "a"::VARCHAR, "b"::VARCHAR FROM (SELECT 1.50::numeric AS a, 12345678901234567890123456789012345678901.5::numeric AS b) AS __unnamed_subquery ) TO STDOUT (FORMAT "binary");
+
+COMMIT
+
+| ta:VARCHAR | a:VARCHAR | tb:VARCHAR | b:VARCHAR |
+|---|---|---|---|
+| VARCHAR | 1.50 | VARCHAR | 12345678901234567890123456789012345678901.5 |
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+
+SELECT oid, nspname
+FROM pg_namespace
+
+ORDER BY oid;
+
+SELECT pg_namespace.oid AS namespace_id, relname, relpages, attname,
+    pg_type.typname type_name, atttypmod type_modifier, pg_attribute.attndims ndim,
+    attnum, pg_attribute.attnotnull AS notnull, NULL constraint_id,
+    NULL constraint_type, NULL constraint_key, type_ns.nspname AS type_schema,
+    col_desc.description AS column_comment,
+    tbl_desc.description AS table_comment
+FROM pg_class
+JOIN pg_namespace ON relnamespace = pg_namespace.oid
+JOIN pg_attribute ON pg_class.oid=pg_attribute.attrelid
+JOIN pg_type ON atttypid=pg_type.oid
+JOIN pg_namespace type_ns ON pg_type.typnamespace = type_ns.oid
+LEFT JOIN pg_description col_desc ON col_desc.objoid=pg_class.oid AND col_desc.objsubid=pg_attribute.attnum
+LEFT JOIN pg_description tbl_desc ON tbl_desc.objoid=pg_class.oid AND tbl_desc.objsubid=0
+WHERE attnum > 0 AND relkind IN ('r', 'v', 'm', 'f', 'p') 
+UNION ALL
+SELECT pg_namespace.oid AS namespace_id, relname, NULL relpages, NULL attname, NULL type_name,
+    NULL type_modifier, NULL ndim, NULL attnum, NULL AS notnull,
+    pg_constraint.oid AS constraint_id, contype AS constraint_type,
+    conkey AS constraint_key, NULL AS type_schema,
+    NULL AS column_comment, NULL AS table_comment
+FROM pg_class
+JOIN pg_namespace ON relnamespace = pg_namespace.oid
+JOIN pg_constraint ON (pg_class.oid=pg_constraint.conrelid)
+WHERE relkind IN ('r', 'v', 'm', 'f', 'p') AND contype IN ('p', 'u') 
+ORDER BY namespace_id, relname, attnum, constraint_id;
+
+SELECT n.oid, enumtypid, typname, enumlabel
+FROM pg_enum e
+JOIN pg_type t ON e.enumtypid = t.oid
+JOIN pg_namespace AS n ON (typnamespace=n.oid)
+
+ORDER BY n.oid, enumtypid, enumsortorder;
+
+SELECT n.oid, t.typrelid AS id, t.typname as type, pg_attribute.attname, sub_type.typname,
+       sub_type_ns.nspname AS sub_type_schema
+FROM pg_type t
+JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+JOIN pg_class ON pg_class.oid = t.typrelid
+JOIN pg_attribute ON attrelid=t.typrelid
+JOIN pg_type sub_type ON (pg_attribute.atttypid=sub_type.oid)
+JOIN pg_catalog.pg_namespace sub_type_ns ON sub_type_ns.oid = sub_type.typnamespace
+WHERE pg_class.relkind IN ('c', 'r', 'v', 'm', 'f', 'p')
+AND t.typtype='c'
+AND pg_attribute.attnum > 0
+AND NOT pg_attribute.attisdropped
+
+ORDER BY n.oid, t.oid, attrelid, attnum;
+
+SELECT pg_namespace.oid, tablename, indexname
+FROM pg_indexes
+JOIN pg_namespace ON (schemaname=nspname)
+
+ORDER BY pg_namespace.oid;
+
+
+estimate: ~1442895 rows read (data_product_member ~1442895), ~1 rows returned
+SELECT pg_export_snapshot()
+
+COPY (SELECT NULL FROM "kb"."data_product_member" WHERE ctid BETWEEN '(0,0)'::tid AND '(1000,0)'::tid) TO STDOUT (FORMAT "binary");
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+SET TRANSACTION SNAPSHOT '000000BF-0000019D-1'
+
+SET TRANSACTION SNAPSHOT '000000BF-0000019D-1'
+
+SET TRANSACTION SNAPSHOT '000000BF-0000019D-1'
+
+SET TRANSACTION SNAPSHOT '000000BF-0000019D-1'
+
+SET TRANSACTION SNAPSHOT '000000BF-0000019D-1'
+
+SET TRANSACTION SNAPSHOT '000000BF-0000019D-1'
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+SET TRANSACTION SNAPSHOT '000000BF-0000019D-1'
+
+SET TRANSACTION SNAPSHOT '000000BF-0000019D-1'
+
+COPY (SELECT NULL FROM "kb"."data_product_member" WHERE ctid BETWEEN '(1000,0)'::tid AND '(2000,0)'::tid) TO STDOUT (FORMAT "binary");
+
+COPY (SELECT NULL FROM "kb"."data_product_member" WHERE ctid BETWEEN '(2000,0)'::tid AND '(3000,0)'::tid) TO STDOUT (FORMAT "binary");
+
+COPY (SELECT NULL FROM "kb"."data_product_member" WHERE ctid BETWEEN '(3000,0)'::tid AND '(4000,0)'::tid) TO STDOUT (FORMAT "binary");
+
+COPY (SELECT NULL FROM "kb"."data_product_member" WHERE ctid BETWEEN '(4000,0)'::tid AND '(5000,0)'::tid) TO STDOUT (FORMAT "binary");
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+COPY (SELECT NULL FROM "kb"."data_product_member" WHERE ctid BETWEEN '(5000,0)'::tid AND '(6000,0)'::tid) TO STDOUT (FORMAT "binary");
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+COPY (SELECT NULL FROM "kb"."data_product_member" WHERE ctid BETWEEN '(6000,0)'::tid AND '(7000,0)'::tid) TO STDOUT (FORMAT "binary");
+
+SET TRANSACTION SNAPSHOT '000000BF-0000019D-1'
+
+COPY (SELECT NULL FROM "kb"."data_product_member" WHERE ctid BETWEEN '(7000,0)'::tid AND '(8000,0)'::tid) TO STDOUT (FORMAT "binary");
+
+SET TRANSACTION SNAPSHOT '000000BF-0000019D-1'
+
+COPY (SELECT NULL FROM "kb"."data_product_member" WHERE ctid BETWEEN '(8000,0)'::tid AND '(9000,0)'::tid) TO STDOUT (FORMAT "binary");
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+COPY (SELECT NULL FROM "kb"."data_product_member" WHERE ctid BETWEEN '(9000,0)'::tid AND '(10000,0)'::tid) TO STDOUT (FORMAT "binary");
+
+COPY (SELECT NULL FROM "kb"."data_product_member" WHERE ctid BETWEEN '(10000,0)'::tid AND '(11000,0)'::tid) TO STDOUT (FORMAT "binary");
+
+SET TRANSACTION SNAPSHOT '000000BF-0000019D-1'
+
+SET TRANSACTION SNAPSHOT '000000BF-0000019D-1'
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+SET TRANSACTION SNAPSHOT '000000BF-0000019D-1'
+
+COPY (SELECT NULL FROM "kb"."data_product_member" WHERE ctid BETWEEN '(11000,0)'::tid AND '(12000,0)'::tid) TO STDOUT (FORMAT "binary");
+
+COPY (SELECT NULL FROM "kb"."data_product_member" WHERE ctid BETWEEN '(12000,0)'::tid AND '(13000,0)'::tid) TO STDOUT (FORMAT "binary");
+
+COPY (SELECT NULL FROM "kb"."data_product_member" WHERE ctid BETWEEN '(13000,0)'::tid AND '(14000,0)'::tid) TO STDOUT (FORMAT "binary");
+
+COPY (SELECT NULL FROM "kb"."data_product_member" WHERE ctid BETWEEN '(14000,0)'::tid AND '(15000,0)'::tid) TO STDOUT (FORMAT "binary");
+
+COPY (SELECT NULL FROM "kb"."data_product_member" WHERE ctid BETWEEN '(15000,0)'::tid AND '(4294967295,0)'::tid) TO STDOUT (FORMAT "binary");
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY
+
+SET TRANSACTION SNAPSHOT '000000BF-0000019D-1'
+
+| count_star():BIGINT |
+|---|
+| 82208 |
+| count_star():BIGINT |
+|---|
+| 0 |
+COMMIT
+

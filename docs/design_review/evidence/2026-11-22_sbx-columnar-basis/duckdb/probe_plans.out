@@ -1,0 +1,20 @@
+P1 containment (two inequalities, no equality): ['Projection', 'IE Join', 'Python Arrow Scan', 'Python Arrow Scan']
+P2 single inequality: ['Ungrouped Aggregate', 'Piecewise Merge Join', 'Python Arrow Scan', 'Python Arrow Scan']
+P3 overlap with equality key: ['Ungrouped Aggregate', 'Hash Join', 'Python Arrow Scan', 'Python Arrow Scan']
+P4 ASOF: ['Projection', 'Asof Join', 'Python Arrow Scan', 'Python Arrow Scan']
+P5 anti join: ['Hash Join', 'Python Arrow Scan', 'Python Arrow Scan']
+P6 filter over Arrow Table: ['Projection', 'Filter', 'Python Arrow Scan']
+   Filter operator present above scan: True | scan has Filters: False
+P7 filter over pyarrow.dataset: ['Python Arrow Scan']
+   Filter operator present above scan: False | scan has Filters: True
+╭─ Python Arrow Scan ─────────╮
+│ Function: PYTHON_ARROW_SCAN │
+│ Filters: "block_id" = 3     │
+│ Projections: ordinal        │
+│ ~1 row                      │
+╰─────────────────────────────╯
+
+P8 EXCEPT ALL: ['Projection', 'Hash Join', 'Window', 'Window', 'Python Arrow Scan', 'Projection', 'Python Arrow Scan']
+P9 EXPLAIN (FORMAT JSON) available: True
+P10 EXPLAIN (SQL) over a registered Arrow table: NotImplementedException Not implemented Error: EXPLAIN (SQL) cannot render table function "python_arrow_scan".
+P10b EXPLAIN (SQL) over range(): [('sql', 'SELECT r2.c1 AS g, "system".main.count_star() AS "count_star()"\nFROM (\n        SELECT r0.column0 AS c0, "system".main."%"(r0.column0, CAST(3 AS BIGINT)) AS c1\n        FROM "system".main."range"(CAST(10 AS BIGINT)) AS r0(column0)\n    ) AS r2(c0, c1)\nGROUP BY r2.c1')]

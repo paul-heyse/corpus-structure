@@ -1,0 +1,160 @@
+{
+  "python": "3.14.10",
+  "pyarrow": "26.0.0",
+  "cases": {
+    "slice_offset3_vs_fresh": {
+      "equals": true,
+      "ipc_digest_equal": true,
+      "batch_message_equal": true,
+      "ipc_roundtrip_digest_equal": true,
+      "take_all_digest_equal": true,
+      "concat_arrays_digest_equal": true,
+      "note": "offset 3: validity bitmap and string offsets not rebased in memory"
+    },
+    "slice_head_vs_fresh": {
+      "equals": true,
+      "ipc_digest_equal": false,
+      "batch_message_equal": false,
+      "ipc_roundtrip_digest_equal": false,
+      "take_all_digest_equal": true,
+      "concat_arrays_digest_equal": true,
+      "note": "buffers extend past the slice"
+    },
+    "slice_middle_vs_fresh": {
+      "equals": true,
+      "ipc_digest_equal": false,
+      "batch_message_equal": false,
+      "ipc_roundtrip_digest_equal": false,
+      "take_all_digest_equal": true,
+      "concat_arrays_digest_equal": true,
+      "note": "offset 3, buffers extend past the slice"
+    },
+    "slice_per_type": {
+      "int64_no_nulls": {
+        "head_ipc_equal": true,
+        "middle_ipc_equal": true,
+        "head_buffer_sizes_vs_fresh": [
+          [
+            null,
+            800
+          ],
+          [
+            null,
+            320
+          ]
+        ]
+      },
+      "int64_nullable": {
+        "head_ipc_equal": false,
+        "middle_ipc_equal": true,
+        "head_buffer_sizes_vs_fresh": [
+          [
+            13,
+            800
+          ],
+          [
+            5,
+            320
+          ]
+        ]
+      },
+      "string_no_nulls": {
+        "head_ipc_equal": false,
+        "middle_ipc_equal": false,
+        "head_buffer_sizes_vs_fresh": [
+          [
+            null,
+            404,
+            190
+          ],
+          [
+            null,
+            164,
+            70
+          ]
+        ]
+      },
+      "list_int": {
+        "head_ipc_equal": true,
+        "middle_ipc_equal": true,
+        "head_buffer_sizes_vs_fresh": [
+          [
+            null,
+            404,
+            null,
+            800
+          ],
+          [
+            null,
+            164,
+            null,
+            320
+          ]
+        ]
+      }
+    },
+    "validity_present_all_valid": {
+      "bitmap_buffers": [
+        "None",
+        "False"
+      ],
+      "equals": true,
+      "ipc_digest_equal": true
+    },
+    "garbage_under_null_slot": {
+      "equals": true,
+      "ipc_digest_equal": false,
+      "ipc_roundtrip_digest_equal": false,
+      "take_all_digest_equal": true,
+      "concat_arrays_digest_equal": false,
+      "if_else_norm_digest_equal": false,
+      "from_pylist_digest_equal": true
+    },
+    "string_null_slot_nonempty_extent": {
+      "equals": true,
+      "ipc_digest_equal": false,
+      "take_all_digest_equal": true,
+      "if_else_norm_digest_equal": false
+    },
+    "dictionary_order": {
+      "logical_values_equal": true,
+      "equals": false,
+      "ipc_digest_equal": false,
+      "decoded_digest_equal": true
+    },
+    "table_chunking": {
+      "equals": true,
+      "ipc_digest_equal": false,
+      "combine_chunks_digest_equal": true,
+      "to_batches_counts": [
+        1,
+        1
+      ]
+    },
+    "schema_metadata": {
+      "equals_default": true,
+      "equals_check_metadata": false,
+      "ipc_digest_equal": false,
+      "batch_message_equal": true
+    },
+    "repeat_and_compression": {
+      "same_object_twice": true,
+      "zstd_twice": true,
+      "zstd_vs_uncompressed": false
+    },
+    "nested_list_struct_slice": {
+      "list_offsets_first": [
+        4,
+        0
+      ],
+      "equals": true,
+      "ipc_digest_equal": true
+    },
+    "pickle_protocol5": {
+      "inband_bytes": 1126,
+      "out_of_band_buffers": 10,
+      "table_nbytes": 1705
+    },
+    "validate_full_nullability": "accepted null in non-nullable field"
+  }
+}
