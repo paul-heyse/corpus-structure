@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pyarrow as pa
 import pytest
-from sqlalchemy import Column, MetaData, Text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateColumn
 
@@ -28,9 +27,17 @@ def test_generated_surface_is_current_and_attaches_existing_table():
 
 
 def test_one_modeled_field_updates_static_native_and_arrow_products():
-    changed = MetaData()
-    target = get_metadata().tables["ops.pdf_stage_native"].to_metadata(changed)
-    target.append_column(Column("modeled_extra", Text, nullable=False))
+    from corpus_structure.schema.physical import compile_physical
+
+    def add_field(declaration):
+        stage = declaration["classes"]["pdf_stage_native"]
+        stage.setdefault("attributes", {})["modeled_extra"] = {"range": "string", "required": True}
+
+    current = get_metadata()
+    changed = compile_physical(
+        _changed_physical_sources(add_field), linkml_types=current.info["physical_linkml_types"]
+    )
+    target = changed.tables["ops.pdf_stage_native"]
     generated = render_typed_column_class("ChangedColumns", target.columns)
     assert "modeled_extra: Named[str]" in generated
     native = str(CreateColumn(target.c.modeled_extra).compile(dialect=postgresql.dialect()))
@@ -42,8 +49,16 @@ def test_one_modeled_field_updates_static_native_and_arrow_products():
         nullable=False,
         metadata={"postgresql": "text", "constraints": "{}"},
     )
+    assert arrow.metadata[b"physical_model_id"] == changed.info["physical_model_id"].encode()
+    assert changed.info["physical_model_id"] != current.info["physical_model_id"]
     write_profile = record_write_profile(target.fullname, release_id="r", model=changed)
-    assert write_profile.fields[-1].wire_type == "text"
+    assert write_profile.physical_id == changed.info["physical_model_id"]
+    assert (
+        next(
+            field.wire_type for field in write_profile.fields if field.field.name == "modeled_extra"
+        )
+        == "text"
+    )
 
 
 @pytest.mark.skipif(shutil.which("pyrefly") is None, reason="blocked: pyrefly not on PATH")

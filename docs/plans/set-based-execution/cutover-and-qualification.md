@@ -228,8 +228,11 @@ respectively. These are one fixture's per-statement groups. Nested costs and ear
 release preparation are outside that observation. A concurrent annotation-fork
 worker reached the 15-minute test watchdog while waiting for the same physical GPU lease
 held by the PM2 cohort (`a7a7e1b66e944c08a54bff7dd16c67cb`). The suite retains ten
-passed identities and six missing-asset prerequisites. Retry the annotation fork with
-exclusive GPU scheduling and its exact existing limits.
+passed identities and the original six missing-asset prerequisites. The isolated fork retry
+passed under the existing limits (`515f9e37d6b7462690fd0409518a94f6`). Its call took
+474.15 seconds after 7.67 seconds of setup. It verified current producing inputs, canonical
+output byte parity through a spawned Arrow dispatch, exact ADBC snapshot rows, selected
+construction addresses and unchanged resume.
 
 The exact native discovery replacement passed (`e7815bb4e8b4497a813e5994d1ed118f`).
 A new current use adopted the same computation and product. The older closure left
@@ -245,6 +248,51 @@ direct checker. The isolated full wire module passed 62 checks, and six exact ca
 controls passed under `uv run ci test` (`73ef4d4ec98c45179196d40989cf2256`). The
 comparison confirms a smaller cost for repeated schema checking in isolation.
 [Wire schema timing evidence](../../design_review/evidence/2026-11-22_python-postgresql-efficiency/README.md)
+
+**Integrated checks · Tested by selected identity · 2026-11-22.** `uv run ci check`
+passed (`0c4504ded40c4120bcb8cd7430376fb6`). `just model check` found the
+registered projections current. All 97 selected wire, definition-projection and
+interpretation identities passed (`c3a0a3d186f846be8486fb8e6da6fa10`). The eight
+shared fault controls passed (`908e165099e24061bfedce65d374358e`). Final-source
+ordinary inventory collected 9,601 identities (`441f8a2ca31944e98362d6daffdab274`).
+`uv run ci test coverage` accounts for all 17 named provider identities across
+the original selection, recovered PM2 retry and final annotation fork. The
+original invocation outcomes retain their recorded failures. Exact test-scoped
+native and ordinary evidence continues on the integrated source. The current
+ordinary complement selections start with 3,124 release-independent identities
+(`66add3c2d177418ca50c16895aa422cb`) and 1,130 private native identities
+(`cf17e80d1ae444fd85104c1c1b702609`). The original receipts record the superseded
+fixture identities, the opt-in Base checkpoint prerequisite and the shared-authentication
+passes on the required host.
+
+All eight final-source event, guarded read, metadata summary, completion, attachment
+and authentic finite/rich replay checks passed (`3ec5861d83384056a6e3006fa8727ba7`).
+The final readiness and authorship selection passed 21 of 23 identities
+(`119798f3530748eab57f7069e5b3cc5a`), including grouped authored admission,
+private reads, revocation, origin and population waits, and both missed-recipient
+commit orders. Its two isolated proof fixtures lacked the new internal routine
+used by the strict incoming body contract. The full registered root includes that
+routine. Both proof identities passed after the isolated fixture installed that
+routine (`b9dccb4f47b84e7196468eca872dbe7b`). Managed coverage accounts for all
+23 identities and preserves the original failures. The exact settlement check also
+verified the original source and episode of each proof wake (`4d46afd5ad61423ba5c5c868fe44eb6b`).
+
+The release-independent complement exposed a missing learned-definition authority
+check and a Python worker crash during model preparation (`66add3c2d177418ca50c16895aa422cb`).
+The worker now reuses its existing role validation for both whole observation and
+candidate reports (`b2d6b9357`). The exact negative fixture also checks multiplicity
+for both roles. All six CPU authority cases passed on the isolated correction
+(`ef85fc419d814e17a9f6b6fa078150ae`, retained under `build/sbx09-learned-whole-inputs-results`).
+The isolated grouped interpretation retry passed the worker-crash identity
+(`63b33ab7ff9b4b24b688a5cf53f45007`). Keep the broad interrupted native receipt and
+include its completed identities when continuing the final-source complement.
+The combined main CPU custody and captured-factory selection passed all seven
+identities (`8b259c4380954e33986bf8ca2b08af60`). `uv run ci check` passed after
+integration (`2755db34d18b45ec8295badaec6ff377`) and `just model check` confirmed
+the registered projections. The remaining release-independent cohort is split by
+test module across four managed attempts (`e96be9a7d015488b91fd2e427ce0672f`,
+`96a5c98ccb684d5eb53c6beafc67c42d`, `9e08ded443c14db8b95b462488604008`,
+`b665e3bb03e34938b649402319f663c4`) to preserve completed work if a worker crashes.
 
 **Cold authoring checkpoint · 2026-11-21.** `uv run ci db init --creation-only` created
 `corpus_structure_sbx09_author` on the dedicated cluster. Managed preview

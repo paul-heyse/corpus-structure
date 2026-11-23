@@ -185,8 +185,13 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
         assert role.support is not None
         assert role.support.provenance == "exact"
         assert role.support.identity_requirements == ("episode",)
+    assert {
+        (target.output_role, target.path, target.variant, target.input_kind)
+        for target in components.reference_targets
+        if target.input_role == "candidates"
+    } == {("result", "/candidates_input", "product", inputs["candidates"].kind)}
     witnesses = {witness.input_role: witness for witness in components.output_witnesses}
-    assert set(witnesses) == {"source", "candidates"}
+    assert set(witnesses) == {"source"}
     exact_fields = {
         "product",
         "reference",
@@ -196,6 +201,10 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
         "subject_definition",
         "original_source",
         "analyzed_scope",
+        "/source/document",
+        "/source/membership",
+        "/source/projection",
+        "/source/section_pointer",
     }
     for role, witness in witnesses.items():
         assert {comparison.input.field for comparison in witness.comparisons} == exact_fields
