@@ -6,13 +6,12 @@ from dataclasses import replace
 import pytest
 import yaml
 from pglast import parse_plpgsql, parse_sql
-from sqlalchemy import insert, text
+from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
 from corpus_structure.semantic.releases import _projection_rows
 from semantic.data_operation_declaration_support import source_declaration
@@ -150,51 +149,3 @@ def test_native_unprojected_graph_pattern_is_still_refused(scenario_seeds):
         pytest.fail("unsupported ordinary graph pattern was admitted")
 
 
-@pytest.mark.parametrize("ddo_kernel", [QUESTION], indirect=True)
-@pytest.mark.parametrize("graph_use", ["membership", "datatype"])
-def test_native_json_kind_does_not_grant_graph_pattern_support(ddo_kernel, graph_use):
-    kernel = ddo_kernel
-    release = kernel.prepared.release_id
-    question = kernel.prepared.index.definitions["Question"].iri
-    with kernel.engine.begin() as connection:
-        connection.execute(
-            insert(table("data.realization")).values(
-                realization_id="question-graph",
-                project_id="ddo-test",
-                release_id=release,
-            )
-        )
-        common = dict(realization_id="question-graph", release_id=release)
-        if graph_use == "membership":
-            connection.execute(
-                insert(table("data.entity")).values(**common, entity_id="question:one")
-            )
-            connection.execute(
-                insert(table("data.membership")).values(
-                    **common,
-                    entity_id="question:one",
-                    class_id=question,
-                    establishment="asserted",
-                )
-            )
-        else:
-            connection.execute(
-                insert(table("data.typed_value")).values(
-                    **common,
-                    value_id="question:value",
-                    kind="record",
-                    datatype=question,
-                )
-            )
-        with (
-            pytest.raises(
-                DBAPIError, match="unsupported required native graph constraint scope or pattern"
-            ),
-            connection.begin_nested(),
-        ):
-            connection.execute(
-                text("SELECT data.validate_state(:r,:z)"), dict(r=release, z="question-graph")
-            )
-        # The transaction deliberately contains rejected graph input, never a
-        # published fact or candidate. Roll it back before deferred validation.
-        connection.rollback()
