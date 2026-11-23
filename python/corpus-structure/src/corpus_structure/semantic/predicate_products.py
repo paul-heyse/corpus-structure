@@ -33,6 +33,7 @@ _PATHS = (
     "semantic/source_contexts.py",
     "semantic/contributions.py",
     "semantic/contribution_input_references.py",
+    "semantic/data_operation_partitions.py",
     "semantic/record_contracts.py",
     "semantic/sentence_partitions.py",
     "semantic/sentence_population_inputs.py",
@@ -85,6 +86,7 @@ def predicate_operation_sources():
             )
             for name in (
                 "methods/predicate_declared.py",
+                "semantic/data_operation_partitions.py",
                 "semantic/predicate_products.py",
                 "semantic/data_operation_prepared_call.py",
             )

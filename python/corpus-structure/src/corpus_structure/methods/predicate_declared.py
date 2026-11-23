@@ -800,7 +800,12 @@ class PredicateEvidenceOperation:
                 "reference": "corpus_structure.semantic.predicate_products.execute_predicate_profile",
                 "contract": "predicates/profile-assets",
                 "role": "retained-predicate-kernel",
-            }
+            },
+            {
+                "reference": "corpus_structure.semantic.data_operation_partitions.PartitionedInput",
+                "contract": "predicates/profile-assets",
+                "role": "admitted-partitioned-input",
+            },
         ],
         "assets": [
             {
