@@ -30,7 +30,8 @@ def test_restricted_complete_archive_replay_and_immutable_closure(
         assert persist_release(conn, bundle, deps, profile, prepared) == prepared.release_id
         with (
             pytest.raises(
-                ReleaseConflict, match="prepared products differ from exact-source verification"
+                ReleaseConflict,
+                match="prepared release does not match exact material inputs and outputs",
             ),
             conn.begin_nested(),
         ):
@@ -199,11 +200,6 @@ def test_restricted_activation_cas_and_deployment_record(
         )
 
     # Preserve the name while weakening a non-split constraint: names cannot attest meaning.
-    from corpus_structure.semantic.execution_admission import (
-        ExecutionAdmissionError,
-        admit_execution_release,
-    )
-
     task = table("ops.task")
     check = next(
         item
@@ -222,9 +218,19 @@ def test_restricted_activation_cas_and_deployment_record(
         )
     with (
         commit_admitter_engine.begin() as conn,
-        pytest.raises(ExecutionAdmissionError, match="physical CHECK expression differs"),
+        pytest.raises(DBAPIError, match="physical CHECK expression differs"),
     ):
-        admit_execution_release(prepared, connection=conn)
+        activate_release(
+            conn,
+            project,
+            prepared.release_id,
+            expected_parent=prepared.release_id,
+            expected_generation=1,
+        )
+    with commit_db_engine.connect() as conn:
+        assert conn.scalar(
+            text("SELECT generation FROM data.project WHERE project_id=:p"), {"p": project}
+        ) == 1
 
 
 def test_bulk_exact_native_codec_vectors(commit_db_engine):
@@ -374,17 +380,32 @@ def test_current_physical_constraint_changes_admission_identity(relation_name, e
 
 
 def test_alembic_current_physical_comparison(commit_db_engine):
-    from alembic import command
-
+    from corpus_structure.semantic.execution_admission import _revision_expectation
     from corpus_structure.semantic.metadata import get_metadata
-    from corpus_structure.semantic.migrations import alembic_config
+    from corpus_structure.semantic.migrations import ALEMBIC_DIR, head_revision
+    from corpus_structure.semantic.native_authoring import (
+        compare_declared_candidate,
+        load_native_state,
+    )
     from corpus_structure.semantic.native_objects import NativeAuthoring
+    from corpus_structure.semantic.target_installation import target_predecessor_descriptor
 
+    revision = head_revision()
+    assert revision is not None
+    expected = _revision_expectation(ALEMBIC_DIR / "versions", revision)
+    objects = load_native_state(expected.state[0], digest=expected.state[1])
+    descriptor, _ = target_predecessor_descriptor(objects)
     with commit_db_engine.connect() as conn:
-        config = alembic_config(conn)
-        config.attributes["target_metadata"] = get_metadata()
-        config.attributes["native_authoring"] = NativeAuthoring(())
-        command.check(config)
+        # Compare against registered declarations, including server-bound defaults;
+        # evaluating a volatile UUID default cannot establish default equality.
+        candidate, _ = compare_declared_candidate(
+            conn,
+            target_metadata=get_metadata(),
+            authoring=NativeAuthoring(objects, predecessor=objects),
+            old_descriptor=descriptor,
+            physical_contract=None,
+        )
+        assert candidate.upgrade_ops is not None and candidate.upgrade_ops.is_empty()
 
 
 def test_live_cross_purpose_privilege_drift_refuses(

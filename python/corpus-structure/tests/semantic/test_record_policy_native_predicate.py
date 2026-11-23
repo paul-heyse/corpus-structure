@@ -41,8 +41,18 @@ def test_deployed_issuer_requires_exact_command_effect_factory(native_read):
     )
     connection = native_read
     assert connection.scalar(statement, {"declaration": json.dumps(declaration)}) is True
+    # Eligibility checks the captured effect/factory contract. Operation names and
+    # factory dispatch are separate from the release-specific effect admission.
+    for changed in ("operation", "factory"):
+        value = deepcopy(declaration)
+        if changed == "operation":
+            value["operation_id"] = "foreign.authorize"
+        else:
+            value["support_contract"]["capabilities"]["prepared_factory"]["entrypoint"] = (
+                "foreign.factory"
+            )
+        assert connection.scalar(statement, {"declaration": json.dumps(value)}) is True, changed
     for changed in (
-        "operation",
         "profile",
         "effect",
         "factory",
@@ -52,21 +62,19 @@ def test_deployed_issuer_requires_exact_command_effect_factory(native_read):
     ):
         value = deepcopy(declaration)
         capabilities = value["support_contract"]["capabilities"]
-        if changed == "operation":
-            value["operation_id"] = "foreign.authorize"
-        elif changed == "profile":
+        if changed == "profile":
             value["profile"] = "derivation"
         elif changed == "effect":
             value["support_contract"]["effects"] = []
         elif changed == "factory":
-            capabilities["prepared_factory"]["entrypoint"] = "foreign.factory"
+            capabilities["prepared_factory"]["entrypoint"] = ""
         elif changed == "preparation":
             capabilities["preparation"] = "pdf-native"
         elif changed == "source":
             capabilities["prepared_factory"]["source_digest"] = "not-an-acquired-digest"
         else:
             value["implementation_revision"] = "a-caller-label"
-        assert connection.scalar(statement, {"declaration": json.dumps(value)}) is not True
+        assert connection.scalar(statement, {"declaration": json.dumps(value)}) is not True, changed
 
 
 @pytest.fixture
