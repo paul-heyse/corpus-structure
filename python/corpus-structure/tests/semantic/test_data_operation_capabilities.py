@@ -83,6 +83,8 @@ def test_compiled_factory_is_captured_from_original_static_owner(tmp_path, monke
 
 
 def test_runtime_custody_visits_only_consumed_generic_owners(tmp_path, monkeypatch):
+    from typing import get_overloads
+
     from corpus_structure.semantic.data_operation_cpu import _prepared_runtime_members
     from corpus_structure.semantic.data_operation_ports import (
         _authenticated_closed_slice,
@@ -93,13 +95,21 @@ def test_runtime_custody_visits_only_consumed_generic_owners(tmp_path, monkeypat
     name = "consumed_runtime_generic_fixture"
     path = tmp_path / f"{name}.py"
     content = b"""\
+from typing import overload
+
 class GenericHelper[T]:
+    @overload
+    def value(self) -> int: ...
+
     def value(self) -> int:
         return 4
 
 class Unrelated[T]:
     def value(self) -> int:
         return 9
+
+@overload
+def helper() -> int: ...
 
 def helper() -> int:
     return 5
@@ -129,13 +139,15 @@ def entry() -> int:
     assert module.prepared_entry() == 5
     prepared.check()
 
-    monkeypatch.setattr(module.GenericHelper, "value", lambda self: 0)
+    (method_stub,) = get_overloads(module.GenericHelper.value)
+    monkeypatch.setattr(module.GenericHelper, "value", method_stub)
     with pytest.raises(ValueError, match="authenticated runtime slice changed"):
         retained.check()
     with pytest.raises(ValueError, match="runtime callable implementation differs"):
         _verify_closed_runtime_sources(sources, modules, paths, expected)
 
-    monkeypatch.setattr(module, "helper", lambda: 0)
+    (function_stub,) = get_overloads(module.helper)
+    monkeypatch.setattr(module, "helper", function_stub)
     with pytest.raises(ValueError, match="authenticated runtime slice changed"):
         prepared.check()
     with pytest.raises(ValueError, match="prepared CPU kernel helper"):

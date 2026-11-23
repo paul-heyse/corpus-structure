@@ -1539,7 +1539,7 @@ def _runtime_definition_code(owner_code, node, qualname):
 
 
 def _runtime_members(statements, owner, code, prefix, expected_nodes):
-    """Resolve only admitted members and their lexical class containers."""
+    """Resolve only effective admitted definitions and their lexical class containers."""
     containers = set()
     for member in expected_nodes:
         container = member.rpartition(".")[0]
@@ -1548,12 +1548,16 @@ def _runtime_members(statements, owner, code, prefix, expected_nodes):
             container = container.rpartition(".")[0]
 
     def visit(statements, owner, code, scope):
-        for node in statements:
+        resolved = set()
+        # A later definition replaces an earlier one in the same namespace.
+        # Overload stubs therefore cannot supply the executable code identity.
+        for node in reversed(statements):
             if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
                 path = scope + "." + node.name
                 descend = isinstance(node, ast.ClassDef) and path in containers
-                if path not in expected_nodes and not descend:
+                if path in resolved or (path not in expected_nodes and not descend):
                     continue
+                resolved.add(path)
                 expected = _runtime_definition_code(code, node, path[len(prefix) + 1 :])
                 if expected is None:
                     raise PortRefusal("runtime definition code is unavailable: " + path)
