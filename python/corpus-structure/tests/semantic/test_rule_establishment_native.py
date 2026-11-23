@@ -126,8 +126,7 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
         "kb.data_validity_establishment",
     ):
         conn.execute(CreateTable(model.tables[name], include_foreign_key_constraints=[]))
-    # Settlement retains the real wake writer; this isolated proof fixture has
-    # no demands, so the native writer records the origin without recipients.
+    # Settlement uses the same wake writer as an installed demand executor.
     for declaration in (
         *demand_authority_programs(model, subject_scopes=("project", "original-source")),
         *obligation_wake_programs(model),
@@ -288,6 +287,62 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
         "project_id": context["project_id"],
         "original_source": context["original_source"],
     }
+    wait_started, wait_xid = conn.execute(
+        text("SELECT clock_timestamp(), pg_current_xact_id()::text")
+    ).one()
+    conn.execute(
+        insert(model.tables["sem.data_operation_definition"]).values(
+            release_id="release",
+            operation_id="proof-consumer",
+            subject_definition=context["subject_definition"],
+            recipe="proof-consumer-recipe",
+            profile="derivation",
+            implementation_revision="fixture",
+            input_roles=[{"name": "bound", "required_rules": ["check"]}, {"name": "ordinary"}],
+            output_roles=[],
+            support_contract={},
+            binding_expression={},
+            parameter_definitions={},
+            definition_identity="proof-consumer-definition",
+            eligibility_identity="proof-consumer-eligibility",
+            quantified=False,
+            validity_families=[],
+            validity_conservative=False,
+            dependencies=[],
+        )
+    )
+    conn.execute(
+        insert(model.tables["ops.data_demand"]).values(
+            id="proof-demand",
+            project_id=context["project_id"],
+            release_id="release",
+            runtime_id="runtime",
+            root={},
+            selection={},
+            strength="value",
+            created_at=wait_started,
+        )
+    )
+    conn.execute(
+        insert(model.tables["ops.data_obligation"]),
+        [
+            dict(
+                id=obligation,
+                demand_id="proof-demand",
+                operation_id="proof-consumer",
+                subject=context["subject"],
+                original_source=source,
+                analyzed_scope={},
+                parameters={},
+                created_at=wait_started,
+                created_xid=wait_xid,
+            )
+            for obligation, source in (
+                ("exact-proof-waiter", context["original_source"]),
+                ("foreign-proof-waiter", "unrelated-source"),
+            )
+        ],
+    )
     settle = text(
         "SELECT ops.ddo_settle_rule_attestations("
         "jsonb_populate_record(NULL::ops.data_request,:request),:completion,:episode)"
@@ -331,6 +386,7 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
     with pytest.raises(DBAPIError, match="undeclared rule attestation"), conn.begin_nested():
         run_settle(entries, "first", {**producer, "operation_id": "adopter"})
     assert conn.execute(text("SELECT count(*) FROM kb.data_validity")).scalar_one() == 0
+    assert conn.scalar(text("SELECT count(*) FROM ops.data_obligation_wake")) == 0
     before = conn.scalar(text("SELECT last_value FROM pg_temp.rule_base_evaluations"))
     run_settle(entries, "first")
     assert conn.scalar(text("SELECT last_value FROM pg_temp.rule_base_evaluations")) - before == 4
@@ -343,6 +399,21 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
         )
     ).all() == [
         ("rule-establishment", episode, context["project_id"], context["original_source"])
+        for episode in ("first", "second")
+    ]
+    assert conn.execute(
+        text(
+            "SELECT obligation_id, origin_kind, origin_id, input_role, occurrence "
+            "FROM ops.data_obligation_wake ORDER BY origin_id"
+        )
+    ).all() == [
+        (
+            "exact-proof-waiter",
+            "rule-establishment",
+            episode,
+            "bound",
+            {"original_source": context["original_source"]},
+        )
         for episode in ("first", "second")
     ]
     assert conn.execute(text("SELECT count(*) FROM kb.data_validity")).scalar_one() == 4
