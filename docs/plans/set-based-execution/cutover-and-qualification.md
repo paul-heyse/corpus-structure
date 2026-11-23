@@ -276,6 +276,9 @@ routine. Both proof identities passed after the isolated fixture installed that
 routine (`b9dccb4f47b84e7196468eca872dbe7b`). Managed coverage accounts for all
 23 identities and preserves the original failures. The exact settlement check also
 verified the original source and episode of each proof wake (`4d46afd5ad61423ba5c5c868fe44eb6b`).
+The extended native control recorded one recipient for each producer episode at the
+matching existing obligation and required role. It excluded the unrelated role and
+source and issued no wake on refusal (`d503b3c2aef940de9dc8c524f39e7b8d`).
 
 The release-independent complement exposed a missing learned-definition authority
 check and a Python worker crash during model preparation (`66add3c2d177418ca50c16895aa422cb`).
@@ -297,9 +300,75 @@ The remaining release-independent cohort is split by
 test module across four managed attempts (`e96be9a7d015488b91fd2e427ce0672f`,
 `96a5c98ccb684d5eb53c6beafc67c42d`, `9e08ded443c14db8b95b462488604008`,
 `b665e3bb03e34938b649402319f663c4`) to preserve completed work if a worker crashes.
-The private native complement continues in three bounded cohorts
+The private native complement ran in three bounded cohorts
 (`594b3d3e2173426aaf7cc6c97cf05613`, `d58f7dbe6ab84ee28b7031de5ed031dd`,
 `ec0ada305c66400a8e6462707af36e5b`) after the learned provider released the device.
+
+The selected records and source CLI passed all 19 controls (`e995b15910d74ac4ab38c78290da7cda`).
+The bound native scope and exact read and cut identities remain available at the selected
+boundary. CLI and MCP results use the finite presentation number contract selected in
+[DMO-05](../domain-model-operability/json-contracts-and-settings.md). The final collection
+retained 9,601 ordinary identities (`5be0065058454e0082cd59886a799493`). Three corrected
+release and MCP fixtures changed names. The corresponding assertions passed in
+`35638dde9cc44578a33c4b2e8d4190ec` and `42717e2aaf6446a081083510375e93e3`.
+
+**Contextual and source-search correction · 2026-11-22.** The second witnessed retrieval
+reused a score episode under a fresh demand. The current and producing bindings had the same
+policy product and authored source reference and different demand-scoped admission identifiers
+(`ea5742a5e4fe4fe2a3b035433dd92869`, failed). The scorer comparison now uses the admitted
+policy meaning while each use keeps its own verified admission. Query, inventory and vector
+population checks retain their existing correspondence. The PDF search fill converts the two
+selected, frozen nested fields to transport values before budget accounting and wire admission.
+
+The refreshed sole root also removes the private historical DATA relowering mode. Preview
+`ca5dbf3d84f940bcaacbb74ae8fd4cb0`, rollback-only candidate
+`fd188098b6a44d27810b984df328a68c` and registration
+`faff42b9070641ada88399a8e816f5c9` passed in the isolated checkout. The empty
+`corpus_structure_sbx09_policy_qualification` target (OID `136618335`) installed the new root.
+Readback matched the registered descriptor and purpose-role grants, confirmed the new
+fresh-only signatures and found the five product relations empty.
+
+<a id="sbx-09-qualification-pause"></a>
+#### Qualification pause and worktree consolidation
+
+**Interrupted · 2026-11-22.** The operator identified the concurrent test runs as the
+source of memory accumulation and stopped qualification. All eight active managed runs
+settled as interrupted. The test workers and their private PostgreSQL clusters exited.
+Resume evidence reconciliation after the operator's follow-up review.
+
+| Interrupted scope | Managed receipts and retained observations |
+| --- | --- |
+| Three private ordinary cohorts | `594b3d3e2173426aaf7cc6c97cf05613`, `d58f7dbe6ab84ee28b7031de5ed031dd` and `ec0ada305c66400a8e6462707af36e5b` retain 306, 301 and 296 passed identities respectively, along with original failures and unfinished identities. Reconcile corrected fixture retries and applicable source before awarding coverage. |
+| Refreshed-root ordinary checks | `5cc1a3fccc8048939122b9ccf49a1b7e` passed all six PDF source-search controls, authenticated PDF named-input readback, and contextual insufficient-evidence publication. The single-target replay, ambiguous case and witness refusals remain open. |
+| Refreshed-root providers | `036c42a43b7247908f392c8e1f6f6288` passed real E5 frame and referent cases. The discourse-neighbor case was interrupted. The isolated contextual discovery run failed its spaCy worker environment lock check. Verify on the installed provider environment. |
+| Focused fixture follow-through | `026e9cd142764a1c8ddbfda022f41c23` retains the interrupted deployment-capture check. `f0fd0ec347924deb9ada89a17d3628a7` passed the retryable PDF execution-failure control and left historical raw-lineage verification incomplete. `1619b808b3ec46ea800f8c2d087dd953` passed the ordinary PDF URI and left the quoted URI incomplete. |
+
+**Integrated on `main`.** The retired relowering branches, contextual policy correspondence,
+PDF search fill and regenerated root are committed as `338a13f36`, `da35ad7b4` and `f93a53e8d`.
+The original receipts retain the isolated source and context. The earlier named provider and
+readiness coverage still establishes those earlier selections. The integrated final-source union
+remains open. Development is still on N29 and its reset follows integrated acceptance.
+
+**Worktree consolidation · 2026-11-22.** The bounded proof tokenizer and its UTF-8 and escaping
+parity control were brought from `663254b05` onto `main` in `0613f5bc6`. The selected path
+handles object-free arrays up to 32 MiB of rendered text. Larger arrays use the existing
+exact recursive codec. Preview `94751057440843db8e6f9a82141e7e5d`, rollback-only candidate
+`6b48c5087fa5421d9b8e395e383cfa46` and registration `6478a960327740d28676abaa7535d3f2`
+passed. Inspection found the bound in the frozen root. The previous empty installation remains
+the qualification baseline. Cold installation and functional qualification of the new registration
+were `not_run` during consolidation.
+
+Removed 18 auxiliary worktree directories and 10 stale registrations. Moved 68 managed results
+into the main checkout's `build/ci`. Archived prior checkout identities and source drafts under
+`build/sbx-worktree-handoff/snapshots` for the follow-up review.
+
+The broad run exposed additional open diagnoses. The authored-only toy filing journey failed
+while acquiring a reading-resolution recipe. Establish when optional reading inputs require that
+recipe before changing the rich admission boundary. The controlled PDF policy-remap fixture
+uses a capture that lacks established reuse eligibility. Its policy-only reuse and historical
+generation assertions remain failed in `94cb8f8efb284810a5056e345693d8f4`. Reconcile those
+against the inherited [PDF qualification obligations](../declared-data-operations_2026-11-12.md)
+and the [eligible projection contract](references-and-projection-keys.md#sbx-06).
 
 **Cold authoring checkpoint · 2026-11-21.** `uv run ci db init --creation-only` created
 `corpus_structure_sbx09_author` on the dedicated cluster. Managed preview

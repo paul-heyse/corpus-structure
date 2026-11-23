@@ -678,6 +678,12 @@ SBX-07 retains the canonical worker-local memo and verifies current placement, s
 and authority on that journey. Retain the dated checkpoint evidence below at its original
 source and scope.
 
+**Proof wake · Tested by selected identity · 2026-11-22.** The native settlement writer
+recorded one wake per producer episode for the existing obligation and its required role.
+It excluded an unrelated source and ordinary role, and refused invalid attestations without
+emitting a wake (`d503b3c2aef940de9dc8c524f39e7b8d`). Integrated acceptance remains paused.
+[Qualification checkpoint](cutover-and-qualification.md#sbx-09-qualification-pause)
+
 **Formal execution scope · Inspected and reproduced · 2026-11-22.** Two releases used
 the same formal recipe and exact selected source member, including the body digest and
 complete bound context. The formal release projection has `reuse_eligible=false`, so the

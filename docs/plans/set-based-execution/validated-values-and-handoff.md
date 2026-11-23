@@ -119,24 +119,23 @@ and spawned consumer paths use the selected carrier.
 <a id="sbx-live-page-handoff"></a>
 ### Admitted live page handoff
 
-**Scheduled · 2026-11-22.** Implement the private live-page constructor in the
-`DemandResult` owner and pass its immutable interpreted snapshot to selected-query
-projection. Create that snapshot only after `DataOperationStorage` has checked the installed
-wire contract and admitted the native result and `read_demand_result` has verified the project.
-Retain the existing eager canonical bytes, whose consumers include the selected-query cache and
-pinned readers. Share the snapshot through `prepare_demand_projection_inputs` so a live page
-avoids another parse, interpretation, generated validation and material equality traversal.
-The carrier owns its frozen value and gives consumers detached views. Its owner determines
-cleanup and cache charging. A freely constructed wrapper supplies no acquisition authority.
+**Implemented · 2026-11-22.** The private `DemandResult` constructor passes its immutable
+interpreted snapshot to selected-query projection after the native storage boundary admits the
+wire result and `read_demand_result` verifies the project. Eager canonical bytes still serve the
+selected-query cache and pinned readers. The shared snapshot avoids another parse, interpretation,
+generated validation and material equality traversal. The carrier owns the frozen value and gives
+consumers detached views. The public bytes constructor still follows strict input interpretation.
 [Efficiency amendment](../set-based-execution_2026-11-21.md#validation-postgresql-efficiency-amendment) ·
 [Review I01](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I01)
 
 Use the [retained draft](../../design_review/evidence/2026-11-22_python-postgresql-efficiency/live-page-candidate.patch)
 as the starting implementation. The isolated source at `663254b05` plus that draft passed 78
 selected native and wire/cut controls (`a091707e98c443ae954a80a58ad2b01e`), including the exact
-independent-read test that reached a watchdog on main. This is **Tested by selected scope,
-2026-11-22**, with main integration and final-source qualification still open. The synthetic
-depth comparison establishes local validation amplification and equality of the compared
+independent-read test that reached a watchdog on main. The integrated guarded read and metadata
+summary passed in `3ec5861d83384056a6e3006fa8727ba7`. Final-source qualification remains paused.
+[Current qualification checkpoint](cutover-and-qualification.md#sbx-09-qualification-pause)
+
+The synthetic depth comparison establishes local validation amplification and equality of the compared
 rows and cut bytes. Its timings do not establish an end-to-end speedup for the native journey.
 
 At integration, demonstrate that first admission supplies every shape and material guarantee
@@ -343,6 +342,10 @@ or asset changed during the call, an expired attempt, and refusal before publish
 reply. Keep the existing construction two-check assertion and actual learned-provider acceptance.
 [Witness and completion handoff](#sbx-witness-handoff) ·
 [Final-root qualification](cutover-and-qualification.md#development-reset-through-sbx-09)
+
+The concurrent qualification runs were stopped by the operator. Retained selected results and
+the remaining witness and provider checks are recorded at the
+[qualification checkpoint](cutover-and-qualification.md#sbx-09-qualification-pause).
 
 Keyed PDF rendering already acquires a selected region and original bytes and releases its
 database lease before rendering. Visual mapping consumes one observation and PNG. Their remaining
