@@ -172,6 +172,36 @@ two-report construction provider passed with both independent outputs at positio
 their shared-host route (`f488b4f4fa524d8d9a42649e9b0c38db`). Broader ordinary and
 provider campaigns remain in progress.
 
+**Remaining campaign · 2026-11-22.** Recovered ordinary attempt
+`013397a8e6d648669ff746608782bbc7` retains completed identities from the prior
+filename split. The current inventory's native requirements and affinity groups
+partition the remainder into 5,609 release-independent identities
+(`358928b66cda470d8b78bb0b5a738be1`) and 1,316 native identities
+(`5e94f0ab204e4be79766996b0c34a44c`). The original heavy receipt
+`1551b539323c4b10914abf8706465757` passed 55 of 58 selected identities.
+Its three failed identities have separate dispositions:
+
+- The formal test's old reuse assertion is superseded by
+  `test_native_current_new_rule_release_keeps_formal_attempt_and_original_source_custody`.
+  The corrected real test and both deterministic cross-release controls passed
+  (`1dfb94c337354531a037676fbde21a30`).
+  [Formal execution scope](references-and-projection-keys.md#sbx-06)
+- Private authored admission and grouped read passed on the isolated
+  `2912c7971` correction (`8d23c87657914690a6f71f1bde179b6d`), including
+  no-match terminology, both exact authored kinds, unrelated-kind refusal and revocation.
+  All 19 projection controls passed (`b00967c597854314853078f486077084`).
+  The patch awaits integration after the active captured-source campaigns.
+- The structural dossier worker failed in Python/RDFLib model preparation before an
+  assertion. The exact one-worker private retry passed the structural authorship,
+  issuer, selected-gap and detached-export identity (`fd7cfde2b5b4446b99eea9d745b2e07e`).
+
+The additional provider scope reproduced the inherited T4 keyed mapping and toy
+decimal defects (`5bbc1046da8f48588bae0f8fbb9e07d0`). The result preserves these
+as failed; they are separate from the named changed-provider and authentic replay
+requirements of this cutover. The affected provider selection is also retrying the
+identities that originally lacked the installed PM2 asset directory setting
+(`d8565b34e13d47468b6065d1304732e8`).
+
 **Cold authoring checkpoint · 2026-11-21.** `uv run ci db init --creation-only` created
 `corpus_structure_sbx09_author` on the dedicated cluster. Managed preview
 `038a531859e443c19f46429255d4876f` and rollback-only candidate

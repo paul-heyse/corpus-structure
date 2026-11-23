@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-22. The refreshed `semantic_sbx_current_root` is installed on the empty qualification target. The actual evaluator event, two-report construction, guarded read, native witness and detached replay checks passed by selected identity. Broader campaigns and cross-release formal reuse remain open. Development still runs native N29 and its data is disposable._ [SBX acceptance](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-efficiency-qualification) · [ADR-0150](docs/adr/0150-sbx-empty-development-cutover.md)
+_Updated 2026-11-22. The refreshed `semantic_sbx_current_root` is installed on the empty qualification target. The actual evaluator event, two-report construction, guarded read, native witness, detached replay and cross-release custody checks passed by selected identity. Broader campaigns and integration of the isolated authored-judgment repair remain open. Development still runs native N29 and its data is disposable._ [SBX acceptance](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-efficiency-qualification) · [ADR-0150](docs/adr/0150-sbx-empty-development-cutover.md)
 
 ## Current owners
 
@@ -57,4 +57,4 @@ revision and remains with the linked SBX packages. The [efficiency amendment](do
 
 - Qualify original-role acquisition in construction, contextual, contribution and selected readers. Exercise actual contextual providers and two-report construction on the integrated root. SBX-11 owns the keyed live read. [SBX-05 references](docs/plans/set-based-execution/references-and-projection-keys.md#sbx-05)
 - Both cross-demand commit orders passed. The recursive scheduler state and repeated readiness scans are retired in source. Exercise the private and public projections on the final root. [SBX-06 readiness](docs/plans/set-based-execution/references-and-projection-keys.md#sbx-06) · [SBX execution queue](docs/plans/set-based-execution_2026-11-21.md#execution-queue)
-- Reconcile ordinary and provider qualification. Real two-region composition, M1, two-report construction, and finite and rich replay passed by selected identity. The empty bounded-codec installation passed descriptor and grant readback. The full event and cross-release reuse cases remain open. Replace development after integrated acceptance. [Development reset](docs/plans/set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09)
+- Reconcile native and release-independent ordinary cohorts and affected providers. Integrate the qualifying authored-judgment patch after the active source captures finish. The exact dossier retry passed. Replace development after integrated acceptance. [Development reset](docs/plans/set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09)
