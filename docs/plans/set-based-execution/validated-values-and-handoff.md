@@ -548,6 +548,11 @@ passed `test_actual_math_request_retains_source_coordinates_and_resumes_without_
 occurrences, symbolic normalization and scope. Reopened reads preserved source coordinates,
 configuration, products and original admission-use identities. Exact resume returned zero new
 receipts. This closes the development SBX-10 handoff and supplies installed input to SBX-19.
+The first finite and rich replay run (`75d8953091fd4aceab7150ba3729d9b5`) exposed an overload
+declaration selected in place of the installed helper. Runtime capture now selects the effective
+lexical definition in each admitted namespace. The targeted custody control
+(`25f01b01d7d0431692c1dfd4e53a5e85`) passed the executable overload and earlier-stub refusal cases.
+The private finite and rich replay rerun passed (`1d9e84294e0b41fc9df3e303ac131d10`).
 
 Accept this slice with an unrelated generic helper, a consumed generic helper and an altered
 consumed member. Exercise cold and warmed execution and retain the late-import refusal. Qualify

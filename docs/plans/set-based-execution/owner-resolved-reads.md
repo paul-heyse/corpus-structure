@@ -529,12 +529,18 @@ producing occurrence. The existing guarded member program establishes each disti
 address under the cut, then the caller restores order and multiplicity within the acquisition.
 The private cross-work artifact fixture (`a4b3fe95e36b4ef9b05540443a625b5e`) passed the live
 navigation path and established PDF catalog header parity against the installed scalar reader.
+The private change-impact case distinguished producer and upstream revocation using the compact
+support facts (`a7558dba85424f9899f8727b436032a5`). That cohort retained a graph refusal-test
+failure from the former SQLite handle assertion. The private graph rerun
+(`3b3abcbe28434a0b91ae0e9b939c66f0`) passed transaction exit before snapshot and topology,
+closed-reader refusal, and exact reopening after a graph-budget refusal.
 
 **Open.** Other exact-reference consumers still need migration. Native physical examination and
-lock cost remain partially attributed. Readers that borrow lazy population items retain the
-acquiring transaction through their use. Independently pending analyzed siblings, cross-source
-role correspondence, protected partition and proof coverage, and combined installed read
-acceptance retain their individual evidence requirements.
+lock cost remain partially attributed. The logical candidate window still permits a native sort
+over additional physical headers. Readers that borrow lazy population items retain the acquiring
+transaction through their use. Independently pending analyzed siblings, cross-source role
+correspondence, protected partition and proof coverage, and combined installed read acceptance
+retain their individual evidence requirements.
 
 <a id="sbx-12"></a>
 ## SBX-12 — Replay, export, cursor and cache
@@ -573,6 +579,13 @@ existing 15-minute watchdog. The test call took 468.7 seconds. Native setup took
 provider execution took 185.4 seconds, and selected export took 4.8 seconds. One support stage
 took 0.62 seconds and 28 support fetches took 0.43 seconds in total. Detached verification and
 exact replay took 35.5 seconds. These measurements cover this fixture and execution context.
+The private finite and rich selected-use regression (`1d9e84294e0b41fc9df3e303ac131d10`)
+passed after the SBX-10 runtime helper correction. It exercised retained original input use
+through the typed detached reader.
+The private protected structural journey (`61307883fd544f2484f2b7b8cce12e32`) passed genuine
+authorship and issuer admission, dossier and gap reads, typed detached export, protected
+disclosure controls and live revocation. Wider cache, publication recovery and combined
+qualification obligations remain in this package.
 
 **Native archive acquisition pulled forward · 2026-11-22.** Stage the finite authorized support
 keys once under the pinned export transaction. Use the shared support membership and disclosure
