@@ -86,6 +86,10 @@ def harness(monkeypatch, tmp_path, family, provider):
         roles=(SimpleNamespace(role="source", members=(object(),)),),
     )
     profile = PreparedLearnedPrimary(prepared, object(), family, provider, selected, 0.5, 65536)
+    observation_kind = "Ddo" + profile.nominal_name + "Observations"
+    prepared.index.definitions[observation_kind] = SimpleNamespace(
+        iri="urn:controlled:" + observation_kind, abstract=False, ancestors=()
+    )
     return (
         profile,
         SimpleNamespace(value=json.loads(frame.source_content)),

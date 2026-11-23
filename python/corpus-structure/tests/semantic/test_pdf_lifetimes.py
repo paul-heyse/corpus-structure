@@ -229,18 +229,15 @@ def test_program_child_acknowledges_only_after_owned_store_cleanup(
         "pages": {},
     }
 
-    class Database:
-        def execute(self, query):
-            return ()
-
     class Store:
-        db = Database()
-
         def __init__(self, path):
             events.append("store-open")
 
         def add(self, family, body):
             pass
+
+        def stream_descriptors(self):
+            return ()
 
         def validate(self, native, path):
             assert native is document and path == projection

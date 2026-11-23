@@ -360,15 +360,20 @@ def policy_for_reading(prepared, row):
 
 @pytest.mark.parametrize("state", ["unstated", "inapplicable"])
 def test_nonpresent_literal_inspection_scope_supports_complete_candidate_lowering(state):
-    from corpus_structure.semantic.record_contracts import interpretation_identity
+    from corpus_structure.semantic.record_contracts import (
+        interpretation_identity,
+        record_family_contract,
+        record_identity,
+    )
     from corpus_structure.semantic.rich_record_readings import rich_reading_value
     from semantic.rich_record_readings_support import current, inspected_reading
 
     row, coordinates = inspected_reading("table")
     caption = next(field for field in row["fields"] if field["role"] == "caption")
     caption["state"] = state
-    row["interpretation_id"] = interpretation_identity(row)
     prepared, model = current()
+    row["record_id"] = record_identity(record_family_contract(model, row["contract"]), row)
+    row["interpretation_id"] = interpretation_identity(row)
     instance = policy_for_reading(prepared, row)
     proposal = assess_record_admission(
         prepared,

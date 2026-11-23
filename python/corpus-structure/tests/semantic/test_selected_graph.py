@@ -14,8 +14,8 @@ from semantic.data_operation_declaration_support import model, operation
 
 def test_selected_index_binds_unindexed_fields_and_uses_declared_expression_indexes(tmp_path):
     from corpus_structure.semantic.data_operation_read_index import _selected
+    from corpus_structure.semantic.selected_support_contract import SelectedSupportReader
 
-    index = SelectedRecordIndex(tmp_path / "expressions.sqlite")
     value = "literal '%[0]"
     record = dict.fromkeys(
         (
@@ -31,6 +31,22 @@ def test_selected_index_binds_unindexed_fields_and_uses_declared_expression_inde
         ),
         value,
     )
+    reader = SelectedSupportReader(
+        {
+            "sample": {
+                "schema": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {field: {"type": "string"} for field in record},
+                    "required": list(record),
+                    "additionalProperties": False,
+                },
+                "contextual_fields": [],
+                "kind_body": None,
+            }
+        }
+    )
+    index = SelectedRecordIndex(tmp_path / "expressions.sqlite", reader=reader)
     groups = (
         ("id",),
         ("kind_contract",),
@@ -63,19 +79,55 @@ def test_selected_index_binds_unindexed_fields_and_uses_declared_expression_inde
         index.close()
 
 
-def selected_index(tmp_path):
-    index = SelectedRecordIndex(tmp_path / "index.sqlite")
-    pins = dict(
+def cut_pins():
+    return dict(
         demand_id="demand",
         project_id="project",
         release_id="release",
         runtime_id="runtime",
-        selection={},
+        selection=dict(
+            version="data-demand-public-selection-v1",
+            model="a" * 64,
+            intent_digest="intent:controlled",
+            roots=[],
+            targets=["consumer"],
+            root_operations=["consumer"],
+            discovery=[],
+        ),
         trust_snapshot={},
         read_id="read",
         read_snapshot="snapshot",
         frontier_at="time",
         scope={},
+    )
+
+
+def binding(support=()):
+    return dict(
+        inputs=[],
+        support=list(support),
+        parameters=["mapping", []],
+        request_inputs=["mapping", []],
+        inference="controlled",
+        execution_profile="controlled",
+        populations=[],
+        read_id="read",
+    )
+
+
+def selected_index(tmp_path):
+    index = SelectedRecordIndex(tmp_path / "index.sqlite")
+    pins = cut_pins()
+    selected_binding = binding(
+        [
+            dict(
+                kind="computation",
+                derivation_id="new",
+                admission_use_id="su",
+                role="value",
+                position=7,
+            )
+        ]
     )
     index.append_page(
         dict(
@@ -88,18 +140,7 @@ def selected_index(tmp_path):
                     use_id="cu",
                     request_id="consumer",
                     derivation_id="ce",
-                    selection=dict(
-                        support=[
-                            dict(
-                                kind="computation",
-                                derivation_id="new",
-                                admission_use_id="su",
-                                role="value",
-                                position=7,
-                            )
-                        ],
-                        populations=[],
-                    ),
+                    selection=selected_binding,
                 )
             ],
         )
@@ -111,24 +152,13 @@ def selected_index(tmp_path):
                 id="cu",
                 request_id="consumer",
                 derivation_id="ce",
-                selection=dict(
-                    support=[
-                        dict(
-                            kind="computation",
-                            derivation_id="new",
-                            admission_use_id="su",
-                            role="value",
-                            position=7,
-                        )
-                    ],
-                    populations=[],
-                ),
+                selection=selected_binding,
             ),
             dict(
                 id="su",
                 request_id="producer",
                 derivation_id="new",
-                selection=dict(support=[], populations=[]),
+                selection=binding(),
             ),
         ],
         "ops.data_derivation": [
@@ -262,18 +292,7 @@ def test_requestless_recorded_fate_preserves_obligation_and_use(tmp_path, monkey
         lambda prepared: model(operation("operation")),
     )
     index = SelectedRecordIndex(tmp_path / "requestless.sqlite")
-    pins = dict(
-        demand_id="demand",
-        project_id="project",
-        release_id="release",
-        runtime_id="runtime",
-        selection={},
-        trust_snapshot={},
-        read_id="read",
-        read_snapshot="snapshot",
-        frontier_at="time",
-        scope={},
-    )
+    pins = cut_pins()
     try:
         index.append_page(
             dict(

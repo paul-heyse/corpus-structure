@@ -65,7 +65,9 @@ def test_empty_m1_inspection_has_successful_typed_report_and_exact_denominator()
             }
         ],
     )
-    scope = json_bytes({"source": source.value["source"], "selectors": source.value["selectors"]})
+    scope = json_bytes(
+        thaw_native({"source": source.value["source"], "selectors": source.value["selectors"]})
+    )
     member = BoundRoleMember(
         "product:source-population",
         "kind:selected-source",
@@ -210,7 +212,9 @@ def test_candidate_body_is_stored_once_and_keeps_required_source_record_anchors(
             }
         ],
     )
-    scope = json_bytes({"source": source.value["source"], "selectors": source.value["selectors"]})
+    scope = json_bytes(
+        thaw_native({"source": source.value["source"], "selectors": source.value["selectors"]})
+    )
     member = BoundRoleMember(
         "product:source-population",
         "kind:selected-source",
@@ -347,7 +351,9 @@ def test_partial_produced_inspection_preserves_real_candidates_after_later_worke
             }
         ],
     )
-    scope = json_bytes({"source": source.value["source"], "selectors": source.value["selectors"]})
+    scope = json_bytes(
+        thaw_native({"source": source.value["source"], "selectors": source.value["selectors"]})
+    )
     member = BoundRoleMember(
         "product:source-population",
         "kind:selected-source",
@@ -543,7 +549,7 @@ def test_m1_scoped_source_and_direct_context_cannot_inspect_unselected_original_
     )
 
     def frame(selectors):
-        value = {**base.value, "selectors": selectors}
+        value = {**thaw_native(base.value), "selectors": selectors}
         source = FrozenNativeSource.acquire(prepared, value)
         scope = json_bytes(dict(source=value["source"], selectors=selectors))
         member = BoundRoleMember(
