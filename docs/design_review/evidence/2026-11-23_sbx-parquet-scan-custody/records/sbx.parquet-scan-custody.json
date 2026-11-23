@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "id": "sbx.parquet-scan-custody",
+  "title": "Lazy Parquet scan sees a replaced pathname",
+  "group": "sbx-parquet-scan-custody",
+  "package": "SBX-12",
+  "finalized": "2026-11-23",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the projected scan read the verified Parquet file after its pathname is replaced?",
+  "answers": [
+    "I10"
+  ],
+  "method": "Hash and hold a synthetic file, bind a lazy path-based relation, replace the pathname, then compare the projected result and the original held file witness.",
+  "commands": [
+    "uv run --locked --no-sync python docs/design_review/evidence/2026-11-23_sbx-parquet-scan-custody/probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "reproducible source",
+      "sha256": "113f8ecda67f314e61d1793b3f0d3cbbc4df38b7012a053c33aeebf45bbf8f60"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/probe.json",
+      "role": "synthetic scan observations",
+      "sha256": "41eca413910508879f51da3dca5c5b668d5a670e1f74a1f484d3e702ff82013f"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "After pathname replacement, the lazy DuckDB scan returns the replacement label. Arrow over the held native file returns the original label and original omitted witness. This fixture does not establish protection against in-place mutation.",
+  "consumed_by": [
+    "SBX-12 plan improvement review"
+  ]
+}

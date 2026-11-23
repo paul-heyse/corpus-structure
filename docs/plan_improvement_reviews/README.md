@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Set-based execution through SBX-22 after the columnar cutover](set-based-execution-after-sbx09-deep-review_2026-11-23.md).
+  Follows the open read, PDF, analytical and cutover workflows. Recommends qualified
+  coverage, finite acquired facts, sparse PDF access, shared analytical resource ownership
+  and exact deployment attribution. Includes a focused Parquet scan custody probe.
 - [Set-based execution after the columnar cutover](set-based-execution-after-sbx09_2026-11-23.md).
   Recommends address-first native paging and reference batches, shared live and detached
   structural reads, verified Parquet rereads, and focused typed PDF and scoped-relations work.
