@@ -178,7 +178,7 @@ def governed_read_program(model):
                             "22023",
                         ),
                         Perform(
-                            func.ops.ddo_governed_settlement(
+                            func.ops.ddo_authorize_governed_coverage(
                                 func.jsonb_build_object("read_id", selected_read)
                             )
                         ),

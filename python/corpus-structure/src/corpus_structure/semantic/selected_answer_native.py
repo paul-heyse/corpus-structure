@@ -51,7 +51,7 @@ def _selected_use_rows(model, payload):
     )
 
 
-def _page(records, payload):
+def _page(records, payload, *, truncated=None):
     """Carry the exact last delivered key and examine at most one lookahead."""
     limit = _var("lim", BigInteger)
     candidates = records.cte("answer_matching_rows")
@@ -92,14 +92,21 @@ def _page(records, payload):
     oversized = (
         select(sized.c.key).where(sized.c.ordinal == 1, sized.c.bytes > max_bytes).scalar_subquery()
     )
-    return select(
-        _obj(
-            cut=cut,
-            rows=select(_aggregate(page.c.record, page.c.key)).scalar_subquery(),
-            answer_after=case((more, last), else_=null()),
-            oversized=oversized,
-        )
+    if truncated is not None:
+        more = or_(more, truncated)
+    result = _obj(
+        cut=cut,
+        rows=select(_aggregate(page.c.record, page.c.key)).scalar_subquery(),
+        answer_after=case((more, last), else_=null()),
+        oversized=oversized,
     )
+    if truncated is not None:
+        # A marker only for the native endpoint. Never publish an examined
+        # address, and never report exhaustion when all examined rows hid it.
+        result = result.concat(
+            _obj(examination_exhausted=and_(truncated, last.is_(None), oversized.is_(None)))
+        )
+    return select(result)
 
 
 def outputs_answer(model, payload):
@@ -131,15 +138,6 @@ def outputs_answer(model, payload):
         uses.c.derivation_id,
         uses.c.operation_id,
         episodes.c.release_id,
-        case(
-            (
-                and_(
-                    func.coalesce(payload["include_binding"].as_boolean(), False),
-                    ~_public_authority_leaf(uses.c.derivation_id),
-                ),
-                uses.c.selection,
-            )
-        ).label("selection"),
         outputs.c.role,
         outputs.c.position,
         outputs.c.multiplicity,
@@ -155,7 +153,6 @@ def outputs_answer(model, payload):
             *common,
             cast(null(), Text()).label("member_id"),
             *(products.c[name] for name in header_names),
-            products.c.canonical_body.label("body"),
         )
         .select_from(base)
         .where(product_filter, outputs.c.member_id.is_(None), member_filter.is_(None))
@@ -165,7 +162,6 @@ def outputs_answer(model, payload):
             *common,
             members.c.member_id,
             *(members.c[name] for name in header_names),
-            members.c.body,
         )
         .select_from(base.join(members, members.c.product_id == products.c.id))
         .where(
@@ -176,24 +172,24 @@ def outputs_answer(model, payload):
             or_(member_filter.is_(None), members.c.member_id == member_filter),
         )
     )
-    projected = union_all(parents, packets).subquery("answer_output_addresses")
-    o = projected.c
-    disclosed = and_(
-        _disclosed_kind_access(model, o.parent_kind),
-        _disclosed_kind_access(model, o.kind_contract),
+    addresses = union_all(parents, packets).subquery("answer_output_addresses")
+    o = addresses.c
+    seek = func.jsonb_build_array(
+        o.obligation_id,
+        o.use_id,
+        o.role,
+        o.position,
+        o.product_id,
+        func.coalesce(o.member_id, ""),
+        type_=JSONB(),
     )
-
-    # Only admitted rows are interpreted. Member filters apply to the indexed
-    # member relation before the body's record classification is opened.
-    def classification(name):
-        return or_(
-            ~payload.has_key(name),
-            func.data.ddo_field(o.body, name, type_=JSONB())[1].astext == payload[name].astext,
-        )
-
-    matches = (
-        select(projected)
+    # Work bounds and delivery bounds are independent. A cheap extra address
+    # proves truncation without opening an unexamined body's classification.
+    examined = 4096
+    candidates = (
+        select(addresses, seek.label("key"))
         .where(
+            or_(~payload.has_key("answer_after"), seek > payload["answer_after"]),
             or_(
                 ~payload.has_key("kind_contract"),
                 o.kind_contract == payload["kind_contract"].astext,
@@ -202,10 +198,48 @@ def outputs_answer(model, payload):
                 ~payload.has_key("kind_contracts"),
                 payload["kind_contracts"].has_key(o.kind_contract),
             ),
+        )
+        .order_by(seek)
+        .limit(examined + 1)
+        .cte("answer_candidate_addresses")
+        .prefix_with("MATERIALIZED")
+    )
+    truncated = select(func.count()).select_from(candidates).scalar_subquery() > examined
+    window = (
+        select(candidates)
+        .order_by(candidates.c.key)
+        .limit(examined)
+        .cte("answer_examined_addresses")
+        .prefix_with("MATERIALIZED")
+    )
+    body = case((window.c.member_id.is_(None), products.c.canonical_body), else_=members.c.body)
+
+    def classification(name):
+        return or_(
+            ~payload.has_key(name),
+            func.data.ddo_field(body, name, type_=JSONB())[1].astext == payload[name].astext,
+        )
+
+    disclosed = and_(
+        _disclosed_kind_access(model, window.c.parent_kind),
+        _disclosed_kind_access(model, window.c.kind_contract),
+    )
+    matches = (
+        select(window)
+        .select_from(
+            window.join(products, products.c.id == window.c.product_id).outerjoin(
+                members,
+                and_(
+                    members.c.product_id == window.c.product_id,
+                    members.c.member_id == window.c.member_id,
+                ),
+            )
+        )
+        .where(
             case(
                 (disclosed, and_(classification("record_type"), classification("family"))),
                 else_=False,
-            ),
+            )
         )
         .cte("answer_output_matches")
         .prefix_with("MATERIALIZED")
@@ -215,14 +249,47 @@ def outputs_answer(model, payload):
         select(func.array_agg(output.use_id.distinct())).scalar_subquery(),
         name="answer_output_validity",
     )
-    key = func.jsonb_build_array(
-        output.obligation_id,
-        output.use_id,
-        output.role,
-        output.position,
-        output.product_id,
-        func.coalesce(output.member_id, ""),
-        type_=JSONB(),
+    source_metadata = func.coalesce(payload["source_metadata"].as_boolean(), False)
+    body = case((output.member_id.is_(None), products.c.canonical_body), else_=members.c.body)
+    load_body = or_(select_body, source_metadata)
+    selected_deliveries = (
+        select(matches)
+        .select_from(
+            matches.join(products, products.c.id == output.product_id).outerjoin(
+                members,
+                and_(
+                    members.c.product_id == output.product_id,
+                    members.c.member_id == output.member_id,
+                ),
+            )
+        )
+        .where(
+            case(
+                (
+                    _set_valid(validity, "use", output.use_id),
+                    case(
+                        (load_body, _disclosed_body_access(model, output.kind_contract, body)),
+                        else_=True,
+                    ),
+                ),
+                else_=False,
+            )
+        )
+        .order_by(output.key)
+        .limit(_var("lim", BigInteger) + 1)
+        .cte("answer_deliverable_addresses")
+        .prefix_with("MATERIALIZED")
+    )
+    output = selected_deliveries.c
+    body = case((output.member_id.is_(None), products.c.canonical_body), else_=members.c.body)
+    selection = case(
+        (
+            and_(
+                func.coalesce(payload["include_binding"].as_boolean(), False),
+                ~_public_authority_leaf(output.derivation_id),
+            ),
+            uses.c.selection,
+        )
     )
     header = _obj(
         **{
@@ -233,7 +300,6 @@ def outputs_answer(model, payload):
                 "derivation_id",
                 "operation_id",
                 "release_id",
-                "selection",
                 "role",
                 "position",
                 "multiplicity",
@@ -244,40 +310,36 @@ def outputs_answer(model, payload):
             )
         },
         kind=kinds.c.kind,
+        selection=selection,
     )
-    record = header.concat(case((select_body, _obj(meaning_body=output.body)), else_=_json({})))
-    source_metadata = func.coalesce(payload["source_metadata"].as_boolean(), False)
+    record = header.concat(case((select_body, _obj(meaning_body=body)), else_=_json({})))
     record = record.concat(
         case(
             (
                 source_metadata,
                 _obj(
-                    source=func.data.ddo_field(output.body, "source", type_=JSONB()),
-                    selectors=func.data.ddo_field(output.body, "selectors", type_=JSONB()),
+                    source=func.data.ddo_field(body, "source", type_=JSONB()),
+                    selectors=func.data.ddo_field(body, "selectors", type_=JSONB()),
                 ),
             ),
             else_=_json({}),
         )
     )
     return _page(
-        select(key.label("key"), record.label("record"))
-        .select_from(matches.join(kinds, kinds.c.kind_contract == output.kind_contract))
-        .where(
-            case(
-                (
-                    _set_valid(validity, "use", output.use_id),
-                    case(
-                        (
-                            or_(select_body, source_metadata),
-                            _disclosed_body_access(model, output.kind_contract, output.body),
-                        ),
-                        else_=True,
-                    ),
+        select(output.key, record.label("record")).select_from(
+            selected_deliveries.join(kinds, kinds.c.kind_contract == output.kind_contract)
+            .join(uses, uses.c.id == output.use_id)
+            .join(products, products.c.id == output.product_id)
+            .outerjoin(
+                members,
+                and_(
+                    members.c.product_id == output.product_id,
+                    members.c.member_id == output.member_id,
                 ),
-                else_=False,
             )
         ),
         payload,
+        truncated=truncated,
     )
 
 
@@ -317,32 +379,20 @@ def partitions_answer(model, payload):
         visible,
     )
     retained, items, _, item_join = _typed_partition_sources(model)
-    requested_fields = _items(payload["fields"], "answer_item_fields")
-    field = requested_fields.c.value.op("#>>")(literal("{}"))
-    item_body = cast(items.c.canonical_text, JSONB())
-    fields = (
-        select(func.jsonb_object_agg(field, func.data.ddo_field(item_body, field, type_=JSONB())))
-        .select_from(requested_fields)
-        .correlate(items)
-        .scalar_subquery()
+    coordinate = (
+        "intent_id",
+        "output_role",
+        "output_position",
+        "collection",
+        "partition_key",
+        "item_ordinal",
     )
-    item_data = case(
-        (payload.has_key("fields"), _obj(fields=func.coalesce(fields, _json({})))),
-        else_=_obj(meaning_body=item_body),
-    )
-    exact = (
+    item_cursor = func.jsonb_build_array(retained.c.ordinal, items.c.item_ordinal, type_=JSONB())
+    item_window = (
         select(
-            func.jsonb_build_array(retained.c.ordinal, items.c.item_ordinal, type_=JSONB()).label(
-                "key"
-            ),
-            _obj(
-                product_id=retained.c.product_id,
-                collection=retained.c.collection,
-                partition_key=retained.c.partition_key,
-                item_ordinal=items.c.item_ordinal,
-            )
-            .concat(item_data)
-            .label("record"),
+            retained.c.product_id,
+            *(items.c[field] for field in coordinate),
+            item_cursor.label("key"),
         )
         .select_from(item_join)
         .where(
@@ -356,12 +406,46 @@ def partitions_answer(model, payload):
                     func.coalesce(payload["items"].as_boolean(), False),
                 ),
             ),
+            or_(~payload.has_key("answer_after"), item_cursor > payload["answer_after"]),
             select(1)
             .where(
                 authorized.c.product_id == retained.c.product_id,
                 authorized.c.output_member_id.is_(None),
             )
             .exists(),
+        )
+        .order_by(items.c.item_ordinal)
+        .limit(_var("lim", BigInteger) + 1)
+        .cte("answer_partition_item_addresses")
+        .prefix_with("MATERIALIZED")
+    )
+    requested_fields = _items(payload["fields"], "answer_item_fields")
+    field = requested_fields.c.value.op("#>>")(literal("{}"))
+    item_body = cast(items.c.canonical_text, JSONB())
+    fields = (
+        select(func.jsonb_object_agg(field, func.data.ddo_field(item_body, field, type_=JSONB())))
+        .select_from(requested_fields)
+        .correlate(items)
+        .scalar_subquery()
+    )
+    item_data = case(
+        (payload.has_key("fields"), _obj(fields=func.coalesce(fields, _json({})))),
+        else_=_obj(meaning_body=item_body),
+    )
+    exact = select(
+        item_window.c.key,
+        _obj(
+            product_id=item_window.c.product_id,
+            collection=items.c.collection,
+            partition_key=items.c.partition_key,
+            item_ordinal=items.c.item_ordinal,
+        )
+        .concat(item_data)
+        .label("record"),
+    ).select_from(
+        item_window.join(
+            items,
+            and_(*(items.c[field] == item_window.c[field] for field in coordinate)),
         )
     )
     members = model.tables["kb.data_product_member"]
@@ -625,6 +709,11 @@ def proofs_answer(model, payload):
         .where(
             rules.c.release_id == _var("d.release_id", Text),
             products.c.id == product,
+            or_(
+                ~payload.has_key("answer_after"),
+                func.jsonb_build_array(fingerprint, premise, type_=JSONB())
+                > payload["answer_after"],
+            ),
             case(
                 (
                     and_(original_visible, scope_matches),
@@ -659,6 +748,15 @@ def proofs_answer(model, payload):
                 p.role,
                 p.position,
             ).label("provenance"),
+        )
+        .select_from(
+            matching.join(
+                provenance,
+                and_(
+                    p.rule_fingerprint == matching.c.rule_fingerprint,
+                    p.premise == matching.c.premise,
+                ),
+            )
         )
         .where(_visible(provenance), ~_public_authority_leaf(p.derivation_id), issuer_is_visible)
         .group_by(p.rule_fingerprint, p.premise)

@@ -1065,6 +1065,10 @@ def _read_original_predicates(admissions, in_page):
             for name in ("subject", "original_source")
         ),
         or_(
+            ~_requested_read_scope().has_key("analyzed_scope"),
+            admissions.c.analyzed_scope == _requested_read_scope()["analyzed_scope"],
+        ),
+        or_(
             ~_requested_read_scope().op("?")(literal("product_ids")),
             exists(
                 select(1)
@@ -1279,6 +1283,167 @@ def _selected_support_relations(
             definitions.c.operation_id,
         ),
     )
+    if archive and (rules := metadata.tables.get("sem.data_rule")) is not None:
+        from .data_operation_rule_native import _rule_partition_headers
+
+        validity = metadata.tables["kb.data_validity"]
+        establishment = metadata.tables["kb.data_validity_establishment"]
+        rule_outputs = (
+            select(
+                rules.c.release_id,
+                rules.c.rule_id,
+                rules.c.fingerprint,
+                rules.c.specification,
+                outputs.c.derivation_id,
+                outputs.c.role,
+                outputs.c.position,
+                products.c.id.label("product_id"),
+            )
+            .select_from(
+                outputs.join(episodes, episodes.c.id == outputs.c.derivation_id)
+                .join(products, products.c.id == outputs.c.product_id)
+                .join(
+                    rules,
+                    and_(
+                        rules.c.release_id == episodes.c.release_id,
+                        rules.c.kind_contract == products.c.kind_contract,
+                    ),
+                )
+            )
+            .where(
+                outputs.c.derivation_id.in_(episode_ids),
+                products.c.id.in_(select(product_ids.c.product_id)),
+                outputs.c.member_id.is_(None),
+                _disclosed_body_access(
+                    metadata, products.c.kind_contract, products.c.canonical_body
+                ),
+            )
+            .cte("archive_rule_outputs")
+            .prefix_with("MATERIALIZED")
+        )
+        fields["rule_definitions"] = records(
+            rules,
+            exists(
+                select(1).where(
+                    rule_outputs.c.release_id == rules.c.release_id,
+                    rule_outputs.c.rule_id == rules.c.rule_id,
+                )
+            ),
+        )
+        spec = rule_outputs.c.specification
+        visible_establishments = (
+            select(*establishment.c)
+            .where(
+                _visible(establishment),
+                exists(
+                    select(1).where(
+                        rule_outputs.c.derivation_id == establishment.c.derivation_id,
+                        rule_outputs.c.role == establishment.c.role,
+                        rule_outputs.c.position == establishment.c.position,
+                        rule_outputs.c.fingerprint == establishment.c.rule_fingerprint,
+                        spec["checker"].astext == "producer",
+                    )
+                ),
+            )
+            .cte("archive_rule_establishments")
+        )
+        fields["proof_establishments"] = records(
+            establishment,
+            exists(
+                select(1).where(
+                    *(
+                        visible_establishments.c[key.name] == key
+                        for key in establishment.primary_key.columns
+                    )
+                )
+            ),
+        )
+        proof_partitions = _rule_partition_headers(metadata, "archive_proof_partitions")
+        partition_scope = spec["scope"].astext.in_(("partition", "partition-pair"))
+        pair_scope = spec["scope"].astext == "partition-pair"
+        target_input = inputs.alias("archive_proof_target_input")
+        target = products.alias("archive_proof_target")
+        target_kind = kinds.alias("archive_proof_target_kind")
+        target_key = case(
+            (
+                and_(
+                    pair_scope,
+                    target.c.id.is_not(None),
+                    proof_partitions.c.partition_key.is_not(None),
+                ),
+                func.ops.ddo_rule_target_partition(
+                    spec, rule_outputs.c.product_id, proof_partitions.c.partition_key
+                ),
+            ),
+            else_=null(),
+        )
+        admission_premises = (
+            select(
+                rule_outputs.c.fingerprint,
+                func.ops.ddo_rule_premise(
+                    spec,
+                    rule_outputs.c.product_id,
+                    proof_partitions.c.partition_key,
+                    target.c.id,
+                    target_key,
+                    type_=Text(),
+                ).label("premise"),
+            )
+            .select_from(
+                rule_outputs.outerjoin(
+                    proof_partitions,
+                    and_(
+                        partition_scope,
+                        proof_partitions.c.product_id == rule_outputs.c.product_id,
+                        proof_partitions.c.collection == spec["collection"].astext,
+                    ),
+                )
+                .outerjoin(
+                    target_input,
+                    and_(
+                        pair_scope,
+                        target_input.c.derivation_id == rule_outputs.c.derivation_id,
+                        target_input.c.role == spec["parameters"]["target_role"].astext,
+                        target_input.c.member_id.is_(None),
+                    ),
+                )
+                .outerjoin(
+                    target,
+                    and_(
+                        target.c.id == target_input.c.product_id,
+                        target.c.id.in_(select(product_ids.c.product_id)),
+                        _disclosed_body_access(
+                            metadata, target.c.kind_contract, target.c.canonical_body
+                        ),
+                    ),
+                )
+                .outerjoin(target_kind, target_kind.c.kind_contract == target.c.kind_contract)
+            )
+            .where(
+                spec["checker"].astext == "admission",
+                or_(~partition_scope, proof_partitions.c.partition_key.is_not(None)),
+                or_(~pair_scope, target_kind.c.kind == spec["parameters"]["target_kind"].astext),
+            )
+            .cte("archive_admission_premises")
+            .prefix_with("MATERIALIZED")
+        )
+        fields["proof_conclusions"] = records(
+            validity,
+            or_(
+                exists(
+                    select(1).where(
+                        visible_establishments.c.rule_fingerprint == validity.c.rule_fingerprint,
+                        visible_establishments.c.premise == validity.c.premise,
+                    )
+                ),
+                exists(
+                    select(1).where(
+                        admission_premises.c.fingerprint == validity.c.rule_fingerprint,
+                        admission_premises.c.premise == validity.c.premise,
+                    )
+                ),
+            ),
+        )
     if (partitions := metadata.tables.get("kb.data_product_partition")) is not None:
         visible_partition_parent = exists(
             select(1)
@@ -1522,7 +1687,16 @@ def selected_archive_records(metadata, keys):
 
 def selected_support_export(metadata, selected_uses, admissions, in_page):
     fields, body_access = _selected_support_relations(metadata, admissions, selected_uses, in_page)
-    rows = union(*fields.values()).cte("support_export_rows")
+    facts = {"authority_leaves", "inputs", "support", "validity_explanations"}
+    include_bodies = ~func.coalesce(
+        _var("p", JSONB)["support_facts"].astext == literal("true"), literal(False)
+    )
+    rows = union(
+        *(
+            statement if name in facts else statement.where(include_bodies)
+            for name, statement in fields.items()
+        )
+    ).cte("support_export_rows")
     bounded_rows = (
         select(rows)
         .where(rows.c.key > func.coalesce(_var("p", JSONB)["support_after"].astext, literal("")))
@@ -1614,6 +1788,12 @@ def _scoped_read_obligations(metadata, *, exact_obligation=None):
             obligations.c[name].is_not_distinct_from(read_scope[name].astext),
         )
         for name in ("operation_id", "subject", "original_source")
+    )
+    scope_predicates += (
+        or_(
+            ~read_scope.has_key("analyzed_scope"),
+            obligations.c.analyzed_scope == read_scope["analyzed_scope"],
+        ),
     )
     scoped_use = uses.alias("scope_use")
     later_scope_use = uses.alias("scope_later_use")
@@ -1721,22 +1901,40 @@ def _selected_support_output_rows(
         .cte("selected_output_seed")
     )
     nodes = _support_walk(metadata, seed, public=purpose in {"read", "custody"})
+    outputs = metadata.tables["ops.data_derivation_output"]
+    uses = metadata.tables["ops.demand_use"]
+
+    def produces_requested(episode):
+        if not requested_products:
+            return literal(True)
+        return (
+            select(1)
+            .select_from(outputs)
+            .where(
+                outputs.c.derivation_id == episode,
+                or_(*(outputs.c.product_id == key for key in requested_products)),
+            )
+            .exists()
+        )
+
     # A selected value use can remain valid without its historical episode.
     # Exact output authority still requires validity of the reached episode.
     reached_episodes = (
         select(func.array_agg(nodes.c.id))
-        .where(nodes.c.kind.in_(("episode", "authority")))
+        .where(nodes.c.kind.in_(("episode", "authority")), produces_requested(nodes.c.id))
         .scalar_subquery()
     )
     reached_uses = (
-        select(func.array_agg(nodes.c.id)).where(nodes.c.kind == "use").scalar_subquery()
+        select(func.array_agg(nodes.c.id))
+        .select_from(nodes.join(uses, uses.c.id == nodes.c.id))
+        .where(nodes.c.kind == "use", produces_requested(uses.c.derivation_id))
+        .scalar_subquery()
         if member_aware
         else None
     )
     reached_validity = _validity_rows(
         reached_uses, reached_episodes, name="reached_output_validity"
     )
-    outputs = metadata.tables["ops.data_derivation_output"]
     episodes = metadata.tables["ops.data_derivation"]
     products = metadata.tables["kb.data_product"]
     if purpose == "read":
@@ -1792,22 +1990,22 @@ def _selected_support_output_rows(
         select(*fields)
         .select_from(relation)
         .where(
+            or_(*(products.c.id == key for key in requested_products))
+            if requested_products
+            else literal(True),
             case(
                 (
                     and_(
                         reached,
                         producing_reached,
                         literal(True) if member_aware else outputs.c.member_id.is_(None),
-                        or_(*(products.c.id == key for key in requested_products))
-                        if requested_products
-                        else literal(True),
                         products.c.project_id == _var("d.project_id", Text),
                         _set_valid(reached_validity, "episode", episodes.c.id),
                     ),
                     access,
                 ),
                 else_=literal(False),
-            )
+            ),
         )
         .distinct()
     )

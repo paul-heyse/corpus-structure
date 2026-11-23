@@ -2247,6 +2247,7 @@ definitions:
       operation_id: {$ref: '#/definitions/identifier'}
       subject: {$ref: '#/definitions/identifier'}
       original_source: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
+      analyzed_scope: {$ref: '#/definitions/json_value'}
     additionalProperties: false
   selected_answer_request:
     type: object
@@ -2328,6 +2329,7 @@ definitions:
     type: object
     properties:
       support_scope: {type: string, enum: [page, read]}
+      support_facts: {type: boolean}
       recheck_bodies: {type: boolean}
       obligation_id: {$ref: '#/definitions/identifier'}
       support_after: {$ref: '#/definitions/identifier'}

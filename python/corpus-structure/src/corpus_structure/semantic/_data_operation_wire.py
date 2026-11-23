@@ -819,6 +819,7 @@ class WireConsumeDataCompletionDraftRequest(TypedDict):
 
 
 class WireDemandReadScope(TypedDict):
+    analyzed_scope: NotRequired[WireJsonValue]
     operation_id: NotRequired[WireOperationId]
     original_source: NotRequired[WireOriginalSourceId | None]
     product_ids: NotRequired[list[WireProductId]]
@@ -1438,6 +1439,7 @@ class WireReadDemandResultRequest(TypedDict):
     scope: NotRequired[WireDemandReadScope]
     selection: NotRequired[WireReadDemandSelection]
     support_after: NotRequired[WireIdentifier]
+    support_facts: NotRequired[bool]
     support_scope: NotRequired[Literal["page", "read"]]
     trust_snapshot: NotRequired[WireTrustSnapshot]
     view: NotRequired[Literal["frontier", "products", "support"]]

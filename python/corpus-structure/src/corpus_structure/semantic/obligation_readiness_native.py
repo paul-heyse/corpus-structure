@@ -1108,65 +1108,7 @@ def demand_settlement(model, *, governed=False):
     selected_scope = _scoped_read_obligations(model).cte("requested_settlement_scope")
     coverage_complete = literal(True)
     if governed:
-        selected_operations = _items(
-            core_variable("d", JSONB(), "selection")["operations"], "coverage_operation"
-        )
-        roots = select(
-            selected_scope.c.operation_id,
-            selected_scope.c.subject,
-            selected_scope.c.original_source,
-        ).cte("coverage_dependencies", recursive=True)
-        dependencies = _items(selected_operations.c.value["dependencies"], "coverage_dependency")
-        roots = roots.union(
-            select(
-                dependencies.c.value[()].astext, roots.c.subject, roots.c.original_source
-            ).select_from(
-                roots.join(
-                    selected_operations,
-                    selected_operations.c.value["operation"].astext == roots.c.operation_id,
-                ).join(dependencies, literal(True))
-            )
-        )
-        obligations = model.tables["ops.data_obligation"]
-        coverage_complete = (
-            ~select(1)
-            .select_from(roots)
-            .where(
-                ~select(1)
-                .select_from(obligations)
-                .where(
-                    obligations.c.demand_id == demand_id,
-                    obligations.c.operation_id == roots.c.operation_id,
-                    obligations.c.subject == roots.c.subject,
-                    obligations.c.original_source.is_not_distinct_from(roots.c.original_source),
-                    func.ops.ddo_read_visible(
-                        obligations.c.created_at, obligations.c.created_xid, boundary
-                    ),
-                )
-                .correlate(roots)
-                .exists()
-            )
-            .exists()
-        )
-        scoped = (
-            select(obligations)
-            .where(
-                obligations.c.demand_id == demand_id,
-                func.ops.ddo_read_visible(
-                    obligations.c.created_at, obligations.c.created_xid, boundary
-                ),
-                select(1)
-                .select_from(roots)
-                .where(
-                    roots.c.operation_id == obligations.c.operation_id,
-                    roots.c.subject == obligations.c.subject,
-                    roots.c.original_source.is_not_distinct_from(obligations.c.original_source),
-                )
-                .exists(),
-            )
-            .cte("settlement_scope")
-            .prefix_with("MATERIALIZED")
-        )
+        scoped, coverage_complete = _governed_dependency_scope(model, selected_scope)
     else:
         scoped = selected_scope
     ready = (
@@ -1502,21 +1444,7 @@ def demand_settlement(model, *, governed=False):
                         ),
                     )
                 ),
-                SelectInto(
-                    select(core_relation_row(reads)).where(reads.c.id == payload["read_id"].astext),
-                    ("boundary",),
-                    strict=True,
-                ),
-                SelectInto(
-                    select(core_relation_row(demands)).where(
-                        demands.c.id
-                        == core_variable("boundary", reads.c.demand_id.type, "demand_id"),
-                    ),
-                    ("d",),
-                    strict=True,
-                ),
-                Perform(func.ops.ddo_require_read_current(boundary, project)),
-                Assign("p", func.jsonb_build_object("scope", scope)),
+                *_settlement_boundary(model, payload),
                 *(_governed_coverage_authorization(model, scoped) if governed else ()),
                 Return(func.jsonb_build_object("payload", result)),
             ),
@@ -1530,6 +1458,205 @@ def demand_settlement(model, *, governed=False):
         security_definer=True,
         search_path=("pg_catalog", "pg_temp"),
     )
+
+
+def _settlement_boundary(model, payload):
+    demands = model.tables["ops.data_demand"]
+    reads = model.tables["ops.data_demand_read"]
+    boundary = core_variable("boundary", NullType())
+    project = core_variable("d", demands.c.project_id.type, "project_id")
+    return (
+        SelectInto(
+            select(core_relation_row(reads)).where(reads.c.id == payload["read_id"].astext),
+            ("boundary",),
+            strict=True,
+        ),
+        SelectInto(
+            select(core_relation_row(demands)).where(
+                demands.c.id == core_variable("boundary", reads.c.demand_id.type, "demand_id"),
+            ),
+            ("d",),
+            strict=True,
+        ),
+        Perform(func.ops.ddo_require_read_current(boundary, project)),
+        Assign(
+            "p",
+            func.jsonb_build_object(
+                "scope", core_variable("boundary", reads.c.scope.type, "scope")
+            ),
+        ),
+    )
+
+
+def authorize_governed_coverage(model):
+    """Authorize the recorded read's exact scope without recalculating settlement."""
+    from .data_operation_projections import _scoped_read_obligations
+
+    selected = _scoped_read_obligations(model).cte("requested_settlement_scope")
+    scoped, _ = _governed_dependency_scope(model, selected)
+    return NativeRoutine(
+        "ops",
+        "ddo_authorize_governed_coverage",
+        (Parameter("p_payload", pg_type("jsonb")),),
+        pg_type("void"),
+        Block(
+            (
+                *_settlement_boundary(model, core_variable("p_payload", JSONB())),
+                *_governed_coverage_authorization(model, scoped),
+                Return(),
+            ),
+            (
+                Local("boundary", model.tables["ops.data_demand_read"]),
+                Local("d", model.tables["ops.data_demand"]),
+                Local("p", pg_type("jsonb")),
+                Local("coverage_universe", pg_type("text")),
+            ),
+        ),
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+    )
+
+
+def _governed_dependency_scope(model, selected_scope):
+    """Resolve declared edges over obligations visible to this exact read."""
+    obligations = model.tables["ops.data_obligation"]
+    definitions = model.tables["sem.data_operation_definition"]
+    boundary = core_variable("boundary", NullType())
+    demand = core_variable("d", Text(), "id")
+    release = core_variable("d", Text(), "release_id")
+    selection = core_variable("d", JSONB(), "selection")
+    included = (
+        select(obligations)
+        .where(
+            obligations.c.demand_id == demand,
+            func.ops.ddo_read_visible(
+                obligations.c.created_at, obligations.c.created_xid, boundary
+            ),
+        )
+        .cte("coverage_enrolled")
+        .prefix_with("NOT MATERIALIZED")
+    )
+    chosen = _items(selection["operations"], "coverage_operation")
+    dependencies = _items(chosen.c.value["dependencies"], "coverage_dependency")
+    producer = definitions.alias("coverage_producer")
+    declared = (
+        select(
+            definitions.c.operation_id.label("consumer"),
+            producer.c.operation_id.label("producer"),
+            definitions.c.input_roles,
+            producer.c.output_roles,
+        )
+        .select_from(
+            chosen.join(dependencies, literal(True))
+            .join(
+                definitions,
+                and_(
+                    definitions.c.release_id == release,
+                    definitions.c.operation_id == chosen.c.value["operation"].astext,
+                ),
+            )
+            .join(
+                producer,
+                and_(
+                    producer.c.release_id == release,
+                    producer.c.operation_id == dependencies.c.value[()].astext,
+                ),
+            )
+        )
+        .cte("coverage_declared")
+    )
+    local = included.alias("coverage_consumer")
+    upstream = included.alias("coverage_upstream")
+    input_roles = _items(declared.c.input_roles, "coverage_input")
+    output_roles = _items(declared.c.output_roles, "coverage_output")
+    role = input_roles.c.value
+    matching_roles = (
+        select(role.label("role"))
+        .select_from(input_roles)
+        .where(
+            func.coalesce(
+                role["support"]["origins"], cast(literal('["computation"]'), JSONB())
+            ).has_key("computation"),
+            select(1)
+            .select_from(output_roles)
+            .where(
+                role["accepted_kind_contracts"].has_key(
+                    output_roles.c.value["kind_contract"].astext
+                )
+            )
+            .correlate(declared, input_roles)
+            .exists(),
+        )
+        .correlate(declared)
+        .lateral("coverage_roles")
+    )
+    role = matching_roles.c.role
+    named_set = selection["source_sets"][role["support"]["source_set"].astext]
+    entries = _items(named_set["entries"], "coverage_source_entry")
+    entry = entries.c.value
+    # With no body predicate, a declared role can resolve a local exact context
+    # or an explicitly named source-set context before any product becomes visible.
+    # Unsupported associations produce an unresolved route instead of borrowing a sibling.
+    direct = and_(
+        named_set.is_(None),
+        role["subject_field"].astext.is_(None),
+        func.coalesce(role["subject_target"].astext, "subject") == "subject",
+        upstream.c.subject == local.c.subject,
+        upstream.c.original_source.is_not_distinct_from(local.c.original_source),
+        upstream.c.analyzed_scope == local.c.analyzed_scope,
+    )
+    pinned = and_(
+        entry.is_not(None),
+        role["subject_field"].astext.is_(None),
+        or_(
+            role["subject_target"].astext == "source-set",
+            and_(
+                func.coalesce(role["subject_target"].astext, "subject") == "subject",
+                upstream.c.subject == local.c.subject,
+                upstream.c.analyzed_scope == local.c.analyzed_scope,
+            ),
+        ),
+        or_(
+            role["support"]["source"].astext.is_distinct_from("original-source"),
+            upstream.c.original_source.is_not_distinct_from(local.c.original_source),
+        ),
+        upstream.c.subject == entry["subject"].astext,
+        upstream.c.original_source.is_not_distinct_from(entry["original_source"].astext),
+        upstream.c.analyzed_scope == entry["analyzed_scope"],
+    )
+    routes = (
+        select(local.c.id.label("consumer_id"), upstream.c.id.label("upstream_id"))
+        .select_from(
+            local.join(declared, declared.c.consumer == local.c.operation_id)
+            .outerjoin(matching_roles, literal(True))
+            .outerjoin(entries, literal(True))
+            .outerjoin(
+                upstream,
+                and_(upstream.c.operation_id == declared.c.producer, or_(direct, pinned)),
+            )
+        )
+        .cte("coverage_routes")
+        .prefix_with("NOT MATERIALIZED")
+    )
+    reachable = select(selected_scope.c.id).cte("coverage_dependencies", recursive=True)
+    reachable = reachable.union(
+        select(routes.c.upstream_id.label("id"))
+        .select_from(reachable.join(routes, routes.c.consumer_id == reachable.c.id))
+        .where(routes.c.upstream_id.is_not(None))
+    )
+    scoped = (
+        select(included)
+        .select_from(reachable.join(included, included.c.id == reachable.c.id))
+        .cte("settlement_scope")
+        .prefix_with("MATERIALIZED")
+    )
+    complete = (
+        ~select(1)
+        .select_from(reachable.join(routes, routes.c.consumer_id == reachable.c.id))
+        .where(routes.c.upstream_id.is_(None))
+        .exists()
+    )
+    return scoped, complete
 
 
 def _governed_coverage_authorization(model, scoped):

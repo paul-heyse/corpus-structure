@@ -56,6 +56,7 @@ def test_demand_producers_hold_structured_private_programs_until_authoring(monke
     origins = {declaration.identity.name: declaration.source for declaration in programs}
     assert origins["ddo_record_scope_wakes"] == "data-operations:binding-wakes"
     assert origins["ddo_valid_closure"] == "data-operations:forward"
+    assert origins["ddo_authorize_governed_coverage"] == "data-operations:forward"
     archive_routines = {
         "begin_selected_archive",
         "fetch_selected_archive",
@@ -104,6 +105,18 @@ def test_validity_and_authority_default_arguments_keep_their_full_native_identit
     discovery = programs["ddo_discovery_role_population"]
     assert discovery.routine.parameters[-1].default is not None
     assert discovery.identity.arguments[-1] == "ops.data_demand_read"
+
+
+def test_governed_historical_authorization_uses_cut_without_evaluating_readiness():
+    programs = {item.identity.name: item for item in declarations()}
+    historical = programs["ddo_authorize_governed_coverage"]
+    assert historical.access == INTERNAL_PROGRAM
+    archived_sql = historical.render()
+    assert "ddo_require_read_current" in archived_sql
+    assert "ddo_authorize(coverage_universe)" in archived_sql
+    assert "ddo_obligation_readiness" not in archived_sql
+    assert "ddo_population_binding_unavailable" not in archived_sql
+    assert "ddo_obligation_readiness" in programs["ddo_governed_settlement"].render()
 
 
 def test_selected_typed_demand_programs_enforce_closed_semantic_controls(infrastructure_rollback):

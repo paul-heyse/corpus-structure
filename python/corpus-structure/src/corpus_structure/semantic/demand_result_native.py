@@ -425,6 +425,12 @@ def _read_demand_result(model, *, context_only=False, scheduler=False, answer=No
                 else (
                     SelectInto(answer[1](model, payload), ("results",)),
                     _refusal(
+                        results["examination_exhausted"].astext == "true",
+                        "native selected answer exceeds examined address bound",
+                        "P0001",
+                    ),
+                    Assign("results", results.op("-")("examination_exhausted")),
+                    _refusal(
                         and_(
                             ~results["oversized"].is_distinct_from(_json("null")),
                             func.octet_length(func.data.canonical_json(results)) + 100 > max_bytes,

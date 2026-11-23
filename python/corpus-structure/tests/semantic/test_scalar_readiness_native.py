@@ -136,7 +136,7 @@ def test_native_required_scalar_join_retains_exact_unchanged_origin_use(
                 {"read_id": page["read_id"]}
             )
 
-    def governed(**options):
+    def governed(*, scope=None, **options):
         with scalar_reader.begin() as connection:
             return DataOperationStorage(connection).read_governed_selection(
                 cast(
@@ -144,7 +144,7 @@ def test_native_required_scalar_join_retains_exact_unchanged_origin_use(
                     dict(
                         project_id="ddo-test",
                         selection_name="pair",
-                        scope={"operation_id": TARGET},
+                        scope={"operation_id": TARGET, **(scope or {})},
                         **options,
                     ),
                 ),
@@ -349,6 +349,14 @@ def test_native_required_scalar_join_retains_exact_unchanged_origin_use(
     public_fresh = governed()
     assert public_fresh["state"] == "Fresh"
     assert public_fresh["last_settled"] is False
+    wrong_qualification = governed(scope={"analyzed_scope": {"page": 2}})
+    assert wrong_qualification["state"] != "Fresh"
+    exact_qualification = governed(scope={"analyzed_scope": {"page": 1}})
+    assert exact_qualification["state"] == "Fresh"
+    assert (
+        governed(mode="last-settled", scope={"analyzed_scope": {"page": 1}})["read_id"]
+        == exact_qualification["read_id"]
+    )
     last_settled = governed(mode="last-settled")
     assert last_settled["state"] == "Fresh" and last_settled["last_settled"] is True
     assert last_settled["read_id"] == public_fresh["read_id"]

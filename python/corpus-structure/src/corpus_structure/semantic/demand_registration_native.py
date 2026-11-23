@@ -46,6 +46,7 @@ from .native_program import (
 )
 from .native_program_registry import ProgramDeclaration
 from .obligation_readiness_native import (
+    authorize_governed_coverage,
     demand_settlement,
     obligation_readiness,
     obligation_settlement,
@@ -1301,6 +1302,7 @@ def demand_intent_programs(model: MetaData, *, protocol: bytes) -> tuple[Program
         obligation_settlement(model),
         demand_settlement(model),
         demand_settlement(model, governed=True),
+        authorize_governed_coverage(model),
     )
     commands = tuple(
         ProgramDeclaration(
