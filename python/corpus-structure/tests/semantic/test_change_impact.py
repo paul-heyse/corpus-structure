@@ -945,7 +945,7 @@ def test_acquire_source_free_obligation_keeps_population_context(monkeypatch, im
         },
     )
     monkeypatch.setattr(change_impact, "read_demand_result", lambda *args, **kwargs: page)
-    monkeypatch.setattr(change_impact, "stream_selected_support", lambda *args: iter(()))
+    monkeypatch.setattr(change_impact, "stream_selected_support", lambda *args, **kwargs: iter(()))
     monkeypatch.setattr(releases, "open_release", lambda *args: object())
     monkeypatch.setattr(data_operation_admission, "bound_data_operation_model", lambda _: model)
     acquired, evidence, population, closed = change_impact._acquire(

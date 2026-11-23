@@ -355,7 +355,7 @@ def test_inherited_reference_requires_exact_parent_and_original_member_body(mode
                 outputs=[
                     cast(
                         WireOutputMember,
-                        dict(role="result", product=dict(body=semantic_value(body))),
+                        dict(role="result", position=0, product=dict(body=semantic_value(body))),
                     )
                 ],
             )

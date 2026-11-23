@@ -17,9 +17,8 @@ from semantic.declared_scenarios import declared_serving_seed as declared_servin
 from semantic.selected_graph_test_support import _offline_snapshot, _selected_snapshot
 
 
-@pytest.mark.parametrize("encoding", ["jsonl", "parquet"])
 def test_actual_selected_precedence_support_public_and_offline(
-    declared_serving_case, tmp_path, encoding, cli, monkeypatch
+    declared_serving_case, tmp_path, cli, monkeypatch
 ):
     from corpus_structure.intervene.source_inspection_tools import register_source_inspection_tools
     from corpus_structure.semantic import prepare, python_operation_sources
@@ -55,13 +54,12 @@ def test_actual_selected_precedence_support_public_and_offline(
     )
     assert set(kinds.values()) <= {"request", "use", "population", "obligation"}
     with clone.reader.begin() as connection:
-        destination = tmp_path / encoding
+        destination = tmp_path / "archive"
         manifest = export_demand_result(
             connection,
             stage.demand_id,
             project_id=stage.project_id,
             destination=destination,
-            format=encoding,
             page_rows=1,
         )
     # Reopen the export's exact native cut: request/read contexts must match, not

@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from decimal import Decimal
+from hashlib import sha256
 from typing import Any
 
 import pytest
@@ -112,6 +113,107 @@ def test_historical_manifest_preserves_its_full_framing_bytes():
     original = json_bytes(manifest()).replace(b',"encoding":', b',\n  "encoding":')
     decoded = decode_export_manifest(original)
     assert decoded.to_bytes() == original
+
+
+def test_archive_writer_preserves_declared_nested_arrow_fields(tmp_path):
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    from corpus_structure.serve.selected_archive_relations import (
+        ARCHIVE_KEY,
+        write_support_fragments,
+    )
+
+    schema = pa.schema(
+        [
+            pa.field(ARCHIVE_KEY, pa.string(), nullable=False),
+            pa.field("dependencies", pa.list_(pa.field("item", pa.string(), nullable=False))),
+        ]
+    )
+    packet = {
+        "key": "ops.example:0",
+        "relation": "ops.example",
+        "record": {"dependencies": ["first", "second"]},
+    }
+    [(_, path, count)] = write_support_fragments(
+        tmp_path, [packet], lambda _: (schema, {"dependencies": "native"}), batch_bytes=1024
+    )
+    with pq.ParquetFile(path) as fragment:
+        assert fragment.schema_arrow.equals(schema, check_metadata=True)
+        assert fragment.read().column("dependencies").to_pylist() == [["first", "second"]]
+    assert count == 1
+
+
+def test_archive_scan_custody_owns_the_bytes_it_verified(tmp_path):
+    from corpus_structure.serve.archive_custody import acquire_demand_archive
+
+    source = manifest()
+    original = b"verified bytes"
+    source["files"] = {
+        name: {"bytes": len(original), "sha256": sha256(original).hexdigest()}
+        for name in source["files"]
+    }
+    for name in source["files"]:
+        (tmp_path / name).write_bytes(original)
+    content = json_bytes(source)
+    (tmp_path / "manifest.json").write_bytes(content)
+    expected = sha256(content).hexdigest()
+    selected = tmp_path / "closure.jsonl"
+    with acquire_demand_archive(tmp_path, expected, decode_export_manifest) as (owned, _):
+        substitute = tmp_path / "substitute"
+        substitute.write_bytes(b"new pathname!!")
+        substitute.replace(selected)
+        assert (owned / selected.name).read_bytes() == original
+        selected.write_bytes(b"in-place edit!")
+        assert (owned / selected.name).read_bytes() == original
+    assert not owned.exists()
+    with (
+        pytest.raises(ValueError, match="pinned manifest"),
+        acquire_demand_archive(tmp_path, expected, decode_export_manifest),
+    ):
+        pytest.fail("changed bytes received custody")
+
+
+def test_v3_closure_transcodes_into_the_common_typed_reader(tmp_path):
+    import pyarrow as pa
+
+    from corpus_structure.semantic.selected_support_contract import SelectedSupportReader
+    from corpus_structure.serve.demand_export import _support_fragments
+    from corpus_structure.serve.selected_archive_relations import ArchivedSelectedRelations
+
+    source = manifest()
+    captured = checked_export_manifest(source)
+    relation = "ops.example"
+    schema = pa.schema([pa.field("id", pa.string()), pa.field("context", pa.json_())])
+    contract = {
+        "schema": {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "required": ["id", "context"],
+            "properties": {"id": {"type": "string"}, "context": {}},
+        },
+        "contextual_fields": ["#/properties/context"],
+        "encodings": {"id": "native", "context": "json"},
+        "arrow_schema": schema.serialize().to_pybytes().hex(),
+    }
+    packets = [
+        {"key": "ops.example:0", "relation": relation, "record": {"id": "a", "context": {"n": 1}}},
+        {
+            "key": "ops.example:1",
+            "relation": relation,
+            "record": {"id": "b", "context": {"n": Decimal("1.20")}},
+        },
+    ]
+    (tmp_path / "closure.jsonl").write_bytes(b"".join(json_bytes(row) + b"\n" for row in packets))
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    fragments = _support_fragments(tmp_path, captured, {relation: contract}, scratch)
+    archived = ArchivedSelectedRelations(fragments, SelectedSupportReader({relation: contract}))
+    archived.validate_support()
+    assert list(archived.records()) == packets
+    record = archived.mapping(relation, ("id",))["b"]
+    assert isinstance(record["context"]["n"], Decimal)
+    assert record["context"]["n"].as_tuple().exponent == -2
 
 
 @pytest.mark.parametrize("mutate", ["cut", "files"])

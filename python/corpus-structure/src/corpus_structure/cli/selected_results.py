@@ -36,6 +36,9 @@ def query(
     operation: str | None = None,
     subject: str | None = None,
     original_source: str | None = None,
+    analyzed_scope: Annotated[
+        str | None, typer.Option(help="Exact analyzed context as JSON.")
+    ] = None,
     without_original_source: Annotated[
         bool, typer.Option(help="Select results with an explicit null original source.")
     ] = False,
@@ -82,6 +85,7 @@ def query(
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.cli.reuse_explanation import emit_selected_result
     from corpus_structure.semantic.code_reuse import attach_reuse_explanation, explain_code_reuse
+    from corpus_structure.semantic.data_operation_json import native_json_loads
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.semantic.storage_target import StorageTarget, verify_target
 
@@ -112,7 +116,14 @@ def query(
             if (
                 any(
                     value is not None
-                    for value in (operation, subject, original_source, kind_contract, member)
+                    for value in (
+                        operation,
+                        subject,
+                        original_source,
+                        analyzed_scope,
+                        kind_contract,
+                        member,
+                    )
                 )
                 or without_original_source
             ):
@@ -160,6 +171,8 @@ def query(
             limit=limit,
             max_bytes=max_bytes,
         )
+        if analyzed_scope is not None:
+            query_values["analyzed_scope"] = native_json_loads(analyzed_scope)
         if selection is not None:
             request: DemandQueryRequest | GovernedDemandQueryRequest = GovernedDemandQueryRequest(
                 **query_values,
@@ -267,7 +280,7 @@ def export(
     out: Annotated[Path, typer.Option()],
     demand: Annotated[str, typer.Option()],
     project: Annotated[str, typer.Option()],
-    format: Literal["jsonl", "parquet"] = "parquet",
+    format: Literal["parquet"] = "parquet",
     page_rows: Annotated[int, typer.Option(min=1, max=1000)] = 100,
     page_bytes: Annotated[int, typer.Option(min=1024, max=67108864)] = 8388608,
     json: JsonOpt = False,

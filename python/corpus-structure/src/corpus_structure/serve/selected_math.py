@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
-from corpus_structure.semantic.demand_results import selected_record_index
+from corpus_structure.semantic.demand_results import acquired_selected_relations
 
 
 def _source_for_interpretation(prepared, reference, products, members):
@@ -93,7 +93,7 @@ def selected_formula_interpretations(connection, source, pointer, *, read_budget
         read_budget=read_budget,
     )
     results, projections = [], {}
-    with selected_record_index(
+    with acquired_selected_relations(
         connection,
         pins["demand_id"],
         project_id=pins["project_id"],

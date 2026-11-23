@@ -196,7 +196,7 @@ def test_actual_construction_binds_two_formal_configurations(
                 retained["demand_id"],
                 project_id=PROJECT,
                 destination=archive,
-                format="jsonl",
+                format="parquet",
                 scope={"product_ids": [construction["product_id"]]},
             )
         with verified_demand_export(archive, manifest_digest=exported.manifest_digest) as (

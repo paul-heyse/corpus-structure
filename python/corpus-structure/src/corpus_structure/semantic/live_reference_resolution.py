@@ -1,8 +1,10 @@
 """Acquire one reference parent through an exact live selection before opening its body."""
 
 from dataclasses import replace
+from itertools import batched
 from typing import Any, Literal, overload
 
+import pyarrow as pa
 from sqlalchemy import Text, bindparam, column, func, select
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -19,6 +21,22 @@ from .reference_resolution import (
     ProducingReferenceInput,
     ReferenceResolver,
     ReferenceTarget,
+)
+from .selected_graph_budget import SelectedGraphBudgetExceeded
+
+_NAVIGATION_MEMBERS = pa.schema(
+    [
+        pa.field("ordinal", pa.int64(), nullable=False),
+        pa.field("use_id", pa.string(), nullable=False),
+        pa.field("input_role", pa.string(), nullable=False),
+        pa.field("occurrence", pa.string()),
+        pa.field("product_id", pa.string(), nullable=False),
+        pa.field("target_member_id", pa.string(), nullable=False),
+        pa.field("multiplicity", pa.int64(), nullable=False),
+    ]
+)
+_NAVIGATION_RESULTS = _NAVIGATION_MEMBERS.append(
+    pa.field("target_kind_contract", pa.string(), nullable=False)
 )
 
 
@@ -486,21 +504,83 @@ class PreparedSelectedOutputReferences:
             self.access.authorize(binding)
         return producing.inputs
 
-    def resolve(self, reference, *, path, metadata_only=False, with_binding=False):
+    def _resolve_binding(self, reference, path):
         target, producing, resolver = self._prepare(path)
+        self._require_slot(reference, target)
+        binding = producing.resolve(
+            reference,
+            occurrence_field=target.get("occurrence_field"),
+            occurrence_binding=target.get("occurrence_binding", False),
+            occurrence_position=target.get("occurrence_position", False),
+        )
+        return target, resolver, binding
+
+    def require_navigation_members(self, references):
+        """Resolve an ordered navigation relation under this producing use's authority."""
+        access = self.access
+        if not isinstance(access, SelectedNativeReferenceAccess):
+            for reference, path in references:
+                self.resolve(reference, path=path)
+            return
+
+        # The same acquisition owns the original role facts and guarded addresses.
+        # Repeat slots still resolve their own occurrence before sharing its body check.
+        authorized: dict[tuple[str, str], str] = {}
+        for chunk in batched(enumerate(references), 64, strict=False):
+            if chunk[-1][0] >= access.live.max_records:
+                raise SelectedGraphBudgetExceeded(
+                    "selected navigation exceeds examined reference bound", cut=access.live.cut
+                )
+            bindings = [self._resolve_binding(reference, path)[2] for _, (reference, path) in chunk]
+            if any(binding.member_id is not None for binding in bindings):
+                # Pinned input members keep their original derivation body port.
+                for _, (reference, path) in chunk:
+                    self.resolve(reference, path=path)
+                continue
+            entries = []
+            for (ordinal, (reference, _)), binding in zip(chunk, bindings, strict=True):
+                member_id = reference.member_id
+                if member_id is None:
+                    raise ValueError("selected navigation requires its exact member")
+                entries.append(
+                    {
+                        "ordinal": ordinal,
+                        "use_id": access.selected.use_id,
+                        "input_role": binding.role,
+                        "occurrence": binding.occurrence,
+                        "product_id": binding.product_id,
+                        "target_member_id": member_id,
+                        "multiplicity": binding.multiplicity,
+                    }
+                )
+            requested = pa.RecordBatch.from_pylist(entries, schema=_NAVIGATION_MEMBERS)
+            addresses = tuple(
+                zip(
+                    requested.column("product_id").to_pylist(),
+                    requested.column("target_member_id").to_pylist(),
+                    strict=True,
+                )
+            )
+            pending = dict.fromkeys(address for address in addresses if address not in authorized)
+            for row in access.live.partition_members(access.selected.use_id, pending):
+                # This consumer needs resolution evidence, so only retain the verified
+                # member kind after validating the exact semantic value once.
+                decode_semantic_value(row["meaning_body"])
+                authorized[row["product_id"], row["member_id"]] = row["kind_contract"]
+            kinds = pa.array([authorized.get(address) for address in addresses], type=pa.string())
+            resolved = pa.RecordBatch.from_arrays(
+                [*requested.columns, kinds], schema=_NAVIGATION_RESULTS
+            )
+            if resolved.column("target_kind_contract").null_count:
+                raise ValueError("reference does not resolve its declared target")
+
+    def resolve(self, reference, *, path, metadata_only=False, with_binding=False):
+        target, resolver, binding = self._resolve_binding(reference, path)
         access = self.access
         role = target["input_role"]
         occurrence_field = target.get("occurrence_field")
         occurrence_binding = target.get("occurrence_binding", False)
         occurrence_position = target.get("occurrence_position", False)
-        self._require_slot(reference, target)
-
-        binding = producing.resolve(
-            reference,
-            occurrence_field=occurrence_field,
-            occurrence_binding=occurrence_binding,
-            occurrence_position=occurrence_position,
-        )
         if metadata_only:
             if reference.variant != "product" or binding.member_id is not None:
                 raise ValueError("reference metadata requires its exact whole producing input")

@@ -15,6 +15,8 @@ from functools import cached_property
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+from sqlalchemy.exc import DBAPIError
+
 from ._data_operation_wire import WireCutSelection
 from .data_operation_identity import body_identity, contextual_product_identity
 from .data_operation_json import json_bytes, native_json_loads, wire_json_loads
@@ -27,6 +29,7 @@ from .data_operation_partitions import (
 )
 from .data_operation_values import decode_semantic_value
 from .owned_json import FrozenObject, freeze_json, thaw_json
+from .refusal_types import ReadLimit
 from .selected_graph_budget import SelectedGraphBudgetExceeded
 
 if TYPE_CHECKING:
@@ -287,9 +290,25 @@ def read_selected_answer(
         request["read_id"] = read_id
     if after is not None:
         request["answer_after"] = after
-    result = DataOperationStorage(connection)._invoke(program, request)
+    try:
+        result = DataOperationStorage(connection)._invoke(program, request)
+    except DBAPIError as error:
+        diagnostic = getattr(error.orig, "diag", None)
+        message = "native selected answer exceeds examined address bound"
+        if (
+            getattr(error.orig, "sqlstate", None) == "P0001"
+            and getattr(diagnostic, "message_primary", None) == message
+        ):
+            raise ReadLimit(message, reason="examined_addresses") from error
+        raise
+    return require_selected_answer_capacity(result)
+
+
+def require_selected_answer_capacity(result):
     if result["oversized"] is not None:
-        raise ValueError(f"selected answer row exceeds max_bytes: {result['oversized']!r}")
+        raise ReadLimit(
+            f"selected answer row exceeds max_bytes: {result['oversized']!r}", reason="row_bytes"
+        )
     return result
 
 
@@ -415,9 +434,16 @@ def stream_selected_archive(
     Successful exhaustion closes it explicitly. An interrupted transaction owns
     cleanup through rollback or its ON COMMIT DROP temporary relations.
     """
+    handle = _open_selected_archive(connection, cut, max_bytes=max_bytes, batch_rows=batch_rows)
+    yield from _stream_selected_archive_records(connection, handle)
+    if consume_populations is not None:
+        consume_populations(handle)
+    _close_selected_archive(connection, handle)
+
+
+def _stream_selected_archive_records(connection, handle):
     from sqlalchemy import Text, bindparam, cast, func, select
 
-    handle = _open_selected_archive(connection, cut, max_bytes=max_bytes, batch_rows=batch_rows)
     fetch = select(
         cast(func.ops.fetch_selected_archive(bindparam("archive_handle", type_=Text)), Text)
     )
@@ -442,9 +468,6 @@ def stream_selected_archive(
             yield dict(record)
         if batch["complete"]:
             break
-    if consume_populations is not None:
-        consume_populations(handle)
-    _close_selected_archive(connection, handle)
 
 
 def _open_selected_archive(
@@ -542,7 +565,12 @@ def stream_selected_archive_population(connection, handle, *, items, partition=N
 
 
 def stream_selected_support(
-    connection, page: DemandResult, *, whole_read: bool = False, obligation_id: str | None = None
+    connection,
+    page: DemandResult,
+    *,
+    whole_read: bool = False,
+    obligation_id: str | None = None,
+    facts_only: bool = False,
 ) -> Iterator[dict[str, Any]]:
     """Read the page or whole scoped cut closure in bounded native keyset pages."""
     from .data_operation_storage import DataOperationStorage
@@ -558,6 +586,8 @@ def stream_selected_support(
         if key in original_request:
             request[key] = original_request[key]
     request["view"] = "support"
+    if facts_only:
+        request["support_facts"] = True
     if obligation_id is not None:
         if whole_read or obligation_id not in {
             row["obligation_id"] for row in page.record["obligations"]
@@ -584,9 +614,40 @@ def stream_selected_support(
 
 
 @contextmanager
-def selected_record_index(
+def _open_selected_sqlite():
+    from pathlib import Path
+    from tempfile import TemporaryDirectory
+
+    from .data_operation_read_index import SelectedRecordIndex
+
+    with TemporaryDirectory(prefix="selected-read-") as scratch:
+        yield SelectedRecordIndex(Path(scratch) / "support.sqlite")
+
+
+def selected_record_index(connection, demand_id, **selection):
+    """Acquire the SQLite backing for evaluator paths."""
+    return _acquire_selected_relations(connection, demand_id, _open_selected_sqlite(), **selection)
+
+
+def acquired_selected_relations(connection, demand_id, **selection):
+    """Acquire the live backing of the selected relation reader."""
+    from .acquired_selected_relations import LiveSelectedRelations
+
+    selection.setdefault("max_total_bytes", 64 * 1024**2)
+    return _acquire_selected_relations(
+        connection,
+        demand_id,
+        nullcontext(LiveSelectedRelations()),
+        staged_support=True,
+        **selection,
+    )
+
+
+@contextmanager
+def _acquire_selected_relations(
     connection,
     demand_id,
+    relation_store,
     *,
     project_id,
     scope,
@@ -599,15 +660,10 @@ def selected_record_index(
     capture_frontier=False,
     obligation_ids=None,
     use_ids=None,
+    staged_support=False,
+    retain_population_items=True,
 ):
-    """Keep one pinned native acquisition and its complete temporary witness index."""
-    from pathlib import Path
-    from tempfile import TemporaryDirectory
-
-    from sqlalchemy.exc import DBAPIError
-
-    from .data_operation_read_index import SelectedRecordIndex
-
+    """Acquire selected support in one pinned native cut."""
     if max_total_records is not None and (
         type(max_total_records) is not int or max_total_records < 0
     ):
@@ -630,8 +686,8 @@ def selected_record_index(
     ):
         raise ValueError("selected uses or obligations require an authenticated pinned cut")
     cut = None
-    with TemporaryDirectory(prefix="selected-read-") as scratch:
-        index = SelectedRecordIndex(Path(scratch) / "support.sqlite")
+    with relation_store as index:
+        populations = None
         try:
             for obligation_id in selected:
                 continuation = (
@@ -695,13 +751,29 @@ def selected_record_index(
                         use_ids is not None or obligation_ids is not None or continuation is None
                     ):
                         for support_obligation in support_obligations:
-                            for record in stream_selected_support(
-                                connection,
-                                page,
-                                whole_read=obligation_ids is None and use_ids is None,
-                                obligation_id=support_obligation,
-                            ):
-                                index.append(json_bytes(record), allow_equal=True)
+                            whole_read = obligation_ids is None and use_ids is None
+                            if staged_support and whole_read:
+                                from .selected_population_archive import LivePopulationArchive
+
+                                populations = LivePopulationArchive(
+                                    connection, index, cut, max_bytes
+                                )
+                                index.population_archive = populations
+                                stream = _stream_selected_archive_records(
+                                    connection, populations._handle()
+                                )
+                            else:
+                                stream = stream_selected_support(
+                                    connection,
+                                    page,
+                                    whole_read=whole_read,
+                                    obligation_id=support_obligation,
+                                )
+                            for record in stream:
+                                if staged_support:
+                                    index.append_record(record, allow_equal=True)
+                                else:
+                                    index.append(json_bytes(record), allow_equal=True)
                                 if (
                                     max_total_records is not None
                                     and index.retained_records > max_total_records
@@ -729,17 +801,23 @@ def selected_record_index(
             assert cut is not None
             from .selected_population_archive import LivePopulationArchive
 
-            populations = LivePopulationArchive(connection, index, cut, max_bytes)
-            index.population_archive = populations
-            try:
-                yield cut, index
-            except BaseException:
-                # PostgreSQL releases the scratch handle on rollback if a failed
-                # statement has already aborted the caller's transaction.
+            if not retain_population_items:
+                if populations is not None:
+                    populations.close()
+                    populations = None
+                index.population_archive = None
+            elif populations is None:
+                populations = LivePopulationArchive(connection, index, cut, max_bytes)
+                index.population_archive = populations
+            yield cut, index
+        except BaseException:
+            # An aborted transaction releases its temporary relations on rollback.
+            if populations is not None:
                 with suppress(DBAPIError):
                     populations.close()
-                raise
-            else:
+            raise
+        else:
+            if populations is not None:
                 populations.close()
         finally:
             index.close()

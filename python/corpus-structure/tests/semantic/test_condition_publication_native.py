@@ -156,7 +156,31 @@ def test_condition_admits_only_the_exact_supported_roles(
         assert page["reports"][0]["public_assertions"][0]["admission"] == admission.body
         assert page["reports"][0]["public_assertions"][0]["authority"]["standing"] == "valid"
         if host == "computes":
+            from corpus_structure.semantic.data_operation_json import native_json_loads
+            from corpus_structure.serve.selected_structural_review import (
+                SelectedStructuralReviewRequest,
+                export_selected_structural_review,
+                verify_selected_structural_review,
+            )
+
             assert_native_transport_parity(kernel, native_settings, pending, page, tmp_path)
+            pinned = pending.model_copy(
+                update=dict(read_id=page["cut"]["read_id"], expected_cut=page["cut_id"])
+            )
+            destination = tmp_path / "textbook-review"
+            with kernel.purpose("read").begin() as connection:
+                exported = export_selected_structural_review(
+                    connection,
+                    SelectedStructuralReviewRequest(selection=pinned),
+                    destination=destination,
+                )
+            digest = exported["manifest_digest"]
+            assert isinstance(digest, str)
+            verified = verify_selected_structural_review(destination, manifest_digest=digest)
+            assert verified["cut_id"] == page["cut_id"]
+            detached = native_json_loads((destination / "response.json").read_bytes())
+            (assertion,) = detached["reports"][0]["public_assertions"]
+            assert assertion["admission"] == admission.body
 
         # A different whole-statement expectation is genuinely authored, then refused
         # by the same command; prior valid support is not re-used for switched roles.

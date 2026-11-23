@@ -15,7 +15,11 @@ STRUCTURAL_QUERY_ROOTS = (
     "corpus_structure.semantic.selected_structural_projection.producer",
     "corpus_structure.semantic.selected_pages.byte_bounded_page",
     "corpus_structure.semantic.continuation_codec.encode_cursor",
-    "corpus_structure.semantic.continuation_codec.decode_rich_cursor",
+    "corpus_structure.semantic.continuation_codec.decode_pinned_cursor",
+    "corpus_structure.semantic.continuation_codec.bind_cursor_request",
+    "corpus_structure.semantic.continuation_codec.selection_digest",
+    "corpus_structure.semantic.continuation_codec.pinned_cursor_basis",
+    "corpus_structure.semantic.continuation_codec.require_cursor_cut",
 )
 
 
@@ -124,8 +128,9 @@ def structural_report(scope, selected):
                 for target in relationship.targets
                 if target.work_primary_node is not None
             )
-        for path, target in navigation:
-            prepared_references.resolve(read_semantic_reference(target), path=path)
+        prepared_references.require_navigation_members(
+            (read_semantic_reference(target), path) for path, target in navigation
+        )
         for nomination in root.structural.artifact_identity.external_nominations:
             relation = prepared_references.resolve(
                 read_semantic_reference(nomination.relationship),

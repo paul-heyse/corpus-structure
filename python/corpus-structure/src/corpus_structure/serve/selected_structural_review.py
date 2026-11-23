@@ -11,6 +11,7 @@ from corpus_structure.semantic.selected_structural_projection import STRUCTURAL_
 from corpus_structure.semantic.serving_identity import installed_read_implementation
 from corpus_structure.semantic.value_codec import decimal_digit_limit
 
+from .archive_custody import verified_archive_members
 from .demand_export import export_demand_result, verified_demand_export
 from .selected_structural import StructuralScope
 from .source_decision_journey import (
@@ -62,7 +63,12 @@ def _project(scope, request):
 
 def _replay(root, selection, native_digest):
     request = selection.selection
-    with verified_demand_export(root / "native", manifest_digest=native_digest) as (
+    with verified_demand_export(
+        root / "native",
+        manifest_digest=native_digest,
+        max_graph_bytes=request.max_graph_bytes,
+        max_graph_records=request.max_graph_records,
+    ) as (
         manifest,
         prepared,
         models,
@@ -113,7 +119,6 @@ def export_selected_structural_review(
             request.demand_id,
             project_id=request.project_id,
             destination=root / "native",
-            format="jsonl",
             scope=scope,
             read_id=request.read_id,
             expected_cut=request.expected_cut,
@@ -151,26 +156,17 @@ def export_selected_structural_review(
 
 
 def verify_selected_structural_review(root: Path, *, manifest_digest: str):
-    content = (root / "manifest.json").read_bytes()
-    if sha256(content).hexdigest() != manifest_digest:
-        raise ValueError("structural review differs from its trusted manifest digest")
+    content = verified_archive_members(root, {"manifest.json": manifest_digest})["manifest.json"]
     manifest = json_loads(content)
     if manifest["format"] != "selected-structural-review-v1" or set(manifest["files"]) != {
         "selection.json",
         "response.json",
     }:
         raise ValueError("unsupported structural review format or file population")
-    for name, digest in manifest["files"].items():
-        if sha256((root / name).read_bytes()).hexdigest() != digest:
-            raise ValueError("structural review file differs from its trusted manifest")
-    selection = SelectedStructuralReviewRequest.model_validate(
-        json_loads((root / "selection.json").read_bytes())
-    )
+    files = verified_archive_members(root, manifest["files"])
+    selection = SelectedStructuralReviewRequest.model_validate(json_loads(files["selection.json"]))
     actual = _replay(root, selection, manifest["native_manifest_digest"])
-    if (
-        actual["cut_id"] != manifest["cut_id"]
-        or json_bytes(actual) != (root / "response.json").read_bytes()
-    ):
+    if actual["cut_id"] != manifest["cut_id"] or json_bytes(actual) != files["response.json"]:
         raise ValueError("detached structural reading differs from authenticated selected meaning")
     return dict(
         outcome="passed",

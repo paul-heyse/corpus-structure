@@ -186,7 +186,7 @@ def test_actual_parser_demand_preserves_three_families_and_exact_resume(
                 result.demand_id,
                 project_id=PROJECT,
                 destination=archive,
-                format="jsonl",
+                format="parquet",
                 scope={"product_ids": [maverick_candidate]},
             )
         assert isinstance(exported.manifest_digest, str)
@@ -385,7 +385,7 @@ def test_actual_candidate_conditioned_d1_exports_exact_contextual_support(
                     result.demand_id,
                     project_id=PROJECT,
                     destination=archive,
-                    format="jsonl",
+                    format="parquet",
                     page_rows=16,
                     page_bytes=page_bytes,
                     scope={

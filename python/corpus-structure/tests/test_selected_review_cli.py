@@ -124,7 +124,7 @@ def test_current_review_export_uses_exact_native_demand_and_reader_transaction(
         "--out",
         str(destination),
         "--format",
-        "jsonl",
+        "parquet",
         "--page-rows",
         "2",
         "--page-bytes",
@@ -138,7 +138,7 @@ def test_current_review_export_uses_exact_native_demand_and_reader_transaction(
             dict(
                 project_id="project:actual",
                 destination=destination,
-                format="jsonl",
+                format="parquet",
                 page_rows=2,
                 page_bytes=2048,
             ),

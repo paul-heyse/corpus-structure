@@ -18,12 +18,11 @@ from semantic.declared_scenarios import declared_serving_case as declared_servin
 from semantic.declared_scenarios import declared_serving_seed as declared_serving_seed
 
 
-@pytest.mark.parametrize("encoding", ["jsonl", "parquet"])
 def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
-    declared_serving_case, tmp_path, encoding, monkeypatch
+    declared_serving_case, tmp_path, monkeypatch
 ):
     clone, stage = declared_serving_case, declared_serving_case.stage.agent
-    destination = tmp_path / encoding
+    destination = tmp_path / "archive"
     from corpus_structure.semantic import native_protocol_authoring
     from corpus_structure.serve import demand_export
 
@@ -46,7 +45,6 @@ def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
             stage.demand_id,
             project_id=stage.project_id,
             destination=destination,
-            format=encoding,
             page_rows=1,
         )
     (support_call,) = support_calls
@@ -76,38 +74,32 @@ def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
         for use in page["uses"]
         if any(int(output["body"][1]) in {3, 5} for output in use["products"])
     } == {source_episode}
-    closure = [
-        json_loads(line)
-        for line in (destination / manifest.manifest.closure).read_bytes().splitlines()
-    ]
     assert {
         "ops.data_derivation",
         "ops.data_completion_intent",
         "ops.data_publication_receipt",
-    } <= {row["relation"] for row in closure}
+    } <= manifest.manifest.relations.keys()
     assert manifest.manifest.cut["demand_id"] == stage.demand_id
     assert manifest.manifest.cut["project_id"] == stage.project_id
 
     # Even a newly trusted transfer digest cannot make an incomplete semantic
     # witness valid. Keep every product and archived schema, remove its episode.
-    closure_path = destination / manifest.manifest.closure
-    retained = [
-        row
-        for row in closure
-        if not (
-            (row["relation"] == "ops.data_derivation" and row["record"]["id"] == source_episode)
-            or (
-                row["relation"].startswith("ops.data_derivation_")
-                and row["record"]["derivation_id"] == source_episode
-            )
-        )
-    ]
-    altered = b"".join(json_bytes(row) + b"\n" for row in retained)
-    closure_path.write_bytes(altered)
-    captured = json_loads((destination / "manifest.json").read_bytes())
-    captured["files"][manifest.manifest.closure].update(
-        sha256=sha256(altered).hexdigest(), bytes=len(altered)
+    import pyarrow as pa
+    import pyarrow.compute as pc
+    import pyarrow.parquet as pq
+
+    relation = "ops.data_derivation"
+    name = manifest.manifest.relations[relation].file
+    closure_path = destination / name
+    original_rows = pq.read_table(closure_path)
+    retained = original_rows.filter(
+        pc.call_function("not_equal", [original_rows["id"], pa.scalar(source_episode)])
     )
+    pq.write_table(retained, closure_path)
+    altered = closure_path.read_bytes()
+    captured = json_loads((destination / "manifest.json").read_bytes())
+    captured["files"][name].update(sha256=sha256(altered).hexdigest(), bytes=len(altered))
+    captured["relations"][relation]["rows"] = retained.num_rows
     changed = json_bytes(captured)
     (destination / "manifest.json").write_bytes(changed)
     with pytest.raises(ValueError):
@@ -318,9 +310,8 @@ def test_native_archive_reader_cannot_read_private_stage(declared_serving_case, 
 
 
 @pytest.mark.parametrize("ddo_kernel", [EXECUTION], indirect=True)
-@pytest.mark.parametrize("encoding", ["jsonl", "parquet"])
 def test_python_producer_export_keeps_prepared_interfaces_readable_offline(
-    ddo_kernel, tmp_path, encoding, monkeypatch
+    ddo_kernel, tmp_path, monkeypatch
 ):
     from corpus_structure.semantic.data_operation_demands import (
         DemandPlanner,
@@ -356,7 +347,7 @@ def test_python_producer_export_keeps_prepared_interfaces_readable_offline(
         database_capacity=4,
     )
     assert executed.receipt_count == 1
-    destination = tmp_path / encoding
+    destination = tmp_path / "archive"
     with kernel.engine.begin() as connection:
         selected = read_demand_result(connection, demand, project_id="execution")
         assert [row["body"] for row in selected.members()] == [7]
@@ -365,7 +356,6 @@ def test_python_producer_export_keeps_prepared_interfaces_readable_offline(
             demand,
             project_id="execution",
             destination=destination,
-            format=encoding,
             page_rows=1,
         )
     expected = sha256((destination / "manifest.json").read_bytes()).hexdigest()
@@ -466,7 +456,7 @@ def test_exported_selected_inputs_use_consumed_selection_without_request_binding
             stage.demand_id,
             project_id=stage.project_id,
             destination=destination,
-            format="jsonl",
+            format="parquet",
             page_rows=1,
         )
     with verified_demand_export(destination, manifest_digest=receipt.manifest_digest) as (

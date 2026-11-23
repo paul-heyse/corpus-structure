@@ -120,7 +120,7 @@ def test_actual_private_source_binding_retains_authorship_and_competing_alternat
                 demand,
                 project_id=PROJECT,
                 destination=destination,
-                format="jsonl",
+                format="parquet",
                 scope={"product_ids": [product.row["product_id"]]},
             )
         digest = receipt.manifest_digest

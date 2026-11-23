@@ -120,7 +120,7 @@ def test_registered_contextual_evaluation_publishes_exact_role_addressed_graph(
                 executed.demand_id,
                 project_id=PROJECT,
                 destination=archive,
-                format="jsonl",
+                format="parquet",
                 page_rows=16,
                 page_bytes=32 * 1024**2,
                 scope={"product_ids": [product["product_id"]]},

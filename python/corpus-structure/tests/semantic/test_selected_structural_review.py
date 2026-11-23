@@ -142,3 +142,67 @@ def test_structural_review_preserves_exact_root_scope_and_refuses_substituted_re
         review.verify_selected_structural_review(
             destination, manifest_digest=sha256(content).hexdigest()
         )
+
+
+def test_typed_archive_page_chain_requires_order_and_native_terminal_page():
+    from corpus_structure.serve.demand_export import _validate_page_position
+
+    pins = dict(
+        demand_id="demand",
+        scope={},
+        selection={},
+        trust_snapshot={},
+        read_id="read",
+        read_snapshot="snapshot",
+        frontier_at="time",
+        view="products",
+    )
+    first = {
+        **pins,
+        "obligations": [{"obligation_id": "obligation:a"}],
+        "continuation": {**pins, "after": "obligation:a"},
+    }
+    terminal = {**pins, "obligations": [{"obligation_id": "obligation:b"}], "continuation": None}
+    previous = _validate_page_position(first, None, terminal=False)
+    assert _validate_page_position(terminal, previous, terminal=True) == "obligation:b"
+    with pytest.raises(ValueError, match="before its native terminal"):
+        _validate_page_position(first, None, terminal=True)
+    with pytest.raises(ValueError, match="obligation order"):
+        _validate_page_position(first, "obligation:b", terminal=False)
+    with pytest.raises(ValueError, match="did not advance"):
+        _validate_page_position({**terminal, "obligations": []}, previous, terminal=True)
+    changed = {**first, "continuation": {**first["continuation"], "after": "obligation:other"}}
+    with pytest.raises(ValueError, match="invalid native page continuation"):
+        _validate_page_position(changed, None, terminal=False)
+
+
+def test_detached_graph_budget_counts_uncompressed_records(tmp_path):
+    import pyarrow as pa
+
+    from corpus_structure.serve.selected_archive_relations import (
+        ArchivedSelectedRelations,
+        with_archive_key,
+        write_support_fragments,
+    )
+
+    class Reader:
+        def record(self, packet, validate=True):
+            return packet
+
+    relation = "kb.example"
+    schema = with_archive_key(pa.schema([pa.field("value", pa.string())]))
+    encodings = {"value": "native"}
+    packet = {
+        "relation": relation,
+        "key": "kb.example:a",
+        "record": {"value": "a" * 100_000},
+    }
+    ((_, path, count),) = write_support_fragments(
+        tmp_path, (packet,), lambda _: (schema, encodings), batch_bytes=1_000_000
+    )
+    assert path.stat().st_size < 16_384
+    index = ArchivedSelectedRelations(
+        {relation: (path, count, schema, encodings)}, Reader(), max_bytes=16_384
+    )
+    with pytest.raises(ValueError, match="examined bound"):
+        index.validate_support()

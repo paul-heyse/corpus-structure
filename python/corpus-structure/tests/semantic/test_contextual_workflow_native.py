@@ -409,7 +409,7 @@ def test_current_same_span_carriers_keep_original_query_episode_and_qualifying_e
             case.relationship_demand,
             project_id=PROJECT,
             destination=destination,
-            format="jsonl",
+            format="parquet",
             scope={"product_ids": [case.relationship.row["product_id"]]},
             page_rows=1,
         )

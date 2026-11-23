@@ -16,6 +16,7 @@ from sqlalchemy import create_engine
 from typer.testing import CliRunner
 
 from corpus_structure.cli.app import build_full_app
+from corpus_structure.semantic.continuation_codec import decode_rich_cursor
 from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
 from corpus_structure.semantic.data_operation_identity import (
     body_identity,
@@ -251,14 +252,24 @@ def test_pages_require_exact_cut_root_query_and_installed_meaning(monkeypatch, s
     first = service.serve_rich_query(None, query_request(limit=1))
     assert len(first["rows"]) == 1 and first["cursor"]
     assert first["scope"]["global_completeness"] == "unknown"
+    token = decode_rich_cursor(first["cursor"])
+    assert set(token) == {
+        "version",
+        "selection",
+        "implementation",
+        "cut",
+        "read_id",
+        "root",
+        "position",
+    }
+    assert token["cut"] == cut.identity and token["read_id"] == "actual-read"
+    assert len(token["root"]) == 64 and token["position"] == 1
     second = service.serve_rich_query(None, query_request(limit=1, cursor=first["cursor"]))
     assert second["rows"] != first["rows"]
     assert len(seen) == 1  # Cached rows avoid a second body read and graph validation.
-    assert header_seen[1]["cut"] == cut
+    assert header_seen[1].get("cut") is None
     assert header_seen[1]["continuation"] == dict(read, view="frontier")
-    pinned = service.RichQueryRequest.model_validate(
-        service.decode_rich_cursor(first["resource_handle"])
-    )
+    pinned = service.RichQueryRequest.model_validate(decode_rich_cursor(first["resource_handle"]))
     assert (
         pinned.expected_cut == cut.identity
         and pinned.read_id == "actual-read"
@@ -344,7 +355,7 @@ def test_exact_cursor_keeps_fractional_parameters_and_refuses_work_and_response_
         query={"name": "families_where", "predicate": "stat:parameter_role", "value": fraction}
     )
     assert (
-        service.decode_rich_cursor(_cursor(selected.model_dump(mode="python")))["query"]["value"]
+        decode_rich_cursor(_cursor(selected.model_dump(mode="python")))["query"]["value"]
         == fraction
     )
     with pytest.raises(RichQueryRefused, match="member capacity"):

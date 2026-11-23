@@ -137,7 +137,7 @@ def authenticate_judgment_source(connection, prepared, nominal, body, *, expecte
     )
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.data_operation_json import json_loads
-    from corpus_structure.semantic.demand_results import selected_record_index
+    from corpus_structure.semantic.demand_results import acquired_selected_relations
     from corpus_structure.semantic.demand_wire import validate_wire_demand_scope
     from corpus_structure.semantic.grouped_record_interpretations import (
         GroupedInterpretationRequest,
@@ -159,7 +159,7 @@ def authenticate_judgment_source(connection, prepared, nominal, body, *, expecte
         expected_cut=source["cut_id"],
         roots=(InterpretationRoot(product_id=source["product_id"], member_id=source["member_id"]),),
     )
-    with selected_record_index(
+    with acquired_selected_relations(
         connection,
         request.demand_id,
         project_id=request.project_id,
@@ -290,11 +290,11 @@ def selected_authored_judgments(connection, selected, product_ids):
 def read_authored_judgment_selection(connection, request, selected_read):
     """Acquire one explicitly pinned authored input read using common native custody."""
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-    from corpus_structure.semantic.demand_results import selected_record_index
+    from corpus_structure.semantic.demand_results import acquired_selected_relations
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.selected_contribution_input import SelectedContributionScope
 
-    with selected_record_index(
+    with acquired_selected_relations(
         connection,
         selected_read.demand_id,
         project_id=request.project_id,

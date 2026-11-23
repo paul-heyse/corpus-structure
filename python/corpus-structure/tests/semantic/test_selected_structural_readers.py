@@ -20,9 +20,6 @@ from corpus_structure.serve.source_decision_journey import (
 )
 from corpus_structure.serve.structural_gaps import SelectedGapRequest, selected_gap_rows
 from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code
-from semantic.selected_query_cache_support import (
-    control_frontier,
-)
 from semantic.test_dossier_products import _predecessor
 
 pytestmark = pytest.mark.usefixtures("complete_serving_code")
@@ -99,10 +96,11 @@ def test_selected_dossier_cursor_rejects_foreign_read_population_and_membership(
     from corpus_structure.semantic.continuation_codec import decode_rich_cursor
     from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
 
-    selected = SimpleNamespace()
+    selected = SimpleNamespace(release_id="release:producer")
     scope = SimpleNamespace(
         cut=SimpleNamespace(identity="cut:exact", record={"read_id": "read:exact"}),
         implementation="a" * 64,
+        decimal_fixed_point_digits=30,
     )
 
     @contextmanager
@@ -111,13 +109,6 @@ def test_selected_dossier_cursor_rejects_foreign_read_population_and_membership(
         yield scope
 
     monkeypatch.setattr(reader, "structural_scope", acquire)
-    control_frontier(
-        monkeypatch,
-        lambda _: (
-            scope.cut,
-            {"obligations": [], "uses": [], "populations": [], "original_source_admissions": []},
-        ),
-    )
     monkeypatch.setattr(reader, "selected_root", lambda *args: selected)
     monkeypatch.setattr(reader, "structural_report", lambda *args: dossier)
     monkeypatch.setattr(reader, "producer", lambda *args: {"use_id": "use:actual"})
@@ -142,6 +133,80 @@ def test_selected_dossier_cursor_rejects_foreign_read_population_and_membership(
         reader.inspect_selected_dossier(
             None, request.model_copy(update={"cursor": _cursor(cursor)})
         )
+
+
+def test_dossier_reuses_rows_across_fresh_cuts_after_reauthorizing(monkeypatch, dossier):
+    from corpus_structure.semantic import demand_results
+    from corpus_structure.semantic.selected_query_cache import SELECTED_QUERY_CACHE
+
+    SELECTED_QUERY_CACHE.clear()
+    selected = SimpleNamespace(release_id="release:producer")
+    launches = []
+    verified = []
+    calls = []
+    state = {"cut": "first", "permit": True, "release": "release:captured"}
+
+    @contextmanager
+    def acquire(_conn, request, **_kwargs):
+        assert request.read_id is None
+        cut = SimpleNamespace(
+            identity="cut:" + state["cut"],
+            record={"read_id": "read:" + state["cut"], "release_id": state["release"]},
+        )
+        launches.append(cut.identity)
+        yield SimpleNamespace(cut=cut, decimal_fixed_point_digits=30)
+
+    def report(scope, root):
+        assert root is selected
+        verified.append(scope.cut.identity)
+        if not state["permit"]:
+            raise ValueError("selected dossier producer was revoked")
+        return dossier
+
+    derive = reader.dossier_rows
+
+    def count(*args, **kwargs):
+        calls.append(kwargs["population"])
+        return derive(*args, **kwargs)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("dossier cannot acquire a whole-frontier stamp before reuse")
+
+    monkeypatch.setattr(reader, "structural_scope", acquire)
+    monkeypatch.setattr(reader, "selected_root", lambda *args: selected)
+    monkeypatch.setattr(reader, "structural_report", report)
+    monkeypatch.setattr(reader, "dossier_rows", count)
+    monkeypatch.setattr(reader, "producer", lambda *args: {"use_id": "use:actual"})
+    monkeypatch.setattr(demand_results, "recheck_selected_frontier", forbidden)
+    request = reader.SelectedDossierRequest(
+        demand_id="d", project_id="project", root=ROOT, population="membership"
+    )
+    try:
+        first = reader.inspect_selected_dossier(None, request)
+        state["cut"] = "fresh"
+        repeated = reader.inspect_selected_dossier(None, request)
+        assert repeated["cut_id"] == "cut:fresh"
+        assert first["members"] == repeated["members"]
+        assert calls == ["membership"]
+        state.update(cut="different-release", release="release:different")
+        reader.inspect_selected_dossier(None, request)
+        assert calls == ["membership", "membership"]
+        state.update(cut="denied", permit=False)
+        with pytest.raises(ValueError, match="revoked"):
+            reader.inspect_selected_dossier(None, request)
+        assert calls == ["membership", "membership"]
+        assert (
+            launches
+            == verified
+            == [
+                "cut:first",
+                "cut:fresh",
+                "cut:different-release",
+                "cut:denied",
+            ]
+        )
+    finally:
+        SELECTED_QUERY_CACHE.clear()
 
 
 def opportunity():

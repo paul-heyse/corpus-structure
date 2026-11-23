@@ -319,7 +319,9 @@ def test_judgment_source_reopens_exact_original_cut_scope_before_linking(monkeyp
         seen.append((connection, demand_id, kwargs))
         yield cut(), "index:actual"
 
-    monkeypatch.setattr("corpus_structure.semantic.demand_results.selected_record_index", acquire)
+    monkeypatch.setattr(
+        "corpus_structure.semantic.demand_results.acquired_selected_relations", acquire
+    )
     monkeypatch.setattr("corpus_structure.semantic.releases.open_release", lambda *args: prepared)
     monkeypatch.setattr(
         "corpus_structure.semantic.data_operation_admission.bound_data_operation_model",
@@ -376,7 +378,9 @@ def test_independent_authored_read_is_explicit_pinned_and_same_project(monkeypat
         seen.append((demand_id, kwargs))
         yield cut(), "index:authored"
 
-    monkeypatch.setattr("corpus_structure.semantic.demand_results.selected_record_index", acquire)
+    monkeypatch.setattr(
+        "corpus_structure.semantic.demand_results.acquired_selected_relations", acquire
+    )
     monkeypatch.setattr("corpus_structure.semantic.releases.open_release", lambda *args: prepared)
     monkeypatch.setattr(
         "corpus_structure.semantic.data_operation_admission.bound_data_operation_model",

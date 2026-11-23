@@ -164,49 +164,51 @@ def test_real_batch_retained_intent_keeps_original_member_after_adoption(
             semantic_value(9),
         )
 
-    from corpus_structure.semantic.data_operation_json import json_loads
     from corpus_structure.semantic.data_operation_values import decode_semantic_value
-    from corpus_structure.serve.demand_export import export_demand_result, verify_demand_export
+    from corpus_structure.serve.demand_export import (
+        export_demand_result,
+        verified_demand_export,
+        verify_demand_export,
+    )
 
     expected_input, expected_output = {"one": (4, 5), "two": (8, 9)}[subject]
-    for encoding in ("jsonl", "parquet"):
-        destination = tmp_path / encoding
-        with kernel.purpose("read").begin() as connection:
-            manifest = export_demand_result(
-                connection,
-                demand,
-                project_id="ddo-test",
-                destination=destination,
-                format=encoding,
-                scope={"subject": subject},
-                page_rows=1,
-            )
-        rows = [
-            json_loads(line) for line in (destination / "closure.jsonl").read_bytes().splitlines()
-        ]
-        leaves = [
-            row["record"] for row in rows if row["relation"] == "ops.data_execution_evidence_leaf"
-        ]
-        assert len(leaves) == 1
-        leaf = leaves[0]
-        assert leaf["intent_id"] == original["id"] and leaf["cohort_size"] == 2
-        assert (
-            leaf["cpu_receipt"]["result_digest"]
-            == payload["execution_evidence"]["cpu_receipts"][0]["result_digest"]
+    destination = tmp_path / "archive"
+    with kernel.purpose("read").begin() as connection:
+        manifest = export_demand_result(
+            connection,
+            demand,
+            project_id="ddo-test",
+            destination=destination,
+            scope={"subject": subject},
+            page_rows=1,
         )
-        assert "cpu_replies" not in leaf["selected_completion"]["execution_evidence"]
-        assert not any(row["relation"] == "ops.data_completion_intent" for row in rows)
-        assert (
-            payload["execution_evidence"]["cpu_replies"][0]
-            not in (destination / "closure.jsonl").read_text()
-        )
-        assert {
-            decode_semantic_value(row["record"]["canonical_body"])
-            for row in rows
-            if row["relation"] == "kb.data_product"
-        } == {expected_input, expected_output}
-        verified = verify_demand_export(destination, manifest_digest=manifest.manifest_digest)
-        assert verified["support_disclosure"] == "complete"
-        assert verified["execution_evidence_disclosure"] == "bounded"
-        assert verified["physical_cpu_cohort"] == "undisclosed"
-        assert verified["whole_cpu_reply_verification"] == "native-member-assertion-only"
+    with verified_demand_export(destination, manifest_digest=manifest.manifest_digest) as (
+        _,
+        _,
+        _,
+        selected_relations,
+    ):
+        rows = list(selected_relations.records())
+    leaves = [
+        row["record"] for row in rows if row["relation"] == "ops.data_execution_evidence_leaf"
+    ]
+    assert len(leaves) == 1
+    leaf = leaves[0]
+    assert leaf["intent_id"] == original["id"] and leaf["cohort_size"] == 2
+    assert (
+        leaf["cpu_receipt"]["result_digest"]
+        == payload["execution_evidence"]["cpu_receipts"][0]["result_digest"]
+    )
+    assert "cpu_replies" not in leaf["selected_completion"]["execution_evidence"]
+    assert not any(row["relation"] == "ops.data_completion_intent" for row in rows)
+    assert payload["execution_evidence"]["cpu_replies"][0] not in str(rows)
+    assert {
+        decode_semantic_value(row["record"]["canonical_body"])
+        for row in rows
+        if row["relation"] == "kb.data_product"
+    } == {expected_input, expected_output}
+    verified = verify_demand_export(destination, manifest_digest=manifest.manifest_digest)
+    assert verified["support_disclosure"] == "complete"
+    assert verified["execution_evidence_disclosure"] == "bounded"
+    assert verified["physical_cpu_cohort"] == "undisclosed"
+    assert verified["whole_cpu_reply_verification"] == "native-member-assertion-only"

@@ -114,9 +114,7 @@ def _selected_product_with_kind(connection, selection, *, project_id, kind_name)
     if len(answer["rows"]) != 1 or answer["answer_after"] is not None:
         raise ValueError("contextual selection requires one exact selected fulfilled output proof")
     (header,) = answer["rows"]
-    if (header["product_id"], header["member_id"]) != (
-        selection.product_id, selection.member_id
-    ):
+    if (header["product_id"], header["member_id"]) != (selection.product_id, selection.member_id):
         raise ValueError("contextual selection differs from its exact selected output address")
     expected_kind = (
         kind_name
@@ -356,7 +354,7 @@ def acquire_contextual_witness_selection(connection, selection, *, project_id, q
     from .data_operation_model import SubjectContext, json_context_meaning
     from .data_operation_values import decode_semantic_value
     from .declared_structural_references import DeclaredContributionRef, DeclaredProductRef
-    from .demand_results import selected_record_index
+    from .demand_results import acquired_selected_relations
 
     selected_query = next(
         value for value in selection.source_sets if value.name == "contextual-query"
@@ -401,7 +399,7 @@ def acquire_contextual_witness_selection(connection, selection, *, project_id, q
         original_source=pin["original_source"],
         analyzed_scope_meaning=pin["analyzed_scope_meaning"],
     )
-    with selected_record_index(
+    with acquired_selected_relations(
         connection,
         query.demand_id,
         project_id=project_id,

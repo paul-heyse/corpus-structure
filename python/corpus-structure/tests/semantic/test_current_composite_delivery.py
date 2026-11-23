@@ -11,6 +11,11 @@ from sqlalchemy import create_engine
 from typer.testing import CliRunner
 
 from corpus_structure.cli.app import build_full_app
+from corpus_structure.semantic.continuation_codec import (
+    decode_rich_cursor,
+    encode_cursor,
+    selection_digest,
+)
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
@@ -231,6 +236,10 @@ def test_current_facet_pages_pin_native_selection_root_and_implementation(
     try:
         first = facets.serve_contribution_facets(None, request(selected, limit=1))
         assert first["items"][0]["population"] == "operation" and first["cursor"]
+        token = decode_rich_cursor(first["cursor"])
+        assert token["position"] == 1
+        assert token["cut"] == selected.cut.identity
+        assert token["read_id"] == selected.cut.record["read_id"]
         second = facets.serve_contribution_facets(
             None, request(selected, limit=1, cursor=first["cursor"])
         )
@@ -241,7 +250,7 @@ def test_current_facet_pages_pin_native_selection_root_and_implementation(
             and headers[1][1]["expected_cut"] == selected.cut.identity
         )
         replay = facets.ContributionFacetsRequest.model_validate(
-            facets.decode_rich_cursor(first["resource_handle"])
+            decode_rich_cursor(first["resource_handle"])
         )
         assert facets.serve_contribution_facets(None, replay)["items"] == first["items"]
         with pytest.raises(InvalidContinuation):
@@ -299,12 +308,24 @@ def test_current_comparison_uses_exact_two_root_use_and_cut_pins(
         assert report["before"]["producer"]["operation_id"] == "rich.admit"
         assert report["scope"]["original_source_completeness"] == "unknown"
         replay = comparison.ExclusionComparisonRequest.model_validate(
-            comparison.decode_rich_cursor(report["resource_handle"])
+            decode_rich_cursor(report["resource_handle"])
         )
         assert comparison.compare_selected_exclusions(None, replay)["changes"] == report["changes"]
         bad = selected.model_copy(
             update={"before": selected.before.model_copy(update={"use_id": "other-use"})}
         )
+        cursor = encode_cursor(
+            dict(
+                version=comparison.CURSOR_VERSION,
+                implementation=report["implementation"],
+                selection=selection_digest(semantic_value(selected.selection())),
+                position=0,
+            )
+        )
+        resumed = selected.model_copy(update={"cursor": cursor})
+        assert comparison.compare_selected_exclusions(None, resumed)["changes"] == report["changes"]
+        with pytest.raises(InvalidContinuation):
+            comparison.compare_selected_exclusions(None, bad.model_copy(update={"cursor": cursor}))
         with pytest.raises(ValueError, match="exactly one actual selected whole"):
             comparison.compare_selected_exclusions(None, bad)
     finally:

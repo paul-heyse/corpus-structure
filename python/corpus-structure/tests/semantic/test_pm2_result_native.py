@@ -337,7 +337,7 @@ def test_actual_literal_provider_answer_survives_current_selected_read(
                 demand,
                 project_id=PROJECT,
                 destination=archive,
-                format="jsonl",
+                format="parquet",
                 scope={"product_ids": [product["product_id"]]},
             )
         assert isinstance(exported.manifest_digest, str)

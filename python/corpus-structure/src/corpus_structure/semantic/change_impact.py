@@ -433,139 +433,130 @@ def _population_universe(selection, evidence, populations, *, model, scope):
 
 def _acquire(connection, demand, *, project, scope, read_id, expected_cut, max_bytes):
     """Protected Core/native projection owns visibility, trust and support walking."""
-    from pathlib import Path
-    from tempfile import TemporaryDirectory
+    from contextlib import closing
 
-    from .data_operation_read_index import SelectedRecordIndex
+    from .acquired_selected_relations import LiveSelectedRelations
 
-    with TemporaryDirectory(prefix="change-impact-") as scratch:
-        index = SelectedRecordIndex(Path(scratch) / "selected.sqlite")
-        try:
-            continuation = (
-                None
-                if read_id is None
-                else dict(demand_id=demand, read_id=read_id, scope=scope, view="frontier")
+    with closing(LiveSelectedRelations()) as index:
+        continuation = (
+            None
+            if read_id is None
+            else dict(demand_id=demand, read_id=read_id, scope=scope, view="frontier")
+        )
+        cut, obligations, uses, populations = None, {}, defaultdict(list), {}
+        while True:
+            page = read_demand_result(
+                connection,
+                demand,
+                project_id=project,
+                scope=scope,
+                view="frontier",
+                continuation=continuation,
+                cut=cut,
+                limit=100,
+                max_bytes=max_bytes,
             )
-            cut, obligations, uses, populations = None, {}, defaultdict(list), {}
-            while True:
-                page = read_demand_result(
-                    connection,
-                    demand,
-                    project_id=project,
-                    scope=scope,
-                    view="frontier",
-                    continuation=continuation,
-                    cut=cut,
-                    limit=100,
-                    max_bytes=max_bytes,
-                )
-                cut = page.cut
-                if expected_cut is not None and cut.identity != expected_cut:
-                    raise ValueError("impact request belongs to another cut/trust assessment")
-                for row in page.record["populations"]:
-                    populations[row["population_id"]] = row
-                for row in page.record["obligations"]:
-                    obligations[row["obligation_id"]] = row
-                for row in page.record["uses"]:
-                    uses[row["obligation_id"]].append(row)
-                for record in stream_selected_support(connection, page):
-                    index.append(json_bytes(record), allow_equal=True)
-                continuation = page.continuation
-                if continuation is None:
-                    break
-            from .data_operation_admission import bound_data_operation_model
-            from .releases import open_release
+            cut = page.cut
+            if expected_cut is not None and cut.identity != expected_cut:
+                raise ValueError("impact request belongs to another cut/trust assessment")
+            for row in page.record["populations"]:
+                populations[row["population_id"]] = row
+            for row in page.record["obligations"]:
+                obligations[row["obligation_id"]] = row
+            for row in page.record["uses"]:
+                uses[row["obligation_id"]].append(row)
+            continuation = page.continuation
+            if continuation is None:
+                break
+        for record in stream_selected_support(connection, page, whole_read=True, facts_only=True):
+            index.append_record(record, allow_equal=True)
+        from .data_operation_admission import bound_data_operation_model
+        from .releases import open_release
 
-            model = bound_data_operation_model(open_release(connection, cut.record["release_id"]))
-            read_unknowns = tuple(
-                sorted(
-                    {
-                        "selected read has undisclosed protected dependencies at authority "
-                        + row["derivation_id"]
-                        for row in index.rows("ops.data_authority_leaf")
-                    }
-                )
+        model = bound_data_operation_model(open_release(connection, cut.record["release_id"]))
+        read_unknowns = tuple(
+            sorted(
+                {
+                    "selected read has undisclosed protected dependencies at authority "
+                    + row["derivation_id"]
+                    for row in index.rows("ops.data_authority_leaf")
+                }
             )
-            evidence = []
-            for identity, obligation in obligations.items():
-                selected = uses[identity]
-                if (
-                    obligation["subject_definition"]
-                    != model.operation(obligation["operation_id"]).subject
-                ):
-                    raise ValueError(
-                        "impact obligation subject definition differs from checked operation"
-                    )
-                member = PopulationMember(
-                    operation=obligation["operation_id"],
-                    subject=obligation["subject"],
-                    subject_definition=obligation["subject_definition"],
-                    original_source=obligation["original_source"],
-                    analyzed_scope=obligation["analyzed_scope"],
+        )
+        evidence = []
+        for identity, obligation in obligations.items():
+            selected = uses[identity]
+            if (
+                obligation["subject_definition"]
+                != model.operation(obligation["operation_id"]).subject
+            ):
+                raise ValueError(
+                    "impact obligation subject definition differs from checked operation"
                 )
-                edges, inputs, support, derivations = [], [], set(), set()
-                for use in selected:
-                    episode = use.get("derivation_id")
-                    if episode is not None:
-                        derivations.add(episode)
-                        for row in index.rows_for(
-                            "ops.data_derivation_input", derivation_id=episode
-                        ):
-                            inputs.append(
-                                (
-                                    row["product_id"],
-                                    row.get("member_id"),
-                                    row["role"],
-                                    row["position"],
-                                    row["multiplicity"],
-                                )
-                            )
-                        selection = use["selection"]
-                        if "support" in selection:
-                            support.update(
-                                row["derivation_id"]
-                                for row in selection["support"]
-                                if row.get("derivation_id")
-                            )
-                        else:
-                            for row in index.rows_for(
-                                "ops.data_derivation_support", derivation_id=episode
-                            ):
-                                support.add(row["support_derivation_id"])
-                    for product in use["products"]:
-                        edges.append(
+            member = PopulationMember(
+                operation=obligation["operation_id"],
+                subject=obligation["subject"],
+                subject_definition=obligation["subject_definition"],
+                original_source=obligation["original_source"],
+                analyzed_scope=obligation["analyzed_scope"],
+            )
+            edges, inputs, support, derivations = [], [], set(), set()
+            for use in selected:
+                episode = use.get("derivation_id")
+                if episode is not None:
+                    derivations.add(episode)
+                    for row in index.rows_for("ops.data_derivation_input", derivation_id=episode):
+                        inputs.append(
                             (
-                                product["product_id"],
-                                product.get("member_id"),
-                                product["role"],
-                                product["position"],
-                                product["multiplicity"],
+                                row["product_id"],
+                                row.get("member_id"),
+                                row["role"],
+                                row["position"],
+                                row["multiplicity"],
                             )
                         )
-                evidence.append(
-                    SelectionEvidence(
-                        member=member,
-                        fate="cancelled"
-                        if page.record["state"] == "cancelled"
-                        else obligation["fate"],
-                        derivations=tuple(sorted(derivations)),
-                        products=tuple(sorted(edges, key=json_bytes)),
-                        inputs=tuple(sorted(inputs, key=json_bytes)),
-                        support=tuple(sorted(support)),
-                        read_unknowns=read_unknowns,
-                        invalidity_causes=_native_revocation_causes(
-                            index, derivations, tuple(use["use_id"] for use in selected)
+                    selection = use["selection"]
+                    if "support" in selection:
+                        support.update(
+                            row["derivation_id"]
+                            for row in selection["support"]
+                            if row.get("derivation_id")
                         )
-                        if obligation["fate"] == "unavailable"
-                        else (),
+                    else:
+                        for row in index.rows_for(
+                            "ops.data_derivation_support", derivation_id=episode
+                        ):
+                            support.add(row["support_derivation_id"])
+                for product in use["products"]:
+                    edges.append(
+                        (
+                            product["product_id"],
+                            product.get("member_id"),
+                            product["role"],
+                            product["position"],
+                            product["multiplicity"],
+                        )
                     )
+            evidence.append(
+                SelectionEvidence(
+                    member=member,
+                    fate="cancelled" if page.record["state"] == "cancelled" else obligation["fate"],
+                    derivations=tuple(sorted(derivations)),
+                    products=tuple(sorted(edges, key=json_bytes)),
+                    inputs=tuple(sorted(inputs, key=json_bytes)),
+                    support=tuple(sorted(support)),
+                    read_unknowns=read_unknowns,
+                    invalidity_causes=_native_revocation_causes(
+                        index, derivations, tuple(use["use_id"] for use in selected)
+                    )
+                    if obligation["fate"] == "unavailable"
+                    else (),
                 )
-            population, closed = _population_universe(
-                cut.record["selection"], evidence, populations.values(), model=model, scope=scope
             )
-            return cut, tuple(evidence), tuple(population.values()), closed
-        finally:
-            index.close()
+        population, closed = _population_universe(
+            cut.record["selection"], evidence, populations.values(), model=model, scope=scope
+        )
+        return cut, tuple(evidence), tuple(population.values()), closed
 
 
 def inspect_change_impact(

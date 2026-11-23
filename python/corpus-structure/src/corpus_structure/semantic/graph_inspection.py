@@ -461,13 +461,12 @@ def read_graph_inspection(reader, request: GraphInspectionRequest):
         except (KeyError, TypeError, ValueError) as error:
             raise ValueError("invalid selected graph continuation") from error
     from .data_operation_admission import bound_data_operation_model
-    from .demand_results import selected_record_index
+    from .demand_results import acquired_selected_relations
     from .selected_graph import selected_graph_budget_snapshot, selected_graph_snapshot
     from .selected_graph_budget import SelectedGraphBudgetExceeded
 
-    # The index owns only its temporary SQLite witness store after acquisition.
-    # Keep it alive past reader exit, so construction and NetworkX never hold the
-    # native publication/trust locks acquired by read_demand_result.
+    # The graph uses acquired rows and population headers after releasing the
+    # native publication and trust locks.
     with ExitStack() as witnesses:
         selected = None
         budget_error = None
@@ -481,7 +480,7 @@ def read_graph_inspection(reader, request: GraphInspectionRequest):
                     raise ValueError("selected graph requires an explicit project")
                 try:
                     selected = witnesses.enter_context(
-                        selected_record_index(
+                        acquired_selected_relations(
                             connection,
                             request.demand_id,
                             project_id=request.project_id,
@@ -491,6 +490,7 @@ def read_graph_inspection(reader, request: GraphInspectionRequest):
                             max_bytes=8388608,
                             max_total_bytes=request.max_examined_bytes,
                             capture_frontier=True,
+                            retain_population_items=False,
                         )
                     )
                 except SelectedGraphBudgetExceeded as error:

@@ -132,7 +132,7 @@ def test_native_exported_finite_and_rich_readers_keep_exact_consumed_use(
             retained["demand_id"],
             project_id=PROJECT,
             destination=destination,
-            format="jsonl",
+            format="parquet",
             page_rows=1,
         )
     with verified_demand_export(destination, manifest_digest=receipt.manifest_digest) as (
@@ -177,7 +177,7 @@ def test_native_exported_finite_and_rich_readers_keep_exact_consumed_use(
             publication.demand_id,
             project_id=PROJECT,
             destination=destination,
-            format="jsonl",
+            format="parquet",
             page_rows=1,
         )
     with verified_demand_export(destination, manifest_digest=receipt.manifest_digest) as (

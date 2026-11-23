@@ -23,7 +23,7 @@ from corpus_structure.semantic.declared_record_sources import (
     DeclaredNativeFrameSource,
     DeclaredRecordSource,
 )
-from corpus_structure.semantic.demand_results import selected_record_index
+from corpus_structure.semantic.demand_results import acquired_selected_relations
 from corpus_structure.semantic.source_contexts import PreparedNativeSources
 
 
@@ -49,7 +49,7 @@ def inspect_demand_context(connection, request: DemandContextRequest):
         {request.source_product_id, request.primary_product_id, request.focal_product_id}
     )
     scope = {"product_ids": selected_products}
-    with selected_record_index(
+    with acquired_selected_relations(
         connection,
         request.demand_id,
         project_id=request.project_id,

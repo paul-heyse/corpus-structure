@@ -10,6 +10,8 @@ from fastmcp import Client
 from sqlalchemy import create_engine
 
 from corpus_structure.semantic.continuation_codec import (
+    DEMAND_MEMBER_CURSOR,
+    DEMAND_ROW_CURSOR,
     decode_demand_cursor,
     decode_resource_handle,
 )
@@ -22,11 +24,65 @@ from semantic.demand_result_support import demand_result_page
 from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code
 
 
+def test_selected_answer_preserves_examined_limit_and_acquired_cut(monkeypatch):
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.refusal_types import ReadLimit
+    from corpus_structure.semantic.selected_contribution_input import LiveContributionRead
+
+    class ExaminedAddresses(Exception):
+        sqlstate = "P0001"
+        diag = SimpleNamespace(
+            message_primary="native selected answer exceeds examined address bound"
+        )
+
+    def refuse(*args):
+        raise DBAPIError(None, None, ExaminedAddresses())
+
+    monkeypatch.setattr(DataOperationStorage, "_invoke", refuse)
+    cut = CutSelection.from_native(demand_result_page())
+    reader = LiveContributionRead(None, None, cut, {}, 1024, 10)
+    with pytest.raises(SelectedGraphBudgetExceeded, match="examined address bound") as failure:
+        list(reader.answers("read_selected_outputs"))
+    assert failure.value.cut is cut
+    assert isinstance(failure.value.__cause__, ReadLimit)
+    assert failure.value.__cause__.reason == "examined_addresses"
+
+
 def _native_connection(page):
     from corpus_structure.semantic.data_operation_wire import wire_contract_digest
 
     encoded = json_bytes({"payload": page, "contract_digest": wire_contract_digest()}).decode()
     return SimpleNamespace(scalar=lambda *_: encoded)
+
+
+def test_acquired_relations_preserve_exact_input_keys_and_multiplicity():
+    from contextlib import closing
+
+    from corpus_structure.semantic.acquired_selected_relations import LiveSelectedRelations
+
+    relation = "ops.data_derivation_input"
+    first = dict(
+        derivation_id="derivation:first",
+        role="report",
+        position=0,
+        multiplicity=2,
+        product_id="product:shared",
+        member_id=None,
+        occurrence_label=None,
+    )
+    second = {**first, "derivation_id": "derivation:second", "multiplicity": 1}
+    with closing(LiveSelectedRelations()) as acquired:
+        acquired.append_record(dict(relation=relation, key="second", record=second))
+        acquired.append_record(dict(relation=relation, key="first", record=first))
+        acquired.append_record(dict(relation=relation, key="first", record=first), allow_equal=True)
+        exact = acquired.mapping(relation, ("derivation_id", "role", "position"))
+        assert exact["derivation:first", "report", 0] == first
+        assert list(acquired.rows_for(relation, product_id="product:shared")) == [first, second]
+        assert list(acquired.rows_for(relation, member_id=None)) == [first, second]
+        assert exact.get(("derivation:missing", "report", 0)) is None
+        assert acquired.retained_records == 2
 
 
 def test_members_retain_actual_context_episode_direction_and_multiplicity():
@@ -240,7 +296,7 @@ def test_current_member_cursor_preserves_whole_group_and_refuses_wrong_target(mo
         assert kwargs["body"] is True and kwargs["limit"] == 1
         reads.append((read_id, after, kwargs["max_bytes"]))
         if after is None:
-            assert read_id is None
+            assert read_id in (None, "read:A")
             return _selected_answer(rows[:1], after=_selected_member_key(None))
         assert read_id == "read:A"
         if after == _selected_member_key(None):
@@ -252,7 +308,12 @@ def test_current_member_cursor_preserves_whole_group_and_refuses_wrong_target(mo
     request = DemandQueryRequest(demand_id="demand:A", project_id="project:A", limit=1)
     first = serve_demand_query(None, request)
     assert [row["member_id"] for row in first["items"]] == [None]
-    assert "selection" not in decode_demand_cursor(first["continuation"])["request"]
+    token = decode_demand_cursor(first["continuation"])
+    assert set(token) == {"version", "implementation", "selection", "cut", "read_id", "position"}
+    assert token["version"] == DEMAND_MEMBER_CURSOR and token["read_id"] == "read:A"
+    assert token["position"] == _selected_member_key(None)
+    first_resource = decode_resource_handle(first["resource_handle"], DemandQueryRequest)
+    assert serve_demand_query(None, first_resource)["items"] == first["items"]
     second = serve_demand_query(None, request.model_copy(update={"cursor": first["continuation"]}))
     assert [row["member_id"] for row in second["items"]] == ["first"]
     assert second["items"][0]["body"] == {"amount": Decimal("12.340")}
@@ -269,11 +330,12 @@ def test_current_member_cursor_preserves_whole_group_and_refuses_wrong_target(mo
         )
     resource = decode_resource_handle(second["resource_handle"], DemandQueryRequest)
     assert serve_demand_query(None, resource)["items"] == second["items"]
-    assert [after for _, after, _ in reads] == [
-        None,
-        _selected_member_key(None),
-        _selected_member_key("first"),
-        _selected_member_key(None),
+    assert [(read_id, after) for read_id, after, _ in reads] == [
+        (None, None),
+        ("read:A", None),
+        ("read:A", _selected_member_key(None)),
+        ("read:A", _selected_member_key("first")),
+        ("read:A", _selected_member_key(None)),
     ]
 
     def refused(*args, **kwargs):
@@ -812,25 +874,56 @@ def test_detached_product_requires_its_artifact_even_without_document_admission(
         verify_detached_result(native, records=records, wire_schema={}, source_artifacts={})
 
 
+@pytest.mark.usefixtures("complete_serving_code")
 def test_scoped_operation_metadata_keeps_native_selected_obligation(monkeypatch):
-    def native(connection, demand_id, *, project_id, scope, view, **kwargs):
-        assert scope == {"product_ids": ["product:A"]} and view == "frontier"
+    reads = []
+    selected_scope = {"product_ids": ["product:A"], "analyzed_scope": None}
+
+    def native(connection, demand_id, *, project_id, scope, view, continuation, **kwargs):
+        assert scope == selected_scope and view == "frontier"
+        reads.append(continuation)
         page = demand_result_page(empty=True)
         page.update(view=view, scope=scope)
+        if continuation is None or "after" not in continuation:
+            page["continuation"] = dict(
+                demand_id=demand_id,
+                read_id=page["read_id"],
+                read_snapshot=page["read_snapshot"],
+                frontier_at=page["frontier_at"],
+                trust_snapshot=page["trust_snapshot"],
+                selection=page["selection"],
+                scope=scope,
+                view=view,
+                after="obligation:A",
+                limit=1,
+                max_bytes=8192,
+            )
+        else:
+            assert continuation["after"] == "obligation:A"
+            page["obligations"][0].update(id="obligation:B", obligation_id="obligation:B")
         return DemandResult(json_bytes(page))
 
     monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result", native)
-    result = serve_demand_query(
-        None,
-        DemandQueryRequest(
-            demand_id="demand:A",
-            project_id="project:A",
-            view="operations",
-            product_id="product:A",
-            max_bytes=8192,
-        ),
+    request = DemandQueryRequest(
+        demand_id="demand:A",
+        project_id="project:A",
+        view="operations",
+        product_id="product:A",
+        analyzed_scope=None,
+        max_bytes=8192,
     )
-    assert result["items"][0]["obligation"]["obligation_id"] == "obligation:A"
+    first = serve_demand_query(None, request)
+    assert first["items"][0]["obligation"]["obligation_id"] == "obligation:A"
+    cursor = decode_demand_cursor(first["continuation"])
+    assert cursor["version"] == DEMAND_ROW_CURSOR and cursor["position"] == 0
+    assert cursor["seek"] == {"after": "obligation:A"}
+    resource = decode_resource_handle(first["resource_handle"], DemandQueryRequest)
+    assert serve_demand_query(None, resource)["items"] == first["items"]
+    second = serve_demand_query(None, request.model_copy(update={"cursor": first["continuation"]}))
+    assert second["items"][0]["obligation"]["obligation_id"] == "obligation:B"
+    assert second["continuation"] is None
+    pinned = dict(demand_id="demand:A", read_id="read:A", scope=selected_scope, view="frontier")
+    assert reads == [None, pinned, dict(pinned, after="obligation:A")]
 
 
 def test_detached_retained_observation_refuses_unqualified_fresh_replication():

@@ -371,7 +371,9 @@ def test_acquisition_pins_original_query_cut_and_refuses_missing_cues(
         assert kwargs["scope"] == {"product_ids": [query_role.product_id]}
         yield cut, Index()
 
-    monkeypatch.setattr("corpus_structure.semantic.demand_results.selected_record_index", read)
+    monkeypatch.setattr(
+        "corpus_structure.semantic.demand_results.acquired_selected_relations", read
+    )
 
     def candidates(index, exact_cut, *, product_id, member_id, anchor_use_id):
         assert exact_cut is query_entry.read

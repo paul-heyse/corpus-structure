@@ -7,7 +7,7 @@ from typing import Any, Literal, cast
 from pydantic import BaseModel, ConfigDict, Field
 
 from ._data_operation_wire import WireReadGovernedSelectionRequest
-from .continuation_codec import decode_demand_cursor
+from .continuation_codec import DEMAND_MEMBER_CURSOR, DEMAND_ROW_CURSOR, decode_demand_cursor
 from .data_operation_json import json_bytes
 from .data_operation_storage import DataOperationStorage
 from .demand_queries import DemandQueryRequest, DemandView
@@ -22,6 +22,7 @@ class GovernedDemandQueryRequest(BaseModel):
     operation_id: str | None = None
     subject: str | None = None
     original_source: str | None = None
+    analyzed_scope: Any = None
     kind_contract: str | None = None
     record_type: str | None = None
     family: str | None = None
@@ -36,35 +37,39 @@ class GovernedDemandQueryRequest(BaseModel):
         selected = self.model_dump(exclude={"cursor", "limit", "max_bytes"})
         if "original_source" not in self.model_fields_set:
             selected.pop("original_source")
+        if "analyzed_scope" not in self.model_fields_set:
+            selected.pop("analyzed_scope")
         return selected
 
 
 def governed_scope(request):
     scope = {
         name: getattr(request, name)
-        for name in ("operation_id", "subject", "original_source")
+        for name in ("operation_id", "subject")
         if getattr(request, name) is not None
     }
-    if "original_source" in request.model_fields_set:
-        scope["original_source"] = request.original_source
+    for name in ("original_source", "analyzed_scope"):
+        if name in request.model_fields_set:
+            scope[name] = getattr(request, name)
     if request.product_id is not None:
         scope["product_ids"] = [request.product_id]
     return scope
 
 
 def serve_governed_demand_query(connection, request: GovernedDemandQueryRequest):
-    from .demand_queries import serve_demand_query
+    from .demand_queries import demand_cursor_selection, serve_demand_query
 
     selection = request.selection()
     cursor = None if request.cursor is None else decode_demand_cursor(request.cursor)
-    if cursor is not None and (
-        "governance" not in cursor
-        or any(
-            cursor["governance"][name] != getattr(request, name)
-            for name in ("project_id", "selection_name", "mode")
-        )
-    ):
-        raise ValueError("cursor differs from the exact governed selection")
+    if cursor is not None:
+        generation = cursor.get("generation")
+        version = DEMAND_MEMBER_CURSOR if request.view == "members" else DEMAND_ROW_CURSOR
+        if (
+            generation is None
+            or cursor["version"] != version
+            or cursor["selection"] != demand_cursor_selection(request, selection, generation)
+        ):
+            raise ValueError("cursor differs from the exact governed selection")
     native_request: dict[str, Any] = dict(
         project_id=request.project_id,
         selection_name=request.selection_name,
@@ -72,8 +77,8 @@ def serve_governed_demand_query(connection, request: GovernedDemandQueryRequest)
         mode=request.mode,
     )
     if cursor is not None:
-        native_request["read_id"] = cursor["request"]["read_id"]
-        native_request["selection_generation"] = cursor["governance"]["generation"]
+        native_request["read_id"] = cursor["read_id"]
+        native_request["selection_generation"] = cursor["generation"]
     freshness = DataOperationStorage(connection).read_governed_selection(
         cast(WireReadGovernedSelectionRequest, native_request)
     )
@@ -94,9 +99,15 @@ def serve_governed_demand_query(connection, request: GovernedDemandQueryRequest)
     demand_id = freshness["demand_id"]
     if demand_id is None or freshness["selection_generation"] is None:
         raise ValueError("acquired governed read requires its exact demand and generation")
+    if cursor is not None and (
+        freshness["read_id"] != cursor["read_id"]
+        or freshness["selection_generation"] != cursor["generation"]
+    ):
+        raise ValueError("governed continuation differs from its acquired read or generation")
     values = request.model_dump(exclude={"selection_name", "mode", "cursor"})
-    if "original_source" not in request.model_fields_set:
-        values.pop("original_source")
+    for name in ("original_source", "analyzed_scope"):
+        if name not in request.model_fields_set:
+            values.pop(name)
     exact = DemandQueryRequest(
         **values,
         demand_id=demand_id,

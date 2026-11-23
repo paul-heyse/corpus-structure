@@ -1,11 +1,15 @@
 """Bounded current contribution interpretation and captured assessment delivery."""
 
-from hashlib import sha256
-
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from corpus_structure.semantic.continuation_codec import decode_rich_cursor
-from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.continuation_codec import (
+    bind_cursor_request,
+    decode_pinned_cursor,
+    pinned_cursor_basis,
+    require_cursor_cut,
+    require_cursor_implementation,
+    selection_digest,
+)
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.page_envelope import PageEnvelope
 from corpus_structure.semantic.refusal_types import InvalidContinuation, RichQueryRefused
@@ -20,6 +24,7 @@ from corpus_structure.semantic.serving_identity import installed_read_implementa
 from .selected_contributions import selected_contribution_scope
 
 VERSION = "selected-contribution-facets-2"
+CURSOR_VERSION = "selected-contribution-facets-cursor-3"
 
 
 class ContributionFacetsRequest(BaseModel):
@@ -90,7 +95,8 @@ def serve_contribution_facets(connection, request: ContributionFacetsRequest):
                 "corpus_structure.semantic.selected_contribution_input.SelectedContributionScope.graph",
                 "corpus_structure.semantic.selected_pages.byte_bounded_page",
                 "corpus_structure.semantic.continuation_codec.encode_cursor",
-                "corpus_structure.semantic.continuation_codec.decode_rich_cursor",
+                "corpus_structure.semantic.continuation_codec.decode_pinned_cursor",
+                "corpus_structure.semantic.continuation_codec.bind_cursor_request",
             ),
         ) as implementation:
             return _serve(connection, request, implementation)
@@ -101,36 +107,17 @@ def serve_contribution_facets(connection, request: ContributionFacetsRequest):
 def _serve(connection, request, implementation):
     from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
 
-    digest = sha256(json_bytes(semantic_value(request.selection()))).hexdigest()
+    digest = selection_digest(semantic_value(request.selection()))
     if request.implementation is not None and request.implementation != implementation:
         raise InvalidContinuation(
             "contribution resource differs from actual installed meaning",
             reason="invalid_continuation",
         )
-    cursor = None if request.cursor is None else decode_rich_cursor(request.cursor)
-    if cursor is not None:
-        if (
-            set(cursor)
-            != {"version", "implementation", "selection", "read_id", "cut_id", "ordinal"}
-            or cursor["version"] != VERSION
-            or cursor["implementation"] != implementation
-            or cursor["selection"] != digest
-        ):
-            raise InvalidContinuation(
-                "contribution cursor differs from its exact selection or implementation",
-                reason="invalid_continuation",
-            )
-        if request.read_id is not None and (request.read_id, request.expected_cut) != (
-            cursor["read_id"],
-            cursor["cut_id"],
-        ):
-            raise InvalidContinuation(
-                "contribution cursor differs from explicit native read",
-                reason="invalid_continuation",
-            )
-        request = request.model_copy(
-            update={"read_id": cursor["read_id"], "expected_cut": cursor["cut_id"]}
-        )
+    cursor = None
+    if request.cursor is not None:
+        cursor = decode_pinned_cursor(request.cursor, version=CURSOR_VERSION, selection=digest)
+        require_cursor_implementation(cursor, implementation)
+        request = bind_cursor_request(request, cursor)
     from contextlib import ExitStack
     from itertools import chain
 
@@ -154,6 +141,8 @@ def _serve(connection, request, implementation):
         max_bytes=request.max_graph_bytes,
         max_records=request.max_graph_records,
     )
+    if cursor is not None:
+        require_cursor_cut(cursor, cut)
     pinned = request.model_copy(
         update=dict(
             read_id=cut.record["read_id"], expected_cut=cut.identity, implementation=implementation
@@ -199,11 +188,7 @@ def _serve(connection, request, implementation):
                 )
                 for obligation in frontier["obligations"]
             ]
-        offset = 0 if cursor is None else cursor["ordinal"]
-        if type(offset) is not int or offset < 0:
-            raise InvalidContinuation(
-                "invalid contribution row ordinal", reason="invalid_continuation"
-            )
+        offset = 0 if cursor is None else cursor["position"]
         derived_offset = max(0, offset - len(operations))
         rows = chain(
             operations[offset:],
@@ -231,15 +216,9 @@ def _serve(connection, request, implementation):
                 assessment_scope="captured-native-producer-judgments",
                 source_completeness="unknown",
             ),
-            cursor_basis=dict(
-                version=VERSION,
-                implementation=implementation,
-                selection=digest,
-                read_id=cut.record["read_id"],
-                cut_id=cut.identity,
-            ),
+            cursor_basis=pinned_cursor_basis(CURSOR_VERSION, digest, cut, implementation),
             cursor_field="cursor",
-            position_field="ordinal",
+            position_field="position",
         )
 
         try:

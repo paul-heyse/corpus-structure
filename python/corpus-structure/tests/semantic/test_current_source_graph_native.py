@@ -45,7 +45,7 @@ def test_actual_computational_source_hierarchy_keeps_native_pointer_custody(
             demand,
             project_id=PROJECT,
             destination=destination,
-            format="jsonl",
+            format="parquet",
         )
     pinned = request.model_copy(
         update={

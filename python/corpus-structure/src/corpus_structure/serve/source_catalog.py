@@ -2,20 +2,30 @@
 
 from __future__ import annotations
 
-from hashlib import sha256
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from corpus_structure.semantic.continuation_codec import decode_rich_cursor, encode_cursor
+from corpus_structure.semantic.continuation_codec import (
+    decode_pinned_cursor,
+    encode_cursor,
+    pinned_cursor_basis,
+    require_cursor_cut,
+    require_cursor_implementation,
+    selection_digest,
+)
 from corpus_structure.semantic.data_operation_json import DdoJsonValue, json_bytes
-from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
 from corpus_structure.semantic.demand_results import (
     CutSelection,
     read_demand_result,
     read_selected_answer,
 )
-from corpus_structure.serve.native_source import NativeSourceRequest, inspect_native_source
+from corpus_structure.serve.native_source import (
+    NativeSourceRequest,
+    inspect_native_source_product_headers,
+)
+
+_CURSOR_VERSION = "selected-source-catalog-cursor-3"
 
 
 class SourceCatalogRequest(BaseModel):
@@ -92,67 +102,69 @@ def _catalog_frontier(connection, request, cut, rows):
     return {name: list(rows.values()) for name, rows in context.items()}
 
 
-def _source_view_catalog(connection, request):
+def read_source_catalog(connection, request: SourceCatalogRequest, *, cancellation=None):
+    """Page checked source kinds by native address in one exact selected cut."""
     from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.serving_identity import installed_read_implementation
 
-    selection = request.model_dump(exclude={"cursor", "limit", "max_bytes"})
-    digest = sha256(json_bytes(selection)).hexdigest()
+    digest = selection_digest(request.model_dump(exclude={"cursor", "limit", "max_bytes"}))
     with installed_read_implementation(
         SourceCatalogRequest,
         entry="corpus_structure.serve.source_catalog",
-        profile="selected-source-views-v2",
+        profile=_CURSOR_VERSION,
         callables=(
-            "corpus_structure.serve.source_catalog._source_view_catalog",
+            "corpus_structure.serve.source_catalog.read_source_catalog",
             "corpus_structure.serve.source_catalog._catalog_frontier",
+            "corpus_structure.serve.native_source.inspect_native_source_product_headers",
             "corpus_structure.semantic.demand_results.read_selected_answer",
+            "corpus_structure.semantic.continuation_codec.decode_pinned_cursor",
         ),
     ) as implementation:
-        cursor = None if request.cursor is None else decode_rich_cursor(request.cursor)
-        if cursor is not None and (
-            set(cursor) != {"version", "selection", "implementation", "cut", "request", "ordinal"}
-            or cursor["version"] != "selected-source-views-v2"
-            or cursor["selection"] != digest
-            or cursor["implementation"] != implementation
-            or not isinstance(cursor["request"], dict)
-            or set(cursor["request"]) != {"read_id", "answer_after"}
-            or not isinstance(cursor["request"]["read_id"], str)
-            or not cursor["request"]["read_id"]
-            or not isinstance(cursor["request"]["answer_after"], list)
-        ):
-            raise ValueError("source catalog cursor differs from its exact selection")
-        pins = None if cursor is None else cursor["request"]
+        cursor = None
+        if request.cursor is not None:
+            cursor = decode_pinned_cursor(
+                request.cursor, version=_CURSOR_VERSION, selection=digest, keyset="native-output"
+            )
+            require_cursor_implementation(cursor, implementation)
         first = read_selected_answer(
             connection,
             "read_selected_outputs",
             request.demand_id,
             project_id=request.project_id,
-            read_id=None if pins is None else pins["read_id"],
+            read_id=None if cursor is None else cursor["read_id"],
             limit=1,
             max_bytes=request.max_bytes,
         )
         cut = CutSelection.from_native(first["cut"])
-        if cursor is not None and cursor["cut"] != cut.identity:
-            raise ValueError("source catalog cursor differs from its exact selected read")
+        if cursor is not None:
+            require_cursor_cut(cursor, cut)
         prepared = open_release(connection, cut.record["release_id"])
-        kinds = _kind_contracts(prepared, "DdoSelectedNativeSource")
+        publications = request.view == "publications"
+        kinds = _kind_contracts(
+            prepared, "DdoPdfPublication" if publications else "DdoSelectedNativeSource"
+        )
         answer = read_selected_answer(
             connection,
             "read_selected_outputs",
             request.demand_id,
             project_id=request.project_id,
             read_id=cut.record["read_id"],
-            after=None if pins is None else pins.get("answer_after"),
+            after=None if cursor is None else cursor["position"],
             kind_contracts=list(kinds),
-            source_metadata=True,
+            containers_only=publications,
+            body=publications,
+            source_metadata=not publications,
             limit=request.limit,
             max_bytes=request.max_bytes,
         )
         if CutSelection.from_native(answer["cut"]).content != cut.content:
             raise ValueError("source catalog answer differs from its exact selected read")
-        rows = []
+        rows, selections = [], []
         for row in answer["rows"]:
+            nominal = kinds.get(row["kind_contract"])
+            if nominal is None:
+                continue
             item = {
                 name: row[name]
                 for name in (
@@ -164,7 +176,7 @@ def _source_view_catalog(connection, request):
                     "analyzed_scope",
                 )
             }
-            item["selection"] = dict(
+            selection = dict(
                 project_id=request.project_id,
                 demand_id=request.demand_id,
                 read_id=cut.record["read_id"],
@@ -172,24 +184,30 @@ def _source_view_catalog(connection, request):
                 product_id=row["product_id"],
                 derivation_id=row["derivation_id"],
             )
-            item.update(
-                source=decode_semantic_value(row["source"]),
-                selectors=decode_semantic_value(row["selectors"]),
-            )
+            item["selection"] = selection
+            if publications:
+                item["publication"] = prepared.validate_json(
+                    nominal, json_bytes(decode_semantic_value(row["meaning_body"]))
+                ).model_dump(mode="python", exclude_unset=True)
+                selections.append(
+                    NativeSourceRequest(
+                        **selection, view="products", limit=1, max_bytes=request.max_bytes
+                    )
+                )
+            else:
+                item.update(
+                    source=decode_semantic_value(row["source"]),
+                    selectors=decode_semantic_value(row["selectors"]),
+                )
             rows.append(item)
+        if publications:
+            _attach_publication_headers(connection, rows, selections, cut, cancellation)
         after = answer["answer_after"]
         following = (
             None
             if after is None
             else encode_cursor(
-                dict(
-                    version="selected-source-views-v2",
-                    implementation=str(implementation),
-                    selection=digest,
-                    cut=cut.identity,
-                    ordinal=0,
-                    request={"read_id": cut.record["read_id"], "answer_after": after},
-                )
+                pinned_cursor_basis(_CURSOR_VERSION, digest, cut, implementation, position=after)
             )
         )
         context = _catalog_frontier(connection, request, cut, answer["rows"])
@@ -208,106 +226,16 @@ def _source_view_catalog(connection, request):
         return response
 
 
-def read_source_catalog(connection, request: SourceCatalogRequest, *, cancellation=None):
-    """Reuse the selected query's bounded pagination, exact read and unknown standing.
-
-    Classification uses archived nominal kind inheritance. A publication additionally
-    passes the existing native selected-PDF receipt guard before its header is read.
-    No run, task, operation name or current registry spelling grants membership.
-    """
-    from corpus_structure.semantic.releases import open_release
-
-    if request.view == "views":
-        return _source_view_catalog(connection, request)
-
-    # The current selected-query cursor is bound to this exact projection as well as
-    # to its demand. A source-kind filter never turns an empty page into absence.
-    page = serve_demand_query(
-        connection,
-        DemandQueryRequest(
-            project_id=request.project_id,
-            demand_id=request.demand_id,
-            view="members",
-            containers_only=request.view == "publications",
-            cursor=request.cursor,
-            limit=request.limit,
-            max_bytes=request.max_bytes,
-        ),
+def _attach_publication_headers(connection, rows, selections, cut, cancellation):
+    """Resolve selected native publication receipts without re-acquiring each cut."""
+    headers = inspect_native_source_product_headers(
+        connection, tuple(selections), cancellation=cancellation
     )
-    prepared = open_release(connection, page["cut"]["release_id"])
-    kinds = _kind_contracts(
-        prepared,
-        "DdoPdfPublication" if request.view == "publications" else "DdoSelectedNativeSource",
-    )
-    rows = []
-    for row in page["items"]:
-        nominal = kinds.get(row["kind_contract"])
-        if nominal is None:
-            continue
-        checked = prepared.validate_json(nominal, json_bytes(row["body"])).model_dump(
-            mode="python", exclude_unset=True
+    for item, inspected in zip(rows, headers, strict=True):
+        if inspected.cut != cut.record:
+            raise ValueError("publication catalog differs from its exact selected read")
+        if len(inspected.rows) != 1 or inspected.next_cursor is not None:
+            raise ValueError("publication catalog requires its one complete native header")
+        item.update(
+            native=inspected.rows[0], health=inspected.health, release_id=inspected.release_id
         )
-        selection = dict(
-            project_id=request.project_id,
-            demand_id=request.demand_id,
-            read_id=page["cut"]["read_id"],
-            use_id=row["use_id"],
-            product_id=row["product_id"],
-            derivation_id=row["derivation_id"],
-        )
-        item = {
-            key: row[key]
-            for key in (
-                "member_id",
-                "kind_contract",
-                "subject",
-                "subject_definition",
-                "original_source",
-                "analyzed_scope",
-            )
-        }
-        item["selection"] = selection
-        if request.view == "publications":
-            inspected = inspect_native_source(
-                connection,
-                NativeSourceRequest(
-                    **selection,
-                    view="products",
-                    limit=1,
-                    max_bytes=request.max_bytes,
-                ),
-                cancellation=cancellation,
-            )
-            if inspected.cut != page["cut"]:
-                raise ValueError("publication catalog differs from its exact selected read")
-            if len(inspected.rows) != 1 or inspected.next_cursor is not None:
-                raise ValueError("publication catalog requires its one complete native header")
-            item.update(
-                publication=checked,
-                native=inspected.rows[0],
-                health=inspected.health,
-                release_id=inspected.release_id,
-            )
-        else:
-            item.update(source=checked["source"], selectors=checked["selectors"])
-        rows.append(item)
-    context = (
-        {name: page[name] for name in ("obligations", "uses", "populations")}
-        if all(name in page for name in ("obligations", "uses", "populations"))
-        else _catalog_frontier(
-            connection, request, CutSelection.from_native(page["cut"]), page["items"]
-        )
-    )
-    response = SourceCatalogResponse(
-        selection=request,
-        cut=page["cut"],
-        rows=rows,
-        obligations=context["obligations"],
-        uses=context["uses"],
-        populations=context["populations"],
-        next_cursor=page["continuation"],
-        page_complete=page["page_complete"],
-    )
-    if len(json_bytes(response.model_dump(mode="python"))) > request.max_bytes:
-        raise ValueError("complete source catalog envelope exceeds max_bytes")
-    return response

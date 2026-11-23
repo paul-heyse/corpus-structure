@@ -228,11 +228,11 @@ def inspect_selected_source_journey(conn, request: SelectedSourceDecisionJourney
         roots=tuple(layer.root for layer in request.layers),
         source_products=(source_ref.source_product,),
     ) as scope:
-        from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
+        from corpus_structure.semantic.selected_contribution_input import LiveContributionRead
 
         index = scope.index
-        if not isinstance(index, SelectedRecordIndex):
-            raise ValueError("source journey requires its authenticated support index")
+        if isinstance(index, LiveContributionRead):
+            raise ValueError("source journey requires acquired support relations")
         frozen = _source_for_interpretation(
             scope.prepared,
             source_ref,

@@ -67,6 +67,32 @@ def test_current_artifact_numeric_policy_exact_witness_and_atomic_cpu_output_ref
     with _current_pdf_source(
         scenario_seeds, tmp_path, content=artifact_content(rows), sections=("#/groups/0",)
     ) as source:
+        if typed:
+            from corpus_structure.serve.native_source import (
+                NativeSourceRequest,
+                inspect_native_source,
+            )
+            from corpus_structure.serve.source_catalog import (
+                SourceCatalogRequest,
+                read_source_catalog,
+            )
+
+            with source.kernel.purpose("read").begin() as connection:
+                catalog = read_source_catalog(
+                    connection,
+                    SourceCatalogRequest(project_id=PROJECT, demand_id=source.demand_id),
+                )
+                (entry,) = catalog.rows
+                assert entry["original_source"] == source.document_key
+                pin = entry["selection"]
+                assert isinstance(pin, dict)
+                scalar = inspect_native_source(
+                    connection,
+                    NativeSourceRequest.model_validate({**pin, "view": "products", "limit": 1}),
+                )
+                assert [entry["native"]] == scalar.rows
+                assert entry["health"] == scalar.health
+                assert entry["release_id"] == scalar.release_id
         kernel = admit_current_target(
             source, artifact_recipe(tmp_path / "recipe"), tmp_path / "consumer"
         )
@@ -336,7 +362,7 @@ def test_current_artifact_numeric_policy_exact_witness_and_atomic_cpu_output_ref
                     demand["demand_id"],
                     project_id=PROJECT,
                     destination=archive,
-                    format="jsonl",
+                    format="parquet",
                     page_rows=16,
                     page_bytes=32 * 1024**2,
                     scope={"product_ids": [report.root.product_id]},

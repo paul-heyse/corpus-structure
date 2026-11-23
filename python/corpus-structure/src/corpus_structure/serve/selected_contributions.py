@@ -12,8 +12,8 @@ from corpus_structure.semantic._data_operation_wire import (
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.demand_results import (
     CutSelection,
+    acquired_selected_relations,
     read_selected_answer,
-    selected_record_index,
 )
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.selected_contribution_input import (
@@ -49,7 +49,7 @@ def selected_contribution_selection(request, *, product_ids=None) -> WireDemandR
 def selected_contribution_scope(connection, request, *, product_ids=None, require_support=False):
     scope = selected_contribution_selection(request, product_ids=product_ids)
     if require_support:
-        with selected_record_index(
+        with acquired_selected_relations(
             connection,
             request.demand_id,
             project_id=request.project_id,

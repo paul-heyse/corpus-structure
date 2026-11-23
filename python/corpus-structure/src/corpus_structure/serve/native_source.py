@@ -348,21 +348,23 @@ def _published_native_header(reader, *, runtime: bool):
 
     with closing(reader.iter_rows("companion", {"family": "health"}, batch_size=3)) as rows:
         health_rows = [reader.decode_companion_row(row) for row in islice(rows, 3)]
-    native_health = [row for row in health_rows if "source_scope" in row]
-    if len(health_rows) > 2 or len(native_health) != 1:
-        raise ValueError("published native health is unavailable or ambiguous")
-    runtime_report = None
+    reports = []
     if runtime:
         with closing(reader.native_metadata("runtime_report")) as rows:
             reports = list(islice(rows, 2))
-        if len(reports) > 1:
-            raise ValueError("published runtime metadata is ambiguous")
-        if reports:
-            runtime_report = reports[0]
+    return _native_header(reader.revision, health_rows, reports)
+
+
+def _native_header(revision, health_rows, reports):
+    native_health = [row for row in health_rows if "source_scope" in row]
+    if len(health_rows) > 2 or len(native_health) != 1:
+        raise ValueError("published native health is unavailable or ambiguous")
+    if len(reports) > 1:
+        raise ValueError("published runtime metadata is ambiguous")
     return SimpleNamespace(
-        release_id=reader.revision["release_id"],
-        content_digest=reader.revision["logical_digest"],
-        artifact_digest=reader.revision["source_digest"],
+        release_id=revision["release_id"],
+        content_digest=revision["logical_digest"],
+        artifact_digest=revision["source_digest"],
         page_start=native_health[0].get("page_start"),
         page_end=native_health[0].get("page_end"),
         health={
@@ -370,8 +372,99 @@ def _published_native_header(reader, *, runtime: bool):
             for key, value in native_health[0].items()
             if key not in {"source_scope", "page_start", "page_end", "formula_outcomes"}
         },
-        runtime_report=runtime_report,
+        runtime_report=reports[0] if reports else None,
     )
+
+
+def inspect_native_source_product_headers(
+    conn: Connection, requests: tuple[NativeSourceRequest, ...], *, cancellation=None
+) -> tuple[NativeSourceResponse, ...]:
+    """Return only the product projection consumed by the publication catalog."""
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.pdf_contracts import pdf_context_for_release
+    from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader, PublishedReadBudget
+    from corpus_structure.semantic.refusal_types import ReadLimit
+    from corpus_structure.serve.selected_pdf import (
+        acquire_selected_pdf_sources,
+        published_catalog_rows,
+    )
+
+    if not requests:
+        return ()
+    cancellation = cancellation or BorrowerCancellation()
+    with cancellation.borrow(conn):
+        sources = acquire_selected_pdf_sources(conn, requests)
+        first = requests[0]
+        cut = sources[0].cut.content
+        for request, source in zip(requests, sources, strict=True):
+            if (
+                request.view != "products"
+                or request.max_bytes != first.max_bytes
+                or source.cut.content != cut
+            ):
+                raise ValueError("publication catalog differs from its exact selected read")
+        context = pdf_context_for_release(conn, sources[0].prepared)
+        context.require_operation("read_native_source")
+        for request in requests:
+            context.boundary.validate_json(
+                "PdfNativeReadRequest", request.model_dump_json(exclude_none=True)
+            )
+        acquired = published_catalog_rows(
+            conn,
+            tuple(source.physical for source in sources),
+            cancellation=cancellation,
+            max_bytes=first.max_bytes,
+        )
+        responses = []
+        mappings = {}
+        for request, source, (revision, health, runtime) in zip(
+            requests, sources, acquired, strict=True
+        ):
+            budget = PublishedReadBudget(request.max_rows, request.max_bytes)
+            budget.reserve_rows(1 + len(health) + len(runtime))
+            budget.value(revision)
+            reader = PublishedPdfReader(
+                conn,
+                source.physical,
+                revision=revision,
+                cancellation=cancellation,
+                projection_context=source.prepared,
+                read_budget=budget,
+            )
+            for row in (*health, *runtime):
+                budget.value(row)
+            header = _native_header(
+                revision,
+                [reader.decode_companion_row(row) for row in health],
+                [reader.decode_companion_row(row)["value"] for row in runtime],
+            )
+            # A producer's release and exact schema bytes define the mapping
+            # proof, which can be shared by all its headers in this acquisition.
+            mapping_key = (revision["release_id"], revision["schema_digest"])
+            if mapping_key not in mappings:
+                mappings[mapping_key] = reader._native_schema_mapping()
+            response = NativeSourceResponse(
+                selection=request,
+                release_id=header.release_id,
+                cut=source.cut.record,
+                health=to_jsonable_python(header.health),
+                rows=to_jsonable_python(
+                    [
+                        dict(
+                            **source.physical.values(),
+                            artifact_digest=header.artifact_digest,
+                            runtime_report=header.runtime_report,
+                        )
+                    ]
+                ),
+            )
+            if len(canonical_bytes(response.model_dump(mode="json"))) > request.max_bytes:
+                raise ReadLimit(
+                    "complete native source envelope exceeds max_bytes", reason="oversized_item"
+                )
+            responses.append(response)
+        cancellation.check_active()
+        return tuple(responses)
 
 
 def _inspect_native_source(

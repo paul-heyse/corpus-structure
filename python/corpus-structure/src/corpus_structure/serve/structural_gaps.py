@@ -114,42 +114,35 @@ def selected_gap_rows(request, body) -> list[dict[str, Any]]:
 
 
 def inspect_selected_gap(conn, request: SelectedGapRequest):
-    from corpus_structure.semantic.continuation_codec import decode_rich_cursor
-    from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
+    from corpus_structure.semantic.continuation_codec import (
+        bind_cursor_request,
+        decode_pinned_cursor,
+        encode_cursor,
+        pinned_cursor_basis,
+        require_cursor_cut,
+        selection_digest,
+    )
     from corpus_structure.semantic.data_operation_json import json_bytes
 
-    selection = request.model_dump(
-        mode="python",
-        exclude={"cursor", "limit", "max_bytes", "read_id", "expected_cut", "implementation"},
-    )
-    cursor = None if request.cursor is None else decode_rich_cursor(request.cursor)
-    if cursor is not None:
-        if (
-            set(cursor) != {"version", "selection", "read_id", "cut_id", "implementation", "after"}
-            or cursor["version"] != "selected-structural-gap-v1"
-            or cursor["selection"] != selection
-        ):
-            raise ValueError("gap continuation differs from exact selected report and scope")
-        if request.read_id is not None and (
-            request.read_id != cursor["read_id"] or request.expected_cut != cursor["cut_id"]
-        ):
-            raise ValueError("gap continuation differs from requested native read")
-        if (
-            request.implementation is not None
-            and request.implementation != cursor["implementation"]
-        ):
-            raise ValueError("gap continuation differs from requested implementation")
-        request = request.model_copy(
-            update=dict(
-                read_id=cursor["read_id"],
-                expected_cut=cursor["cut_id"],
-                implementation=cursor["implementation"],
-            )
+    selection = selection_digest(
+        request.model_dump(
+            mode="python",
+            exclude={"cursor", "limit", "max_bytes", "read_id", "expected_cut", "implementation"},
         )
+    )
+    version = "selected-structural-gap-cursor-v2"
+    cursor = None
+    if request.cursor is not None:
+        cursor = decode_pinned_cursor(
+            request.cursor, version=version, selection=selection, keyset=True
+        )
+        request = bind_cursor_request(request, cursor)
     roots = tuple(
         root for root in (request.root, request.binding, request.admission) if root is not None
     )
     with structural_scope(conn, request, roots=roots) as acquired:
+        if cursor is not None:
+            require_cursor_cut(cursor, acquired.cut)
         selected = selected_root(acquired, request.root)
         if selected is None:
             return bounded_result(
@@ -202,7 +195,7 @@ def inspect_selected_gap(conn, request: SelectedGapRequest):
         for row in rows:
             row["row_id"] = sha256(json_bytes(row)).hexdigest()
         rows.sort(key=lambda row: row["row_id"])
-        after = None if cursor is None else cursor["after"]
+        after = None if cursor is None else cursor["position"]
         if after is not None and after not in {row["row_id"] for row in rows}:
             raise ValueError("gap continuation is outside exact selected judgments")
         remaining = [row for row in rows if after is None or row["row_id"] > after]
@@ -210,14 +203,13 @@ def inspect_selected_gap(conn, request: SelectedGapRequest):
         next_cursor = (
             None
             if len(remaining) <= request.limit
-            else _cursor(
-                dict(
-                    version="selected-structural-gap-v1",
-                    selection=selection,
-                    read_id=acquired.cut.record["read_id"],
-                    cut_id=acquired.cut.identity,
-                    implementation=acquired.implementation,
-                    after=chosen[-1]["row_id"],
+            else encode_cursor(
+                pinned_cursor_basis(
+                    version,
+                    selection,
+                    acquired.cut,
+                    acquired.implementation,
+                    position=chosen[-1]["row_id"],
                 )
             )
         )

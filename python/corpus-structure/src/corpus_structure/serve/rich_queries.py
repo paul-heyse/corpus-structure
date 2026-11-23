@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from hashlib import sha256
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from corpus_structure.semantic.continuation_codec import decode_rich_cursor
+from corpus_structure.semantic.continuation_codec import (
+    bind_cursor_request,
+    decode_pinned_cursor,
+    pinned_cursor_basis,
+    require_cursor_cut,
+    require_cursor_implementation,
+    selection_digest,
+)
 from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
-from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+from corpus_structure.semantic.data_operation_json import json_loads
 from corpus_structure.semantic.data_operation_values import semantic_value
-from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.page_envelope import PageEnvelope, PageObservations
 from corpus_structure.semantic.refusal_types import InvalidContinuation, RichQueryRefused
 from corpus_structure.semantic.rich_queries import RichQuery
@@ -33,6 +38,7 @@ from corpus_structure.semantic.serving_identity import installed_read_implementa
 from .rich_knowledge import read_selected_rich_knowledge, read_selected_rich_reference
 
 VERSION = "selected-rich-query-2"
+CURSOR_VERSION = "selected-rich-query-cursor-3"
 
 
 @contextmanager
@@ -47,7 +53,8 @@ def rich_query_implementation(query):
             "corpus_structure.semantic.rich_query_projection.rich_query_metadata",
             "corpus_structure.semantic.selected_pages.byte_bounded_page",
             "corpus_structure.semantic.continuation_codec.encode_cursor",
-            "corpus_structure.semantic.continuation_codec.decode_rich_cursor",
+            "corpus_structure.semantic.continuation_codec.decode_pinned_cursor",
+            "corpus_structure.semantic.continuation_codec.bind_cursor_request",
         ),
     ) as identity:
         yield identity
@@ -99,55 +106,47 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
             "rich resource requires its actual installed implementation",
             reason="invalid_continuation",
         )
-    selection = sha256(json_bytes(semantic_value(request.selection()))).hexdigest()
-    cursor = None if request.cursor is None else decode_rich_cursor(request.cursor)
-    if cursor is not None and (
-        set(cursor)
-        != {"version", "implementation", "selection", "read", "cut", "reference", "ordinal"}
-        or cursor["version"] != VERSION
-        or cursor["implementation"] != implementation
-        or cursor["selection"] != selection
-    ):
-        raise InvalidContinuation(
-            "rich cursor differs from its actual query selection", reason="invalid_continuation"
+    selection = selection_digest(semantic_value(request.selection()))
+    cursor = None
+    if request.cursor is not None:
+        cursor = decode_pinned_cursor(
+            request.cursor, version=CURSOR_VERSION, selection=selection, extra_fields=("root",)
         )
-    continuation = None if cursor is None else cursor["read"]
-    cut = None if cursor is None else CutSelection(json_bytes(cursor["cut"]))
-    if request.read_id is not None:
-        if cut is not None and (
-            cut.record["read_id"] != request.read_id or cut.identity != request.expected_cut
-        ):
+        require_cursor_implementation(cursor, implementation)
+        if type(cursor["root"]) is not str or len(cursor["root"]) != 64:
             raise InvalidContinuation(
-                "rich cursor differs from the requested native read", reason="invalid_continuation"
+                "rich cursor has an invalid root digest", reason="invalid_continuation"
             )
-        if continuation is None:
-            continuation = dict(
-                demand_id=request.demand_id,
-                read_id=request.read_id,
-                view="frontier",
-                scope={"operation_id": "rich.admit", "product_ids": [request.product_id]},
-            )
+        request = bind_cursor_request(request, cursor)
+    continuation = None
+    if request.read_id is not None:
+        continuation = dict(
+            demand_id=request.demand_id,
+            read_id=request.read_id,
+            view="frontier",
+            scope={"operation_id": "rich.admit", "product_ids": [request.product_id]},
+        )
     selected = read_selected_rich_reference(
         connection,
         request.demand_id,
         project_id=request.project_id,
         product_id=request.product_id,
         continuation=continuation,
-        cut=cut,
         max_bytes=request.max_graph_bytes,
     )
     if request.expected_cut is not None and selected.cut.identity != request.expected_cut:
         raise InvalidContinuation(
             "rich query differs from its pinned cut", reason="invalid_continuation"
         )
+    if cursor is not None:
+        require_cursor_cut(cursor, selected.cut)
     reference = selected.reference.model_dump(mode="python")
-    if cursor is not None and json_bytes(cursor["reference"]) != json_bytes(reference):
+    root = selection_digest(reference)
+    if cursor is not None and cursor["root"] != root:
         raise InvalidContinuation(
             "rich query changed its actual root support", reason="invalid_continuation"
         )
-    offset = 0 if cursor is None else cursor["ordinal"]
-    if type(offset) is not int or offset < 0:
-        raise InvalidContinuation("invalid rich row ordinal", reason="invalid_continuation")
+    offset = 0 if cursor is None else cursor["position"]
     key = served_key(
         connection,
         "rich",
@@ -231,16 +230,11 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
             ),
             resource_handle=_cursor(pinned.model_dump(mode="python")),
         ),
-        cursor_basis=dict(
-            version=VERSION,
-            implementation=implementation,
-            selection=selection,
-            read=json_loads(selected.read_request),
-            cut=selected.cut.record,
-            reference=reference,
+        cursor_basis=pinned_cursor_basis(
+            CURSOR_VERSION, selection, selected.cut, implementation, root=root
         ),
         cursor_field="cursor",
-        position_field="ordinal",
+        position_field="position",
         arrays=(("rows", None, None, None),),
         observations=observations,
     )

@@ -13,7 +13,7 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.data_operation_identity import body_identity
-from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
@@ -667,10 +667,18 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
     # Captured schemas may describe the protected kind. Actual protected products
     # and original pass bodies are not ordinary disclosed provenance.
     native = Path(archive_path) / "native"
-    native_manifest = json_loads((native / "manifest.json").read_bytes())
-    closure_name = native_manifest["closure"]
-    assert isinstance(closure_name, str)
-    closure = [json_loads(line) for line in (native / closure_name).read_bytes().splitlines()]
+    from hashlib import sha256
+
+    from corpus_structure.serve.demand_export import verified_demand_export
+
+    native_digest = sha256((native / "manifest.json").read_bytes()).hexdigest()
+    with verified_demand_export(native, manifest_digest=native_digest) as (
+        _,
+        _,
+        _,
+        selected_relations,
+    ):
+        closure = list(selected_relations.records())
     protected_kind = kernel.identities[
         "urn:corpus:structural-admission:protected:DdoStructuralReferencePass", "kind"
     ]

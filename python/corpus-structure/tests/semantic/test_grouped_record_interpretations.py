@@ -444,7 +444,7 @@ def test_native_acquisition_scopes_exact_roots_and_preserves_explicit_null_sourc
         seen.append((demand_id, kwargs))
         yield SimpleNamespace(record={"release_id": "release:exact"}), index
 
-    monkeypatch.setattr(selected_contributions, "selected_record_index", acquire)
+    monkeypatch.setattr(selected_contributions, "acquired_selected_relations", acquire)
     monkeypatch.setattr(
         selected_contributions,
         "open_release",
@@ -465,7 +465,7 @@ def test_native_acquisition_scopes_exact_roots_and_preserves_explicit_null_sourc
         ),
     )
     with selected_contributions.selected_contribution_scope(
-        None, request, product_ids=["product:two", "product:one"]
+        None, request, product_ids=["product:two", "product:one"], require_support=True
     ) as selected:
         assert selected.prepared is prepared and selected.index is index
         assert selected.model is model

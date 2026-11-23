@@ -148,41 +148,13 @@ def inspect_selected_dossier(conn, request: SelectedDossierRequest):
 
 
 def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementation):
-    from corpus_structure.semantic.continuation_codec import decode_rich_cursor
-
-    cursor = None if request.cursor is None else decode_rich_cursor(request.cursor)
-    if cursor is not None:
-        if (
-            set(cursor) != {"version", "request", "cut", "binding", "offset"}
-            or cursor["version"] != "selected-dossier-page-v2"
-            or type(cursor["offset"]) is not int
-        ):
-            raise ValueError("invalid selected dossier continuation")
-        expected = request.model_dump(
-            mode="python",
-            exclude={"cursor", "limit", "max_bytes", "read_id", "expected_cut", "implementation"},
-        )
-        if cursor["request"] != expected:
-            raise ValueError("dossier continuation differs from requested root or population")
-        pinned = cursor["cut"]
-        if request.read_id is not None and (
-            request.read_id != pinned["read_id"]
-            or request.expected_cut != cursor["binding"]["cut_id"]
-        ):
-            raise ValueError("dossier continuation differs from requested native read")
-        if (
-            request.implementation is not None
-            and request.implementation != cursor["binding"]["implementation"]
-        ):
-            raise ValueError("dossier continuation differs from requested implementation")
-        request = request.model_copy(
-            update=dict(
-                read_id=pinned["read_id"],
-                expected_cut=cursor["binding"]["cut_id"],
-                implementation=cursor["binding"]["implementation"],
-            )
-        )
-    from corpus_structure.semantic.demand_results import recheck_selected_frontier
+    from corpus_structure.semantic.continuation_codec import (
+        bind_cursor_request,
+        decode_pinned_cursor,
+        pinned_cursor_basis,
+        require_cursor_cut,
+        selection_digest,
+    )
     from corpus_structure.semantic.selected_query_cache import (
         SELECTED_QUERY_CACHE,
         bounded_rows,
@@ -192,79 +164,84 @@ def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementat
 
     from .selected_structural import StructuralScope
 
-    selection = request.model_dump(
-        mode="python",
-        exclude={"cursor", "limit", "max_bytes", "read_id", "expected_cut", "implementation"},
+    selection = selection_digest(
+        request.model_dump(
+            mode="python",
+            exclude={"cursor", "limit", "max_bytes", "read_id", "expected_cut", "implementation"},
+        )
     )
+    version = "selected-dossier-cursor-v3"
+    cursor = None
+    if request.cursor is not None:
+        cursor = decode_pinned_cursor(
+            request.cursor, version=version, selection=selection, extra_fields=("binding",)
+        )
+        request = bind_cursor_request(request, cursor)
+
     detached = isinstance(conn, StructuralScope)
-    if detached:
-        current_cut, stamp = conn.cut, None
-    else:
-        current_cut, _, stamp = recheck_selected_frontier(
-            conn,
-            request.demand_id,
-            project_id=request.project_id,
-            scope={"product_ids": [request.root.product_id]},
-            read_id=request.read_id,
-            expected_cut=request.expected_cut,
-            max_bytes=request.max_graph_bytes,
-            max_records=request.max_graph_records,
-        )
-    pinned = request.model_copy(
-        update=dict(
-            read_id=current_cut.record["read_id"],
-            expected_cut=current_cut.identity,
-            implementation=implementation,
-        )
+    with structural_scope(conn, request, roots=(request.root,)) as scope:
+        current_cut = scope.cut
+        if cursor is not None:
+            require_cursor_cut(cursor, current_cut)
+        selected = selected_root(scope, request.root)
+        if selected is None:
+            return bounded_result(
+                request,
+                dict(
+                    format="selected-dossier-page-v2",
+                    availability="outside_selection",
+                    cut_id=current_cut.identity,
+                    cut=current_cut.record,
+                    implementation=implementation,
+                ),
+            )
+        # Resolve and authorize the actual producing references on every read, including hits.
+        report = structural_report(scope, selected)
+        if report.dossier is None:
+            raise ValueError("selected output is not a dossier")
+        provenance = producer(selected)
+        release = current_cut.record.get("release_id")
+        numeric_policy = scope.decimal_fixed_point_digits
+
+    representation = report.dossier.representation
+    basis = (
+        request.root.product_id,
+        request.root.member_id,
+        report.product_id,
+        representation.membership_digest,
+        representation.facet_digest,
+        representation.policy,
+        release,
+        selected.release_id,
+        numeric_policy,
+        provenance,
     )
     key = served_key(
         None if detached else conn,
         "dossier",
         implementation=implementation,
-        basis=current_cut.identity,
-        selection=["dossier", current_cut.identity, implementation, selection, stamp],
+        basis=basis,
+        selection=(request.project_id, request.population),
     )
     with SELECTED_QUERY_CACHE.loading(key) as entry:
         remaining = None
         metadata = None
         if entry is None:
-            with structural_scope(conn, pinned, roots=(request.root,)) as scope:
-                selected = selected_root(scope, request.root)
-                if selected is None:
-                    return bounded_result(
-                        request,
-                        dict(
-                            format="selected-dossier-page-v2",
-                            availability="outside_selection",
-                            cut_id=current_cut.identity,
-                            cut=current_cut.record,
-                            implementation=implementation,
-                        ),
-                    )
-                report = structural_report(scope, selected)
-                if report.dossier is None:
-                    raise ValueError("selected output is not a dossier")
-                items, metadata = dossier_rows(
-                    report, population=request.population, provenance=producer(selected)
-                )
+            items, metadata = dossier_rows(
+                report, population=request.population, provenance=provenance
+            )
             entry, remaining = bounded_rows(items, metadata)
             if entry is not None and not detached:
                 SELECTED_QUERY_CACHE.put(key, entry)
     metadata = entry.record() if entry is not None else metadata
     assert metadata is not None
-    binding = dict(
-        cut_id=current_cut.identity,
-        implementation=implementation,
-        **{
-            name: metadata[name]
-            for name in ("product_id", "membership_digest", "facet_digest", "policy")
-        },
-    )
+    binding = {
+        name: metadata[name]
+        for name in ("product_id", "membership_digest", "facet_digest", "policy")
+    }
     if cursor is not None and cursor["binding"] != binding:
         raise ValueError("dossier continuation differs from exact membership/facets/policy")
-    offset = 0 if cursor is None else cursor["offset"]
-    if type(offset) is not int or offset < 0:
-        raise ValueError("dossier continuation is outside its immutable population")
+    offset = 0 if cursor is None else cursor["position"]
     rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
 
     presentation = PageEnvelope(
@@ -280,14 +257,11 @@ def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementat
             public_admission="not-established",
             **metadata,
         ),
-        cursor_basis=dict(
-            version="selected-dossier-page-v2",
-            cut=current_cut.record,
-            binding=binding,
-            request=selection,
+        cursor_basis=pinned_cursor_basis(
+            version, selection, current_cut, implementation, binding=binding
         ),
         cursor_field="next_cursor",
-        position_field="offset",
+        position_field="position",
         arrays=(
             ("members", "members", None, None),
             ("citations", "citations", None, None),

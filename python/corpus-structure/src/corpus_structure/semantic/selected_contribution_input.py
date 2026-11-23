@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from itertools import batched
 from typing import TYPE_CHECKING, Any
 
 from .authority_leaf import NativeAuthorityLeaf
@@ -12,7 +13,7 @@ from .data_operation_json import json_bytes
 from .data_operation_model import SubjectContext
 from .data_operation_support import ComputationalSupportReference, read_support_references
 from .data_operation_value_codec import decode_semantic_value
-from .refusal_types import RichQueryRefused
+from .refusal_types import ReadLimit, RichQueryRefused
 from .rich_graph_validation import (
     RichGraphState,
     RichWholeInput,
@@ -29,8 +30,8 @@ from .selected_graph_budget import SelectedGraphBudgetExceeded
 
 if TYPE_CHECKING:
     from ._data_operation_wire import WireDemandReadScope
+    from .acquired_selected_relations import AcquiredSelectedRelations
     from .data_operation_model import EffectiveDataOperationModel
-    from .data_operation_read_index import SelectedRecordIndex
     from .demand_results import CutSelection
     from .types import PreparedRelease
 
@@ -65,35 +66,27 @@ class LiveContributionRead:
     retained_records: int = 0
 
     def answers(self, program, **filters):
-        from .demand_results import CutSelection, read_selected_answer
+        from .demand_results import read_selected_answer
 
         after = None
         while True:
-            answer = read_selected_answer(
-                self.connection,
-                program,
-                self.cut.record["demand_id"],
-                project_id=self.cut.record["project_id"],
-                read_id=self.cut.record["read_id"],
-                scope=self.scope,
-                after=after,
-                max_bytes=self.max_bytes,
-                **filters,
-            )
-            if CutSelection.from_native(answer["cut"]).content != self.cut.content:
-                raise ValueError("selected answer differs from its exact acquired cut")
-            if answer.get("oversized") is not None:
-                raise SelectedGraphBudgetExceeded(
-                    "selected answer row exceeds byte bound: " + str(answer["oversized"]),
-                    cut=self.cut,
+            try:
+                answer = read_selected_answer(
+                    self.connection,
+                    program,
+                    self.cut.record["demand_id"],
+                    project_id=self.cut.record["project_id"],
+                    read_id=self.cut.record["read_id"],
+                    scope=self.scope,
+                    after=after,
+                    max_bytes=self.max_bytes,
+                    **filters,
                 )
+            except ReadLimit as error:
+                raise SelectedGraphBudgetExceeded(str(error), cut=self.cut) from error
+            self._require_answer_cut(answer)
             for row in answer["rows"]:
-                self.retained_bytes += len(json_bytes(row))
-                self.retained_records += 1
-                if self.retained_bytes > self.max_bytes or self.retained_records > self.max_records:
-                    raise SelectedGraphBudgetExceeded(
-                        "selected answers exceed examined bound", cut=self.cut
-                    )
+                self._retain_answer(row)
                 yield row
             following = answer["answer_after"]
             if following is None:
@@ -102,11 +95,84 @@ class LiveContributionRead:
                 raise ValueError("selected answer continuation did not advance")
             after = following
 
+    def _require_answer_cut(self, answer):
+        from .demand_results import CutSelection
+
+        if CutSelection.from_native(answer["cut"]).content != self.cut.content:
+            raise ValueError("selected answer differs from its exact acquired cut")
+
+    def _retain_answer(self, row):
+        self.retained_bytes += len(json_bytes(row))
+        self.retained_records += 1
+        if self.retained_bytes > self.max_bytes or self.retained_records > self.max_records:
+            raise SelectedGraphBudgetExceeded(
+                "selected answers exceed examined bound", cut=self.cut
+            )
+
+    def partition_members(self, use_id, addresses):
+        """Read exact guarded member replies in bounded groups within this cut."""
+        from .data_operation_storage import DataOperationStorage
+        from .demand_results import require_selected_answer_capacity
+        from .ordered_native_answers import read_ordered_native_answers
+
+        program = "read_selected_partitions"
+        storage = DataOperationStorage(self.connection)
+        basis = {
+            "demand_id": self.cut.record["demand_id"],
+            "project_id": self.cut.record["project_id"],
+            "read_id": self.cut.record["read_id"],
+            "use_id": use_id,
+            "scope": dict(self.scope or {}),
+            "max_bytes": self.max_bytes,
+            "limit": 1,
+        }
+        # JSONB text has spaces in addition to the native canonical envelope.
+        # Limit both the largest transfer and the number of simultaneously staged replies.
+        max_wire_bytes = 2 * self.max_bytes
+        call_bound = min(16, max(1, (64 * 1024**2) // max_wire_bytes))
+
+        def acquire(requests):
+            replies = read_ordered_native_answers(
+                self.connection, program, requests, max_wire_bytes=max_wire_bytes
+            )
+            if replies is not None:
+                yield from zip(requests, replies, strict=True)
+            elif len(requests) == 1:
+                yield requests[0], storage._invoke(program, requests[0])
+            else:
+                middle = len(requests) // 2
+                yield from acquire(requests[:middle])
+                yield from acquire(requests[middle:])
+
+        for chunk in batched(addresses, call_bound, strict=False):
+            requests = tuple(
+                dict(basis, product_id=product_id, member_id=member_id)
+                for product_id, member_id in chunk
+            )
+            for request, answer in acquire(requests):
+                self._require_answer_cut(answer)
+                try:
+                    require_selected_answer_capacity(answer)
+                except ReadLimit as error:
+                    raise SelectedGraphBudgetExceeded(str(error), cut=self.cut) from error
+                if answer["answer_after"] is not None:
+                    raise ValueError("reference repeats its exact target address")
+                if len(answer["rows"]) != 1:
+                    raise ValueError("reference does not resolve its declared target")
+                (row,) = answer["rows"]
+                if (row["product_id"], row["member_id"]) != (
+                    request["product_id"],
+                    request["member_id"],
+                ):
+                    raise PermissionError("reference body differs from its exact member address")
+                self._retain_answer(row)
+                yield row
+
 
 @dataclass(frozen=True)
 class SelectedContributionScope:
     cut: CutSelection
-    index: SelectedRecordIndex | LiveContributionRead
+    index: AcquiredSelectedRelations | LiveContributionRead
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
     scope: WireDemandReadScope
@@ -317,7 +383,7 @@ class SelectedContributionScope:
         )
 
 
-def selected_use_selection(index: SelectedRecordIndex, use_id: str, derivation_id: str):
+def selected_use_selection(index: AcquiredSelectedRelations, use_id: str, derivation_id: str):
     """Read the exact consumed use, including value-substituted support."""
     use = index.frontier_row("uses", use_id)
     if use is None or use["fate"] != "fulfilled":
@@ -328,7 +394,7 @@ def selected_use_selection(index: SelectedRecordIndex, use_id: str, derivation_i
 
 
 def actual_graph_inputs(
-    index: SelectedRecordIndex,
+    index: AcquiredSelectedRelations,
     derivation_id: str,
     *,
     use_id: str,

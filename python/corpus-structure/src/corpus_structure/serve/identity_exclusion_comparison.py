@@ -1,13 +1,11 @@
 """Exact two-root identity-exclusion comparison and optional managed read custody."""
 
 from contextlib import ExitStack
-from hashlib import sha256
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from corpus_structure.semantic.continuation_codec import decode_rich_cursor
+from corpus_structure.semantic.continuation_codec import decode_selection_cursor, selection_digest
 from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
-from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity_exclusion_comparison import (
     compare_constraint_snapshots,
@@ -24,6 +22,7 @@ from .contribution_facets import ContributionFacetsRequest
 from .selected_contributions import selected_contribution_scope
 
 VERSION = "selected-identity-exclusion-comparison-2"
+CURSOR_VERSION = "selected-identity-exclusion-comparison-cursor-3"
 
 
 class ConstraintRootPin(BaseModel):
@@ -121,7 +120,7 @@ def compare_selected_exclusions(connection, request: ExclusionComparisonRequest)
                 "corpus_structure.semantic.selected_contribution_input.SelectedContributionScope.graph",
                 "corpus_structure.semantic.selected_pages.byte_bounded_page",
                 "corpus_structure.semantic.continuation_codec.encode_cursor",
-                "corpus_structure.semantic.continuation_codec.decode_rich_cursor",
+                "corpus_structure.semantic.continuation_codec.decode_selection_cursor",
             ),
         ) as implementation:
             return _compare(connection, request, implementation)
@@ -135,17 +134,15 @@ def _compare(connection, request, implementation):
             "constraint comparison resource differs from actual installed meaning",
             reason="invalid_continuation",
         )
-    digest = sha256(json_bytes(semantic_value(request.selection()))).hexdigest()
-    cursor = None if request.cursor is None else decode_rich_cursor(request.cursor)
-    if cursor is not None and (
-        set(cursor) != {"version", "implementation", "selection", "ordinal"}
-        or cursor["version"] != VERSION
-        or cursor["implementation"] != implementation
-        or cursor["selection"] != digest
-    ):
-        raise InvalidContinuation(
-            "constraint comparison cursor differs from its actual roots or meaning",
-            reason="invalid_continuation",
+    # Both explicit native cuts are part of the request selection.
+    digest = selection_digest(semantic_value(request.selection()))
+    cursor = None
+    if request.cursor is not None:
+        cursor = decode_selection_cursor(
+            request.cursor,
+            version=CURSOR_VERSION,
+            selection=digest,
+            implementation=implementation,
         )
     from corpus_structure.semantic.demand_results import recheck_selected_frontier
     from corpus_structure.semantic.selected_query_cache import (
@@ -208,11 +205,7 @@ def _compare(connection, request, implementation):
         after = dict(
             metadata["after"], pin=request.after.model_dump(mode="python"), cut=cuts[1].record
         )
-        offset = 0 if cursor is None else cursor["ordinal"]
-        if type(offset) is not int or offset < 0:
-            raise InvalidContinuation(
-                "invalid constraint comparison ordinal", reason="invalid_continuation"
-            )
+        offset = 0 if cursor is None else cursor["position"]
         rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
 
         pinned = request.model_copy(update={"implementation": implementation})
@@ -232,9 +225,11 @@ def _compare(connection, request, implementation):
                     source_change_authority="not-established",
                 ),
             ),
-            cursor_basis=dict(version=VERSION, implementation=implementation, selection=digest),
+            cursor_basis=dict(
+                version=CURSOR_VERSION, implementation=implementation, selection=digest
+            ),
             cursor_field="cursor",
-            position_field="ordinal",
+            position_field="position",
             arrays=(("changes", None, None, None),),
         )
 

@@ -1,4 +1,4 @@
-"""Exact same-session selected result export with disk-backed witness deduplication."""
+"""Exact same-session selected result export and authenticated typed replay."""
 
 from __future__ import annotations
 
@@ -7,7 +7,10 @@ from hashlib import file_digest, sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from sqlalchemy import Column, LargeBinary, MetaData, Table, Text, select
+import pyarrow as pa
+import pyarrow.parquet as pq
+from sqlalchemy import DateTime, select
+from sqlalchemy.dialects.postgresql import BYTEA, JSONB
 
 from corpus_structure.semantic.data_operation_json import (
     finite_json_loads,
@@ -15,32 +18,33 @@ from corpus_structure.semantic.data_operation_json import (
     native_json_loads,
     wire_json_loads,
 )
-from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
 from corpus_structure.semantic.demand_results import stream_demand_result, stream_selected_archive
 from corpus_structure.semantic.selected_support_contract import (
     SUPPORT_EXTENSION,
     SelectedSupportReader,
     omitted_support_fields,
 )
-from corpus_structure.semantic.sqlite_scratch import open_scratch
 
+from .archive_custody import acquire_demand_archive
 from .demand_export_manifest import (
     PublishedDemandExport,
     checked_export_manifest,
     decode_export_manifest,
 )
-
-_SPOOL = MetaData()
-_RECORDS = Table(
-    "records",
-    _SPOOL,
-    Column("key", Text, primary_key=True),
-    Column("relation", Text, nullable=False),
-    Column("payload", LargeBinary, nullable=False),
+from .selected_archive_relations import (
+    ARCHIVE_KEY,
+    FRONTIER_SCHEMA,
+    ArchivedSelectedRelations,
+    ChargedArchivePopulations,
+    append_frontier_page,
+    seal_frontier,
+    with_archive_key,
+    write_support_fragments,
 )
 
 _EXECUTION_JSON_FIELDS = {"producer", "selected_completion", "cpu_receipt"}
 _EXECUTION_INTEGER_FIELDS = {"output_position", "member_ordinal", "cohort_size"}
+_PROOF_RELATIONS = ("sem.data_rule", "kb.data_validity", "kb.data_validity_establishment")
 
 
 def _pack(row):
@@ -66,8 +70,6 @@ def _checksum(path):
 def _relation_schema(relation, names, cut_id):
     """Physical rows and the explicit virtual authority form retain typed export columns."""
     from typing import get_args
-
-    import pyarrow as pa
 
     from corpus_structure.semantic.arrow_types import sql_arrow_type
     from corpus_structure.semantic.authority_leaf import NativeAuthorityLeaf
@@ -106,14 +108,34 @@ def _relation_schema(relation, names, cut_id):
             pa.field(column.name, sql_arrow_type(column.type), nullable=column.nullable)
             for column in columns
         ]
-    return pa.schema(
+    schema = pa.schema(
         fields,
         metadata={
             b"cs.cut": cut_id.encode(),
             b"cs.relation": relation.encode(),
             b"cs.json": b"exact canonical JSON; tagged semantic bodies retain their exact value kinds",
         },
-    ), columns
+    )
+    encodings = (
+        {
+            name: "json"
+            if name in _EXECUTION_JSON_FIELDS and relation == "ops.data_execution_evidence_leaf"
+            else "native"
+            for name in names
+        }
+        if not columns
+        else {
+            column.name: "json"
+            if isinstance(column.type, JSONB)
+            else "timestamp"
+            if isinstance(column.type, DateTime)
+            else "binary"
+            if isinstance(column.type, BYTEA)
+            else "native"
+            for column in columns
+        }
+    )
+    return with_archive_key(schema), encodings
 
 
 def _capture_release(connection, release_id):
@@ -180,18 +202,14 @@ def export_demand_result(
     from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_release
     from corpus_structure.semantic.selected_population_archive import write_population_fragments
 
-    if format not in {"jsonl", "parquet"}:
-        raise ValueError("selected export encoding must be jsonl or parquet")
+    if format != "parquet":
+        raise ValueError("new selected exports require Parquet")
     if destination.exists():
         raise FileExistsError(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with (
-        TemporaryDirectory(prefix=".demand-export-", dir=destination.parent) as scratch,
-        open_scratch(Path(scratch) / "closure.sqlite") as spool,
-    ):
+    with TemporaryDirectory(prefix=".demand-export-", dir=destination.parent) as scratch:
         root = Path(scratch) / "export"
         root.mkdir()
-        _SPOOL.create_all(spool)
         files, relations, pages, releases, runtimes = {}, {}, [], set(), set()
         source_digests = set()
         cut = None
@@ -232,32 +250,54 @@ def export_demand_result(
                 files[name] = dict(sha256=_checksum(path), bytes=path.stat().st_size)
                 relations[relation] = dict(file=name, rows=count)
 
-        for record in stream_selected_archive(
-            connection, cut, max_bytes=page_bytes, consume_populations=capture_populations
-        ):
-            payload = json_bytes(record)
-            spool.execute(
-                _RECORDS.insert().values(
-                    key=record["key"], relation=record["relation"], payload=payload
-                )
+        support_reader = SelectedSupportReader()
+        support_contracts = {}
+
+        def codec(relation):
+            contract = support_reader.capture((relation,))[relation]
+            schema, encodings = _relation_schema(
+                relation, set(contract["schema"]["properties"]), cut.identity
             )
-            if record["relation"] == "ops.original_source_admission":
-                reference = record["record"]["reference"]
-                if reference.get("kind") == "original-document":
-                    source_digests.add(reference["content_hash"])
-            if (
-                record["relation"] == "kb.data_product"
-                and record["record"]["artifact_digest"] is not None
+            contract["arrow_schema"] = schema.serialize().to_pybytes().hex()
+            contract["encodings"] = encodings
+            support_contracts[relation] = contract
+            return schema, encodings
+
+        def selected_records():
+            for record in stream_selected_archive(
+                connection, cut, max_bytes=page_bytes, consume_populations=capture_populations
             ):
-                source_digests.add(record["record"]["artifact_digest"])
-            if record["relation"] in {
-                "ops.data_derivation",
-                "ops.data_authority_leaf",
-                "ops.data_execution_evidence_leaf",
-            }:
-                producing = record["record"]
-                releases.add(producing["release_id"])
-                runtimes.add((producing["release_id"], producing["runtime_id"]))
+                relation = record["relation"]
+                body = record["record"]
+                if relation == "ops.original_source_admission":
+                    reference = body["reference"]
+                    if reference.get("kind") == "original-document":
+                        source_digests.add(reference["content_hash"])
+                if relation == "kb.data_product" and body["artifact_digest"] is not None:
+                    source_digests.add(body["artifact_digest"])
+                if relation in {
+                    "ops.data_derivation",
+                    "ops.data_authority_leaf",
+                    "ops.data_execution_evidence_leaf",
+                }:
+                    releases.add(body["release_id"])
+                    runtimes.add((body["release_id"], body["runtime_id"]))
+                yield record
+
+        for relation, path, count in write_support_fragments(
+            root, selected_records(), codec, batch_bytes=page_bytes
+        ):
+            files[path.name] = dict(sha256=_checksum(path), bytes=path.stat().st_size)
+            relations[relation] = dict(file=path.name, rows=count)
+        for relation in _PROOF_RELATIONS:
+            if relation in relations:
+                continue
+            schema, _ = codec(relation)
+            name = relation.replace(".", "_") + ".parquet"
+            path = root / name
+            pq.ParquetWriter(path, schema).close()
+            files[name] = dict(sha256=_checksum(path), bytes=path.stat().st_size)
+            relations[relation] = dict(file=name, rows=0)
         source_files = {}
         from sqlalchemy import func
 
@@ -314,35 +354,6 @@ def export_demand_result(
                 ),
             )
             runtime_files.append(name)
-        support_reader = SelectedSupportReader()
-        selected_relations = [
-            relation
-            for (relation,) in spool.execute(
-                select(_RECORDS.c.relation).distinct().order_by(_RECORDS.c.relation)
-            )
-        ]
-        support_contracts = support_reader.capture(selected_relations)
-        from sqlalchemy import DateTime
-        from sqlalchemy.dialects.postgresql import JSONB
-
-        for relation in selected_relations:
-            first = spool.execute(
-                select(_RECORDS.c.payload)
-                .where(_RECORDS.c.relation == relation)
-                .order_by(_RECORDS.c.key)
-                .limit(1)
-            ).scalar_one()
-            names = set(native_json_loads(first)["record"])
-            arrow, columns = _relation_schema(relation, names, cut.identity)
-            support_contracts[relation]["arrow_schema"] = arrow.serialize().to_pybytes().hex()
-            support_contracts[relation]["encodings"] = {
-                column.name: "json"
-                if isinstance(column.type, JSONB)
-                else "timestamp"
-                if isinstance(column.type, DateTime)
-                else "native"
-                for column in columns
-            }
         reader_schema = wire_contracts()["read_demand_result"]["output"]
         reader_schema[SUPPORT_EXTENSION] = support_contracts
         reader_schema["x-corpus-contextual-fields"] = list(wire_contextual_fields())
@@ -355,113 +366,19 @@ def export_demand_result(
         from corpus_structure.semantic.authority_leaf import NativeAuthorityLeaf
 
         write("authority-contract.json", json_bytes(NativeAuthorityLeaf.model_json_schema()))
-        from corpus_structure.semantic.execution_evidence_leaf import (
-            NativeExecutionEvidenceLeaf,
-            execution_evidence_leaf_schema,
-        )
+        from corpus_structure.semantic.execution_evidence_leaf import execution_evidence_leaf_schema
 
         write("execution-evidence-contract.json", json_bytes(execution_evidence_leaf_schema()))
-        closure_path = root / "closure.jsonl"
-        with closure_path.open("wb") as output:
-            for (payload,) in spool.execute(select(_RECORDS.c.payload).order_by(_RECORDS.c.key)):
-                output.write(payload + b"\n")
-        files[closure_path.name] = dict(
-            sha256=_checksum(closure_path), bytes=closure_path.stat().st_size
-        )
-        if format == "parquet":
-            from datetime import datetime
-            from itertools import batched
-
-            import pyarrow as pa
-            import pyarrow.parquet as pq
-
-            for (relation,) in spool.execute(
-                select(_RECORDS.c.relation).distinct().order_by(_RECORDS.c.relation)
-            ):
-                authority = relation == "ops.data_authority_leaf"
-                execution = relation == "ops.data_execution_evidence_leaf"
-                captured = support_contracts[relation]
-                schema = pa.ipc.read_schema(
-                    pa.BufferReader(bytes.fromhex(captured["arrow_schema"]))
-                )
-                encodings = captured["encodings"]
-                name = relation.replace(".", "_") + ".parquet"
-                count = 0
-                with pq.ParquetWriter(root / name, schema) as writer:
-                    rows = spool.execute(
-                        select(_RECORDS.c.payload)
-                        .where(_RECORDS.c.relation == relation)
-                        .order_by(_RECORDS.c.key)
-                    )
-                    for batch in batched(rows, 64, strict=False):
-                        values = []
-                        for (payload,) in batch:
-                            record = support_reader.loads(payload, validate=False)["record"]
-                            if authority:
-                                values.append(
-                                    NativeAuthorityLeaf.model_validate(record).model_dump(
-                                        mode="json"
-                                    )
-                                )
-                                continue
-                            if execution:
-                                checked = NativeExecutionEvidenceLeaf.model_validate_json(
-                                    json_bytes(record)
-                                ).model_dump(mode="json")
-                                values.append(
-                                    {
-                                        name: json_bytes(value).decode()
-                                        if name in _EXECUTION_JSON_FIELDS
-                                        else value
-                                        for name, value in checked.items()
-                                    }
-                                )
-                                continue
-                            values.append(
-                                {
-                                    name: json_bytes(record[name]).decode()
-                                    if encoding == "json" and record[name] is not None
-                                    else datetime.fromisoformat(record[name])
-                                    if encoding == "timestamp" and record[name] is not None
-                                    else record[name]
-                                    for name, encoding in encodings.items()
-                                }
-                            )
-                        writer.write_batch(pa.RecordBatch.from_pylist(values, schema=schema))
-                        count += len(values)
-                files[name] = dict(
-                    sha256=_checksum(root / name), bytes=(root / name).stat().st_size
-                )
-                relations[relation] = dict(file=name, rows=count)
-        support_disclosure = (
-            "bounded"
-            if spool.execute(
-                select(
-                    select(_RECORDS.c.key)
-                    .where(_RECORDS.c.relation == "ops.data_authority_leaf")
-                    .exists()
-                )
-            ).scalar_one()
-            else "complete"
-        )
+        support_disclosure = "bounded" if "ops.data_authority_leaf" in relations else "complete"
         execution_disclosure = (
-            "bounded"
-            if spool.execute(
-                select(
-                    select(_RECORDS.c.key)
-                    .where(_RECORDS.c.relation == "ops.data_execution_evidence_leaf")
-                    .exists()
-                )
-            ).scalar_one()
-            else "complete"
+            "bounded" if "ops.data_execution_evidence_leaf" in relations else "complete"
         )
         manifest = checked_export_manifest(
             dict(
-                format="demand-result-export-v3",
+                format="demand-result-export-v4",
                 encoding=format,
                 cut_id=cut.identity,
                 pages=pages,
-                closure="closure.jsonl",
                 reader_contract="reader-contract.json",
                 authority_contract="authority-contract.json",
                 execution_evidence_contract="execution-evidence-contract.json",
@@ -483,11 +400,21 @@ def export_demand_result(
 
 
 @contextmanager
-def verified_demand_export(root: Path, *, manifest_digest: str):
-    """Own an authenticated archive and exact witness index for detached consumers.
+def verified_demand_export(
+    root: Path, *, manifest_digest: str, max_graph_bytes=None, max_graph_records=None
+):
+    """Own an authenticated archive through its lazy scans and exact replay."""
+    with (
+        acquire_demand_archive(root, manifest_digest, decode_export_manifest) as (owned, manifest),
+        _verify_acquired_export(
+            owned, manifest, max_graph_bytes=max_graph_bytes, max_graph_records=max_graph_records
+        ) as acquired,
+    ):
+        yield acquired
 
-    Verification establishes captured custody only; it acquires no current native trust.
-    """
+
+@contextmanager
+def _verify_acquired_export(root, manifest, *, max_graph_bytes, max_graph_records):
     from corpus_structure.semantic.archive_reader import open_release_parts
     from corpus_structure.semantic.data_operation_runtime import (
         RuntimeBinding,
@@ -496,18 +423,6 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
     from corpus_structure.semantic.demand_results import verify_detached_result
     from corpus_structure.semantic.selected_population_archive import open_population_fragments
 
-    manifest_bytes = (root / "manifest.json").read_bytes()
-    if sha256(manifest_bytes).hexdigest() != manifest_digest:
-        raise ValueError("export manifest differs from the explicit trusted digest")
-    manifest = decode_export_manifest(manifest_bytes)
-    for name, descriptor in manifest.files.items():
-        path = root / name
-        if (
-            not path.resolve().is_relative_to(root.resolve())
-            or path.stat().st_size != descriptor.bytes
-            or _checksum(path) != descriptor.sha256
-        ):
-            raise ValueError("detached file differs from its pinned manifest: " + name)
     prepared, kinds, definitions, models = {}, {}, {}, {}
     for release_id, name in manifest.releases.items():
         captured = finite_json_loads((root / name).read_bytes())
@@ -543,7 +458,7 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
             kinds[key] = stored_kind
     runtime_ids = set()
     for digest, name in manifest.source_artifacts.items():
-        if _checksum(root / name) != digest:
+        if manifest.files[name].sha256 != digest:
             raise ValueError("detached original source bytes differ from their content identity")
     for name in manifest.runtimes:
         captured = finite_json_loads((root / name).read_bytes())
@@ -565,30 +480,42 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
     )
     authority_schema = finite_json_loads((root / manifest.authority_contract).read_bytes())
     execution_schema = finite_json_loads((root / manifest.execution_evidence_contract).read_bytes())
+    if (
+        max_graph_records is not None
+        and sum(relation.rows for relation in manifest.relations.values()) > max_graph_records
+    ):
+        raise ValueError("detached structural closure exceeds its examined bound")
+
     with (
-        TemporaryDirectory(prefix="demand-verify-") as scratch,
+        TemporaryDirectory(prefix="demand-verify-") as scratch_name,
         open_population_fragments(root, manifest) as populations,
     ):
-        index = SelectedRecordIndex(Path(scratch) / "closure.sqlite", reader=support_reader)
-        index.population_archive = populations
-        try:
-            with (root / manifest.closure).open("rb") as stream:
-                for line in stream:
-                    index.append(line.rstrip(b"\n"))
-            actual_disclosure = (
-                "bounded"
-                if next(index.rows("ops.data_authority_leaf"), None) is not None
-                else "complete"
-            )
-            if manifest.support_disclosure != actual_disclosure:
-                raise ValueError("detached manifest misstates its protected support disclosure")
-            actual_execution = (
-                "bounded"
-                if next(index.rows("ops.data_execution_evidence_leaf"), None) is not None
-                else "complete"
-            )
-            if manifest.execution_evidence_disclosure != actual_execution:
-                raise ValueError("detached manifest misstates its physical execution disclosure")
+        scratch = Path(scratch_name)
+        fragments = _support_fragments(root, manifest, wire_schema[SUPPORT_EXTENSION], scratch)
+        index = ArchivedSelectedRelations(
+            fragments, support_reader, max_bytes=max_graph_bytes, max_records=max_graph_records
+        )
+        if populations is not None:
+            index.population_archive = ChargedArchivePopulations(populations, index.charge)
+        index.validate_support()
+        _verify_proof_records(index, models)
+        actual_disclosure = (
+            "bounded"
+            if next(index.rows("ops.data_authority_leaf"), None) is not None
+            else "complete"
+        )
+        if manifest.support_disclosure != actual_disclosure:
+            raise ValueError("detached manifest misstates its protected support disclosure")
+        actual_execution = (
+            "bounded"
+            if next(index.rows("ops.data_execution_evidence_leaf"), None) is not None
+            else "complete"
+        )
+        if manifest.execution_evidence_disclosure != actual_execution:
+            raise ValueError("detached manifest misstates its physical execution disclosure")
+        frontier = scratch / "frontier-unordered.parquet"
+        after = None
+        with pq.ParquetWriter(frontier, FRONTIER_SCHEMA) as writer:
             for ordinal, name in enumerate(manifest.pages):
                 page = verify_detached_result(
                     native_json_loads((root / name).read_bytes()),
@@ -603,9 +530,14 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
                     execution_evidence_schema=execution_schema,
                     validate_closure=ordinal == 0,
                 )
-                if page.cut.identity != manifest.cut_id:
+                if page.cut.content != manifest.cut_selection.content:
                     raise ValueError("detached page belongs to another selected cut")
-                index.append_page(page.record)
+                record = page.record
+                if manifest.closure is None:
+                    after = _validate_page_position(
+                        record, after, terminal=ordinal == len(manifest.pages) - 1
+                    )
+                append_frontier_page(writer, record)
                 pins = page.cut.record
                 if (pins["release_id"], pins["runtime_id"]) not in runtime_ids:
                     raise ValueError("detached selected runtime archive is missing")
@@ -618,9 +550,158 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
                     raise ValueError(
                         "detached demand selection differs from captured effective model"
                     )
-            yield manifest, prepared, models, index
-        finally:
-            index.close()
+        ordered_frontier = scratch / "frontier.parquet"
+        seal_frontier(frontier, ordered_frontier, charge=index.charge)
+        index.population_archive = populations
+        index.attach_frontier(ordered_frontier, manifest.cut_selection)
+        yield manifest, prepared, models, index
+
+
+def _validate_page_position(record, previous, *, terminal):
+    """Check the archived native frontier before merging it into the detached index."""
+    obligations = [row["obligation_id"] for row in record["obligations"]]
+    if previous is not None and not obligations:
+        raise ValueError("detached native page did not advance its continuation")
+    for obligation in obligations:
+        if previous is not None and obligation <= previous:
+            raise ValueError("detached native pages do not advance in obligation order")
+        previous = obligation
+
+    continuation = record["continuation"]
+    if terminal:
+        if continuation is not None:
+            raise ValueError("detached archive ends before its native terminal page")
+    elif continuation is None or not obligations or continuation["after"] != obligations[-1]:
+        raise ValueError("detached archive has an invalid native page continuation")
+    if continuation is not None:
+        fields = (
+            "demand_id",
+            "scope",
+            "selection",
+            "trust_snapshot",
+            "read_id",
+            "read_snapshot",
+            "frontier_at",
+        )
+        if any(continuation[name] != record[name] for name in fields) or continuation[
+            "view"
+        ] != record.get("view", "frontier"):
+            raise ValueError("detached archive continuation differs from its native read")
+    return previous
+
+
+def _support_fragments(root, manifest, contracts, scratch):
+    from corpus_structure.semantic.selected_population_archive import (
+        POPULATION_HEADERS,
+        POPULATION_ITEMS,
+    )
+
+    def codec(relation):
+        contract = contracts[relation]
+        if "arrow_schema" not in contract:
+            return _relation_schema(
+                relation, set(contract["schema"]["properties"]), manifest.cut_id
+            )
+        schema = pa.ipc.read_schema(pa.BufferReader(bytes.fromhex(contract["arrow_schema"])))
+        encodings = dict(contract["encodings"])
+        if ARCHIVE_KEY not in schema.names:
+            schema = with_archive_key(schema)
+        for field in schema:
+            if field.name == ARCHIVE_KEY:
+                continue
+            if pa.types.is_binary(field.type):
+                encodings[field.name] = "binary"
+            else:
+                encodings.setdefault(
+                    field.name,
+                    "json"
+                    if relation == "ops.data_execution_evidence_leaf"
+                    and field.name in _EXECUTION_JSON_FIELDS
+                    else "native",
+                )
+        if set(encodings) != set(schema.names) - {ARCHIVE_KEY}:
+            raise ValueError("captured support codec differs from its physical schema")
+        return schema, encodings
+
+    if manifest.closure is not None:
+        # Legacy v3 produced one sorted canonical JSONL stream. Decode the authenticated
+        # original into the common typed reader under this invocation's owned scratch.
+        with (root / manifest.closure).open("rb") as original:
+            return {
+                relation: (path, rows, *codec(relation))
+                for relation, path, rows in write_support_fragments(
+                    scratch,
+                    (native_json_loads(line) for line in original),
+                    codec,
+                    batch_bytes=8 * 1024 * 1024,
+                )
+            }
+
+    support = manifest.relations.keys() - {POPULATION_HEADERS, POPULATION_ITEMS}
+    if support != contracts.keys():
+        raise ValueError("selected support files differ from the captured relation contract")
+    return {
+        relation: (
+            root / manifest.relations[relation].file,
+            manifest.relations[relation].rows,
+            *codec(relation),
+        )
+        for relation in support
+    }
+
+
+def _verify_proof_records(index, models):
+    """Check captured proof identity and visible establishing outputs without replaying a rule."""
+    captured_rules = {}
+    rules_by_fingerprint = {}
+    for row in index.rows("sem.data_rule"):
+        release = row["release_id"]
+        if release not in models:
+            raise ValueError("detached rule lacks its captured release")
+        rule = next((rule for rule in models[release].rules if rule.id == row["rule_id"]), None)
+        if (
+            rule is None
+            or rule.kind_contract != row["kind_contract"]
+            or rule.fingerprint != row["fingerprint"]
+            or native_json_loads(json_bytes(rule.record)) != row["specification"]
+        ):
+            raise ValueError("detached rule differs from its captured release contract")
+        captured_rules[release, rule.kind_contract, rule.fingerprint] = rule
+        rules_by_fingerprint[rule.fingerprint] = rule
+
+    conclusions = {
+        (row["rule_fingerprint"], row["premise"]) for row in index.rows("kb.data_validity")
+    }
+    established = set()
+    outputs = index.mapping("ops.data_derivation_output", ("derivation_id", "role", "position"))
+    episodes = index.mapping("ops.data_derivation", ("id",))
+    products = index.mapping("kb.data_product", ("id",))
+    for row in index.rows("kb.data_validity_establishment"):
+        key = row["rule_fingerprint"], row["premise"]
+        output = outputs.get((row["derivation_id"], row["role"], row["position"]))
+        episode = episodes.get(row["derivation_id"])
+        if (
+            key not in conclusions
+            or output is None
+            or episode is None
+            or output["member_id"] is not None
+        ):
+            raise ValueError("detached proof establishment lacks its selected producing output")
+        product = products.get(output["product_id"])
+        rule = (
+            None
+            if product is None
+            else captured_rules.get(
+                (episode["release_id"], product["kind_contract"], row["rule_fingerprint"])
+            )
+        )
+        if rule is None or rule.checker != "producer":
+            raise ValueError("detached proof establishment differs from its captured rule")
+        established.add(key)
+    for key in conclusions:
+        rule = rules_by_fingerprint.get(key[0])
+        if rule is None or (rule.checker == "producer" and key not in established):
+            raise ValueError("detached proof conclusion lacks its rule or required establishment")
 
 
 def verify_demand_export(root: Path, *, manifest_digest: str):

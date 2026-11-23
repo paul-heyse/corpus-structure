@@ -35,12 +35,12 @@ class ExportRelation(_ManifestRecord):
 
 
 class DemandExportManifest(_ManifestRecord):
-    format: Literal["demand-result-export-v3"]
+    format: Literal["demand-result-export-v3", "demand-result-export-v4"]
     encoding: Literal["jsonl", "parquet"]
     cut_id: str
     cut: dict[str, Any]
     pages: list[str]
-    closure: str
+    closure: str | None = None
     reader_contract: str
     authority_contract: str
     execution_evidence_contract: str
@@ -69,11 +69,17 @@ class DemandExportManifest(_ManifestRecord):
             raise ValueError("detached manifest cut identity differs from its native pins")
         for path in self.files:
             name = PurePosixPath(path)
-            if not path or name.is_absolute() or ".." in name.parts or "\\" in path:
+            if (
+                not name.parts
+                or name.is_absolute()
+                or ".." in name.parts
+                or "\\" in path
+                or name.as_posix() != path
+                or path == "manifest.json"
+            ):
                 raise ValueError("detached manifest requires relative export file names")
         references = [
             *self.pages,
-            self.closure,
             self.reader_contract,
             self.authority_contract,
             self.execution_evidence_contract,
@@ -82,6 +88,18 @@ class DemandExportManifest(_ManifestRecord):
             *self.source_artifacts.values(),
             *(relation.file for relation in self.relations.values()),
         ]
+        if self.format == "demand-result-export-v3":
+            if self.closure is None:
+                raise ValueError("legacy detached manifest requires its closure file")
+            references.append(self.closure)
+        elif (
+            self.closure is not None
+            or self.encoding != "parquet"
+            or not self.pages
+            or len(set(references)) != len(references)
+            or set(references) != self.files.keys()
+        ):
+            raise ValueError("typed detached manifest requires one exact file inventory")
         if any(name not in self.files for name in references):
             raise ValueError("detached manifest references a file absent from its inventory")
         self.cut = selected.record
@@ -95,7 +113,7 @@ class DemandExportManifest(_ManifestRecord):
         return self._cut
 
     def to_bytes(self) -> bytes:
-        """Emit authenticated v3 framing with the exact embedded cut bytes."""
+        """Emit authenticated framing with the exact embedded cut bytes."""
         from corpus_structure.semantic.demand_wire import _same_json_material
 
         view = self.model_dump(mode="python")
@@ -103,6 +121,8 @@ class DemandExportManifest(_ManifestRecord):
             raise ValueError("detached manifest changed after validation")
         if self._content is not None:
             return self._content
+        if self.closure is None:
+            del view["closure"]
         return (
             b"{"
             + b",".join(
@@ -122,7 +142,7 @@ class PublishedDemandExport:
 
     def report(self) -> dict[str, Any]:
         return {
-            **self.manifest.model_dump(mode="python"),
+            **self.manifest.model_dump(mode="python", exclude_none=True),
             "manifest_digest": self.manifest_digest,
         }
 
