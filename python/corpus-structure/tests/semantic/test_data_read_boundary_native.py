@@ -268,7 +268,7 @@ def test_program_boundary_declarations_keep_defaults_security_and_order():
     sql = native_sql(sources)
     assert "__DDO_READ_BOUNDARY_PROGRAMS__" not in sql
     assert sql.index("FUNCTION ops.ddo_read_acquisition_present(") < sql.index(
-        "FUNCTION ops.ddo_validity_edges("
+        "FUNCTION ops.ddo_require_read_current("
     )
     prepared = prepare_sql(
         read_boundary_native_sql(get_metadata()), source="read-boundary-declarations"

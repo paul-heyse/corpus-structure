@@ -7,6 +7,7 @@ from typing import cast
 import pytest
 
 from corpus_structure.semantic._data_operation_wire import (
+    WireAttachDataRequestsRequest,
     WireRegisterDataDemandRequest,
     WireRevokeDataSupportRequest,
 )
@@ -16,14 +17,126 @@ from corpus_structure.semantic.data_operation_demands import (
     RootSubject,
     freeze_demand,
 )
+from corpus_structure.semantic.data_operation_identity import SemanticRequestKey
+from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_service import advance_demand_selection
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from native_test_support import principal_engine
 from semantic.data_operation_binding_support import discover
 from semantic.data_operation_demand_support import claim, publish, retain
 from semantic.data_operation_kernel_support import POPULATION, admit_kernel, prepare_kernel
 from semantic.population_completion_support import complete_ready
+
+
+def test_new_discovery_admission_replaces_closure_for_same_product_and_derivation(
+    commit_db_engine, native_settings, tmp_path
+):
+    prepared = prepare_kernel(POPULATION, directory=tmp_path / "replacement-closure")
+    with commit_db_engine.begin() as connection:
+        kernel = admit_kernel(connection, POPULATION, engine=commit_db_engine, preparation=prepared)
+    demand, _, original = discover(kernel, values=())
+    demand_id = demand["demand_id"]
+    with commit_db_engine.begin() as connection:
+        advance_demand_selection(
+            connection,
+            "ddo-test",
+            "replacement-closure",
+            demand_id,
+            expected_demand_id=None,
+            expected_generation=0,
+        )
+    writer = principal_engine(native_settings, "write", commit_db_engine.url.database)
+    try:
+
+        def resume():
+            with writer.begin() as connection:
+                return DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(
+                    demand_id, settlement=True
+                )
+
+        before = resume()
+        assert before["scheduler_settlement"]["selections"][0]["discovery_complete"] is True
+        (producer,) = [
+            row for row in before["obligations"] if row["operation_id"] == "urn:discover"
+        ]
+        request = SemanticRequestKey(
+            kernel.identities["urn:discover", "recipe"],
+            "doc",
+            {},
+            {"parameters": {}, "replicate": None},
+            "inference:test",
+            subject_context=SubjectContext(
+                "ddo-test",
+                "doc",
+                "source:test",
+                b'{"page":1}',
+                subject_definition=kernel.model.operation("urn:discover").subject,
+            ),
+        )
+        with writer.begin() as connection:
+            (attached,) = DataOperationStorage(connection).attach_data_requests(
+                cast(
+                    WireAttachDataRequestsRequest,
+                    {
+                        "read_id": before["read_id"],
+                        "items": [
+                            {
+                                "obligation_id": producer["obligation_id"],
+                                "request_meaning": json.loads(request.identity.canonical_input),
+                                "request_key": request.identity.key,
+                                "replicate": None,
+                                "binding": {
+                                    "inputs": [],
+                                    "support": [],
+                                    "parameters": semantic_value(request.parameters),
+                                    "request_inputs": ["mapping", []],
+                                    "inference": "inference:test",
+                                    "populations": [],
+                                    "read_id": before["read_id"],
+                                },
+                            }
+                        ],
+                    },
+                )
+            )["items"]
+        assert attached["state"] == "fulfilled", attached
+        adopted = attached["result"]
+        assert adopted["request_id"] == request.identity.key
+        assert adopted["derivation_id"] == original["evidence"]["derivation_id"]
+        assert adopted["use_id"] != original["evidence"]["admission_use_id"]
+
+        # The earlier closure authenticates its own exact use. Equal product and
+        # derivation cannot close the newly admitted occurrence implicitly.
+        pending = resume()
+        assert pending["scheduler_settlement"]["selections"][0]["discovery_complete"] is False
+        with writer.begin() as connection:
+            assert DemandPlanner(
+                kernel.model, DataOperationStorage(connection)
+            ).settle_pending_discovery(pending)
+        current = resume()
+        assert current["scheduler_settlement"]["selections"][0]["discovery_complete"] is True
+        (replacement,) = [
+            row
+            for row in current["populations"]
+            if row["name"] == "all-items"
+            and row["evidence"]["admission_use_id"] == adopted["use_id"]
+        ]
+        assert replacement["population_id"] != original["population_id"]
+        assert replacement["semantic_key"] == original["semantic_key"]
+        assert replacement["evidence"]["product_id"] == original["evidence"]["product_id"]
+        assert replacement["evidence"]["derivation_id"] == original["evidence"]["derivation_id"]
+        with writer.begin() as connection:
+            assert not DemandPlanner(
+                kernel.model, DataOperationStorage(connection)
+            ).settle_pending_discovery(current)
+        assert (
+            resume()["scheduler_settlement"]["selections"]
+            == current["scheduler_settlement"]["selections"]
+        )
+    finally:
+        writer.dispose()
 
 
 def test_selected_population_wakes_only_exact_waiter(commit_db_engine, tmp_path):

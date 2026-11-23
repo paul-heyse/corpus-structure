@@ -75,13 +75,15 @@ def test_canonical_observation_schema_governs_source_and_primary_addresses():
         "analyzed_scope_meaning",
     ):
         assert pin[required]["required"]
-    assert (
-        model["classes"]["PredicateFrameComponent"]["attributes"]["primary_node"]["range"]
-        == "DdoSemanticMemberReference"
-    )
+    frame = model["classes"]["PredicateFrameComponent"]["attributes"]
+    assert "primary_node" not in frame
+    assert frame["annotation"]["required"] and frame["block"]["required"]
+    assert frame["predicate_token"]["range"] == "integer"
+    assert frame["predicate_token"]["minimum_value"] == 0
     operation = model["classes"]["SourceContributionOperation"]["attributes"]
-    assert "primary_layers" not in operation
-    assert operation["primary_products"]["range"] == "DdoSemanticProductReference"
+    assert not {"primary_layers", "primary_products"} & operation.keys()
+    assert operation["inputs"]["range"] == "SourceObservationReference"
+    assert model["classes"]["SourceObservationReference"]["attributes"]["role"]["required"]
     assert {"data_operation_references", "observations"} <= {item.name for item in current.sources}
     assert observation_inputs(current) == current
 
