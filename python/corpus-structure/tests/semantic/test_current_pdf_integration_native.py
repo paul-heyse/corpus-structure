@@ -496,6 +496,10 @@ def test_current_rich_integration_retains_separate_claims_inventory_and_original
 def test_current_failed_later_request_keeps_prior_observation_without_completed_product(
     scenario_seeds, tmp_path, monkeypatch, native_settings
 ):
+    import json
+
+    from corpus_structure.ingest.pdf_recognition import NemotronRecipe
+
     with current_integration_journey(
         scenario_seeds,
         tmp_path,
@@ -503,21 +507,36 @@ def test_current_failed_later_request_keeps_prior_observation_without_completed_
         native_settings,
         raw_responses=(RICH_RESPONSE, None),
         outcome="failed",
-        expect_unresolved_page=True,
+        expect_execution_failed_page=True,
     ) as case:
         assert case.failure is not None
         assert "integrated" not in case.publications
         assert "source.pdf_integrated/reconcile" not in case.values
-        observed_set = case.values["source.pdf_recognition/observe"]["result"]
-        assert observed_set["pages"][0]["outcome"] == "failed"
-        assert [reading["outcome"] for reading in observed_set["pages"][0]["observations"]] == [
-            "succeeded",
-            "failed",
-        ]
-        assert len(case.observations) == 2
-        first, later = case.observations
-        assert first[0].task_id == later[0].task_id
-        assert first[0].task_id != case.publications["organized"].task_id
+        assert "source.pdf_recognition/observe" not in case.values
+        assert case.observation_source is None and case.observations == []
+        assert any(
+            isinstance(failure, RuntimeError)
+            and str(failure) == "recognition attempt has execution-failed physical pages: [1]"
+            for failure in case.failure.failures
+        )
+        # ADR-0126 preserves the successful physical receipt for retry without
+        # turning a later transport failure into a terminal observation-set product.
+        retained = (
+            case.directory
+            / "controlled-actual-requests"
+            / case.original.content_hash
+            / NemotronRecipe("2" * 64, "3" * 64).digest
+            / "page-00001"
+        )
+        first = json.loads((retained / "request-000.json").read_bytes())
+        later = json.loads((retained / "request-001.json").read_bytes())
+        assert first["outcome"] == "succeeded" and first["stage"] == "fullpage"
+        assert (retained / first["raw_response"]).read_bytes() == RICH_RESPONSE
+        assert first["raw_digest"] == sha256(RICH_RESPONSE).hexdigest()
+        assert later["outcome"] == "failed" and later["stage"] == "detection"
+        assert later["diagnostic"] == "controlled connection closed before response"
+        assert "raw_response" not in later and "raw_digest" not in later
+        assert (retained / "submitted.png").read_bytes() == IMAGE
         with case.reader().connect() as connection:
             from decimal import Decimal
 
@@ -546,25 +565,6 @@ def test_current_failed_later_request_keeps_prior_observation_without_completed_
                 and sha256(original).hexdigest() == case.original.content_hash
             )
             assert connection.scalar(text("SELECT to_regclass('ops.rendition_build')")) is None
-            succeeded = read_pdf_product(connection, **first[0].values(), include_body=True)
-            failed = read_pdf_product(connection, **later[0].values(), include_body=True)
-            assert succeeded["body"]["observation"]["outcome"] == "succeeded"
-            assert (
-                succeeded["body"]["observation"]["raw_response_digest"]
-                == sha256(RICH_RESPONSE).hexdigest()
-            )
-            assert succeeded["occurrences"]
-            assert failed["body"]["observation"]["outcome"] == "failed"
-            assert "raw_response_digest" not in failed["body"]["observation"]
-            assert failed["occurrences"] == []
-            assert failed["coverage"] and all(
-                row["body"]["outcome"] == "unknown" for row in failed["coverage"]
-            )
-            assert (
-                failed["body"]["observation"]["diagnostic"]
-                == "controlled connection closed before response"
-            )
-            assert all(row["body"]["outcome"] != "complete" for row in succeeded["coverage"])
         with case.clone.admin.connect() as connection:
             assert (
                 connection.scalar(

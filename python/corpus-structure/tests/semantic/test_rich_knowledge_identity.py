@@ -20,9 +20,11 @@ from corpus_structure.semantic.rich_knowledge import (
 from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
 from semantic.identity_resolution_support import source_values
 
+_EMPTY_DEPENDENCIES = ResolvedDependencies()
+
 
 @lru_cache(maxsize=4)
-def release(keyed=False, local=False, dependencies=ResolvedDependencies()):
+def release(keyed=False, local=False, dependencies=_EMPTY_DEPENDENCIES):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     classes: dict[str, dict[str, Any]] = {}
     for name, primitive in (("Person", "string"), ("Device", "integer")):

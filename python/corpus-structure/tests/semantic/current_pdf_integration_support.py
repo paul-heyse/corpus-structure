@@ -182,7 +182,7 @@ def remap_current_integration(case, policy):
         project_id=case.original.project_id,
         release_id=kernel.prepared.release_id,
         runtime_id=kernel.runtime,
-        domain="toy",
+        domain=None,
         workflow="capture",
         selection=WholeDocument(),
         documents=(case.original.document_key,),
@@ -217,8 +217,10 @@ def current_integration_journey(
     before_draft=None,
     before_observation=None,
     expect_unresolved_page=False,
+    expect_execution_failed_page=False,
     reclaim_after_recognition=False,
     candidate_pages=(),
+    configure_document=None,
 ):
     from corpus_structure.ingest import pdf_recognition, pdf_worker
     from corpus_structure.orchestrate import pdf_streaming
@@ -253,6 +255,8 @@ def current_integration_journey(
         document.pages.pop(2)
         document.texts[0].prov = document.texts[0].prov[:1]
         document.add_heading(text="1 Controlled", level=1)
+        if configure_document is not None:
+            configure_document(document)
         assert document.tables[0].data.table_cells[0].text == "equal"
         content = ControlledPdfContent.from_document(document, candidate_pages=candidate_pages)
 
@@ -469,7 +473,7 @@ def current_integration_journey(
             project_id=original.project_id,
             release_id=kernel.prepared.release_id,
             runtime_id=kernel.runtime,
-            domain="toy",
+            domain=None,
             workflow="capture",
             selection=WholeDocument(),
             documents=(original.document_key,),
@@ -492,9 +496,21 @@ def current_integration_journey(
                 )
             except NativeDemandExecutionError as error:
                 if reclaim_after_recognition and case.reclaimed_fence is not None:
+                    from psycopg import Error as NativePgError
+                    from sqlalchemy.exc import DBAPIError
+
                     from corpus_structure.semantic.claim_lifetime import ClaimFenceLost
 
-                    assert any(isinstance(failure, ClaimFenceLost) for failure in error.failures)
+                    assert any(
+                        isinstance(failure, ClaimFenceLost)
+                        or (
+                            isinstance(failure, DBAPIError)
+                            and isinstance(failure.orig, NativePgError)
+                            and failure.orig.sqlstate == "23514"
+                            and failure.orig.diag.message_primary == "stale data task attempt fence"
+                        )
+                        for failure in error.failures
+                    ), error.failures
                     case.interruption = error
                     with case.clone.admin.begin() as connection:
                         connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
@@ -516,18 +532,24 @@ def current_integration_journey(
                         admission_engine=kernel.purpose("admit"),
                         database_capacity=6,
                     )
-                elif not expect_unresolved_page:
+                elif not (expect_unresolved_page or expect_execution_failed_page):
                     raise
                 else:
-                    assert any(
-                        isinstance(failure, RuntimeError)
-                        and str(failure) == "unresolved triple-pass physical pages: [1]"
-                        for failure in error.failures
+                    diagnostic = (
+                        "recognition attempt has execution-failed physical pages: [1]"
+                        if expect_execution_failed_page
+                        else "unresolved triple-pass physical pages: [1]"
                     )
+                    assert any(
+                        isinstance(failure, RuntimeError) and str(failure) == diagnostic
+                        for failure in error.failures
+                    ), error.failures
                     case.failure = error
                     result = error.result
             else:
-                assert not expect_unresolved_page, "failed page unexpectedly completed integration"
+                assert not (expect_unresolved_page or expect_execution_failed_page), (
+                    "failed page unexpectedly completed integration"
+                )
         case.demand_id = result.demand_id
         with case.reader().begin() as connection:
             assert connection.scalar(text("SELECT current_user")) == "corpus_sem_reader"
@@ -562,27 +584,34 @@ def current_integration_journey(
             )
             case.publications["native"] = acquired.physical
             observed_use = next(
-                use
-                for use in snapshot["uses"]
-                if use["fate"] == "fulfilled"
-                and obligations[use["obligation_id"]]["operation_id"]
-                == "source.pdf_recognition/observe"
-            )
-            observed_output = next(
-                product for product in observed_use["products"] if product["role"] == "result"
-            )
-            assert observed_use["derivation_id"] is not None
-            case.observation_source = acquire_selected_pdf_observations(
-                connection,
-                SelectedPdfSourceReference(
-                    project_id=original.project_id,
-                    demand_id=result.demand_id,
-                    read_id=snapshot["read_id"],
-                    use_id=observed_use["use_id"],
-                    product_id=observed_output["product_id"],
-                    derivation_id=observed_use["derivation_id"],
+                (
+                    use
+                    for use in snapshot["uses"]
+                    if use["fate"] == "fulfilled"
+                    and obligations[use["obligation_id"]]["operation_id"]
+                    == "source.pdf_recognition/observe"
                 ),
+                None,
             )
+            if expect_execution_failed_page:
+                assert observed_use is None
+            else:
+                assert observed_use is not None
+                observed_output = next(
+                    product for product in observed_use["products"] if product["role"] == "result"
+                )
+                assert observed_use["derivation_id"] is not None
+                case.observation_source = acquire_selected_pdf_observations(
+                    connection,
+                    SelectedPdfSourceReference(
+                        project_id=original.project_id,
+                        demand_id=result.demand_id,
+                        read_id=snapshot["read_id"],
+                        use_id=observed_use["use_id"],
+                        product_id=observed_output["product_id"],
+                        derivation_id=observed_use["derivation_id"],
+                    ),
+                )
         case.snapshot = snapshot
         obligations = {row["obligation_id"]: row for row in snapshot["obligations"]}
         for use in snapshot["uses"]:

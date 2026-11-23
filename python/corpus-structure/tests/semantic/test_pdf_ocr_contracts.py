@@ -355,6 +355,12 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
         supplied["ocr_regions"][0]["lines"][0]["words"].pop()
     refused = []
 
+    def place_prose_in_section(document):
+        assert not document.groups
+        heading = document.body.children.pop()
+        assert heading.cref == document.texts[-1].self_ref
+        document.body.children.insert(0, heading)
+
     def complete_scope_probe(case, engine, claim, holder, draft, arguments, publish):
         if not partial or draft.product_key != "organized":
             return
@@ -366,7 +372,7 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
                 **draft.metadata,
                 "recognition_coverage": (
                     dict(
-                        section_pointer="#/body",
+                        section_pointer="#/groups/0",
                         membership="descendants",
                         universe="inline",
                         outcome="complete",
@@ -388,6 +394,7 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
         monkeypatch,
         native_settings,
         candidate_pages=(current_candidate_page(supplied),),
+        configure_document=place_prose_in_section if partial else None,
         before_draft=complete_scope_probe,
     ) as case:
         assert refused == (["complete-word-inventory"] if partial else [])

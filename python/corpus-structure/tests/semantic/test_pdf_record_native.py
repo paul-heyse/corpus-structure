@@ -321,6 +321,21 @@ def test_artifact_native_verifier_requires_actual_shared_fold_receipt(
     root = byte_root((body,))[1].hex()
     with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+        # The byte-verifier vectors belong to an actual retained revision. This
+        # independent header supplies ownership without a producer/oracle receipt.
+        conn.execute(
+            insert(record_tables()["ops.pdf_record_document"]),
+            dict(
+                product_id=build.product_id,
+                revision_id=build.revision_id,
+                release_id=build.release_id,
+                source_digest=build.source_digest,
+                contract_version="pdf-native-records-v1",
+                native_schema_digest=build.schema_digest,
+                mapping_profile="pdf-native-records-v1",
+                root_id="independent-byte-verifier-root",
+            ),
+        )
         verify = text("SELECT * FROM ops.pdf_identity_verify_artifact(:p,:p,:s)")
         for stream_id, fault in (
             ("valid", None),

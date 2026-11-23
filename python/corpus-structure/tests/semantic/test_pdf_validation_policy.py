@@ -47,12 +47,21 @@ def test_stale_final_validation_requires_fresh_derivation(
             ).scalar_one()
             != params["stale"]
         )
-        owner.execute(
-            text(
-                "UPDATE ops.pdf_build_validation SET native_contract_digest=:stale WHERE build_id=:build"
-            ),
-            params,
+        owner.exec_driver_sql(
+            "ALTER TABLE ops.pdf_build_validation DISABLE TRIGGER semantic_immutable"
         )
+        try:
+            changed = owner.execute(
+                text(
+                    "UPDATE ops.pdf_build_validation SET native_contract_digest=:stale WHERE build_id=:build"
+                ),
+                params,
+            )
+            assert changed.rowcount == 1
+        finally:
+            owner.exec_driver_sql(
+                "ALTER TABLE ops.pdf_build_validation ENABLE TRIGGER semantic_immutable"
+            )
     suffix = ", 'native'" if operation == "seal_pdf_build" else ""
     with (
         pytest.raises(DBAPIError, match=r"fresh.*rebuild|rebuild.*fresh"),

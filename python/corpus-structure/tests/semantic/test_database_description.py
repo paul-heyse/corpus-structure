@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy.engine import make_url
 
 from corpus_structure.serve.database_description import (
     DatabaseDescriptionRequest,
@@ -16,7 +15,7 @@ def test_description_requires_query_binding():
 
 @pytest.mark.parametrize("configured", [False, True])
 def test_description_uses_server_type_resolution_with_configured_driver(
-    commit_db_engine, native_settings, configured, monkeypatch
+    commit_db_engine, commit_application_settings, configured, monkeypatch
 ):
     import adbc_driver_postgresql
 
@@ -32,13 +31,9 @@ def test_description_uses_server_type_resolution_with_configured_driver(
         )
         conn.exec_driver_sql("GRANT USAGE ON SCHEMA describe_types TO corpus_sem_reader")
         conn.exec_driver_sql("GRANT SELECT ON describe_types.sample TO corpus_sem_reader")
-    url = make_url(native_settings.database.url).set(database=commit_db_engine.url.database)
-    settings = native_settings.model_copy(
+    settings = commit_application_settings.model_copy(
         update={
-            "database": native_settings.database.model_copy(
-                update={"url": url.render_as_string(hide_password=False)}
-            ),
-            "analytics": native_settings.analytics.model_copy(
+            "analytics": commit_application_settings.analytics.model_copy(
                 update={
                     "adbc_driver_path": adbc_driver_postgresql._driver_path()
                     if configured
@@ -98,7 +93,7 @@ def test_description_uses_server_type_resolution_with_configured_driver(
     assert result.snapshot == "separate_sessions"
 
 
-def test_literal_scoped_description(commit_db_engine, native_settings):
+def test_literal_scoped_description(commit_db_engine, commit_application_settings):
     with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("CREATE SCHEMA describe_scope")
         conn.exec_driver_sql(
@@ -110,14 +105,7 @@ def test_literal_scoped_description(commit_db_engine, native_settings):
         conn.exec_driver_sql(
             "GRANT SELECT ON ALL TABLES IN SCHEMA describe_scope TO corpus_sem_reader"
         )
-    base = make_url(native_settings.database.url).set(database=commit_db_engine.url.database)
-    settings = native_settings.model_copy(
-        update={
-            "database": native_settings.database.model_copy(
-                update={"url": base.render_as_string(hide_password=False)}
-            )
-        }
-    )
+    settings = commit_application_settings
     result = describe_database(
         DatabaseDescriptionRequest(
             schemas=("describe_scope",), relations=("literal_%", "missing"), estimates=True
@@ -177,7 +165,7 @@ def test_literal_scoped_description(commit_db_engine, native_settings):
 
 
 def test_query_schema_uses_actual_reader_and_refuses_effects(
-    commit_db_engine, native_settings, cli
+    commit_db_engine, commit_application_settings, cli
 ):
     from corpus_structure.semantic.analytical_profile import analytical_inputs
     from corpus_structure.semantic.authored_sql import SQLAdmissionError
@@ -210,14 +198,7 @@ classes: {}
     prepared = prepare_release(bundle, dependencies)
     with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, PreparationProfile(), prepared)
-    url = make_url(native_settings.database.url).set(database=commit_db_engine.url.database)
-    settings = native_settings.model_copy(
-        update={
-            "database": native_settings.database.model_copy(
-                update={"url": url.render_as_string(hide_password=False)}
-            )
-        }
-    )
+    settings = commit_application_settings
     result = describe_database(
         DatabaseDescriptionRequest(
             schemas=("kb",), query="SELECT 1::bigint AS answer", release_id=prepared.release_id
@@ -328,7 +309,7 @@ def test_description_child_cleanup_preserves_iteration_and_consumer_failure(
 
     from corpus_structure.semantic.refusal_types import SemanticRefusal
     from corpus_structure.serve import database_description as description
-    from corpus_structure.settings import Settings
+    from corpus_structure.settings import DatabaseSettings, Settings
 
     events = []
     primary = RuntimeError("metadata iteration")
@@ -396,7 +377,12 @@ def test_description_child_cleanup_preserves_iteration_and_consumer_failure(
     with pytest.raises(RuntimeError if failure_kind == "iteration" else SemanticRefusal) as caught:
         describe_database(
             DatabaseDescriptionRequest(schemas=("public",), depth="schemas", max_objects=1),
-            Settings(),
+            Settings(
+                database=DatabaseSettings(
+                    url="postgresql://unused@localhost/database",
+                    reader_url="postgresql://corpus_sem_reader@",
+                )
+            ),
         )
     if failure_kind == "iteration":
         assert caught.value is primary

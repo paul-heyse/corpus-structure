@@ -233,13 +233,15 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
         )
     )
     assert preparations == [1]
+    success(run("apply", staged["result_id"]))
+    captured = success(run("capture", staged["result_id"]))
+    assert preparations == [1, 1]
 
     def forbidden_recompile(*args, **kwargs):
-        raise AssertionError("candidate/deploy must reuse the authenticated preview preparation")
+        raise AssertionError("candidate/deploy must reuse the authenticated application capture")
 
     monkeypatch.setattr(commands, "_prepare_release", forbidden_recompile)
-    success(run("apply", staged["result_id"]))
-    authored = success(run("candidate", staged["result_id"]))["result_id"]
+    authored = success(run("candidate", captured["result_id"]))["result_id"]
     store = ResultStore(root / "results")
     binding = Candidate.model_validate_json(store.read_artifact(authored, "deployment"))
     assert binding.release is not None and binding.inspection_sha256 is not None
@@ -248,7 +250,7 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
     success(run("register", authored))
     from corpus_structure.semantic.inspection_capsule import open_capsule_inputs
 
-    assert store.read_artifact(staged["result_id"], "inspection") == store.read_artifact(
+    assert store.read_artifact(captured["result_id"], "inspection") == store.read_artifact(
         authored, "inspection"
     )
     prepared = open_capsule_inputs(
@@ -260,7 +262,7 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
     )
     runtime = commands._read_runtime(store, authored, binding.runtime, prepared[3])
     assert runtime is not None and binding.runtime is not None
-    assert staged["runtime"]["runtime_id"] == runtime.runtime_id
+    assert captured["runtime"]["runtime_id"] == runtime.runtime_id
     assert binding.runtime.execution_profile == "execution:deployment-control"
     assert json.loads(runtime.manifest)["observed"] == {}
     wrong_cluster = binding.model_copy(

@@ -20,6 +20,7 @@ from corpus_structure.semantic.original_documents import (
     read_original_document_bytes,
     register_original_document,
 )
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.releases import persist_release
 from corpus_structure.semantic.types import PreparationProfile
 from semantic.original_document_support import source_admission_inputs
@@ -29,11 +30,11 @@ from semantic.original_document_support import source_admission_inputs
 def test_current_source_initialization_retains_exact_bytes_without_local_fallback(
     commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path, source_uri
 ):
-    bundle, dependencies, prepared = source_admission_inputs()
+    bundle, dependencies, _ = source_admission_inputs()
+    profile = PreparationProfile(version="semantic-2")
+    prepared = prepare_release(bundle, dependencies, profile)
     with commit_db_engine.begin() as connection:
-        persist_release(
-            connection, bundle, dependencies, PreparationProfile(version="semantic-2"), prepared
-        )
+        persist_release(connection, bundle, dependencies, profile, prepared)
         admit_data_operation_release(connection, prepared)
     original = b"%PDF-1.7\nindependently specified retained source\x00\xff\n"
     path = tmp_path / "book.pdf"
