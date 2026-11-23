@@ -492,21 +492,24 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
 
     # The normal application-only route reuses the installed native root and
     # admits the same exact reviewed runtime without authoring another migration.
-    application = success(
-        command(
-            "model",
-            "change",
-            "preview",
-            "-",
-            input=yaml.safe_dump(
-                {
-                    "deployment": True,
-                    "data_operations": "target.yaml",
-                    "execution_profile": "execution:deployment-control",
-                }
-            ),
+    with monkeypatch.context() as application_preparation:
+        application_preparation.setattr(commands, "_prepare_release", counted_prepare)
+        application = success(
+            command(
+                "model",
+                "change",
+                "preview",
+                "-",
+                input=yaml.safe_dump(
+                    {
+                        "deployment": True,
+                        "data_operations": "target.yaml",
+                        "execution_profile": "execution:deployment-control",
+                    }
+                ),
+            )
         )
-    )
+    assert preparations == [1, 1, 1]
     success(run("apply", application["result_id"]))
     application_candidate = success(run("candidate", application["result_id"]))
     assert application_candidate["runtime"]["runtime_id"] == runtime.runtime_id
