@@ -626,7 +626,7 @@ def test_compilation_fingerprint_keeps_captured_generated_source_bytes(
     (root / "schema.yaml").write_text("name: captured\n")
 
     def select_sources(*paths):
-        manifest = {
+        manifest: dict[str, object] = {
             "version": "data-operation-inputs-v1",
             "root": "captured",
             "schemas": [{"name": "captured", "path": "schema.yaml"}],
