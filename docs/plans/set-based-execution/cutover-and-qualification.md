@@ -1,8 +1,8 @@
 # Cutover and qualification
 
-**Status · 2026-11-23.** The first typed population root installed on the fresh qualification
-target. The combined runtime includes the remaining consumer migrations and native body
-storage retirement. Its cold installation, qualification and development reset are open.
+**Status · 2026-11-23.** The integrated typed population root installed on the fresh
+qualification target with native body storage retired. Functional qualification and the
+development reset are open.
 Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
@@ -140,8 +140,23 @@ earlier archive schema. The combined source requires its own root and qualificat
 the rich capture, fixture refusal messages, and canonical text ordering. The corrective private
 one-worker selection `6ae5e0a7b3d04ee7b62e5b165e2b9216` passed all 17 identities, including
 rich CPU correspondence, native fresh refusal and exact replay, M1 predicate inputs, and
-declared collection admission. Canonical sealed replies and the authored-only rich reading
-correction postdate that selection.
+declared collection admission. The subsequent sealed IPC, reply, byte-credit, and
+request-retirement selection passed all 39 ordinary identities
+(`874e9ae8bce64853b675d2c3ad3d1e35`). Authored-only rich admission now acquires the
+reading resolution recipe at the first actual resolution. The native toy filing still needs
+to exercise that correction.
+
+**Integrated cold install · Passed · 2026-11-23.** Source `bb92a6bc9` produced preview
+`042b4b1ce4744e13a87214a167d590c9` and rollback-only candidate
+`f472907fc0a34062be4eef3350532394` on the empty authoring target. Inspection confirmed
+the sole `semantic_sbx_current_root`, null predecessor, and zero data steps. Registration
+`9c07499ef2a94bbc95bbef40ae583439` installed with `uv run ci db init` on
+`corpus_structure_sbx09_typed_qualification_v2` (OID `136681893`). Maintenance readback
+matched descriptor `3a6908da6a7aee29c863ba234d1387bf58ae631c5f42301bbe9d144c7dfcb1ed`.
+Projects, originals, demands, products, and retained populations were empty. The body-backed
+table was absent. The reader could resolve exact items, and upload preparation was granted
+to the writer. `just model check` and repository checks passed on the authored source
+(`0c44f12798cc4001b7d989fc9fbc85fd`).
 
 ### Development reset through SBX-09
 
