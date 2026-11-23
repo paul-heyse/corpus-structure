@@ -539,10 +539,11 @@ def test_primary_selection_authenticates_current_asset_population(tmp_path, monk
 
 
 @pytest.mark.parametrize(
-    "companion",
+    ("companion", "pinned"),
     [
-        pytest.param({}, id="standard"),
-        pytest.param({"enrichment_options": "unselected-enrichment"}, id="enriched"),
+        pytest.param({}, True, id="standard"),
+        pytest.param({}, False, id="unpinned-standard"),
+        pytest.param({"enrichment_options": "unselected-enrichment"}, True, id="enriched"),
         pytest.param(
             {
                 "recognition": {
@@ -551,11 +552,14 @@ def test_primary_selection_authenticates_current_asset_population(tmp_path, monk
                     "resources": "unselected-recognition-resources",
                 }
             },
+            True,
             id="integrated",
         ),
     ],
 )
-def test_capture_profile_acquires_only_its_pdf_configuration(tmp_path, monkeypatch, companion):
+def test_capture_profile_acquires_only_its_pdf_configuration(
+    tmp_path, monkeypatch, companion, pinned
+):
     from corpus_structure.ingest import pdf_producer_contract
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.semantic import pdf_capture
@@ -564,7 +568,20 @@ def test_capture_profile_acquires_only_its_pdf_configuration(tmp_path, monkeypat
         _acquire_primary_profile,
     )
 
-    recipe = PdfRecipe("0" * 40, "1" * 40, recipe_id="docling-standard-pdf-stream-v1")
+    artifacts = ()
+    revisions = ()
+    if pinned:
+        asset = tmp_path / "model.snapshot"
+        asset.write_bytes(b"selected model bytes")
+        artifacts = ((asset.name, sha256(asset.read_bytes()).hexdigest()),)
+        revisions = (("controlled-model", "0" * 40),)
+    recipe = PdfRecipe(
+        "0" * 40,
+        "1" * 40,
+        recipe_id="docling-standard-pdf-stream-v1",
+        model_artifacts=artifacts,
+        model_revisions=revisions,
+    )
     profile = PrimaryProfileInputs.model_validate(
         {
             "learned_selections": {"gliner": "unrelated-gliner-assets"},
@@ -581,7 +598,7 @@ def test_capture_profile_acquires_only_its_pdf_configuration(tmp_path, monkeypat
     files = {
         "pdf-recipe": recipe.to_bytes(),
         "pdf-assets": canonical_bytes(
-            {"recipe": "pdf-model-assets-v1", "repositories": [], "files": []}
+            {"recipe": "pdf-model-assets-v1", "repositories": revisions, "files": artifacts}
         ),
     }
 
@@ -597,7 +614,7 @@ def test_capture_profile_acquires_only_its_pdf_configuration(tmp_path, monkeypat
         return producer
 
     def acquire_capture_sources(*args, standard_producer, **kwargs):
-        assert standard_producer is (None if companion else producer)
+        assert standard_producer is (producer if pinned else None)
         return capture_sources
 
     monkeypatch.setattr(pdf_producer_contract, "standard_pdf_contract", acquire_producer)
@@ -606,7 +623,7 @@ def test_capture_profile_acquires_only_its_pdf_configuration(tmp_path, monkeypat
         profile, read, tmp_path, selected_modules=frozenset({"corpus_structure.ingest.pdf_capture"})
     )
     assert reads == ["pdf-recipe", "pdf-assets"]
-    assert calls == ([] if companion else ["selected Standard producer"])
+    assert calls == (["selected Standard producer"] if pinned else [])
     assert acquired["capture_sources"] is capture_sources
     assert acquired["sentence_configuration"] is None
     assert acquired["hanlp_selection"] is None

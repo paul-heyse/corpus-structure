@@ -157,7 +157,7 @@ def test_context_question_cannot_substitute_for_exact_clause_and_wrong_pair_refu
 
 
 def current_focus_inputs():
-    from methods.declared_primary_fixture import selected_source
+    from methods.declared_primary_fixture import profiles, selected_source
 
     from corpus_structure.semantic.structural_products import StructuralPassage
 
@@ -187,22 +187,41 @@ def current_focus_inputs():
             ),
         )
     ]
-    from corpus_structure.semantic.data_operation_partitions import partition_header
-    from corpus_structure.semantic.sentence_partitions import SentenceBlock
+    from corpus_structure.semantic.data_operation_partitions import (
+        PartitionedInput,
+        partition_commitment_header,
+    )
+    from corpus_structure.semantic.data_product_reference import SemanticReference
+    from corpus_structure.semantic.sentence_partitions import (
+        SentenceBlock,
+        produce_sentence_populations,
+    )
 
-    packet = SentenceBlock(
+    block = SentenceBlock(
         "native-block",
         0,
         20,
         40,
         tuple(
-            dict(record_type="sentence", ordinal=ordinal, start=lo, end=hi, extent=20)
+            dict(
+                record_type="sentence",
+                ordinal=ordinal,
+                start=lo,
+                end=hi,
+                extent=20,
+                annotation=SemanticReference.item(
+                    "inventory", "rows", "native-block", ("sentence", ordinal)
+                ).values(),
+            )
             for ordinal, (lo, hi) in enumerate(((0, 7), (8, 14), (15, 20)))
         ),
-    ).packet()
-    packets = (packet,)
+    )
+    _, construction = profiles()
+    kind = next(kind for kind in construction.model.kinds if kind.name == "DdoCanonicalSentences")
+    populations = produce_sentence_populations((block,), construction.prepared, kind)
+    header = {"rows": partition_commitment_header(part.commitment for part in populations)}
     canonical = canonical_context_rows(
-        dict(rows=partition_header(packets)), packets, text_length=len(text)
+        header, PartitionedInput(canonical_bytes(header), (), populations), text_length=len(text)
     )
     return contribution_id, passage, frame, contributions, canonical
 

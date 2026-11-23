@@ -298,6 +298,45 @@ reporting retry, typed COPY and promotion, malformed population rollback, declar
 establishment, exact bound references, native read budget, and composition with the
 actual selected dependencies.
 
+Five remaining PDF custody controls passed in `ffbd602e477946bcb8b73575df9c4b77`.
+They cover reclaim of the first publication, governed observation refusals, rich
+integration, failure after an earlier accepted observation, and an authenticated
+named-input read. `uv run ci check` passed after the runner correction
+(`7351084e9d2d4403b654fead2395a411`).
+
+**Readiness and settlement · Tested · 2026-11-23.** All 29 serial private identities
+passed (`8ec7a67ee160402bb14f335e8576a466`). This covers authored admission, original
+and scalar readiness, closed populations, terminal discovery, exact release and origin
+wakes for pinned inputs, valid and failed streams, cross-demand cancellation and drain,
+and the structural authorship and issuer dossier through exact selected export.
+
+**Shared contracts and migrated producers · 2026-11-23.** All 423 compiler, port, member,
+wire, identity, projection, and change-impact identities passed (`a5c830cef7f44b1d8c03a651ef2f1eee`).
+The preparation cohort passed 51 of 52 identities (`3b84b0920d2c4885979b9e5db7534d29`),
+including fresh offline reproduction of the registered native programs. Its failed fixture
+lacked the pinned model artifacts and revisions expected for Standard producer custody.
+The corrected checks passed for pinned Standard capture across companion configurations
+and for the unpinned case in `eda4c8ccb391484dac8cdcab44240f4a`. In the same run, 66 of 71
+migrated-producer and preparation identities passed. Five clause fixtures still passed
+tagged packets into the typed extent reader. The updated fixtures create a typed canonical
+population and retain the original extent, neighbor, and refusal expectations.
+All 14 clause controls and three authentic detached export identities passed together
+on the corrected source (`243056996d6f4fac933fb7ee23c7db64`). The export checks preserved
+the exact consumed uses of the finite and rich readers and the offline identity of
+both JSONL and Parquet episode closures.
+
+**Ordinary scope reconciliation.** The current selection covers the changed runtime and
+its direct consumers through SBX-09. It includes the original proof, reference, propagation,
+handoff, replay and failure obligations. Prior typed evidence retains its exact context where
+the affected consumer and native behavior correspond. The interrupted broad campaign remains
+the repository's wider regression record. Unchanged process and tooling, unrelated scientific
+and evaluation families, optional providers outside the named cutover cases, stage transitions
+and assembled whole-book checks retain their coverage obligations under their existing owners.
+The three interrupted private cohorts still have staged fixture data in their owned scratch.
+Managed recovery refused to remove that data and preserved their original custody records.
+Their recorded host and worker groups had exited. [Qualification pause](#sbx-09-qualification-pause) ·
+[Assembled obligations](#sbx-22)
+
 ### Development reset through SBX-09
 
 1. Complete the [columnar replacement sequence](#columnar-cutover-sequence), including the
