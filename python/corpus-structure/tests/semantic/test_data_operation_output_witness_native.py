@@ -117,9 +117,17 @@ def ready_completion(kernel):
         for value, page in ((15, 1), (16, 2))
     )
     demand, _, _ = discover(kernel, values=(15, 16), member_contexts=contexts)
-    assert ready_requests(kernel, demand["demand_id"]) == ()
-    (ready,) = ready_requests(kernel, demand["demand_id"])
-    assert ready.operation == "urn:consumer"
+    first = ready_requests(kernel, demand["demand_id"])
+    assert {(request.operation, request.subject) for request in first} == {
+        ("urn:child", "item:15"),
+        ("urn:child", "item:16"),
+    }
+    # The next pin can observe the selected population established by the first pass.
+    (ready,) = (
+        request
+        for request in ready_requests(kernel, demand["demand_id"])
+        if request.operation == "urn:consumer"
+    )
     members = [member for role in ready.binding_result.roles for member in role.members]
     assert {member.member for member in members} == {"m15", "m16"}
     pins = [
@@ -186,7 +194,7 @@ def test_native_writer_refuses_schema_valid_pin_without_one_complete_member(ddo_
         "hybrid": ("subject", "item:16"),
     }
     field, value = changes[fault]
-    forged[0][field] = value
+    next(pin for pin in forged if pin["source_member"] == "m15")[field] = value
     completion["outputs"][0]["product"]["body"] = semantic_value({"pins": forged})
     # Independent schema validity: the failure is selected-member agreement.
     ddo_kernel["prepared"].validate_json("RecordEnvelope", canonical_bytes({"pins": forged}))

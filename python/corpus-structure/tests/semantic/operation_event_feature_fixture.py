@@ -191,17 +191,14 @@ def kernel(input_basis: list, *, prepared, check_active) -> dict:
         cpu_authority_reply,
         cpu_basis_values,
     )
-    from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
     from corpus_structure.semantic.source_products import FrozenNativeSource
-    from corpus_structure.semantic.structural_products import DeclaredDefinitionComponentsReport
+    from corpus_structure.semantic.structural_products import read_definition_components_report
 
     grouped, _ = cpu_basis_values(input_basis, scalar_roles=("report", "source"), set_roles=())
-    report = DeclaredDefinitionComponentsReport.model_validate_json(
-        json_bytes(grouped["report"][0].body)
-    )
+    report = read_definition_components_report(grouped["report"][0].body)
     source_row = grouped["source"][0]
     source = FrozenNativeSource.acquire(prepared, source_row.body)
     coordinate = source.value["source"]

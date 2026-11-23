@@ -166,8 +166,8 @@ def publish_mixed(kernel, *, protected, nested=False, sibling=False, mislabel=Fa
     return demand, receipt
 
 
-def test_captured_member_contract_excludes_abstract_nominal_union():
-    prepared = prepare_kernel(mixed_recipe())
+def test_captured_member_contract_excludes_abstract_nominal_union(tmp_path):
+    prepared = prepare_kernel(mixed_recipe(), directory=tmp_path)
     for owner in ("Container", "Nested"):
         assert derive_member_kinds(prepared.model, "urn:body-privacy:" + owner) == (
             "urn:body-privacy:Nested",
