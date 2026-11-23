@@ -49,6 +49,63 @@ def test_arrow_projection_keeps_canonical_bytes_placement_and_missing_rows(profi
     assert missing_annotation_items(projected, []) == ()
 
 
+def test_canonical_arrow_reply_reuses_local_rows_and_binds_current_placement(profile):
+    import pyarrow as pa
+
+    from corpus_structure.semantic.canonical_sentences import (
+        _canonical_population_table,
+        _memoized_canonical_materialization,
+    )
+    from corpus_structure.semantic.cpu_execution import CapacityExceeded
+    from corpus_structure.semantic.data_operation_population import population_layout
+
+    prepared = canonical_port(profile).profile
+    header = {
+        "source": {"document": "native", "projection": "one", "section_pointer": "#"},
+        "selectors": [],
+        "block_coverage": [],
+        "coverage": [],
+    }
+    spec = json.loads(prepared.projection)
+    kind = next(kind for kind in prepared.model.kinds if kind.semantic_id == prepared.output_kind)
+    layout = population_layout(prepared.prepared, kind, "rows")
+    original = _annotation(0, key="original")
+    moved = _annotation(12, key="renamed")
+    duplicate = _annotation(16, key="split", ordinal=1)
+    basis = ("project:canonical-ipc-control", "recipe:canonical-ipc-control")
+
+    def project(packets):
+        inventory = materialize_whole_input_projection(
+            prepared.input_projection, json.loads(prepared.input_layouts), header, packets
+        )
+        return _canonical_population_table(inventory, spec, layout, (), memo_basis=basis)
+
+    before = _memoized_canonical_materialization.cache_info()
+    original_reply = project((original,))
+    moved_reply = project((moved, duplicate))
+    after = _memoized_canonical_materialization.cache_info()
+    assert after.misses == before.misses + 1
+    assert after.hits == before.hits + 2
+    assert original_reply.table["start"].to_pylist() == [0, 0]
+    assert moved_reply.table["start"].to_pylist() == [0, 0, 0, 0]
+    addresses = [
+        row["partition_key"]["value"] for row in moved_reply.table["annotation"].to_pylist()
+    ]
+    assert addresses == ["renamed", "renamed", "split", "split"]
+
+    encoded = moved_reply.serialize(64 * 1024)
+    with pa.ipc.open_file(pa.BufferReader(encoded)) as reader:
+        decoded = reader.read_all()
+        assert decoded.equals(moved_reply.table, check_metadata=True)
+        assert json.loads(decoded.schema.metadata[b"corpus.canonical_reply"])["placements"] == [
+            ["renamed", 0, 12, 16, 2],
+            ["split", 1, 16, 20, 2],
+        ]
+    assert moved_reply.serialize(len(encoded)) == encoded
+    with pytest.raises(CapacityExceeded, match="admitted reply byte capacity"):
+        moved_reply.serialize(len(encoded) - 1)
+
+
 def test_arrow_projection_rejects_undeclared_scalar_coercion(profile):
     port = canonical_port(profile)
     header = {"source": {}, "selectors": [], "block_coverage": [], "coverage": []}

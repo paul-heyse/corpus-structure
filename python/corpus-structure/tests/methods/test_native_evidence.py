@@ -52,7 +52,7 @@ def test_complete_native_constituents_raw_srl_and_conflicting_heads_survive_curr
     native, preparation = hanlp_reply(native_source)
     product, canonical = retained_hanlp(native_source, native, preparation)
     body = json.loads(product.content)
-    (hanlp_block,) = blocks_from_packets(tuple(json.loads(packet) for packet in product.partitions))
+    (hanlp_block,) = product.partition_blocks
     units = hanlp_block.rows
     constituents = [row for row in units if row["record_type"] == "constituent"]
     assert {row["label"] for row in constituents} == {"TOP", "FRAG", "WHADVP", "NN"}
@@ -113,7 +113,7 @@ def test_missing_predicate_keeps_native_roles_and_marks_only_srl_partial(native_
     native, preparation = hanlp_reply(native_source, missing_predicate=True)
     product, _ = retained_hanlp(native_source, native, preparation)
     body = json.loads(product.content)
-    (block,) = blocks_from_packets(tuple(json.loads(packet) for packet in product.partitions))
+    (block,) = product.partition_blocks
     (group,) = [row for row in block.rows if row["record_type"] == "srl_group"]
     assert len(group["roles"]) == 3
     coverage = {row["family"]: row["outcome"] for row in body["coverage"]}

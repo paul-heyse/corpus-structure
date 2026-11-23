@@ -85,11 +85,14 @@ class RuleAttestationPreparation:
         operation: str,
         output: WireOutputMember,
         context: SubjectContext,
+        *,
+        partition_rows: Mapping[tuple[str, str], Sequence[Mapping]] | None = None,
     ):
         self.kind = kind
         self.operation = operation
         self.output = output
         self.context = context
+        self.partition_rows = partition_rows or {}
         self.source_premises = {}
         self.decoded_values = {}
         self.observed_values = {}
@@ -197,11 +200,14 @@ class RuleAttestationPreparation:
                 for packet in partitions:
                     placement = packet["placement"]
                     if "item_count" in packet:
-                        if exact:
-                            raise ValueError("exact rule fields require the acquired population")
                         compact = cast("WireProductPopulationManifest", packet)
                         group_values = {name: compact["group_digests"][name] for name in groups}
-                        items = ()
+                        items = self.partition_rows.get(
+                            (compact["collection"], compact["partition_key"])
+                        )
+                        if exact and (items is None or len(items) != compact["item_count"]):
+                            raise ValueError("exact rule fields require the acquired population")
+                        items = items or ()
                     else:
                         items = self._decoded(packet["body"]) if groups or exact else ()
                         group_values = self._groups(items, groups)

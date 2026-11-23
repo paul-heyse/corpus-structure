@@ -24,6 +24,8 @@ from corpus_structure.caches import declare
 from .identity import canonical_bytes
 
 if TYPE_CHECKING:
+    import pyarrow as pa
+
     from .data_operation_population import AcquiredPopulation
 
 
@@ -97,8 +99,37 @@ def _adapter_signature(signature, controls):
             parameter
             for name, parameter in signature.parameters.items()
             if name not in controls and _population_form(parameter.annotation) is None
-        ]
+        ],
+        return_annotation=(
+            bytes if signature.return_annotation is CPUArrowResult else signature.return_annotation
+        ),
     )
+
+
+@dataclass(frozen=True)
+class CPUArrowResult:
+    """An Arrow result carried by the ordinary, request-owned immutable CPU reply."""
+
+    table: pa.Table
+
+    def serialize(self, limit: int) -> bytes:
+        import pyarrow as pa
+
+        from .cpu_execution import CapacityExceeded
+
+        if self.table.nbytes > limit:
+            raise CapacityExceeded("CPU Arrow result exceeds admitted reply byte capacity")
+        with pa.BufferOutputStream() as sink:
+            with pa.ipc.new_file(sink, self.table.schema) as writer:
+                for batch in self.table.to_batches(max_chunksize=4096):
+                    writer.write_batch(batch)
+                    if sink.tell() > limit:
+                        raise CapacityExceeded(
+                            "CPU Arrow result exceeds admitted reply byte capacity"
+                        )
+            if sink.tell() > limit:
+                raise CapacityExceeded("CPU Arrow result exceeds admitted reply byte capacity")
+            return sink.getvalue().to_pybytes()
 
 
 def _population_parameters(signature) -> dict[str, Literal["one", "tuple"]]:
@@ -704,6 +735,7 @@ def execute_python_call(
     populations=(),
     request_digest: str | None = None,
     population_bytes: int = 0,
+    max_reply_bytes: int | None = None,
 ) -> bytes:
     """Child-only: typed original ingress and egress; no native/database access."""
     call = _Call.model_validate_json(content, strict=True)
@@ -726,6 +758,13 @@ def execute_python_call(
         result = prepared.function(*bound.args, **bound.kwargs)
         prepare_runtime()
         check_active()
+        if prepared.signature.return_annotation is CPUArrowResult:
+            if type(result) is not CPUArrowResult or max_reply_bytes is None:
+                raise ValueError("CPU Arrow result lacks its admitted return form or byte capacity")
+            encoded = result.serialize(max_reply_bytes)
+            check_active()
+            prepared.verify()
+            return encoded
         prepared.verify()
         adapter = prepared.adapters.get(prepared.signature.return_annotation)
         return adapter.dump_json(adapter.validate_python(result, strict=True))

@@ -923,8 +923,12 @@ class PreparedSentenceProfile:
             else "partial"
         )
         from .characterization_manifests import manifest_contract
-        from .data_operation_partitions import partition_header
-        from .sentence_partitions import partition_source_annotations
+        from .data_operation_partitions import partition_commitment_header
+        from .sentence_partitions import (
+            annotation_blocks,
+            annotation_header,
+            produce_sentence_populations,
+        )
 
         value["members"] = [
             annotation_manifest(
@@ -934,18 +938,27 @@ class PreparedSentenceProfile:
                 ),
             )
         ]
-        header, packets = partition_source_annotations(value)
-        header["rows"] = partition_header(packets)
+        kind = next(
+            kind
+            for kind in self.model.kinds
+            if kind.semantic_id == self.prepared.index.definitions["DdoSourceAnnotations"].iri
+        )
+        populations = produce_sentence_populations(annotation_blocks(value), self.prepared, kind)
+        header = annotation_header(value)
+        header["rows"] = partition_commitment_header(item.commitment for item in populations)
         check_active()
-        return validate_source_annotations(
-            self.prepared,
-            self.model,
-            header,
+        return _verify_annotation_carrier(
+            SourceAnnotations(
+                canonical_bytes(header),
+                self.prepared,
+                self.model,
+                (),
+                tuple(receipts),
+                subject_context,
+                populations=populations,
+            ),
             source,
-            receipts=tuple(receipts),
-            configuration=self.configuration,
-            subject_context=subject_context,
-            partitions=tuple(canonical_bytes(packet) for packet in packets),
+            self.configuration,
         )
 
 
@@ -1473,6 +1486,7 @@ class PreparedSentencePort:
                     "kind_contract": WireKindContract(result.kind_contract),
                     "body": thaw_native(product._payload.tagged),
                     "members": thaw_native(product._payload.member_packets),
+                    "partitions": [item.manifest() for item in result.populations],
                 },
             }
             # The producer validated these facts before detaching the answer.
@@ -1490,11 +1504,15 @@ class PreparedSentencePort:
                         preparation.attest(rule, selected_inputs=observed[rule.id])
                     )
             if partition_rules:
-                for frozen_partition in product._payload.packets:
-                    partition = thaw_native(frozen_partition)
+                for upload, block in zip(result.populations, product.partition_blocks, strict=True):
+                    partition = upload.manifest()
                     # Release the decoded rows and projections after this partition.
                     preparation = RuleAttestationPreparation(
-                        kind, self.operation.semantic_id, packet, binding.subject_context
+                        kind,
+                        self.operation.semantic_id,
+                        packet,
+                        binding.subject_context,
+                        partition_rows={(partition["collection"], block.key): block.rows},
                     )
                     for rule in partition_rules:
                         by_rule[rule.id].append(

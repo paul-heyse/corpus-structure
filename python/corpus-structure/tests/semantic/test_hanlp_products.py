@@ -248,6 +248,7 @@ def test_detached_head_failures_preserve_valid_siblings_and_native_tree_groups(
         coverage,
         kind_contract=manifest_contract(profile.prepared, profile.model, "DdoHanlpManifest"),
         prepared=profile.prepared,
+        model=profile.model,
     )
     decode = type(profile.prepared).validate_python
 

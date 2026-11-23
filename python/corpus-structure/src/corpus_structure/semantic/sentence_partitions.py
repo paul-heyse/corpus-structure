@@ -1,15 +1,18 @@
 """The shared block-local view of sentence and token populations."""
 
+from __future__ import annotations
+
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from hashlib import sha256
 from types import MappingProxyType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from corpus_structure.caches import declare
 
 from ._data_operation_wire import WireProductPartition
 from .data_operation_partitions import (
+    AcquiredPopulationPartition,
     PartitionCommitment,
     partition_commitment_header,
     partition_header,
@@ -18,6 +21,11 @@ from .data_operation_partitions import (
 from .data_operation_values import decode_semantic_value, semantic_value
 from .data_product_reference import SemanticReference
 from .identity import canonical_bytes
+
+if TYPE_CHECKING:
+    import pyarrow as pa
+
+    from .data_operation_population import AcquiredPopulation
 
 COLLECTION = "rows"
 
@@ -36,6 +44,48 @@ class SentenceBlock:
 
     def packet(self) -> WireProductPartition:
         return partition_packet(COLLECTION, self.key, self.ordinal, self.start, self.end, self.rows)
+
+
+@dataclass(frozen=True)
+class ProducedSentencePartition(AcquiredPopulationPartition):
+    """A producer's admitted rows and the item text computed from them once."""
+
+    canonical_items: pa.Table
+
+
+def produce_sentence_partition(
+    block: SentenceBlock, population: AcquiredPopulation, *, engine
+) -> ProducedSentencePartition:
+    from .population_canonical import canonical_population
+
+    canonical = canonical_population(population, engine=engine)
+    commitment = PartitionCommitment(
+        COLLECTION,
+        block.key,
+        block.ordinal,
+        block.start,
+        block.end,
+        canonical.partition_digest,
+        canonical.items.num_rows,
+    )
+    return ProducedSentencePartition(
+        commitment, MappingProxyType(canonical.group_digests), population, canonical.items
+    )
+
+
+def produce_sentence_populations(blocks, prepared, kind):
+    from corpus_structure.analytics import connection
+
+    from .data_operation_population import population_layout
+
+    if not blocks:
+        return ()
+    layout = population_layout(prepared, kind, COLLECTION)
+    with connection() as engine:
+        return tuple(
+            produce_sentence_partition(block, layout.from_rows(block.rows), engine=engine)
+            for block in blocks
+        )
 
 
 def blocks_from_packets(packets: Sequence[WireProductPartition]) -> tuple[SentenceBlock, ...]:
@@ -285,30 +335,36 @@ def typed_sentence_role(role, kind_contract, payload: SentenceProductPayload, pr
     from .population_canonical import canonical_population
     from .population_transfer import PopulationUploadPartition
 
-    layout = population_layout(prepared, kind, COLLECTION)
-    blocks = selected_sentence_blocks(payload)
-    populations = []
-    if blocks:
+    owned = payload.populations
+    if not owned:
+        owned = produce_sentence_populations(payload.blocks, prepared, kind)
+    uploads = []
+    if all(isinstance(item, ProducedSentencePartition) for item in owned):
+        uploads = [
+            PopulationUploadPartition(
+                item.commitment, dict(item.group_digests), item.canonical_items
+            )
+            for item in owned
+        ]
+    else:
+        layout = population_layout(prepared, kind, COLLECTION)
         with connection() as engine:
-            for block in blocks:
-                items = canonical_population(layout.from_rows(block.rows), engine=engine)
-                populations.append(
+            for item in owned:
+                if not item.population.table.schema.equals(layout.schema, check_metadata=True):
+                    raise ValueError("sentence publication requires its nominal output population")
+                canonical = canonical_population(item.population, engine=engine)
+                if (
+                    canonical.partition_digest != item.commitment.digest
+                    or canonical.group_digests != item.group_digests
+                ):
+                    raise ValueError("sentence publication differs from its retained population")
+                uploads.append(
                     PopulationUploadPartition(
-                        PartitionCommitment(
-                            COLLECTION,
-                            block.key,
-                            block.ordinal,
-                            block.start,
-                            block.end,
-                            items.partition_digest,
-                            items.items.num_rows,
-                        ),
-                        items.group_digests,
-                        items.items,
+                        item.commitment, canonical.group_digests, canonical.items
                     )
                 )
     if (
-        partition_commitment_header(item.commitment for item in populations)
+        partition_commitment_header(item.commitment for item in uploads)
         != payload.value[COLLECTION]
     ):
         raise ValueError("typed sentence rows differ from their admitted collection")
@@ -318,7 +374,7 @@ def typed_sentence_role(role, kind_contract, payload: SentenceProductPayload, pr
         payload.content,
         payload.meaning,
         payload.members,
-        populations=tuple(populations),
+        populations=tuple(uploads),
     )
 
 
@@ -360,9 +416,7 @@ def annotation_blocks(value: Mapping) -> tuple[SentenceBlock, ...]:
     return tuple(result)
 
 
-def partition_source_annotations(
-    value: Mapping[str, Any],
-) -> tuple[dict[str, Any], tuple[WireProductPartition, ...]]:
+def annotation_header(value: Mapping[str, Any]) -> dict[str, Any]:
     """Separate original-source placement and layout from normalized annotation rows."""
     header = dict(value)
     header["block_layouts"] = [
@@ -376,4 +430,10 @@ def partition_source_annotations(
         }
         for block in header.pop("blocks")
     ]
-    return header, tuple(block.packet() for block in annotation_blocks(value))
+    return header
+
+
+def partition_source_annotations(
+    value: Mapping[str, Any],
+) -> tuple[dict[str, Any], tuple[WireProductPartition, ...]]:
+    return annotation_header(value), tuple(block.packet() for block in annotation_blocks(value))

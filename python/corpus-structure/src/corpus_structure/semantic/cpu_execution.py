@@ -419,6 +419,7 @@ def _dispatch(
                     populations=packet.populations,
                     request_digest=request_digest,
                     population_bytes=sum(offer.byte_length for offer in packet.populations),
+                    max_reply_bytes=max_reply_bytes,
                 )
             if len(result) > max_reply_bytes:
                 raise CapacityExceeded("CPU Python result exceeds admitted reply byte capacity")

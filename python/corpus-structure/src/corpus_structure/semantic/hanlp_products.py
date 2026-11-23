@@ -7,6 +7,7 @@ import json
 from collections.abc import Mapping
 from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field
+from functools import cached_property
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, ClassVar
@@ -403,7 +404,7 @@ def hanlp_sentence_batches(ready, startup):
 @dataclass(frozen=True)
 class HanlpProduct:
     content: bytes
-    partitions: tuple[bytes, ...]
+    populations: tuple
     execution_receipts: tuple[bytes, ...] = ()
     prepared: Any = field(kw_only=True)
     _payload: ClassVar[Any]
@@ -416,10 +417,9 @@ class HanlpProduct:
         ):
             raise TypeError("HanLP execution custody requires immutable receipt bytes")
         payload = sentence_product_payload(
-            self.content, self.partitions, self.prepared, "DdoHanlpInventory"
+            self.content, (), self.prepared, "DdoHanlpInventory", populations=self.populations
         )
         object.__setattr__(self, "content", payload.content)
-        object.__setattr__(self, "partitions", payload.partitions)
         object.__setattr__(self, "_payload", payload)
 
     @property
@@ -427,10 +427,17 @@ class HanlpProduct:
         if (
             "_payload" not in vars(self)
             or self.content is not self._payload.content
-            or self.partitions is not self._payload.partitions
+            or self.populations is not self._payload.populations
         ):
             raise TypeError("HanLP product lacks its validating acquisition")
         return self._payload.value
+
+    @cached_property
+    def partition_blocks(self):
+        from .sentence_partitions import selected_sentence_blocks
+
+        _ = self.value
+        return selected_sentence_blocks(self._payload)
 
 
 @dataclass(frozen=True)
@@ -565,16 +572,17 @@ class PreparedHanlpProfile:
             kind_contract=manifest_contract(self.prepared, self.model, "DdoHanlpManifest"),
             receipts=tuple(receipts),
             prepared=self.prepared,
+            model=self.model,
         )
 
 
 def partition_hanlp_product(
-    source, rows, units, alignments, coverage, *, kind_contract, prepared, receipts=()
+    source, rows, units, alignments, coverage, *, kind_contract, prepared, model, receipts=()
 ):
     """Publish one flat population of the native heads under its canonical block placements."""
-    from .data_operation_partitions import partition_header
+    from .data_operation_partitions import partition_commitment_header
     from .data_product_reference import SemanticReference, read_semantic_reference
-    from .sentence_partitions import COLLECTION, SentenceBlock
+    from .sentence_partitions import COLLECTION, SentenceBlock, produce_sentence_populations
 
     placements = {
         sentence["block_id"]: (sentence["block_order"], sentence["placement"])
@@ -604,7 +612,7 @@ def partition_hanlp_product(
         grouped.setdefault(block_key, []).append(
             dict(unit, ordinal=ordinal, sentence_ordinal=sentence_ordinal)
         )
-    packets = []
+    blocks = []
     for index, key in enumerate(sorted(grouped, key=lambda key: placements[key][0])):
         start, end = placements[key][1]
         rows = sorted(
@@ -615,7 +623,7 @@ def partition_hanlp_product(
                 item["ordinal"],
             ),
         )
-        packets.append(SentenceBlock(key, index, start, end, tuple(rows)).packet())
+        blocks.append(SentenceBlock(key, index, start, end, tuple(rows)))
     header = append_manifest(
         dict(
             source=source.value["source"],
@@ -626,10 +634,16 @@ def partition_hanlp_product(
         ),
         kind_contract,
     )
-    header[COLLECTION] = partition_header(packets)
+    kind = next(
+        kind
+        for kind in model.kinds
+        if kind.semantic_id == prepared.index.definitions["DdoHanlpInventory"].iri
+    )
+    populations = produce_sentence_populations(blocks, prepared, kind)
+    header[COLLECTION] = partition_commitment_header(item.commitment for item in populations)
     return HanlpProduct(
         canonical_bytes(header),
-        tuple(canonical_bytes(packet) for packet in packets),
+        populations,
         receipts,
         prepared=prepared,
     )

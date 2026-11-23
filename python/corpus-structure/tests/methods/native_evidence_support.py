@@ -148,5 +148,6 @@ def retained_hanlp(case, heads, preparation):
         coverage,
         kind_contract=manifest_contract(prepared, model, "DdoHanlpManifest"),
         prepared=prepared,
+        model=model,
     )
     return product, canonical

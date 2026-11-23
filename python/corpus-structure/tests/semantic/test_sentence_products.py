@@ -144,20 +144,17 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
     import re
 
     from corpus_structure.semantic.data_operation_partitions import (
-        AcquiredPopulationPartition,
-        PartitionCommitment,
         PartitionedInput,
-        partition_group_digests,
         partition_header,
     )
-    from corpus_structure.semantic.data_operation_population import population_layout
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue
     from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.semantic.data_product_reference import read_semantic_reference
-    from corpus_structure.semantic.sentence_partitions import SentenceBlock, blocks_from_packets
+    from corpus_structure.semantic.sentence_partitions import SentenceBlock
 
-    assert product.partitions is not None
-    complete = PartitionedInput(product.content, product.partitions)
+    assert product.partitions == ()
+    assert product.populations
+    complete = PartitionedInput(product.content, (), product.populations)
     port = canonical_port(profile)
     input_kind = next(
         item.key
@@ -179,31 +176,9 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
     manifest = member["body"]
     assert manifest["record_type"] == "manifest"
     assert {row["family"] for row in manifest["coverage"]} == {"spacy.tokens", "spacy.sentences"}
-    native_blocks = blocks_from_packets(tuple(json.loads(packet) for packet in complete.packets))
-    input_definition = next(
-        kind
-        for kind in port.profile.model.kinds
-        if kind.semantic_id == port.operation.roles[0].kind
-    )
-    layout = population_layout(port.profile.prepared, input_definition, "rows")
-    typed_blocks = []
-    for block in native_blocks:
-        typed_blocks.append(
-            AcquiredPopulationPartition(
-                PartitionCommitment(
-                    "rows",
-                    block.key,
-                    block.ordinal,
-                    block.start,
-                    block.end,
-                    block.packet()["partition_digest"],
-                    len(block.rows),
-                ),
-                partition_group_digests(block.rows, dict(layout._field_groups)),
-                layout.from_rows(block.rows),
-            )
-        )
-    assert project(PartitionedInput(product.content, (), tuple(typed_blocks))) == published
+    native_blocks = product.partition_blocks
+    baseline_packets = tuple(canonical_bytes(block.packet()) for block in native_blocks)
+    assert project(PartitionedInput(product.content, baseline_packets)) == published
     assert published.partitions == ()
     canonical_blocks = []
     for item in published.populations:
@@ -253,7 +228,7 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
     relabeled_input = PartitionedInput(
         canonical_bytes(relabeled_header), tuple(canonical_bytes(packet) for packet in relabeled)
     )
-    assert relabeled_input.packets != product.partitions
+    assert relabeled_input.packets != baseline_packets
     assert project(relabeled_input) == published
     original_tokens = product.inventory("token")
 
@@ -332,7 +307,7 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
     changed["rows"]["root"] = "foreign-commitment"
     with pytest.raises(ValueError, match="selected collection commitment"):
         validate_source_annotations(
-            profile.prepared, profile.model, changed, source, partitions=product.partitions
+            profile.prepared, profile.model, changed, source, partitions=baseline_packets
         )
 
 

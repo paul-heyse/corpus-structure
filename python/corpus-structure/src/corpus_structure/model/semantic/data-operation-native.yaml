@@ -700,10 +700,7 @@ definitions:
         - type: 'null'
       partitions:
         type: array
-        items:
-          anyOf:
-          - {$ref: '#/definitions/product_partition'}
-          - {$ref: '#/definitions/product_population_manifest'}
+        items: {$ref: '#/definitions/product_population_manifest'}
     required:
     - kind_contract
     - body
