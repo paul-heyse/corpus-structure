@@ -247,9 +247,9 @@ def source_annotation_blocks(
         partitions = value.partitions
         body = json.loads(value.content)
         populations = getattr(value, "populations", ())
-    if partitions is None:
+    if partitions is None and not populations:
         raise ValueError("annotation reads require their admitted row partitions")
-    rows = acquire_sentence_blocks(partitions, body[COLLECTION], populations=populations)
+    rows = acquire_sentence_blocks(partitions or (), body[COLLECTION], populations=populations)
     return tuple(
         _annotation_block(layout, block)
         for layout, block in zip(body["block_layouts"], rows, strict=True)

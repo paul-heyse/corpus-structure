@@ -158,6 +158,16 @@ table was absent. The reader could resolve exact items, and upload preparation w
 to the writer. `just model check` and repository checks passed on the authored source
 (`0c44f12798cc4001b7d989fc9fbc85fd`).
 
+**Integrated provider checks · Tested by selected identity · 2026-11-23.** The private
+one-worker provider run `b54ae7600d93433caa5ccf5fdc81b5ac` passed the real annotation and
+canonical chain and verified both nonempty populations after authenticated Parquet export.
+The next provider cohort `14c9af321fde495ea099db43f1153116` passed moved, renamed and split
+occurrences, canonical cross-capture adoption with revocation, and HanLP/declaration.
+It was interrupted after construction failed to recognize the typed worker input. Managed
+recovery settled the private host and retained all completed, failed, and incomplete identities.
+The annotation reader now accepts an owned typed population with no packet body.
+Construction and the related annotation fork still require their corrective provider runs.
+
 ### Development reset through SBX-09
 
 1. Complete the [columnar replacement sequence](#columnar-cutover-sequence), including the
