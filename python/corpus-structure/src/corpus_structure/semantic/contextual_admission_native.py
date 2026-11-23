@@ -476,7 +476,23 @@ def contextual_admission_native_programs(*, target_metadata=None) -> tuple[Progr
                             ),
                             "native scores belong to another exact selected input/support population",
                         )
-                        for name in ("query", "inventory", "vectors", "policy")
+                        for name in ("query", "inventory", "vectors")
+                    ),
+                    # Both uses admit the authored policy in their own demand.
+                    # Compare the policy meaning authenticated by exact binding.
+                    _reject(
+                        _field(
+                            p.row("original", "ops.data_request", "binding")["request_inputs"],
+                            "policy",
+                        ).is_distinct_from(
+                            _field(
+                                p.row("scores_request", "ops.data_request", "binding")[
+                                    "request_inputs"
+                                ],
+                                "policy",
+                            )
+                        ),
+                        "native scores differ from the selected authored policy",
                     ),
                     p.lookup(
                         "definition",

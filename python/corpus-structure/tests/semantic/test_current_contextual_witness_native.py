@@ -48,18 +48,23 @@ def test_actual_private_source_binding_retains_authorship_and_competing_alternat
     current_contextual_case, targets, outcome, tmp_path
 ):
     case = current_contextual_case
-    submitted = hypotheses(case, targets)
-    demand, result = run_intent(
-        case.kernel,
-        witnessed_retrieval_intent(
+
+    def retrieve(assertions):
+        return run_intent(
             case.kernel,
-            case.selection,
-            case.query_demand,
-            case.query,
-            hypotheses=submitted,
-            budget=2,
-        ),
-    )
+            witnessed_retrieval_intent(
+                case.kernel,
+                case.selection,
+                case.query_demand,
+                case.query,
+                hypotheses=assertions,
+                budget=2,
+            ),
+        )
+
+    prior_demand = retrieve([])[0] if outcome == "selected" else None
+    submitted = hypotheses(case, targets)
+    demand, result = retrieve(submitted)
     assert result.receipt_count >= 1
     (product,) = retained_products(case.kernel, demand, "DdoContextualWitnessedRetrievalProduct")
     (binding,) = retained_products(case.kernel, demand, "DdoContextualWitnessBindings")
@@ -83,11 +88,25 @@ def test_actual_private_source_binding_retains_authorship_and_competing_alternat
     decision = contextual_relationship_decision(product.body)
     assert decision.outcome == outcome
     if outcome == "selected":
+        assert prior_demand is not None and prior_demand != demand
+        (score,) = retained_products(case.kernel, demand, "DdoContextualNativeScores")
+        (prior_score,) = retained_products(case.kernel, prior_demand, "DdoContextualNativeScores")
+        assert score.row["derivation_id"] == prior_score.row["derivation_id"]
+        with case.kernel.engine.connect() as connection:
+            admissions = connection.execute(
+                text(
+                    "SELECT id, source_reference, product_id FROM ops.original_source_admission "
+                    "WHERE selection_name='contextual-policy' AND demand_id IN (:prior, :current)"
+                ),
+                {"prior": prior_demand, "current": demand},
+            ).all()
+        (first_policy, current_policy) = admissions
+        assert first_policy.id != current_policy.id
+        assert first_policy.source_reference == current_policy.source_reference
+        assert first_policy.product_id == current_policy.product_id
         (edge,) = decision.selected_edges
         assert edge.member_target_ids == ("one",)
-        assert edge.witnesses[0].evidence_ids == (
-            case.query.body["carrier"]["contribution_id"],
-        )
+        assert edge.witnesses[0].evidence_ids == (case.query.body["carrier"]["contribution_id"],)
         from corpus_structure.serve.demand_export import (
             export_demand_result,
             verified_demand_export,

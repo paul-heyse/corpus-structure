@@ -463,6 +463,7 @@ def ensure_search_projection(
 
     from ._data_operation_wire import WireEnsurePdfSearchProjectionRequest
     from .data_operation_storage import DataOperationStorage
+    from .native_source_view import thaw_native
     from .pdf_record_reader import PublishedPdfReader, PublishedReadBudget
     from .source_products import FrozenNativeSource
 
@@ -518,10 +519,10 @@ def ensure_search_projection(
                         "projection_digest": projected["source"]["projection"],
                         "projection": {
                             "text": projected["text"],
-                            "pieces": projected["pieces"],
+                            "pieces": thaw_native(projected["pieces"]),
                             "items": [item["self_ref"] for item in projected["items"]],
                             "ancestors": [item["self_ref"] for item in projected["ancestors"]],
-                            "health": {"formula_outcomes": projected["recognition"]},
+                            "health": {"formula_outcomes": thaw_native(projected["recognition"])},
                         },
                     }
                 )
