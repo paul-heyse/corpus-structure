@@ -288,3 +288,52 @@ def test_current_json_meaning_large_typed_members_keep_literal_shape(product_con
     assert actual == encoded
     frame = '["ddo","rule-premise","1",' + encoded + "]"
     assert identity == "rule-premise:" + sha256(frame.encode()).hexdigest()
+
+
+@pytest.mark.db
+def test_current_json_meaning_bounds_regex_by_rendered_bytes(native_rollback, monkeypatch):
+    from corpus_structure.semantic import data_operation_value_native as owner
+    from semantic.native_program_support import routine_declaration
+
+    # Exercise the actual branch at a small boundary, including JSON escaping
+    # and multibyte UTF-8; do not allocate packet-sized buffers merely to test it.
+    monkeypatch.setattr(owner, "_JSON_MEANING_ARRAY_REGEX_BYTES", 64)
+    connection = native_rollback.connection
+    connection.exec_driver_sql("CREATE TEMP SEQUENCE json_meaning_regex_calls")
+    connection.exec_driver_sql(
+        "CREATE FUNCTION pg_temp.counted_json_meaning_tokens(text,text,text) "
+        "RETURNS SETOF text[] LANGUAGE plpgsql AS $$ BEGIN "
+        "PERFORM nextval('pg_temp.json_meaning_regex_calls'); "
+        "RETURN QUERY SELECT * FROM pg_catalog.regexp_matches($1,$2,$3); END $$"
+    )
+    declaration = routine_declaration(owner.data_operation_value_sql(), "data", "ddo_json_meaning")
+    counted = declaration.replace("regexp_matches(", "pg_temp.counted_json_meaning_tokens(")
+    assert counted != declaration
+    connection.exec_driver_sql(counted)
+    query = text(
+        "SELECT pg_temp.ddo_json_meaning(CAST(:value AS jsonb)), "
+        "octet_length(CAST(CAST(:value AS jsonb) AS text)), "
+        "data.ddo_identity('rule-premise',pg_temp.ddo_json_meaning(CAST(:value AS jsonb)))"
+    )
+    for source, rendered_bytes, calls in (
+        ("é" * 30, 64, 2),
+        ("é" * 31, 66, 0),
+        ("\\" * 30, 64, 2),
+        ("\\" * 31, 66, 0),
+        ("\x01" * 10, 64, 2),
+        ("\x01" * 11, 70, 0),
+    ):
+        connection.exec_driver_sql("SELECT setval('pg_temp.json_meaning_regex_calls',1,false)")
+        actual, size, proof = connection.execute(query, {"value": json.dumps([source])}).one()
+        expected = ["sequence", [["string", source]]]
+        assert actual == expected and size == rendered_bytes
+        count, used = connection.execute(
+            text("SELECT last_value,is_called FROM pg_temp.json_meaning_regex_calls")
+        ).one()
+        assert (count if used else 0) == calls
+        encoded = json.dumps(expected, ensure_ascii=False, separators=(",", ":"))
+        assert (
+            proof
+            == "rule-premise:"
+            + sha256(('["ddo","rule-premise","1",' + encoded + "]").encode()).hexdigest()
+        )

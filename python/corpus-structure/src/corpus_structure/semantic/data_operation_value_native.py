@@ -54,6 +54,7 @@ _NON_VALUES = (
 )
 _COLLECTIONS = ("sequence", *get_args(get_type_hints(CollectionValue)["kind"]))
 _TEXT = ("string", "date", "datetime", "float", "integer", "decimal")
+_JSON_MEANING_ARRAY_REGEX_BYTES = 32 * 1024**2
 
 
 def _json(value):
@@ -469,6 +470,7 @@ def _normalize():
 
 def _json_meaning():
     value = core_variable("value", JSONB())
+    array_text = core_variable("array_text", Text())
     kind = func.jsonb_typeof(value)
     members = _members(value, ordinality=True)
     mapping = func.jsonb_each(value).table_valued(column("key", Text()), column("value", JSONB()))
@@ -478,7 +480,7 @@ def _json_meaning():
     # recursively for every node and rebuilding each enclosing subtree.
     tokens = (
         func.regexp_matches(
-            cast(value, Text()).collate("C"),
+            array_text.collate("C"),
             r'"(?:[^"\\]|\\.)*"|\[|\]|,|null|true|false|-?[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?',
             "g",
         )
@@ -549,13 +551,27 @@ def _json_meaning():
             If(
                 kind == "array",
                 (
-                    If(~func.jsonb_path_exists(value, nested_objects), (Return(scalar_array),)),
+                    If(
+                        ~func.jsonb_path_exists(value, nested_objects),
+                        (
+                            Assign("array_text", cast(value, Text())),
+                            # regexp_matches retains wide text and match offsets.
+                            # Bound that workspace independently of packet capacity,
+                            # using actual rendered bytes including JSON escaping.
+                            If(
+                                func.octet_length(array_text) <= _JSON_MEANING_ARRAY_REGEX_BYTES,
+                                (Return(scalar_array),),
+                            ),
+                            Assign("array_text", cast(literal(None), Text())),
+                        ),
+                    ),
                     Return(func.jsonb_build_array("sequence", sequence)),
                 ),
             ),
             If(kind == "object", (Return(func.jsonb_build_array("mapping", ordered)),)),
             Raise("unsupported JSON context value", "P0001"),
         ),
+        (Local("array_text", pg_type("text")),),
     )
 
 
