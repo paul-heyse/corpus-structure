@@ -1016,7 +1016,7 @@ def pdf_freeze_native_programs(model, stages=None, *, pdf_domain=None):
                         certified.c.build_id == p_build,
                         certified.c.kind == p_kind,
                         certified.c.lowering_identity
-                        == func.ops.pdf_lowering_identity(row("b", build, "release_id")),
+                        == func.ops.pdf_lowering_identity(row("b", build, "release_id"), p_task),
                         tuple_(
                             certified.c.source_digest,
                             certified.c.recipe_digest,

@@ -16,6 +16,7 @@ from corpus_structure.semantic.pdf_staging_native import stage_native_programs, 
 
 SPOOL = {
     "register_pdf_spool_producer",
+    "pdf_lowering_contract_name",
     "pdf_spool_material_identity",
     "pdf_spool_request_material",
     "read_pdf_spool_recovery_candidates",
@@ -39,6 +40,7 @@ STAGING = {
     "abandon_pdf_build",
 }
 INTERNAL = {
+    "pdf_lowering_contract_name",
     "pdf_spool_material_identity",
     "pdf_spool_request_material",
     "pdf_spool_contributors",
@@ -67,7 +69,7 @@ def prerequisites(declarations):
 def test_pdf_owner_inventory_and_access_are_typed_and_preserve_raw_function_and_acl_contract():
     declarations = producers()
     assert {program.identity.name for program in declarations} == SPOOL | STAGING
-    assert len(declarations) == 20
+    assert len(declarations) == 21
     assert all(
         isinstance(program, ProgramDeclaration)
         and isinstance(program.routine, NativeRoutine)

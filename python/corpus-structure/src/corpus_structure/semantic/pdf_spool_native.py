@@ -55,15 +55,38 @@ from .native_program import (
     core_variable,
     pg_type,
 )
+from .native_program import literal as pg_literal
 from .native_program_registry import ProgramDeclaration
+from .pdf_domain import CONTRACT, PREFIX
+from .pdf_lowering import (
+    CAPTURE_LOWERING_CODE,
+    CAPTURE_LOWERING_CONTRACT,
+    LOWERING_CODE,
+    LOWERING_CONTRACT,
+)
 
 # The lowering contract supplies the derived code basis plus explicit schemas
 # and codecs. Transport custody remains outside these producing inputs.
 SPOOL_MATERIAL_PREFIX = "pdf-domain/implementation/pdf/lowering/"
 SPOOL_REQUIRED_MATERIAL = frozenset(
     SPOOL_MATERIAL_PREFIX + name
-    for name in ("code/meaning.json", "schema/docling-native.json", "codec/inline-candidates.arrow")
+    for name in ("schema/docling-native.json", "codec/inline-candidates.arrow")
 )
+PDF_CAPTURE_OPERATION = "source.pdf/capture"
+GENERIC_CODE_INPUT = PREFIX + LOWERING_CODE
+CAPTURE_CODE_INPUT = PREFIX + CAPTURE_LOWERING_CODE
+
+
+def pdf_task_operation(model, release, task_id):
+    """Read the operation of the originating task under its exact archived release."""
+    tasks = model.tables["ops.task"]
+    requests = model.tables["ops.data_request"]
+    return (
+        select(requests.c.operation_id)
+        .select_from(tasks.join(requests, tasks.c.data_request_id == requests.c.id))
+        .where(tasks.c.id == task_id, tasks.c.release_id == release)
+        .scalar_subquery()
+    )
 
 
 def spool_material_document(content: bytes) -> dict:
@@ -89,12 +112,30 @@ def spool_material_document(content: bytes) -> dict:
         or len({item["name"] for item in inputs}) != len(inputs)
     ):
         raise ValueError("PDF spool lowering inventory is not exact")
-    selected = sorted(
-        (item for item in inputs if item["name"].startswith(SPOOL_MATERIAL_PREFIX)),
-        key=lambda item: item["name"],
+    material = {
+        item["name"]: item["sha256"]
+        for item in inputs
+        if item["name"].startswith(SPOOL_MATERIAL_PREFIX)
+    }
+    code = (
+        CAPTURE_CODE_INPUT
+        if document["profile"] == STANDARD_LOWERING and CAPTURE_CODE_INPUT in material
+        else GENERIC_CODE_INPUT
     )
-    if not SPOOL_REQUIRED_MATERIAL.issubset({item["name"] for item in selected}):
+    if (
+        not SPOOL_REQUIRED_MATERIAL.issubset(material)
+        or code not in material
+        or (
+            document["profile"] == STANDARD_LOWERING
+            and material[code] != document["code_identity"]["sha256"]
+        )
+    ):
         raise ValueError("PDF spool is missing original output-contract snapshots")
+    # Keep the recovery comparison on the selected code digest when the
+    # archive's old Standard code slot moves to its capture-specific name.
+    material[GENERIC_CODE_INPUT] = material[code]
+    material.pop(CAPTURE_CODE_INPUT, None)
+    selected = [{"name": name, "sha256": digest} for name, digest in sorted(material.items())]
     return {"profile": document["profile"], "libraries": document["libraries"], "inputs": selected}
 
 
@@ -318,8 +359,10 @@ def pdf_spool_native_programs(
     runtime_field = ("p_runtime", runtime.c.runtime_id)
     programs = []
 
-    def routine(name, fields, statements, locals_, *, result=None, output=()):
-        parameters = tuple(Parameter(name, column_type(field)) for name, field in fields)
+    def routine(name, fields, statements, locals_, *, result=None, output=(), stable=False):
+        parameters = tuple(
+            Parameter(name, column_type(field), *default) for name, field, *default in fields
+        )
         programs.append(
             NativeRoutine(
                 "ops",
@@ -329,6 +372,7 @@ def pdf_spool_native_programs(
                 table_columns=tuple((name, column_type(field)) for name, field in output),
                 body=Block(tuple(statements), tuple(locals_)),
                 security_definer=True,
+                volatility="stable" if stable else None,
                 search_path=("pg_catalog", "pg_temp"),
             )
         )
@@ -527,19 +571,81 @@ def pdf_spool_native_programs(
         .render_derived(name="inventory_member")
     )
 
-    def material_domain_projection(release, domain_digest, name):
+    material_release = core_variable("p_release", inputs.c.release_id.type)
+    material_task = core_variable("p_origin_task", build.c.task_id.type)
+    archive_facet = inputs.alias("lowering_archive_facet")
+    archive_document = json_bytes(archive_facet.c.content)
+    scoped_name = PREFIX + CAPTURE_LOWERING_CONTRACT
+    scoped_release = (
+        select(1)
+        .select_from(archive_facet)
+        .where(
+            archive_facet.c.release_id == material_release,
+            archive_facet.c.input_kind == "dependency",
+            archive_facet.c.input_name == CONTRACT,
+            archive_document["inputs"].contains(
+                cast(literal(json.dumps([{"name": scoped_name}])), JSONB())
+            ),
+        )
+        .exists()
+    )
+    operation = core_variable("operation_", requests.c.operation_id.type)
+    routine(
+        "pdf_lowering_contract_name",
+        (("p_release", inputs.c.release_id), ("p_origin_task", build.c.task_id)),
+        (
+            If(material_task.is_(None), (Return(literal(LOWERING_CONTRACT)),)),
+            Assign("operation_", pdf_task_operation(model, material_release, material_task)),
+            refuse(
+                operation.is_(None), "PDF lowering requires its exact originating task", "23514"
+            ),
+            If(
+                and_(operation == PDF_CAPTURE_OPERATION, scoped_release),
+                (Return(literal(CAPTURE_LOWERING_CONTRACT)),),
+            ),
+            Return(literal(LOWERING_CONTRACT)),
+        ),
+        (Local("operation_", column_type(requests.c.operation_id)),),
+        result=column_type(inputs.c.input_name),
+        stable=True,
+    )
+
+    def material_domain_projection(release, domain_digest, origin_task, name):
         lower, domain = inputs.alias(name + "_lowering"), inputs.alias(name + "_domain")
         document = json_bytes(lower.c.content)
         domain_document = json_bytes(domain.c.content)
+        selected_contract = literal(PREFIX).op("||")(
+            func.ops.pdf_lowering_contract_name(release, origin_task)
+        )
+        scoped_capture = lower.c.input_name == scoped_name
+        selected_code = case(
+            (scoped_capture, literal(CAPTURE_CODE_INPUT)),
+            else_=literal(GENERIC_CODE_INPUT),
+        )
         entries = (
             func.jsonb_array_elements(document["inputs"])
             .table_valued(column("value", JSONB()))
             .render_derived(name=name + "_input")
         )
-        selected = entries.c.value["name"].astext.startswith(SPOOL_MATERIAL_PREFIX)
+        entry_name = entries.c.value["name"].astext
+        selected = and_(
+            entry_name.startswith(SPOOL_MATERIAL_PREFIX),
+            or_(
+                entry_name.not_in((GENERIC_CODE_INPUT, CAPTURE_CODE_INPUT)),
+                entry_name == selected_code,
+            ),
+        )
+        material_name = case(
+            (entry_name == selected_code, literal(GENERIC_CODE_INPUT)),
+            else_=entry_name,
+        )
         selected_inputs = (
             select(
-                func.jsonb_agg(aggregate_order_by(entries.c.value, entries.c.value["name"].astext))
+                func.jsonb_agg(
+                    aggregate_order_by(
+                        obj(name=material_name, sha256=entries.c.value["sha256"]), material_name
+                    )
+                )
             )
             .select_from(entries)
             .where(selected)
@@ -555,12 +661,12 @@ def pdf_spool_native_programs(
             select(1)
             .select_from(entries)
             .where(
-                entries.c.value["name"].astext == required,
+                entry_name == required,
                 func.coalesce(entries.c.value["sha256"].astext, "").bool_op("~")("^[0-9a-f]{64}$"),
             )
             .correlate(lower)
             .exists()
-            for required in sorted(SPOOL_REQUIRED_MATERIAL)
+            for required in (*sorted(SPOOL_REQUIRED_MATERIAL), selected_code)
         )
         return (
             select(
@@ -575,16 +681,32 @@ def pdf_spool_native_programs(
                 lower.c.release_id == release,
                 lower.c.input_kind == "dependency",
                 domain.c.input_kind == "dependency",
-                lower.c.input_name == "pdf-domain/implementation/pdf/lowering-contract.json",
-                domain.c.input_name == "pdf-domain/contract.json",
+                lower.c.input_name == selected_contract,
+                domain.c.input_name == CONTRACT,
                 lower.c.content_digest == digest(lower.c.content),
                 domain.c.content_digest == digest(domain.c.content),
                 domain.c.content_digest == domain_digest,
-                document["profile"].astext.in_((DEMAND_LOWERING, STANDARD_LOWERING)),
                 document["code_identity"]["complete"] == cast(literal("true"), JSONB()),
                 or_(
-                    document["profile"].astext == DEMAND_LOWERING,
-                    document["code_identity"]["scope"].astext == STANDARD_SCOPE,
+                    and_(~scoped_capture, document["profile"].astext == DEMAND_LOWERING),
+                    and_(
+                        document["profile"].astext == STANDARD_LOWERING,
+                        document["code_identity"]["scope"].astext == STANDARD_SCOPE,
+                        or_(
+                            scoped_capture,
+                            pdf_task_operation(model, release, origin_task)
+                            == PDF_CAPTURE_OPERATION,
+                        ),
+                        select(1)
+                        .select_from(entries)
+                        .where(
+                            entry_name == selected_code,
+                            entries.c.value["sha256"].astext
+                            == document["code_identity"]["sha256"].astext,
+                        )
+                        .correlate(lower)
+                        .exists(),
+                    ),
                 ),
                 document["code_identity"]["sha256"].astext.bool_op("~")("^[0-9a-f]{64}$"),
                 func.jsonb_typeof(document["libraries"]) == "object",
@@ -602,22 +724,32 @@ def pdf_spool_native_programs(
             .scalar_subquery()
         )
 
-    material_release = core_variable("p_release", inputs.c.release_id.type)
     material_digest = core_variable("p_domain_digest", inputs.c.content_digest.type)
     routine(
         "pdf_spool_material_identity",
-        (("p_release", inputs.c.release_id), ("p_domain_digest", inputs.c.content_digest)),
-        (Return(material_domain_projection(material_release, material_digest, "material_pdf")),),
+        (
+            ("p_release", inputs.c.release_id),
+            ("p_domain_digest", inputs.c.content_digest),
+            ("p_origin_task", build.c.task_id, pg_literal(None)),
+        ),
+        (
+            Return(
+                material_domain_projection(
+                    material_release, material_digest, material_task, "material_pdf"
+                )
+            ),
+        ),
         (),
         result=pg_type("jsonb"),
+        stable=True,
     )
 
-    def material_domains_match(prior, current):
+    def material_domains_match(prior, current, prior_task):
         old = func.ops.pdf_spool_material_identity(
-            prior["release_id"].astext, prior["pdf_domain_digest"].astext
+            prior["release_id"].astext, prior["pdf_domain_digest"].astext, prior_task
         )
         new = func.ops.pdf_spool_material_identity(
-            current["release_id"].astext, current["pdf_domain_digest"].astext
+            current["release_id"].astext, current["pdf_domain_digest"].astext, p_task
         )
         return func.coalesce(old == new, False)
 
@@ -732,7 +864,9 @@ def pdf_spool_native_programs(
                     material_producer(candidate_premises["producer"]).is_not_distinct_from(
                         material_producer(current_producer)
                     ),
-                    material_domains_match(candidate_premises["producer"], current_producer),
+                    material_domains_match(
+                        candidate_premises["producer"], current_producer, producers.c.task_id
+                    ),
                     candidate_premises["source_digest"].astext == row("b", build, "source_digest"),
                     candidate_premises["native_recipe_digest"].astext
                     == row("b", build, "recipe_digest"),
@@ -820,7 +954,9 @@ def pdf_spool_native_programs(
                                 current_basis
                             ),
                             material_domains_match(
-                                original["producer"], current_premises["producer"]
+                                original["producer"],
+                                current_premises["producer"],
+                                row("producer_", producers, "task_id"),
                             ),
                         ),
                     ),
@@ -1110,6 +1246,7 @@ def pdf_spool_native_programs(
                 if routine.name
                 in {
                     "pdf_spool_contributors",
+                    "pdf_lowering_contract_name",
                     "pdf_spool_material_identity",
                     "pdf_spool_request_material",
                 }

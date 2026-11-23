@@ -14,6 +14,13 @@ from .native_objects import (
     native_sql_script,
 )
 from .native_program_registry import ProgramDeclaration
+from .pdf_domain import PREFIX
+from .pdf_lowering import (
+    CAPTURE_LOWERING_CODE,
+    CAPTURE_LOWERING_CONTRACT,
+    LOWERING_CODE,
+)
+from .pdf_spool_native import PDF_CAPTURE_OPERATION, pdf_task_operation
 
 
 def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramDeclaration, ...]:
@@ -53,6 +60,7 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
         core_variable,
         pg_type,
     )
+    from .native_program import literal as pg_literal
 
     model = get_metadata() if target_metadata is None else target_metadata
     build = model.tables["ops.pdf_stage_build"]
@@ -120,35 +128,52 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
         )
 
     out = []
-    content, contract, item = (
+    content, contract, item, contract_name = (
         value("content_", BYTEA()),
         value("contract_", JSONB()),
         value("item_", JSONB()),
+        value("contract_name_"),
     )
     profile = contract["profile"].astext
     selected_standard = profile == STANDARD_LOWERING
+    origin_task = value("p_origin_task", build.c.task_id.type)
+    release = value("p_release")
+    scoped_capture = contract_name == CAPTURE_LOWERING_CONTRACT
+    expected_code = case(
+        (scoped_capture, literal(PREFIX + CAPTURE_LOWERING_CODE)),
+        else_=literal(PREFIX + LOWERING_CODE),
+    )
     code = contract["code_identity"]
     complete = cast(literal("true"), JSONB())
     inputs = func.jsonb_array_elements(contract["inputs"]).table_valued(column("value", JSONB()))
     out.append(
         routine(
             "pdf_lowering_identity",
-            (Parameter("p_release", pg_type("text")),),
+            (
+                Parameter("p_release", pg_type("text")),
+                Parameter("p_origin_task", column_type(build.c.task_id), pg_literal(None)),
+            ),
             pg_type("text"),
             (
+                Assign("contract_name_", func.ops.pdf_lowering_contract_name(release, origin_task)),
                 Assign(
                     "content_",
-                    func.ops.pdf_contract_input(
-                        value("p_release"), "implementation/pdf/lowering-contract.json"
-                    ),
+                    func.ops.pdf_contract_input(release, contract_name),
                 ),
                 Assign("contract_", cast(func.convert_from(content, "UTF8"), JSONB())),
                 If(
                     or_(
                         and_(
+                            ~scoped_capture,
                             profile.is_distinct_from(DEMAND_LOWERING),
-                            profile.is_distinct_from(STANDARD_LOWERING),
+                            or_(
+                                profile.is_distinct_from(STANDARD_LOWERING),
+                                pdf_task_operation(model, release, origin_task).is_distinct_from(
+                                    PDF_CAPTURE_OPERATION
+                                ),
+                            ),
                         ),
+                        and_(scoped_capture, profile.is_distinct_from(STANDARD_LOWERING)),
                         and_(
                             selected_standard,
                             or_(
@@ -187,8 +212,7 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
                         ~select(1)
                         .select_from(inputs)
                         .where(
-                            inputs.c.value["name"].astext
-                            == "pdf-domain/implementation/pdf/lowering/code/meaning.json",
+                            inputs.c.value["name"].astext == expected_code,
                             inputs.c.value["sha256"].astext == code["sha256"].astext,
                         )
                         .exists(),
@@ -209,7 +233,7 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
                                 func.encode(
                                     func.sha256(
                                         func.ops.pdf_contract_input(
-                                            value("p_release"), func.substr(item["name"].astext, 12)
+                                            release, func.substr(item["name"].astext, 12)
                                         )
                                     ),
                                     "hex",
@@ -230,6 +254,7 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
                 Local("content_", pg_type("bytea")),
                 Local("contract_", pg_type("jsonb")),
                 Local("item_", pg_type("jsonb")),
+                Local("contract_name_", pg_type("text")),
             ),
             stable=True,
             writer=False,
@@ -361,7 +386,7 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
                 If(
                     or_(
                         p["p_lowering"].is_distinct_from(
-                            func.ops.pdf_lowering_identity(row("b", build, "release_id"))
+                            func.ops.pdf_lowering_identity(row("b", build, "release_id"), p_task)
                         ),
                         p["p_kind"].is_(None),
                         p["p_kind"].not_in(("native", "integrated")),
@@ -401,10 +426,11 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
         .limit(1)
     )
     prior_build = build.alias("prior_build")
+    build_release = row("b", build, "release_id")
     current_lowering = cast(
         func.convert_from(
             func.ops.pdf_contract_input(
-                row("b", build, "release_id"), "implementation/pdf/lowering-contract.json"
+                build_release, func.ops.pdf_lowering_contract_name(build_release, p_task)
             ),
             "UTF8",
         ),
@@ -442,7 +468,8 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
             # Reusing another producer's oracle requires a complete shared code
             # basis and authenticated archived inputs for that original release.
             current_lowering["code_identity"]["complete"] == cast(literal("true"), JSONB()),
-            func.ops.pdf_lowering_identity(prior_build.c.release_id) == c["lowering_identity"],
+            func.ops.pdf_lowering_identity(prior_build.c.release_id, prior_build.c.task_id)
+            == c["lowering_identity"],
             oracle.c.kind == c["kind"],
             oracle.c.state == "passed",
         )
@@ -472,7 +499,7 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
                 If(
                     or_(
                         c["lowering_identity"].is_distinct_from(
-                            func.ops.pdf_lowering_identity(row("b", build, "release_id"))
+                            func.ops.pdf_lowering_identity(build_release, p_task)
                         ),
                         tuple_(
                             *(
