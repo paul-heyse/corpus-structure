@@ -82,6 +82,7 @@ def primary_operation_inputs(
     declarations: tuple[SourceArtifact, ...] = (),
     requested_operations: tuple[str, ...] = (),
     selected_modules: frozenset[str] | None = None,
+    observe_native_inputs: bool = False,
 ) -> PrimaryOperationInputs:
     """Acquire the selected full primary profile without starting a provider.
 
@@ -89,7 +90,7 @@ def primary_operation_inputs(
     by the caller. Compiled demand closure still decides which operations execute;
     captured availability does not select an operation or imply provider success.
     """
-    from .primary_acquisition import needs, requested_source_modules
+    from .primary_acquisition import native_operation_ids, needs, requested_source_modules
 
     if selected_modules is None and requested_operations:
         selected_modules = requested_source_modules(
@@ -461,12 +462,18 @@ def primary_operation_inputs(
         )
     if extra_sources is not None:
         collections = (*collections, extra_sources)
-    native = native_protocol_sources()
-    declarations = (native_operation_declarations(native), *declarations)
+    native = () if observe_native_inputs else native_protocol_sources()
+    if not observe_native_inputs:
+        declarations = (native_operation_declarations(native), *declarations)
     if not collections:
         collections = (PythonSourceCollection(()),)
     if requested_operations:
-        collections = _selected_collections(collections, requested_operations, declarations)
+        collections = _selected_collections(
+            collections,
+            requested_operations,
+            declarations,
+            native_leaves=native_operation_ids() if observe_native_inputs else (),
+        )
     combined = combine_primary_sources(*collections)
     if requested_operations:
         from .identity import canonical_bytes
@@ -494,7 +501,7 @@ def primary_operation_inputs(
     )
 
 
-def _selected_collections(collections, requested_operations, declarations):
+def _selected_collections(collections, requested_operations, declarations, *, native_leaves=()):
     """Project a declared operation closure onto the captured collections owning it."""
     import json
 
@@ -529,6 +536,10 @@ def _selected_collections(collections, requested_operations, declarations):
             if record["id"] in operations:
                 raise ValueError("duplicate captured operation owner: " + record["id"])
             operations[record["id"]] = record
+    for identifier in native_leaves:
+        if identifier in operations:
+            raise ValueError("duplicate captured operation owner: " + identifier)
+        operations[identifier] = {"id": identifier}
     selected = set()
     pending = list(requested_operations)
     while pending:

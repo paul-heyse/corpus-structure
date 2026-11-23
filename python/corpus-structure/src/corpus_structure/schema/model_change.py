@@ -399,6 +399,7 @@ def compilation_fingerprint(
     """Identify acquired compilation inputs, not compiled or admitted products.
 
     A fresh acquisition also detects changed input membership and optional additions.
+    Reviewed native outputs are verified separately from the live generator inputs.
     Generator-owned output paths are excluded from implementation hashing: their
     authored inputs and exact reviewed output bytes have separate owners.
     """
@@ -415,18 +416,22 @@ def compilation_fingerprint(
     )
     acquired = None
     acquired_files = ()
+    native_input_digest = None
     if request.data_operations:
         from corpus_structure.semantic.data_operation_preparation import (
             acquire_data_operation_inputs,
         )
 
         try:
-            inputs = acquire_data_operation_inputs(root, request.data_operations, proposed=proposed)
+            inputs = acquire_data_operation_inputs(
+                root, request.data_operations, proposed=proposed, observe_native_inputs=True
+            )
         except ValueError as error:
             raise ModelError(
                 [f"compilation inputs changed; prepare a fresh preview: {error}"]
             ) from error
         acquired = (inputs.bundle, inputs.dependencies, inputs.profile)
+        native_input_digest = inputs.native_input_digest
         acquired_files = tuple(
             (name, sha256(content).hexdigest()) for name, content in inputs.files
         )
@@ -496,7 +501,7 @@ def compilation_fingerprint(
         }
     )
     facts = {
-        "version": "model-compilation-inputs-v1",
+        "version": "model-compilation-inputs-v2",
         "request": request.model_dump(mode="json"),
         "native_base": native_base.model_dump(mode="json") if native_base is not None else None,
         "deployment_base": deployment_base.model_dump(mode="json")
@@ -508,6 +513,7 @@ def compilation_fingerprint(
         },
         "inputs": input_facts,
         "acquired_files": acquired_files,
+        "native_inputs": native_input_digest,
         "physical": sorted(
             (name, sha256(value).hexdigest()) for name, value in (physical or {}).items()
         ),

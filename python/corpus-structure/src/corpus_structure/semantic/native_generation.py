@@ -117,6 +117,18 @@ def capture_generator_inputs(
     )
 
 
+def native_compilation_input_digest() -> str:
+    """Reacquire the native protocol's inputs without rendering its programs."""
+    from corpus_structure.schema.code_generation import native_facade_paths
+
+    from .metadata import get_metadata
+    from .native_program_store import observed_input_digest
+
+    return observed_input_digest(
+        capture_generator_inputs(get_metadata()), generated_outputs=native_facade_paths()
+    )
+
+
 def capture_target_installation(
     selected: MetaData,
     *,

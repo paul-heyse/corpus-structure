@@ -611,39 +611,45 @@ def test_compilation_fingerprint_tracks_implementation_membership_and_owned_outp
     assert compilation_fingerprint(root, request) == baseline
 
 
-def test_compilation_fingerprint_keeps_captured_generated_source_bytes(model_checkout, monkeypatch):
-    from types import SimpleNamespace
-
+@pytest.mark.parametrize("primary_profile", [False, True])
+def test_compilation_fingerprint_keeps_captured_generated_source_bytes(
+    model_checkout, monkeypatch, primary_profile
+):
     from corpus_structure.schema.model_change import compilation_fingerprint
-    from corpus_structure.semantic import data_operation_preparation
-    from corpus_structure.semantic.types import (
-        PreparationProfile,
-        ResolvedDependencies,
-        SourceArtifact,
-        SourceBundle,
-    )
+    from corpus_structure.semantic import native_protocol_authoring
 
     root, _ = model_checkout
     relative = (preparation.PACKAGE_PATH / "core/vocab.py").as_posix()
     output = root / relative
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text("generated = 'first'\n")
+    (root / "schema.yaml").write_text("name: captured\n")
 
-    selected = [relative]
+    def select_sources(*paths):
+        manifest = {
+            "version": "data-operation-inputs-v1",
+            "root": "captured",
+            "schemas": [{"name": "captured", "path": "schema.yaml"}],
+            "python": {
+                "sources": [
+                    {"module": f"acquired.source{index}", "path": path}
+                    for index, path in enumerate(paths)
+                ],
+                "interpreter": "python-3.14",
+                "interpretation": "closed-python-operations-v1",
+                "stub_policy": "source-authoritative",
+            },
+        }
+        if primary_profile:
+            manifest["primary_profile"] = {}
+            manifest["requested_operations"] = ["data.read_demand_result"]
+        (root / "inputs.yaml").write_text(yaml.safe_dump(manifest))
 
-    def acquire(*args, **kwargs):
-        proposed = kwargs.get("proposed") or {}
-        content = proposed.get(relative, output.read_bytes())
-        return SimpleNamespace(
-            bundle=SourceBundle("captured", (SourceArtifact("captured", content),)),
-            dependencies=ResolvedDependencies(),
-            profile=PreparationProfile(),
-            files=tuple(
-                (name, proposed.get(name, (root / name).read_bytes())) for name in selected
-            ),
-        )
+    def forbidden_render(*args, **kwargs):
+        pytest.fail("model preconditions must reacquire native inputs without rendering")
 
-    monkeypatch.setattr(data_operation_preparation, "acquire_data_operation_inputs", acquire)
+    monkeypatch.setattr(native_protocol_authoring, "native_protocol_sources", forbidden_render)
+    select_sources(relative)
     request = ChangeRequest(data_operations="inputs.yaml")
     before = compilation_fingerprint(root, request)
     after = b"generated = 'second'\n"
@@ -652,7 +658,17 @@ def test_compilation_fingerprint_keeps_captured_generated_source_bytes(model_che
     assert compilation_fingerprint(root, request) == reviewed != before
     extra = "added-source.py"
     (root / extra).write_bytes(after)
-    selected.append(extra)
+    select_sources(relative, extra)
     assert compilation_fingerprint(root, request) != reviewed
-    selected.pop()
+    select_sources(relative)
     assert compilation_fingerprint(root, request) == reviewed
+
+    # Capture the installed resource through the native input owner, even though
+    # it does not appear among the workspace-relative manifest files.
+    resource = native_protocol_authoring.capture_native_package_resource()
+    monkeypatch.setattr(
+        native_protocol_authoring,
+        "capture_native_package_resource",
+        lambda: replace(resource, content=resource.content + b"\n"),
+    )
+    assert compilation_fingerprint(root, request) != reviewed

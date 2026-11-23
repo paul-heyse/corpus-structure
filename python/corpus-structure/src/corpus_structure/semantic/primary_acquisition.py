@@ -7,6 +7,13 @@ import yaml
 from .python_operation_sources import ClosedPythonSources, PythonSource, PythonSourceCollection
 
 
+def native_operation_ids() -> tuple[str, ...]:
+    """The authored native operations are leaves of primary source selection."""
+    from .data_operation_wire import wire_operations
+
+    return tuple("data." + operation["name"] for operation in wire_operations())
+
+
 def requested_source_modules(
     requested, *, organized=False, extra_sources=None, declarations=(), resolve_declarations=None
 ):
@@ -47,10 +54,7 @@ def requested_source_modules(
             if identifier in records:
                 raise ValueError("duplicate operation acquisition declaration: " + identifier)
             records[identifier] = record
-    from .data_operation_wire import wire_operations
-
-    for operation in wire_operations():
-        identifier = "data." + operation["name"]
+    for identifier in native_operation_ids():
         if identifier in records:
             raise ValueError("duplicate fixed native operation declaration: " + identifier)
         records[identifier] = {"id": identifier}

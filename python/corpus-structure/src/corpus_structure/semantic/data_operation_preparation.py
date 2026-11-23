@@ -141,12 +141,21 @@ class AcquiredDataOperationInputs:
     dependencies: ResolvedDependencies
     profile: PreparationProfile
     files: tuple[tuple[str, bytes], ...]
+    native_input_digest: str | None = None
 
 
 def acquire_data_operation_inputs(
-    root: Path, manifest: str, *, proposed: dict[str, bytes] | None = None
+    root: Path,
+    manifest: str,
+    *,
+    proposed: dict[str, bytes] | None = None,
+    observe_native_inputs: bool = False,
 ) -> AcquiredDataOperationInputs:
-    """Read one closed workspace-relative recipe, retaining its complete file closure."""
+    """Acquire preparation inputs, or observe source closure for a compilation recheck.
+
+    Observation retains application acquisition and native generator custody.
+    Only full preparation supplies native release dependencies.
+    """
     root = root.resolve()
     captured: dict[str, bytes] = {}
 
@@ -244,6 +253,12 @@ def acquire_data_operation_inputs(
             declarations = (*declarations, reading_resolution_declarations())
     from .native_protocol_authoring import native_operation_declarations, native_protocol_sources
 
+    native_input_digest = None
+    if observe_native_inputs:
+        from .native_generation import native_compilation_input_digest
+
+        native_input_digest = native_compilation_input_digest()
+
     if declared.primary_profile is not None:
         from .primary_acquisition import requested_source_modules
         from .primary_operations import primary_operation_inputs, primary_operation_targets
@@ -299,6 +314,7 @@ def acquire_data_operation_inputs(
             declarations=declarations,
             requested_operations=selected_operations,
             selected_modules=selected_modules,
+            observe_native_inputs=observe_native_inputs,
         )
         dependencies = composed.dependencies
         if declared.pdf_contracts and declared.primary_profile.capture is None:
@@ -306,18 +322,21 @@ def acquire_data_operation_inputs(
 
             dependencies = pdf_domain_dependencies(dependencies)
         return AcquiredDataOperationInputs(
-            composed.bundle, dependencies, composed.profile, tuple(sorted(captured.items()))
+            composed.bundle,
+            dependencies,
+            composed.profile,
+            tuple(sorted(captured.items())),
+            native_input_digest,
         )
-    native = native_protocol_sources()
+    native = () if observe_native_inputs else native_protocol_sources()
     dependencies = data_operation_dependencies(
         ResolvedDependencies(
             (*artifacts(declared.dependencies), *native),
             ontology_sources=declared.ontology_sources,
         ),
-        (
-            *declarations,
-            native_operation_declarations(native),
-        ),
+        declarations
+        if observe_native_inputs
+        else (*declarations, native_operation_declarations(native)),
         sources,
     )
     if declared.pdf_contracts:
@@ -341,6 +360,7 @@ def acquire_data_operation_inputs(
         dependencies,
         PreparationProfile(version="semantic-2"),
         tuple(sorted(captured.items())),
+        native_input_digest,
     )
 
 

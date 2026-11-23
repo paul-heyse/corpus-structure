@@ -173,10 +173,35 @@ def capture_generator_custody(identity, *, closed=False):
 def input_key(inputs) -> bytes | None:
     if not inputs.complete:
         return None
+    return _input_document(inputs, generator=inputs.code_identity.digest)
 
+
+def observed_input_digest(inputs, *, generated_outputs: frozenset[str]) -> str:
+    """Fingerprint an input observation without granting program reuse."""
     code = inputs.code_identity
+    generator = {
+        "sources": [
+            (item.filename, sha256(item.content).hexdigest())
+            for item in code.modules
+            if item.filename not in generated_outputs
+        ],
+        "distributions": code.distributions,
+        "external_runtime": [
+            (item.reference, item.contract, item.digest) for item in code.external_runtime
+        ],
+    }
+    return sha256(
+        _input_document(inputs, generator=generator, generated_outputs=generated_outputs)
+    ).hexdigest()
+
+
+def _input_document(inputs, *, generator, generated_outputs: frozenset[str] = frozenset()) -> bytes:
     copied = tuple(
-        sorted((name, sha256(content).hexdigest()) for name, content in inputs.module_sources)
+        sorted(
+            (name, sha256(content).hexdigest())
+            for name, content in inputs.module_sources
+            if name not in generated_outputs
+        )
     )
     resources = tuple(sorted((item.name, item.digest) for item in inputs.resource_sources))
 
@@ -188,7 +213,7 @@ def input_key(inputs) -> bytes | None:
             model_sources=tuple(
                 (name, sha256(content).hexdigest()) for name, content in inputs.model_sources
             ),
-            generator=code.digest,
+            generator=generator,
             trigger_inputs=asdict(inputs.trigger_inputs),
             copied_source_bytes=copied,
             physical=tuple(
