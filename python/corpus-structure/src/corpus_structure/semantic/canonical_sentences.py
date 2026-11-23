@@ -355,17 +355,20 @@ class PreparedCanonicalProfile:
         ):
             raise ValueError("canonical reply differs from its selected header")
         selected = inventory["collections"][COLLECTION]
-        expected = [
-            [
+        expected: list[tuple[str, int, int, int, int]] = [
+            (
                 part["partition_key"],
                 part["ordinal"],
                 part["placement"]["start"],
                 part["placement"]["end"],
                 inputs[index].table.num_rows if inputs else len(part["body"][1]),
-            ]
+            )
             for index, part in enumerate(selected)
         ]
-        if control["placements"] != expected or sum(row[4] for row in expected) != table.num_rows:
+        if (
+            control["placements"] != [list(row) for row in expected]
+            or sum(row[4] for row in expected) != table.num_rows
+        ):
             raise ValueError("canonical reply differs from its selected partition extent")
         owned = []
         if expected:
