@@ -56,6 +56,15 @@ def test_retained_reader_tools_share_one_engine_and_take_separate_snapshots(monk
 
     events = []
     engine = object()
+    compared = dict(
+        report_version=5,
+        report_schema_digest="controlled-report-schema",
+        before_release="release:A",
+        after_release="release:B",
+        changes=[],
+        unknowns=[],
+        complete=True,
+    )
 
     @contextmanager
     def opened(*args, **kwargs):
@@ -76,7 +85,7 @@ def test_retained_reader_tools_share_one_engine_and_take_separate_snapshots(monk
 
     class Report:
         def model_dump(self, **kwargs):
-            return {"compared": True}
+            return compared
 
     monkeypatch.setattr(runtime, "open_runtime_engine", opened)
     monkeypatch.setattr(read_snapshot, "read_snapshot", snapshot)
@@ -95,7 +104,7 @@ def test_retained_reader_tools_share_one_engine_and_take_separate_snapshots(monk
                 reply = await client.call_tool(
                     "compare_semantic_releases", {"before": "release:A", "after": "release:B"}
                 )
-                assert reply.structured_content == {"compared": True}
+                assert reply.structured_content == compared
             assert events == [
                 "engine-open",
                 "snapshot-open",

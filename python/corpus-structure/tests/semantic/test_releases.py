@@ -63,7 +63,7 @@ def test_archive_is_exact_offline_and_idempotent(commit_db_engine: Engine, monke
         assert archived["source", "base"] == bundle.sources[1].content
         assert archived["dependency", "opaque"] == b"\x00exact external bytes\xff"
         loaded = releases.verify_release(conn, prepared.release_id)
-        assert len(calls) == 2
+        assert len(calls) == 1  # explicit verification authenticates the stored bytes and projections
         assert calls[0] == (bundle, dependencies, profile)
         assert loaded == prepared
         assert loaded.validate_json("Child", '{"id":"a"}').model_dump() == {"id": "a"}
@@ -91,7 +91,7 @@ def test_archive_is_exact_offline_and_idempotent(commit_db_engine: Engine, monke
         }
 
 
-def test_current_archive_survives_read_but_refuses_changed_producing_runtime(
+def test_current_archive_uses_selected_boundary_runtime_and_ignores_unselected_scientific_runtime(
     commit_db_engine: Engine, monkeypatch
 ):
     from corpus_structure.semantic import determinants
@@ -99,7 +99,8 @@ def test_current_archive_survives_read_but_refuses_changed_producing_runtime(
     with commit_db_engine.begin() as conn:
         bundle, dependencies, profile, prepared = stage(conn)
         libraries = json.loads(prepared.manifest)["libraries"]
-        assert libraries["numpy"] == determinants.determinant_version("numpy")
+        assert set(libraries) == set(determinants.BOUNDARY_LIBRARIES)
+        assert "numpy" not in libraries
         assert (
             releases.persist_release(conn, bundle, dependencies, profile, prepared)
             == prepared.release_id
@@ -111,12 +112,19 @@ def test_current_archive_survives_read_but_refuses_changed_producing_runtime(
             "determinant_version",
             lambda name: "incompatible" if name == "numpy" else original(name),
         )
-        # Ordinary archived-product reads retain custody without today's producer.
+        # This archive has no scientific policy and needs no scientific runtime.
         assert releases.open_release(conn, prepared.release_id) == prepared
-        with pytest.raises(
-            releases.ReleaseConflict, match="archived compiler library versions differ"
-        ):
-            releases.verify_release(conn, prepared.release_id)
+        assert releases.verify_release(conn, prepared.release_id) == prepared
+        monkeypatch.setattr(
+            determinants,
+            "determinant_version",
+            lambda name: "incompatible" if name == "pydantic" else original(name),
+        )
+        for read in (releases.open_release, releases.verify_release):
+            with pytest.raises(
+                releases.ReleaseConflict, match="archived boundary library versions differ"
+            ):
+                read(conn, prepared.release_id)
 
 
 def test_conflicting_artifact_refuses_without_partial_changes(commit_db_engine: Engine):
@@ -139,7 +147,7 @@ def test_conflicting_artifact_refuses_without_partial_changes(commit_db_engine: 
                 *bundle.sources[1:],
             ),
         )
-        with pytest.raises(releases.ReleaseConflict, match="exact inputs"):
+        with pytest.raises(releases.ReleaseConflict, match="exact material inputs and outputs"):
             releases.persist_release(conn, mismatched, dependencies, profile, prepared)
 
 
@@ -176,7 +184,7 @@ def test_tampered_archive_or_projection_refuses(commit_db_engine: Engine, relati
             releases.load_release(conn, prepared.release_id)
 
 
-def test_changed_compiler_version_refuses_before_reprepare(commit_db_engine: Engine, monkeypatch):
+def test_tampered_compiler_manifest_refuses_before_reprepare(commit_db_engine: Engine, monkeypatch):
     with commit_db_engine.begin() as conn:
         *_, prepared = stage(conn)
         manifest = json.loads(prepared.manifest)
@@ -194,7 +202,7 @@ def test_changed_compiler_version_refuses_before_reprepare(commit_db_engine: Eng
         from corpus_structure.semantic import prepare as preparation
 
         monkeypatch.setattr(preparation, "prepare_release", unexpected)
-        with pytest.raises(releases.ReleaseConflict, match="compiler library versions"):
+        with pytest.raises(releases.ReleaseConflict, match="archive or manifest identity differs"):
             releases.load_release(conn, prepared.release_id)
 
 

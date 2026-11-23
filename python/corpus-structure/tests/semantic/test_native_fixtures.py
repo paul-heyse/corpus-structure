@@ -238,13 +238,12 @@ def test_actual_restricted_principals_deny_temp_dml_reference_and_escalation(
         ).scalar_one()
         denied = [
             "CREATE TEMP TABLE counterfeit(value int)",
-            "INSERT INTO data.fact DEFAULT VALUES",
+            "INSERT INTO data.project DEFAULT VALUES",
             "INSERT INTO sem.release DEFAULT VALUES",
-            "INSERT INTO eval.reference_pass DEFAULT VALUES",
+            "INSERT INTO kb.data_product DEFAULT VALUES",
+            "SELECT * FROM kb.data_product",
             "SET LOCAL ROLE corpus_sem_publisher",
         ]
-        if purpose != "evaluate":
-            denied.append("SELECT * FROM eval.reference_set")
         for sql in denied:
             with pytest.raises(DBAPIError) as failure, conn.begin_nested():
                 conn.exec_driver_sql(sql)

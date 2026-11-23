@@ -113,7 +113,7 @@ def test_primary_inputs_compile_owned_factories_and_exact_provider_custody(tmp_p
         configuration.model_dump(mode="json")
     )
     assert json.loads(custody["hanlp/execution-custody"].content)["selection"] == (
-        {**selected.declaration(), "asset_custody": []}
+        selected.execution_custody()
     )
     assert model.operation("profile.segments/source-native").capabilities.prepared_factory is None
 

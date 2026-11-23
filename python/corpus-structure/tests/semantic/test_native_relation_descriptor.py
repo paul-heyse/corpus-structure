@@ -2,6 +2,7 @@
 
 from sqlalchemy import BigInteger, Column, Identity, Integer, MetaData, Table, Text, text
 
+from corpus_structure.schema.integrity import IntegrityPolicy, RolePolicy
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_admission import _admission_descriptor, native_admission_sql
 from corpus_structure.semantic.native_authoring import _declared_physical_catalog
@@ -9,15 +10,28 @@ from corpus_structure.semantic.native_products import relation_descriptor
 
 
 def test_named_shape_retains_type_nullability_default_identity_and_primary_key_order():
+    publisher = RolePolicy("descriptor_publisher", "publisher", False, (), True)
+    reader = RolePolicy("descriptor_reader", "reader", False, (), False)
+    metadata = MetaData(
+        info={
+            "integrity_policy": IntegrityPolicy(
+                {"publisher": publisher, "reader": reader}, {"read": reader.name}
+            )
+        }
+    )
     relation = Table(
         "row",
-        MetaData(),
+        metadata,
         Column("z", Text, nullable=True),
         Column("id", BigInteger, Identity(always=True), primary_key=True),
         Column("n", Integer, nullable=False, server_default=text("42")),
         schema="test",
+        info={"read_roles": (reader.name,)},
     )
     descriptor = relation_descriptor(relation)
+    assert descriptor["relation"] == "test.row"
+    assert descriptor["owner"] == publisher.name
+    assert descriptor["read_roles"] == [reader.name]
     assert descriptor["columns"] == [
         dict(name="id", type="bigint", not_null=True, default=None, identity="a", generated=""),
         dict(name="n", type="integer", not_null=True, default="42", identity="", generated=""),
