@@ -1,6 +1,7 @@
 """Epoch-zero materialization preserves pins; positive revocation remains fenced."""
 
 import json
+from dataclasses import replace
 from typing import cast as typing_cast
 
 import pytest
@@ -10,6 +11,7 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.semantic._data_operation_wire import (
     WireRevokeDataSupportRequest,
 )
+from corpus_structure.semantic.identity import canonical_bytes
 from semantic.data_operation_kernel_support import STORAGE
 
 
@@ -117,7 +119,15 @@ def test_native_attachment_checks_locked_positive_epochs_against_full_read_pins(
     assert snapshot_connection.scalar(query) is changed
 
 
-@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+def exact_scope_storage():
+    assert STORAGE.declaration_content is not None
+    declarations = json.loads(STORAGE.declaration_content)
+    source = next(op for op in declarations["operations"] if op["id"] == "urn:ddo-test:source")
+    source["validity_family"] = ["none"]
+    return replace(STORAGE, declaration_content=canonical_bytes(declarations))
+
+
+@pytest.mark.parametrize("ddo_kernel", [exact_scope_storage()], indirect=True, ids=["storage"])
 @pytest.mark.db
 def test_native_multi_root_attachment_keeps_one_read_when_zero_epoch_rows_materialize(ddo_kernel):
     from corpus_structure.semantic.data_operation_demands import (
@@ -144,12 +154,13 @@ def test_native_multi_root_attachment_keeps_one_read_when_zero_epoch_rows_materi
             runtime=ddo_kernel["runtime"],
         )["demand_id"]
         pinned = planner.resume(demand)
-        explicit_zeros = {
-            connection.scalar(
+        scopes = {
+            source: connection.scalar(
                 text("SELECT ops.ddo_scope('ddo-test',:source)"), {"source": source}
-            ): 0
+            )
             for source in ("source:one", "source:two")
         }
+        explicit_zeros = dict.fromkeys(scopes.values(), 0)
         assert pinned["trust_snapshot"] == explicit_zeros
         # Omitted zero epochs have the same trust meaning as the acquired map.
     with ddo_kernel["engine"].begin() as connection:
@@ -174,7 +185,7 @@ def test_native_multi_root_attachment_keeps_one_read_when_zero_epoch_rows_materi
     fence = claim(ddo_kernel, json.loads(first.native))
     receipt = publish(ddo_kernel, fence, retain(ddo_kernel, fence))
     # Concrete support epochs remain in authentic publication attribution.
-    assert list(receipt["trust_snapshot"].values()) == [0]
+    assert receipt["trust_snapshot"] == {scopes["source:one"]: 0}
     with ddo_kernel["engine"].begin() as connection:
         DataOperationStorage(connection).revoke_data_support(
             typing_cast(
@@ -190,8 +201,9 @@ def test_native_multi_root_attachment_keeps_one_read_when_zero_epoch_rows_materi
         )
     with (
         ddo_kernel["engine"].begin() as connection,
-        pytest.raises(DBAPIError, match="pins or current trust differ"),
+        pytest.raises(DBAPIError, match="read trust changed; reacquire demand read") as refused,
     ):
         DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection)).resume(
             demand, read_id=pinned["read_id"]
         )
+    assert getattr(refused.value.orig, "sqlstate", None) == "23514"

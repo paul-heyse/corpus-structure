@@ -3138,7 +3138,8 @@ def test_installed_validity_closure_matches_authored_reference_graph(ddo_kernel,
                 ("population", "reference-population:old"): False,
                 ("population", "reference-population:new"): True,
                 ("use", use): True,
-                ("episode", episodes["shared"]): True,
+                # A value-substitution use relies on its selected support and
+                # producer authority. The historical episode has its own validity.
                 ("producer", episodes["shared"]): True,
             }
             seeds = ["reference-population:old", "reference-population:new"]

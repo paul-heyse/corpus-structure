@@ -154,6 +154,8 @@ def test_private_stage_denies_read_and_stale_holder(
 
 
 def test_malformed_wire_rolls_back_then_retry(private_build, commit_writer_engine):
+    from semantic.test_pdf_shared_streams import descriptor, packet
+
     build = private_build
     row: dict[str, Any] = dict(
         product_id=build.product_id,
@@ -165,6 +167,13 @@ def test_malformed_wire_rolls_back_then_retry(private_build, commit_writer_engin
         body=b"abc",
         sha256_digest="0" * 64,
     )
+    with commit_writer_engine.begin() as conn:
+        adopt_pdf_batch(
+            conn,
+            build,
+            "descriptor",
+            packet("artifact_stream", [descriptor(build, body=b"abc", stream="s")]),
+        )
     with commit_writer_engine.begin() as conn, pytest.raises(psycopg.errors.CheckViolation):
         adopt_pdf_batch(
             conn,
