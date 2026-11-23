@@ -50,14 +50,36 @@ def test_demand_producers_hold_structured_private_programs_until_authoring(monke
         "revoke_data_support",
         "ddo_valid_closure",
         "ddo_node_valid",
+        "ddo_record_scope_wakes",
+        "ddo_settle_pending_discovery",
     }
+    origins = {declaration.identity.name: declaration.source for declaration in programs}
+    assert origins["ddo_record_scope_wakes"] == "data-operations:binding-wakes"
+    assert origins["ddo_valid_closure"] == "data-operations:forward"
+    archive_routines = {
+        "begin_selected_archive",
+        "fetch_selected_archive",
+        "close_selected_archive",
+    }
+    assert {
+        name for name, source in origins.items() if source == "data-operations:selected-archive"
+    } == (archive_routines)
     for declaration in programs:
-        assert declaration.source == "data-operations:forward"
+        assert declaration.source in {
+            "data-operations:forward",
+            "data-operations:binding-wakes",
+            "data-operations:selected-archive",
+        }
         assert declaration.owner == role_name("publisher")
         # The wire authoring owner renames these implementation declarations and
         # owns the separate public purpose wrappers.
-        if declaration.identity.name == "acquire_data_read_context":
+        if (
+            declaration.identity.name in archive_routines
+            or declaration.identity.name == "acquire_data_read_context"
+        ):
             assert declaration.access == NativeProgramAccess(purposes=("read", "write", "evaluate"))
+        elif declaration.identity.name == "ddo_settle_pending_discovery":
+            assert declaration.access == NativeProgramAccess(purposes=("write", "evaluate"))
         elif declaration.identity.name == "advance_demand_selection":
             assert declaration.access == NativeProgramAccess(purposes=("admit",))
         else:

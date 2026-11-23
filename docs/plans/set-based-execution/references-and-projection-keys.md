@@ -1078,6 +1078,9 @@ producer leaves discovery coverage unknown. Qualify incomplete, valid complete-e
 first-member arrival, departure and closure with independent expected uses and recipients.
 In particular, exercise revocation of an empty producer and replacement of a historical closure
 by a newly admissible use of the same product and derivation.
+The exact replacement journey passed on the refreshed root (`e7815bb4e8b4497a813e5994d1ed118f`).
+Ordinary settlement binds the new current use, preserves population meaning and repeats
+idempotently. [Integrated qualification](cutover-and-qualification.md#sbx-efficiency-qualification)
 Batch common population-close work only where the native owner preserves support locks,
 active demand, current context/recipe, output authority, completeness, duplicate contexts and
 atomic closure insertion. This investigation can choose a native set update or retain per-close

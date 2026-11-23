@@ -179,7 +179,11 @@ provider campaigns remain in progress.
 filename split. The current inventory's native requirements and affinity groups
 partition the remainder into 5,609 release-independent identities
 (`358928b66cda470d8b78bb0b5a738be1`) and 1,316 native identities
-(`5e94f0ab204e4be79766996b0c34a44c`). The original heavy receipt
+(`5e94f0ab204e4be79766996b0c34a44c`). Both cohorts drained before the final
+authored-kind and wire-schema changes. They retain 2,439 and 159 passed identities,
+respectively, with their original failures, interruptions and uncovered selections.
+Private host recovery preserved the native cohort's temporary fixture files and
+settled the stopped host. The original heavy receipt
 `1551b539323c4b10914abf8706465757` passed 55 of 58 selected identities.
 Its three failed identities have separate dispositions:
 
@@ -192,7 +196,8 @@ Its three failed identities have separate dispositions:
   `2912c7971` correction (`8d23c87657914690a6f71f1bde179b6d`), including
   no-match terminology, both exact authored kinds, unrelated-kind refusal and revocation.
   All 19 projection controls passed (`b00967c597854314853078f486077084`).
-  The patch awaits integration after the active captured-source campaigns.
+  The correction is integrated as `89e3d6dc9`. Main reruns its private admission,
+  generated projection and interpretation checks.
 - The structural dossier worker failed in Python/RDFLib model preparation before an
   assertion. The exact one-worker private retry passed the structural authorship,
   issuer, selected-gap and detached-export identity (`fd7cfde2b5b4446b99eea9d745b2e07e`).
@@ -200,9 +205,10 @@ Its three failed identities have separate dispositions:
 The additional provider scope reproduced the inherited T4 keyed mapping and toy
 decimal defects (`5bbc1046da8f48588bae0f8fbb9e07d0`). The result preserves these
 as failed; they are separate from the named changed-provider and authentic replay
-requirements of this cutover. The affected provider selection is also retrying the
-identities that originally lacked the installed PM2 asset directory setting
-(`d8565b34e13d47468b6065d1304732e8`).
+requirements of this cutover. All six provider identities that originally lacked
+the installed PM2 asset directory passed their assertions after using that setting
+(`d8565b34e13d47468b6065d1304732e8`). Managed cleanup recovery settled the host
+and preserved the original failed invocation and its six passed identities.
 
 **Ordinary and provider follow-through · 2026-11-22.** Three shared-authentication
 controls passed on the shared host (`994ab77b344f47b0810912910d38f3b6`). The
@@ -210,7 +216,7 @@ one-worker CPU lifecycle retry passed all nine tests (`5faf3d3701104c8cb9065c3ca
 Current observation, declaration, protected reads and exact binding fixtures passed
 their scoped retries (`cf406ff3b59c460e8d0539f7a609cb89`,
 `9cdfd9d3d27744719f9bc594dbd8b0e7`, `742f867d911446658c713fd3aac49918`,
-`e34f673b490f4d4ab1fd86a247cefe41`). The active same-release source cohort retains
+`e34f673b490f4d4ab1fd86a247cefe41`). The earlier source cohort retains
 the earlier failures and subsequent scoped passes.
 
 The real two-language-region journey passed its call in the active PM2 retry, including
@@ -224,6 +230,21 @@ worker reached the 15-minute test watchdog while waiting for the same physical G
 held by the PM2 cohort (`a7a7e1b66e944c08a54bff7dd16c67cb`). The suite retains ten
 passed identities and six missing-asset prerequisites. Retry the annotation fork with
 exclusive GPU scheduling and its exact existing limits.
+
+The exact native discovery replacement passed (`e7815bb4e8b4497a813e5994d1ed118f`).
+A new current use adopted the same computation and product. The older closure left
+discovery incomplete for that use. Ordinary settlement recorded the new
+exact admission with the same population meaning and an unchanged repeat did no
+additional work. [SBX-06 discovery adequacy](references-and-projection-keys.md#sbx-06)
+
+Preparing distinct captured releases repeated Draft 7 checks for identical wire
+schema content. The integrated checker retains successful checks by exact finite
+JSON content and validator implementation (`894fd8f40`). Shape and closed references
+still pass their owner for new inputs. Unusual values and error diagnostics retain the
+direct checker. The isolated full wire module passed 62 checks, and six exact cache
+controls passed under `uv run ci test` (`73ef4d4ec98c45179196d40989cf2256`). The
+comparison confirms a smaller cost for repeated schema checking in isolation.
+[Wire schema timing evidence](../../design_review/evidence/2026-11-22_python-postgresql-efficiency/README.md)
 
 **Cold authoring checkpoint · 2026-11-21.** `uv run ci db init --creation-only` created
 `corpus_structure_sbx09_author` on the dedicated cluster. Managed preview
