@@ -259,6 +259,7 @@ def test_current_facet_pages_pin_native_selection_root_and_implementation(
         with pytest.raises(RichQueryRefused, match="max_bytes"):
             facets.serve_contribution_facets(None, request(selected, max_bytes=1024))
     finally:
+        assert isinstance(selected.index, SelectedRecordIndex)
         selected.index.close()
 
 
@@ -307,6 +308,8 @@ def test_current_comparison_uses_exact_two_root_use_and_cut_pins(
         with pytest.raises(ValueError, match="exactly one actual selected whole"):
             comparison.compare_selected_exclusions(None, bad)
     finally:
+        assert isinstance(before.index, SelectedRecordIndex)
+        assert isinstance(after.index, SelectedRecordIndex)
         before.index.close()
         after.index.close()
 

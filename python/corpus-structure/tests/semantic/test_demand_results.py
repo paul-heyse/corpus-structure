@@ -172,25 +172,91 @@ def test_admitted_page_retains_the_canonical_cut_with_ordinary_numbers(ordinary)
     assert type(actual) is float and actual.hex() == ordinary.hex()
 
 
+def _selected_member_rows():
+    """Authored outputs carry exact producing use and member context."""
+    common = dict(
+        obligation_id="obligation:A",
+        use_id="use:A",
+        derivation_id="episode:original",
+        product_id="product:A",
+        role="result",
+        output_member_id=None,
+        position=0,
+        multiplicity=2,
+        subject_definition="document",
+        original_source="source:A",
+    )
+    return [
+        dict(
+            common,
+            member_id=None,
+            kind_contract="kind:container",
+            subject="root",
+            analyzed_scope={},
+            meaning_body=semantic_value({"container": "authored"}),
+        ),
+        dict(
+            common,
+            member_id="first",
+            kind_contract="kind:first",
+            subject="one",
+            analyzed_scope={"scale": Decimal("1.20")},
+            meaning_body=semantic_value({"amount": Decimal("12.340")}),
+        ),
+        dict(
+            common,
+            member_id="second",
+            kind_contract="kind:second",
+            subject="two",
+            analyzed_scope={},
+            meaning_body=semantic_value({"target": "first", "direction": "outgoing"}),
+        ),
+    ]
+
+
+def _selected_member_key(member):
+    return ["obligation:A", "use:A", "result", 0, "product:A", member or ""]
+
+
+def _selected_answer(rows=(), *, after=None, scope=None):
+    cut = demand_result_page()
+    cut["scope"] = {} if scope is None else scope
+    return dict(
+        cut=CutSelection.from_native(cut).record,
+        rows=list(rows),
+        answer_after=after,
+        oversized=None,
+    )
+
+
 @pytest.mark.usefixtures("complete_serving_code")
 def test_current_member_cursor_preserves_whole_group_and_refuses_wrong_target(monkeypatch):
     reads = []
+    rows = _selected_member_rows()
 
-    def read(connection, demand_id, *, project_id, continuation, **kwargs):
+    def read(connection, program, demand_id, *, project_id, after, read_id, **kwargs):
+        assert program == "read_selected_outputs"
         assert demand_id == "demand:A" and project_id == "project:A"
-        reads.append((kwargs["view"], kwargs.get("recheck_bodies", False)))
-        request = dict(
-            continuation or {"demand_id": demand_id}, limit=1, max_bytes=1048576, view="products"
-        )
-        return DemandResult(json_bytes(demand_result_page()), json_bytes(request))
+        assert kwargs["body"] is True and kwargs["limit"] == 1
+        reads.append((read_id, after, kwargs["max_bytes"]))
+        if after is None:
+            assert read_id is None
+            return _selected_answer(rows[:1], after=_selected_member_key(None))
+        assert read_id == "read:A"
+        if after == _selected_member_key(None):
+            return _selected_answer(rows[1:2], after=_selected_member_key("first"))
+        assert after == _selected_member_key("first")
+        return _selected_answer(rows[2:])
 
-    monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result", read)
+    monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_selected_answer", read)
     request = DemandQueryRequest(demand_id="demand:A", project_id="project:A", limit=1)
     first = serve_demand_query(None, request)
     assert [row["member_id"] for row in first["items"]] == [None]
     assert "selection" not in decode_demand_cursor(first["continuation"])["request"]
     second = serve_demand_query(None, request.model_copy(update={"cursor": first["continuation"]}))
     assert [row["member_id"] for row in second["items"]] == ["first"]
+    assert second["items"][0]["body"] == {"amount": Decimal("12.340")}
+    assert second["items"][0]["multiplicity"] == 2
     third = serve_demand_query(None, request.model_copy(update={"cursor": second["continuation"]}))
     assert [row["member_id"] for row in third["items"]] == ["second"]
     assert third["continuation"] is None
@@ -203,18 +269,51 @@ def test_current_member_cursor_preserves_whole_group_and_refuses_wrong_target(mo
         )
     resource = decode_resource_handle(second["resource_handle"], DemandQueryRequest)
     assert serve_demand_query(None, resource)["items"] == second["items"]
-    assert reads.count(("products", False)) == 1
-    assert reads.count(("frontier", True)) == 4
+    assert [after for _, after, _ in reads] == [
+        None,
+        _selected_member_key(None),
+        _selected_member_key("first"),
+        _selected_member_key(None),
+    ]
 
-    # Cache content cannot grant disclosure after current native authorization
-    # changes, even for the identical pinned cursor and immutable cached rows.
     def refused(*args, **kwargs):
-        assert kwargs["view"] == "frontier" and kwargs["recheck_bodies"] is True
+        assert kwargs["read_id"] == "read:A" and kwargs["body"] is True
         raise ValueError("current body disclosure refused")
 
-    monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result", refused)
+    monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_selected_answer", refused)
     with pytest.raises(ValueError, match="disclosure refused"):
         serve_demand_query(None, resource)
+
+
+@pytest.mark.usefixtures("complete_serving_code")
+def test_member_continuation_rechecks_a_decreased_native_budget(monkeypatch):
+    reads = []
+    rows = _selected_member_rows()
+
+    def read(*args, **kwargs):
+        reads.append((kwargs["after"], kwargs["max_bytes"]))
+        if kwargs["max_bytes"] == 2048:
+            raise ValueError("selected answer row exceeds max_bytes")
+        if kwargs["after"] is None:
+            return _selected_answer(rows[:1], after=_selected_member_key(None))
+        assert kwargs["read_id"] == "read:A" and kwargs["after"] == _selected_member_key(None)
+        return _selected_answer(rows[1:2])
+
+    monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_selected_answer", read)
+    request = DemandQueryRequest(
+        demand_id="demand:A", project_id="project:A", limit=1, max_bytes=65536
+    )
+    first = serve_demand_query(None, request)
+    resumed = request.model_copy(update={"cursor": first["continuation"], "max_bytes": 32768})
+    second = serve_demand_query(None, resumed)
+    assert second["items"][0]["member_id"] == "first"
+    with pytest.raises(ValueError, match="exceeds max_bytes"):
+        serve_demand_query(None, resumed.model_copy(update={"max_bytes": 2048}))
+    assert reads == [
+        (None, 65536),
+        (_selected_member_key(None), 32768),
+        (_selected_member_key(None), 2048),
+    ]
 
 
 def test_waiting_and_completed_empty_operations_do_not_claim_absence(monkeypatch):
@@ -229,6 +328,10 @@ def test_waiting_and_completed_empty_operations_do_not_claim_absence(monkeypatch
     assert result["items"][0]["obligation"]["obligation_id"] == "obligation:A"
     assert result["items"][0]["obligation"]["fate"] == "waiting"
     assert result["items"][0]["uses"] == []
+    monkeypatch.setattr(
+        "corpus_structure.semantic.demand_queries.read_selected_answer",
+        lambda *a, **k: _selected_answer(),
+    )
     result = serve_demand_query(None, request.model_copy(update={"view": "members"}))
     assert result["items"] == [] and result["knowledge"] == "unknown"
 
@@ -524,27 +627,19 @@ def test_detached_verifier_uses_disk_index_and_independent_identity_support_cont
 def test_product_selector_enters_protected_scope_before_unrelated_body_admission(monkeypatch):
     requested = []
 
-    def native(connection, demand_id, *, project_id, scope, **kwargs):
-        # The unrelated first obligation is deliberately inadmissible to this
-        # caller's packet. Only native scope before paging can avoid its body.
+    def native(connection, program, demand_id, *, project_id, scope, **kwargs):
         if scope != {"product_ids": ["product:A"]}:
             raise ValueError("unrelated first output exceeds the native body budget")
+        assert program == "read_selected_outputs" and kwargs["product_id"] == "product:A"
         requested.append(scope)
-        page = demand_result_page()
-        page["scope"] = scope
-        return DemandResult(
-            json_bytes(page),
-            json_bytes(
-                dict(demand_id=demand_id, scope=scope, view="products", limit=1, max_bytes=1048576)
-            ),
-        )
+        return _selected_answer(_selected_member_rows(), scope=scope)
 
-    monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result", native)
+    monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_selected_answer", native)
     result = serve_demand_query(
         None,
         DemandQueryRequest(demand_id="demand:A", project_id="project:A", product_id="product:A"),
     )
-    assert requested == [{"product_ids": ["product:A"]}] * 2
+    assert requested == [{"product_ids": ["product:A"]}]
     assert {row["product_id"] for row in result["items"]} == {"product:A"}
 
 
@@ -881,18 +976,18 @@ def test_public_query_distinguishes_explicit_null_source_and_omitted_filter(monk
 
     def read(*args, **kwargs):
         scopes.append(kwargs["scope"])
-        page = demand_result_page()
-        page["scope"] = kwargs["scope"]
-        return DemandResult(json_bytes(page))
+        return _selected_answer(
+            _selected_member_rows()[:1], scope=kwargs["scope"], after=_selected_member_key(None)
+        )
 
-    monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result", read)
+    monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_selected_answer", read)
     unqualified = DemandQueryRequest(demand_id="demand:A", project_id="project:A", limit=1)
     absent = unqualified.model_copy(update={"original_source": None})
     assert "original_source" not in unqualified.selection()
     assert absent.selection()["original_source"] is None
     first = serve_demand_query(None, unqualified)
     serve_demand_query(None, absent)
-    assert scopes == [{}, {}, {"original_source": None}, {"original_source": None}]
+    assert scopes == [{}, {"original_source": None}]
     with pytest.raises(ValueError, match="exact public selection"):
         serve_demand_query(None, absent.model_copy(update={"cursor": first["continuation"]}))
 

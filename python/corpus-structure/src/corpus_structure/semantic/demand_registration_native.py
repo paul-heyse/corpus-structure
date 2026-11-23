@@ -1285,6 +1285,7 @@ def _record_fate(model: MetaData, recordable_fates: tuple[str, ...]) -> NativeRo
 
 def demand_intent_programs(model: MetaData, *, protocol: bytes) -> tuple[ProgramDeclaration, ...]:
     from .data_operation_protocol import protocol_value_sets
+    from .governed_read_native import governed_read_program
     from .obligation_wake_native import obligation_wake_programs
 
     routines = (
@@ -1299,6 +1300,7 @@ def demand_intent_programs(model: MetaData, *, protocol: bytes) -> tuple[Program
         record_obligation_cut(model),
         obligation_settlement(model),
         demand_settlement(model),
+        demand_settlement(model, governed=True),
     )
     commands = tuple(
         ProgramDeclaration(
@@ -1311,6 +1313,7 @@ def demand_intent_programs(model: MetaData, *, protocol: bytes) -> tuple[Program
     )
     return (
         *commands,
+        governed_read_program(model),
         *obligation_wake_programs(model),
         *(
             ProgramDeclaration(

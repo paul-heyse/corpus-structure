@@ -7,10 +7,12 @@ from typing import cast
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic._data_operation_wire import (
     WireAttachDataRequestsRequest,
     WireReadDemandResultRequest,
+    WireReadGovernedSelectionRequest,
     WireRevokeDataSupportRequest,
 )
 from corpus_structure.semantic.data_operation_demands import DemandPlanner
@@ -76,8 +78,15 @@ def scalar_writer(commit_db_engine, native_settings):
     writer.dispose()
 
 
+@pytest.fixture
+def scalar_reader(commit_db_engine, native_settings):
+    reader = principal_engine(native_settings, "read", commit_db_engine.url.database)
+    yield reader
+    reader.dispose()
+
+
 def test_native_required_scalar_join_retains_exact_unchanged_origin_use(
-    commit_db_engine, scalar_writer, tmp_path
+    commit_db_engine, scalar_writer, scalar_reader, tmp_path
 ):
     admin = commit_db_engine
     writer = scalar_writer
@@ -127,6 +136,20 @@ def test_native_required_scalar_join_retains_exact_unchanged_origin_use(
                 {"read_id": page["read_id"]}
             )
 
+    def governed(**options):
+        with scalar_reader.begin() as connection:
+            return DataOperationStorage(connection).read_governed_selection(
+                cast(
+                    WireReadGovernedSelectionRequest,
+                    dict(
+                        project_id="ddo-test",
+                        selection_name="pair",
+                        scope={"operation_id": TARGET},
+                        **options,
+                    ),
+                ),
+            )
+
     def cut_count():
         with admin.connect() as connection:
             return connection.scalar(
@@ -142,6 +165,19 @@ def test_native_required_scalar_join_retains_exact_unchanged_origin_use(
         return obligation["native_readiness"]
 
     initial = read()
+    public_pending = governed()
+    assert public_pending["state"] == "Pending"
+    assert public_pending["selection_generation"] == 1
+    assert public_pending["demand_id"] == demand["demand_id"]
+    assert set(public_pending) == {
+        "selection_name",
+        "selection_generation",
+        "state",
+        "last_settled",
+        "demand_id",
+        "read_id",
+    }
+    assert governed(mode="last-settled")["state"] == "Unknown"
     assert readiness(initial) == {
         "ready": False,
         "roles": [
@@ -310,6 +346,12 @@ def test_native_required_scalar_join_retains_exact_unchanged_origin_use(
         retain(kernel, successor_fence, outputs=(11,), mutate=joined_output),
     )
     completed = read()
+    public_fresh = governed()
+    assert public_fresh["state"] == "Fresh"
+    assert public_fresh["last_settled"] is False
+    last_settled = governed(mode="last-settled")
+    assert last_settled["state"] == "Fresh" and last_settled["last_settled"] is True
+    assert last_settled["read_id"] == public_fresh["read_id"]
     (completed_cut,) = settlement(completed)
     assert completed_cut["state"] == "settled"
     assert completed_cut["attachment_use_id"] == native["use_id"]
@@ -338,6 +380,9 @@ def test_native_required_scalar_join_retains_exact_unchanged_origin_use(
             expected_generation=1,
         )
     assert superseded.generation == 2
+    historical_fresh = governed(mode="last-settled")
+    assert historical_fresh["selection_generation"] == 1
+    assert historical_fresh["read_id"] == public_fresh["read_id"]
     assert settlement(read()) == []
     assert cut_count() == 1
     with admin.begin() as connection:
@@ -350,6 +395,11 @@ def test_native_required_scalar_join_retains_exact_unchanged_origin_use(
             expected_generation=2,
         )
     assert restored.generation == 3
+    historical_again = governed(
+        mode="last-settled", read_id=public_fresh["read_id"], selection_generation=1
+    )
+    assert historical_again["selection_generation"] == 1
+    assert historical_again["read_id"] == public_fresh["read_id"]
     restored_page = read()
     assert settlement(restored_page)[0]["state"] == "pending"
     assert settlement(restored_page)[0]["attachment_use_id"] is None
@@ -399,6 +449,10 @@ def test_native_required_scalar_join_retains_exact_unchanged_origin_use(
                 },
             )
         )
+    with pytest.raises(DBAPIError, match="read trust changed"):
+        governed(mode="last-settled")
+    with pytest.raises(DBAPIError, match="read trust changed"):
+        governed(mode="last-settled", read_id=public_fresh["read_id"], selection_generation=1)
     revoked = read()
     assert readiness(revoked)["ready"] is False
     assert settlement(revoked)[0]["state"] == "pending"

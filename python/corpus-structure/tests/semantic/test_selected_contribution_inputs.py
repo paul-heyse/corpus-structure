@@ -17,6 +17,68 @@ def append(index, relation, key, value):
     index.append(json_bytes(dict(relation=relation, key=relation + "/" + key, record=value)))
 
 
+def test_live_contributions_use_paged_exact_answers_without_materializing_a_support_index(
+    monkeypatch,
+):
+    from types import SimpleNamespace
+    from typing import cast
+
+    from corpus_structure.semantic import demand_results
+    from corpus_structure.semantic.selected_contribution_input import (
+        LiveContributionRead,
+        SelectedContributionScope,
+    )
+
+    cut = CutSelection.from_native(CUT)
+    calls = []
+    rows = [
+        dict(
+            use_id="use:" + producer,
+            derivation_id="derivation:" + producer,
+            operation_id="operation:" + producer,
+            role="report",
+            position=0,
+            multiplicity=1,
+            product_id="product:" + producer,
+            output_member_id=None,
+            member_id=None,
+            kind_contract="contract:report",
+            kind="urn:report",
+            subject="source",
+            subject_definition="document",
+            original_source=None,
+            analyzed_scope={},
+            meaning_body=semantic_value({"report": producer}),
+            selection={"inputs": [], "support": []},
+            release_id=CUT["release_id"],
+        )
+        for producer in ("first", "second")
+    ]
+
+    def answer(_connection, program, demand, **request):
+        calls.append((program, demand, request))
+        offset = 0 if request["after"] is None else 1
+        return dict(
+            cut=CUT,
+            rows=[rows[offset]],
+            answer_after=["first"] if offset == 0 else None,
+            oversized=None,
+        )
+
+    monkeypatch.setattr(demand_results, "read_selected_answer", answer)
+    live = LiveContributionRead(object(), None, cut, {}, 100_000, 10)
+    scope = SimpleNamespace(live=live, cut=cut, decimal_fixed_point_digits=decimal_digit_limit())
+    actual = tuple(SelectedContributionScope.products(cast(SelectedContributionScope, scope)))
+    assert [item.body for item in actual] == [{"report": "first"}, {"report": "second"}]
+    assert [item.use_id for item in actual] == ["use:first", "use:second"]
+    assert [item.output["position"] for item in actual] == [0, 0]
+    assert actual[0].reference.support_references != actual[1].reference.support_references
+    assert live.retained_records == 2
+    assert all(call[2]["read_id"] == CUT["read_id"] for call in calls)
+    assert [call[2]["after"] for call in calls] == [None, ["first"]]
+    assert all(call[2]["body"] is True for call in calls)
+
+
 @pytest.mark.parametrize("disclosure", ["matching", "other-use", "other-episode", "absent"])
 def test_selected_products_respect_explicit_authority_disclosure_without_hiding_missing_episodes(
     tmp_path, disclosure

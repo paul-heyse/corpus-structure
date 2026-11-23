@@ -85,7 +85,7 @@ def sentence_extent_blocks(value: PartitionedInput, commitment):
                 placement.ordinal,
                 placement.start,
                 placement.end,
-                tuple(sentences.rows()),
+                tuple(sentences.immutable_rows()),
             )
         )
     return tuple(result)

@@ -228,11 +228,16 @@ def inspect_selected_source_journey(conn, request: SelectedSourceDecisionJourney
         roots=tuple(layer.root for layer in request.layers),
         source_products=(source_ref.source_product,),
     ) as scope:
+        from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
+
+        index = scope.index
+        if not isinstance(index, SelectedRecordIndex):
+            raise ValueError("source journey requires its authenticated support index")
         frozen = _source_for_interpretation(
             scope.prepared,
             source_ref,
-            scope.index.mapping("kb.data_product", ("id",)),
-            scope.index.mapping("kb.data_product_member", ("product_id", "member_id")),
+            index.mapping("kb.data_product", ("id",)),
+            index.mapping("kb.data_product_member", ("product_id", "member_id")),
         )
         status, projected = selected_source_state(request.opportunity, frozen.value)
         requested = {layer.layer: layer for layer in request.layers}

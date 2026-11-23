@@ -1593,6 +1593,24 @@ class WireReadExternalDataQueueResult(TypedDict):
     packets: Required[list[WireExternalPacketHead]]
 
 
+class WireReadGovernedSelectionRequest(TypedDict):
+    mode: NotRequired[Literal["current", "last-settled"]]
+    project_id: Required[WireIdentifier]
+    read_id: NotRequired[WireReadId]
+    scope: NotRequired[WireDemandReadScope]
+    selection_generation: NotRequired[int]
+    selection_name: Required[WireIdentifier]
+
+
+class WireReadGovernedSelectionResult(TypedDict):
+    demand_id: Required[WireIdentifier | None]
+    last_settled: Required[bool]
+    read_id: Required[WireReadId | None]
+    selection_generation: Required[int | None]
+    selection_name: Required[WireIdentifier]
+    state: Required[Literal["Fresh", "Pending", "Unavailable", "Unknown"]]
+
+
 class WireReadSelectedFeatureFitFrameRequest(TypedDict):
     cut_canonical_json: Required[str]
     demand_id: Required[WireIdentifier]
@@ -2127,6 +2145,51 @@ class WireSelectDataPopulationRequest(TypedDict):
     read_id: Required[WireReadIdentity]
 
 
+class WireSelectedAnswerRequestPremisesItem(TypedDict):
+    premise: Required[WireIdentifier]
+    rule_fingerprint: Required[WireIdentifier]
+
+
+class WireSelectedAnswerRequest(TypedDict):
+    answer_after: NotRequired[WireSelectedAnswerKey]
+    body: NotRequired[bool]
+    collection: NotRequired[WireIdentifier]
+    containers_only: NotRequired[bool]
+    demand_id: Required[WireIdentifier]
+    derivation_id: NotRequired[WireIdentifier]
+    family: NotRequired[str]
+    fields: NotRequired[list[WireIdentifier]]
+    include_binding: NotRequired[bool]
+    include_members: NotRequired[bool]
+    input_product_id: NotRequired[WireIdentifier]
+    input_role: NotRequired[WireIdentifier]
+    item_key: NotRequired[list[str | int]]
+    items: NotRequired[bool]
+    kind_contract: NotRequired[WireIdentifier]
+    kind_contracts: NotRequired[list[WireIdentifier]]
+    limit: NotRequired[int]
+    max_bytes: NotRequired[int]
+    member_id: NotRequired[WireIdentifier]
+    partition_key: NotRequired[WireIdentifier]
+    premises: NotRequired[list[WireSelectedAnswerRequestPremisesItem]]
+    product_id: NotRequired[WireIdentifier]
+    project_id: Required[WireIdentifier]
+    read_id: NotRequired[WireReadId]
+    record_type: NotRequired[str]
+    scope: NotRequired[WireDemandReadScope]
+    source_metadata: NotRequired[bool]
+    target_partition_key: NotRequired[WireIdentifier]
+    target_product_id: NotRequired[WireIdentifier]
+    use_id: NotRequired[WireIdentifier]
+
+
+class WireSelectedAnswerResult(TypedDict):
+    answer_after: Required[WireSelectedAnswerKey | None]
+    cut: Required[WireCutSelection]
+    oversized: Required[WireSelectedAnswerKey | None]
+    rows: Required[list[dict[str, WireExactJSONValue]]]
+
+
 class WireAttemptFence(TypedDict):
     attempt: Required[TaskAttempt]
     generation: Required[WireGeneration]
@@ -2280,6 +2343,8 @@ type WireReadSelectedVisualEvidenceResult = WireSelectedVisualRead
 type WireReleaseDataAttemptResult = WireDataAttemptLostResult | WireReleaseDataAttemptResultVariant2
 
 type WireRenewDataRequestResult = WireRenewedDataRequestResult | WireDataAttemptLostResult
+
+type WireSelectedAnswerKey = list[str | int]
 
 
 def wire_attempt_fence(value: Mapping[str, Any]) -> WireAttemptFence:
@@ -2444,6 +2509,24 @@ class DataOperationCalls:
     ) -> WireReadDemandResultResult:
         return cast(WireReadDemandResultResult, self._invoke("read_demand_result", payload))
 
+    def read_selected_outputs(self, payload: WireSelectedAnswerRequest) -> WireSelectedAnswerResult:
+        return cast(WireSelectedAnswerResult, self._invoke("read_selected_outputs", payload))
+
+    def read_selected_partitions(
+        self, payload: WireSelectedAnswerRequest
+    ) -> WireSelectedAnswerResult:
+        return cast(WireSelectedAnswerResult, self._invoke("read_selected_partitions", payload))
+
+    def read_selected_derivation_facts(
+        self, payload: WireSelectedAnswerRequest
+    ) -> WireSelectedAnswerResult:
+        return cast(
+            WireSelectedAnswerResult, self._invoke("read_selected_derivation_facts", payload)
+        )
+
+    def read_selected_proofs(self, payload: WireSelectedAnswerRequest) -> WireSelectedAnswerResult:
+        return cast(WireSelectedAnswerResult, self._invoke("read_selected_proofs", payload))
+
     def resume_data_demand(
         self, payload: WireReadDemandResultRequest
     ) -> WireResumeDataDemandResult:
@@ -2546,4 +2629,11 @@ class DataOperationCalls:
     ) -> WireRankPdfSearchProjectionResult:
         return cast(
             WireRankPdfSearchProjectionResult, self._invoke("rank_pdf_search_projection", payload)
+        )
+
+    def read_governed_selection(
+        self, payload: WireReadGovernedSelectionRequest
+    ) -> WireReadGovernedSelectionResult:
+        return cast(
+            WireReadGovernedSelectionResult, self._invoke("read_governed_selection", payload)
         )

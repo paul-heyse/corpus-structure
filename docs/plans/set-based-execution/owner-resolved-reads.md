@@ -371,6 +371,57 @@ principal without the evaluator universe is refused a protected body through eac
 An input-support answer equals the native function's result for a fixture with both derivation
 and original support.
 
+**Implementation checkpoint · 2026-11-23.** The development source declares the four
+answer programs and their shared read-closure membership. The member query uses a native seek
+key and checks current authority on each page. Ordinary contribution and structural consumers
+use native output, derivation and reference answers. Source-view catalogs acquire projected
+source and selector metadata. The governed query supports a current named selection and an
+explicit last-settled cut. Covered historical reads retain their exact generation and repeat
+current trust and dependency disclosure checks on reopening.
+
+**Development installation · Tested · 2026-11-23.** The preview
+(`9d6c6eee992b434b9a94d84e747a97c5`), rollback-only candidate (`ff291f4e0cca42b19fa6879450d9edb8`) and registration
+(`d4c7ffbd4a954b2f85a4c45e8979847d`) passed. `uv run ci model change deploy
+ff291f4e0cca42b19fa6879450d9edb8` installed `semantic_sbx_selected_answers` on the dedicated
+development database (`ae746537aaf145bbb84e75b1b230998b`). Maintenance readback confirmed
+it is both the installed revision and registered head. The managed repository checks
+(`b9e25a288a2a4359a2d82fbbcf8df006`) and all 37 focused cursor, governed ingress,
+contribution-input and source-catalog checks (`82e902b9f05145d2925f1f6f903ad226`) passed.
+
+The first private native run (`e75664f16c1e4b6592b0e25d63fd6d51`) passed two tests and
+failed two. The governed reader rejected valid optional wire fields. The outputs fixture
+stopped during producer preparation because the captured callable source exposed a generic
+span class to the closed runtime inspector. The correction uses the generated wire contract
+for request shape, checks only the program's required selectors, and keeps the span class in
+producer execution custody. The immediate retry (`e68191f9f7454ce28ff1477372fcafd6`) stopped
+because the changed source expected the new kernel. The guarded successor was then authored
+(`f6ec27aa156e4be7869897126bd56257`), registered (`81f10d769bcd472fad3bcebc019b3a7b`),
+and installed on development (`cab4a94b4bb64ba2931180aa39e3cb50`). Maintenance readback
+confirmed `semantic_sbx_answer_guards` is the installed revision and registered head.
+
+**Native and consumer checks · Tested by selected identity · 2026-11-23.** The guarded private
+run (`1a8d1fa595024d93bbb4d7b3649c712f`) passed the scoped settlement cases, including pending
+work, exact last-settled history and revocation, and the detached export regression. The
+filtered outputs fixture still stopped in producer preparation. Using a plain runtime span
+class resolved that failure. The next private run (`ed64bfb189254f52babc0ae9dfe08414`) passed
+all nine selected filtered paging, contextual acquisition and span checks. Contextual product
+acquisition uses the native output address and retains exact producing-use proof. Its later
+witness acquisition still requests transitive support. The live `ci query members` CLI returned
+`Unknown` for an absent governed selection under `--last-settled`. The final repository
+check passed (`991db62ae0f54113adfef509b0353eee`). The populated native fixture then passed
+filtered paging and derivation-fact parity against the recorded binding and exact formal
+producer use (`64975a9001414921be232c776bd8dfc2`).
+
+**Open.** Protected structural admissions, complete source journeys and full graph inspection
+still need their existing support custody. The PDF publication catalog still uses the guarded
+PDF header reader per result. The non-output programs narrow support acquisition to the
+anchoring obligation. Exact point acceptance must also exercise unrelated support inside
+that obligation because support traversal still precedes the target-row filter. The full
+change-impact path, contextual witness and selected math still retain transitive acquisition
+where they need custody beyond the new answer shapes. The textbook direct, CLI and MCP
+journey, protected partition and proof coverage, scoped PostgreSQL attribution, and integrated
+consumer migration remain qualification and implementation obligations of SBX-11.
+
 <a id="sbx-12"></a>
 ## SBX-12 — Replay, export, cursor and cache
 

@@ -758,6 +758,7 @@ def admitted_data_read(
     original_source: Any = _UNQUALIFIED_CONTEXT_FIELD,
     analyzed_scope: Any = _UNQUALIFIED_CONTEXT_FIELD,
     selected_pins: list[dict[str, str | None]] | None = None,
+    metadata_only: bool = False,
 ):
     """Construct SQL bindings only through the demand-pinned native admission reader.
 
@@ -796,7 +797,15 @@ def admitted_data_read(
         _binding_context_parameter(analyzed_scope, name="data_binding_scope"),
         bindparam("data_binding_selected", selected_pins, type_=JSONB(none_as_null=True)),
     )
-    relation = func.ops.data_binding_rows(*arguments).table_valued(*columns)
+    if metadata_only:
+        from .data_operation_projections import member_columns
+
+        fields = member_columns()
+        relation = func.ops.data_binding_reference_headers(*arguments).table_valued(
+            *(field for field in columns if field.name in fields)
+        )
+    else:
+        relation = func.ops.data_binding_rows(*arguments).table_valued(*columns)
     # The admitted TVF authenticates this statement once. Role aliases and
     # constraint checks share its rows without sharing authority across reads.
     relation = (

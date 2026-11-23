@@ -1027,6 +1027,29 @@ def _binding_programs(model):
     collection_key = core_variable("p_collection", Text())
     partition_key = core_variable("p_partition_key", Text())
     rows = selected_rows(decode=False)
+    header_columns = tuple(
+        field for field in binding_columns() if field.name not in {"body", "meaning_body"}
+    )
+    reference_headers = _program(
+        "data_binding_reference_headers",
+        (*parameters, Parameter("p_selected", pg_type("jsonb"), pg_literal(None))),
+        (
+            _refuse(
+                or_(
+                    func.jsonb_typeof(selected).is_distinct_from("array"),
+                    func.jsonb_array_length(selected) != 1,
+                    selected[0]["product_id"].astext.is_(None),
+                ),
+                "reference authorization requires one exact parent pin",
+                "23514",
+            ),
+            ReturnQuery(select(*(rows.c[field.name] for field in header_columns))),
+        ),
+        returns=set_record,
+        table_columns=tuple(
+            (name, kind) for name, kind in columns if name not in {"body", "meaning_body"}
+        ),
+    )
     parents = (
         select(rows.c.product)
         .where(rows.c.member.is_(None))
@@ -1211,6 +1234,7 @@ def _binding_programs(model):
     return (
         internal,
         public,
+        reference_headers,
         reference_member,
         reference_item,
         population_read,
@@ -1234,6 +1258,7 @@ def read_native_programs(model):
             if routine.name
             in {
                 "data_binding_rows",
+                "data_binding_reference_headers",
                 "data_binding_reference_member",
                 "data_binding_reference_item",
                 "data_binding_population_items",

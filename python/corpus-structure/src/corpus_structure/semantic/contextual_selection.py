@@ -88,61 +88,50 @@ def freeze_contextual_target_demand(
 
 
 def _selected_product_with_kind(connection, selection, *, project_id, kind_name):
-    from .data_operation_support import ComputationalSupportReference
+    from .data_operation_source_sets import SelectedSourceSetEntry
     from .data_operation_values import decode_semantic_value
-    from .demand_results import selected_record_index
-    from .selected_support import SelectedReadReference
+    from .demand_results import CutSelection, read_selected_answer
 
-    with selected_record_index(
+    filters = {"product_id": selection.product_id}
+    if selection.member_id is not None:
+        filters["member_id"] = selection.member_id
+    answer = read_selected_answer(
         connection,
+        "read_selected_outputs",
         selection.demand_id,
         project_id=project_id,
         scope={"product_ids": [selection.product_id]},
         read_id=selection.read_id,
-        expected_cut=selection.expected_cut,
-        capture_frontier=True,
-        max_total_bytes=64 * 1024 * 1024,
-    ) as (cut, index):
-        read = SelectedReadReference.from_cut(cut)
-        candidates = tuple(
-            entry
-            for use in index.frontier_rows("uses")
-            if use["fate"] == "fulfilled"
-            for entry in selected_source_entries(
-                index,
-                read,
-                product_id=selection.product_id,
-                member_id=selection.member_id,
-                anchor_use_id=use["use_id"],
-                support=ComputationalSupportReference(
-                    derivation_id=use["derivation_id"], admission_use_id=use["use_id"]
-                ),
-            )
-        )
-        if len(candidates) != 1:
-            raise ValueError(
-                "contextual selection requires one exact selected fulfilled output proof"
-            )
-        (selected_entry,) = candidates
-        product = index.mapping("kb.data_product", ("id",))[selection.product_id]
-        contracts = index.mapping("sem.data_kind_contract", ("kind_contract",))
-        member = (
-            product
-            if selection.member_id is None
-            else index.mapping("kb.data_product_member", ("product_id", "member_id"))[
-                (selection.product_id, selection.member_id)
-            ]
-        )
-        contract = contracts[member["kind_contract"]]
-        expected_kind = (
-            kind_name
-            if ":" in kind_name
-            else "https://corpus-structure.dev/semantic/data-operation-contextual/" + kind_name
-        )
-        if contract["kind"] != expected_kind:
-            raise ValueError("contextual selection has a different native nominal contract")
-        body = member["canonical_body"] if selection.member_id is None else member["body"]
-        return decode_semantic_value(body), selected_entry, cut, member["kind_contract"]
+        body=True,
+        containers_only=selection.member_id is None,
+        limit=2,
+        max_bytes=64 * 1024 * 1024,
+        **filters,
+    )
+    cut = CutSelection.from_native(answer["cut"])
+    if selection.expected_cut is not None and cut.identity != selection.expected_cut:
+        raise ValueError("contextual selection differs from its exact selected read")
+    if len(answer["rows"]) != 1 or answer["answer_after"] is not None:
+        raise ValueError("contextual selection requires one exact selected fulfilled output proof")
+    (header,) = answer["rows"]
+    if (header["product_id"], header["member_id"]) != (
+        selection.product_id, selection.member_id
+    ):
+        raise ValueError("contextual selection differs from its exact selected output address")
+    expected_kind = (
+        kind_name
+        if ":" in kind_name
+        else "https://corpus-structure.dev/semantic/data-operation-contextual/" + kind_name
+    )
+    if header["kind"] != expected_kind:
+        raise ValueError("contextual selection has a different native nominal contract")
+    selected_entry = SelectedSourceSetEntry.from_selected_header(header, cut)
+    return (
+        decode_semantic_value(header["meaning_body"]),
+        selected_entry,
+        cut,
+        header["kind_contract"],
+    )
 
 
 def _selected_product(connection, selection, *, project_id, kind_name):

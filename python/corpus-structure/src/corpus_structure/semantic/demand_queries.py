@@ -8,7 +8,11 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.demand_results import read_demand_result
+from corpus_structure.semantic.demand_results import (
+    CutSelection,
+    read_demand_result,
+    read_selected_answer,
+)
 
 from .continuation_codec import decode_demand_cursor, encode_cursor
 from .demand_query_projection import prepare_demand_projection_inputs, selected_query_rows
@@ -45,8 +49,37 @@ class DemandQueryRequest(BaseModel):
         return selected
 
 
-def serve_demand_query(connection, request: DemandQueryRequest) -> dict:
+def serve_demand_query(
+    connection,
+    request: DemandQueryRequest,
+    *,
+    read_id: str | None = None,
+    freshness=None,
+    governance=None,
+    resource_request=None,
+) -> dict:
     from .serving_identity import installed_read_implementation
+
+    if request.view == "members":
+        with installed_read_implementation(
+            type(request),
+            entry="corpus_structure.semantic.demand_queries",
+            profile="demand-query-v3",
+            callables=(
+                "corpus_structure.semantic.demand_queries._serve_selected_members",
+                "corpus_structure.semantic.demand_results.read_selected_answer",
+                "corpus_structure.semantic.continuation_codec.decode_demand_cursor",
+            ),
+        ) as implementation:
+            return _serve_selected_members(
+                connection,
+                request,
+                implementation,
+                read_id=read_id,
+                freshness=freshness,
+                governance=governance,
+                resource_request=resource_request,
+            )
 
     with installed_read_implementation(
         type(request),
@@ -60,10 +93,178 @@ def serve_demand_query(connection, request: DemandQueryRequest) -> dict:
             "corpus_structure.semantic.continuation_codec.decode_demand_cursor",
         ),
     ) as implementation:
-        return _serve_demand_query(connection, request, implementation)
+        return _serve_demand_query(
+            connection,
+            request,
+            implementation,
+            read_id=read_id,
+            freshness=freshness,
+            governance=governance,
+            resource_request=resource_request,
+        )
 
 
-def _serve_demand_query(connection, request, implementation):
+def _serve_selected_members(
+    connection,
+    request,
+    implementation,
+    *,
+    read_id,
+    freshness,
+    governance,
+    resource_request,
+):
+    from .data_operation_values import decode_semantic_value
+
+    version = "demand-query-v3"
+    selection = request.selection()
+    digest = sha256(json_bytes([selection, governance])).hexdigest()
+    scope = {
+        name: selection[name]
+        for name in ("operation_id", "subject", "original_source")
+        if name in selection and (selection[name] is not None or name == "original_source")
+    }
+    if request.product_id is not None:
+        scope["product_ids"] = [request.product_id]
+    cursor = None if request.cursor is None else decode_demand_cursor(request.cursor)
+    if cursor is not None:
+        if (
+            cursor["version"] != version
+            or cursor["selection"] != digest
+            or cursor["implementation"] != implementation
+            or cursor.get("governance") != governance
+            or cursor["request"].get("scope") != scope
+            or not cursor["request"].get("read_id")
+            or (read_id is not None and read_id != cursor["request"].get("read_id"))
+        ):
+            raise ValueError("cursor differs from the exact public selection")
+        read_id = cursor["request"]["read_id"]
+    after = None if cursor is None else cursor["request"].get("answer_after")
+    filters = {
+        name: selection[name]
+        for name in ("kind_contract", "product_id", "member_id", "record_type", "family")
+        if selection[name] is not None
+    }
+    answer = read_selected_answer(
+        connection,
+        "read_selected_outputs",
+        request.demand_id,
+        project_id=request.project_id,
+        read_id=read_id,
+        scope=scope,
+        after=after,
+        limit=request.limit,
+        max_bytes=request.max_bytes,
+        body=True,
+        containers_only=request.containers_only,
+        **filters,
+    )
+    cut = CutSelection.from_native(answer["cut"])
+    if cursor is not None and cursor["cut"] != cut.identity:
+        raise ValueError("cursor belongs to another cut/trust assessment")
+
+    def token(key):
+        native_request = dict(
+            project_id=request.project_id,
+            demand_id=request.demand_id,
+            scope=scope,
+            read_id=cut.record["read_id"],
+        )
+        if key is not None:
+            native_request["answer_after"] = key
+        return encode_cursor(
+            dict(
+                version=version,
+                implementation=implementation,
+                selection=digest,
+                cut=cut.identity,
+                request=native_request,
+                ordinal=0,
+                **({"governance": governance} if governance is not None else {}),
+            )
+        )
+
+    header = dict(
+        version=version,
+        implementation=str(implementation),
+        cut_id=cut.identity,
+        cut=cut.record,
+        selection=selection if resource_request is None else resource_request,
+        resource_handle=encode_cursor(
+            dict(
+                selection if resource_request is None else resource_request,
+                cursor=token(after),
+                limit=request.limit,
+                max_bytes=request.max_bytes,
+            )
+        ),
+        **({"freshness": freshness} if freshness is not None else {}),
+    )
+    items = []
+    for row in answer["rows"]:
+        item = {
+            name: row[name]
+            for name in (
+                "use_id",
+                "derivation_id",
+                "product_id",
+                "role",
+                "output_member_id",
+                "position",
+                "multiplicity",
+                "member_id",
+                "kind_contract",
+                "subject",
+                "subject_definition",
+                "original_source",
+                "analyzed_scope",
+                "meaning_body",
+            )
+        }
+        item["body"] = decode_semantic_value(item["meaning_body"])
+        items.append(item)
+    continuation = answer["answer_after"]
+    while True:
+        report = dict(
+            header,
+            items=items,
+            continuation=None if continuation is None else token(continuation),
+            knowledge="observed" if items else "unknown",
+            page_complete=continuation is None,
+        )
+        if len(json_bytes(report)) <= request.max_bytes:
+            refusal = capture_page_refusal()
+            if refusal is not None:
+                from .page_envelope import apply_page_reuse_refusal
+
+                report = apply_page_reuse_refusal(report, refusal)
+                if len(json_bytes(report)) > request.max_bytes:
+                    raise ValueError("complete selected answer envelope exceeds max_bytes")
+            return report
+        if len(items) <= 1:
+            raise ValueError("one complete selected answer and its envelope exceeds max_bytes")
+        items.pop()
+        last = answer["rows"][len(items) - 1]
+        continuation = [
+            last["obligation_id"],
+            last["use_id"],
+            last["role"],
+            last["position"],
+            last["product_id"],
+            last["member_id"] or "",
+        ]
+
+
+def _serve_demand_query(
+    connection,
+    request,
+    implementation,
+    *,
+    read_id=None,
+    freshness=None,
+    governance=None,
+    resource_request=None,
+):
     from .selected_query_cache import (
         SELECTED_QUERY_CACHE,
         bounded_rows,
@@ -76,11 +277,22 @@ def _serve_demand_query(connection, request, implementation):
     selection_content = json_bytes(selection)
     decimal_fixed_point_digits = decimal_digit_limit()
     # This limit bounds the native inputs as well as presentation.
-    digest = sha256(json_bytes([selection, request.max_bytes])).hexdigest()
+    digest = sha256(
+        json_bytes(
+            [selection, request.max_bytes]
+            if governance is None
+            else [selection, request.max_bytes, governance]
+        )
+    ).hexdigest()
     cursor = None if request.cursor is None else decode_demand_cursor(request.cursor)
     if cursor is not None and (
         not isinstance(cursor, dict)
-        or set(cursor) != {"version", "implementation", "selection", "request", "cut", "ordinal"}
+        or set(cursor)
+        != (
+            {"version", "implementation", "selection", "request", "cut", "ordinal"}
+            | ({"governance"} if governance is not None else set())
+        )
+        or cursor.get("governance") != governance
         or cursor["version"] != "demand-query-v2"
         or cursor["implementation"] != implementation
         or cursor["selection"] != digest
@@ -111,6 +323,11 @@ def _serve_demand_query(connection, request, implementation):
         else "products"
     )
     body_rows = native_view == "products"
+    if read_id is not None:
+        if native_request is None:
+            native_request = dict(demand_id=request.demand_id, scope=scope, read_id=read_id)
+        elif native_request.get("read_id") != read_id:
+            raise ValueError("cursor belongs to another acquired read")
     acquisition = (
         None
         if native_request is None
@@ -237,6 +454,7 @@ def _serve_demand_query(connection, request, implementation):
                 request=selected_request,
                 cut=page.cut.identity,
                 ordinal=ordinal,
+                **({"governance": governance} if governance is not None else {}),
             )
         )
 
@@ -254,13 +472,14 @@ def _serve_demand_query(connection, request, implementation):
             implementation=implementation,
             cut_id=page.cut.identity,
             cut=page.cut.record,
-            selection=selection,
+            selection=selection if resource_request is None else resource_request,
+            **({"freshness": freshness} if freshness is not None else {}),
             obligations=native["obligations"],
             uses=uses,
             populations=native["populations"],
             resource_handle=encode_cursor(
                 dict(
-                    selection,
+                    selection if resource_request is None else resource_request,
                     limit=request.limit,
                     max_bytes=request.max_bytes,
                     cursor=token_for(current_request, offset),

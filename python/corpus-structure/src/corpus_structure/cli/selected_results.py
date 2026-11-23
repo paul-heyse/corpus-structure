@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 import typer
 from pydantic import TypeAdapter
@@ -15,6 +15,10 @@ from corpus_structure.semantic.demand_queries import (
     DemandView,
     serve_demand_query,
 )
+from corpus_structure.semantic.governed_reads import (
+    GovernedDemandQueryRequest,
+    serve_governed_demand_query,
+)
 from corpus_structure.semantic.rich_queries import QUERY_NAMES, RichQueryName
 
 QueryName = Literal[DemandView, RichQueryName]
@@ -23,8 +27,12 @@ QueryName = Literal[DemandView, RichQueryName]
 def query(
     ctx: typer.Context,
     name: Annotated[QueryName, typer.Argument()],
-    demand: Annotated[str, typer.Option(help="Exact target demand; no promoted/latest selection.")],
     project: Annotated[str, typer.Option(help="Required project of the selected demand.")],
+    demand: Annotated[str | None, typer.Option(help="Exact target demand.")] = None,
+    selection: Annotated[str | None, typer.Option(help="Explicit governed selection name.")] = None,
+    last_settled: Annotated[
+        bool, typer.Option(help="Read the governed selection's exact last settled cut.")
+    ] = False,
     operation: str | None = None,
     subject: str | None = None,
     original_source: str | None = None,
@@ -88,7 +96,13 @@ def query(
             raise ValueError(
                 "select either an exact original source or explicit no original source"
             )
+        if (demand is None) == (selection is None):
+            raise ValueError("supply exactly one of demand or selection")
+        if last_settled and selection is None:
+            raise ValueError("last-settled requires a governed selection")
         if name in QUERY_NAMES:
+            if demand is None:
+                raise ValueError("rich queries require their exact demand")
             from corpus_structure.cli.output import read_request_bytes
             from corpus_structure.semantic.data_operation_json import json_loads
             from corpus_structure.serve.rich_queries import RichQueryRequest, serve_rich_query
@@ -134,8 +148,7 @@ def query(
             return
         if parameters is not None:
             raise ValueError("parameters are only supported for a named rich query")
-        request = DemandQueryRequest(
-            demand_id=demand,
+        query_values: dict[str, Any] = dict(
             project_id=project,
             view=TypeAdapter(DemandView).validate_python(name, strict=True),
             operation_id=operation,
@@ -147,6 +160,15 @@ def query(
             limit=limit,
             max_bytes=max_bytes,
         )
+        if selection is not None:
+            request: DemandQueryRequest | GovernedDemandQueryRequest = GovernedDemandQueryRequest(
+                **query_values,
+                selection_name=selection,
+                mode="last-settled" if last_settled else "current",
+            )
+        else:
+            assert demand is not None
+            request = DemandQueryRequest(**query_values, demand_id=demand)
         if original_source is not None or without_original_source:
             request = request.model_copy(update={"original_source": original_source})
         with (
@@ -157,7 +179,11 @@ def query(
         ):
             if target is not None:
                 verify_target(connection, target, purpose="read")
-            result = serve_demand_query(connection, request)
+            result = (
+                serve_governed_demand_query(connection, request)
+                if isinstance(request, GovernedDemandQueryRequest)
+                else serve_demand_query(connection, request)
+            )
         if explain_reuse:
             result = attach_reuse_explanation(result, explanations)
         emit_selected_result(result, json=json, explain=explain_reuse)

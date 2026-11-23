@@ -23,8 +23,22 @@ class ConstraintSnapshot:
 def constraint_snapshot(scope, selected, state) -> ConstraintSnapshot:
     identity = {(item.owner, item.domain): item.key for item in scope.model.identities}
     operation = scope.model.operation(selected.operation_id)
-    episode = scope.index.mapping("ops.data_derivation", ("id",))[selected.derivation_id]
-    request = scope.index.mapping("ops.data_request", ("id",))[episode["request_id"]]
+    if getattr(scope, "live", None) is None:
+        episode = scope.index.mapping("ops.data_derivation", ("id",))[selected.derivation_id]
+        recipe = scope.index.mapping("ops.data_request", ("id",))[episode["request_id"]]["recipe"]
+    else:
+        producers = [
+            row
+            for row in scope.live.answers(
+                "read_selected_derivation_facts",
+                use_id=selected.use_id,
+                product_id=selected.reference.product_id,
+            )
+            if row["derivation_id"] == selected.derivation_id
+        ]
+        if not producers or any(row["recipe"] != producers[0]["recipe"] for row in producers):
+            raise RichQueryRefused("selected identity root lacks its exact producing recipe")
+        recipe = producers[0]["recipe"]
     namespace = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
     if (namespace + "DdoRichIdentityExclusion", "kind") not in identity:
         raise RichQueryRefused(
@@ -71,7 +85,7 @@ def constraint_snapshot(scope, selected, state) -> ConstraintSnapshot:
         dict(
             operation_id=selected.operation_id,
             definition=identity[selected.operation_id, "definition"],
-            recipe=request["recipe"],
+            recipe=recipe,
             profile=operation.profile,
         ),
         identity[namespace + "DdoRichIdentityExclusion", "kind"],

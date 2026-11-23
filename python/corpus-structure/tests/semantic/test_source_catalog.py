@@ -4,6 +4,7 @@ The adapter controls use genuine compiled schemas with controlled read replies;
 publication admission and trust remain the separate native journey obligation.
 """
 
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -159,18 +160,20 @@ def test_catalog_requires_exact_selected_native_publication_header(
 def test_view_catalog_preserves_member_identity_exact_scope_and_unknown_standing(
     prepared_catalog, monkeypatch, member_id
 ):
-    from corpus_structure.semantic import releases
+    from corpus_structure.semantic import releases, serving_identity
+    from corpus_structure.semantic.data_operation_values import semantic_value
+    from corpus_structure.semantic.demand_results import CutSelection
     from corpus_structure.semantic.native_source_view import thaw_native
     from corpus_structure.serve import source_catalog
+    from semantic.test_rich_query_delivery import CUT
     from semantic.test_source_discovery import source
 
     kind = next(iter(_kind_contracts(prepared_catalog, "DdoSelectedNativeSource")))
     body = thaw_native(
-        source(
-            SimpleNamespace(prepared=prepared_catalog), document="original:book", start=1, end=3
-        )
+        source(SimpleNamespace(prepared=prepared_catalog), document="original:book", start=1, end=3)
     )
     row = dict(
+        obligation_id="obligation:population",
         member_id=member_id,
         kind_contract=kind,
         subject="subject:original-view",
@@ -183,7 +186,7 @@ def test_view_catalog_preserves_member_identity_exact_scope_and_unknown_standing
         body=body,
     )
     page = dict(
-        cut={"release_id": prepared_catalog.release_id, "read_id": "read:population"},
+        cut={**CUT, "release_id": prepared_catalog.release_id, "read_id": "read:population"},
         items=[row],
         obligations=[{"fate": "unknown"}],
         uses=[],
@@ -193,11 +196,43 @@ def test_view_catalog_preserves_member_identity_exact_scope_and_unknown_standing
     )
     monkeypatch.setattr(releases, "open_release", lambda connection, release: prepared_catalog)
 
-    def query(connection, request):
-        assert not request.containers_only
-        return page
+    calls = []
 
-    monkeypatch.setattr(source_catalog, "serve_demand_query", query)
+    def answer(connection, program, demand, **request):
+        calls.append(request)
+        assert program == "read_selected_outputs" and demand == "demand:population"
+        assert not request.get("body", False)
+        if request.get("source_metadata"):
+            assert request["kind_contracts"] == [kind]
+            assert request["read_id"] == "read:population"
+            values = [
+                {
+                    **{name: value for name, value in row.items() if name != "body"},
+                    "source": semantic_value(body["source"]),
+                    "selectors": semantic_value(body["selectors"]),
+                }
+            ]
+        else:
+            values = []
+        return dict(cut=page["cut"], rows=values, answer_after=None, oversized=None)
+
+    def frontier(connection, demand, **request):
+        assert request["view"] == "frontier"
+        assert request["continuation"]["obligation_id"] == "obligation:population"
+        return SimpleNamespace(cut=CutSelection.from_native(page["cut"]), record=page)
+
+    monkeypatch.setattr(source_catalog, "read_selected_answer", answer)
+    monkeypatch.setattr(source_catalog, "read_demand_result", frontier)
+    monkeypatch.setattr(
+        serving_identity,
+        "installed_read_implementation",
+        lambda *args, **kwargs: nullcontext("implementation:catalog"),
+    )
+    monkeypatch.setattr(
+        source_catalog,
+        "inspect_native_source",
+        lambda *args, **kwargs: pytest.fail("view catalog opened a native PDF"),
+    )
     response = read_source_catalog(
         None,
         SourceCatalogRequest(project_id="project:one", demand_id="demand:population", view="views"),
@@ -209,3 +244,4 @@ def test_view_catalog_preserves_member_identity_exact_scope_and_unknown_standing
     assert response.populations == [{"complete": False}] and response.obligations == [
         {"fate": "unknown"}
     ]
+    assert len(calls) == 2

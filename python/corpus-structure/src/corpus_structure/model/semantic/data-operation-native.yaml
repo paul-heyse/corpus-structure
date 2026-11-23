@@ -2248,6 +2248,82 @@ definitions:
       subject: {$ref: '#/definitions/identifier'}
       original_source: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
     additionalProperties: false
+  selected_answer_request:
+    type: object
+    required: [demand_id, project_id]
+    properties:
+      demand_id: {$ref: '#/definitions/identifier'}
+      project_id: {$ref: '#/definitions/identifier'}
+      read_id: {$ref: '#/definitions/read_id'}
+      scope: {$ref: '#/definitions/demand_read_scope'}
+      limit: {type: integer, minimum: 1, maximum: 1000}
+      max_bytes: {type: integer, minimum: 1, maximum: 67108864}
+      answer_after: {$ref: '#/definitions/selected_answer_key'}
+      use_id: {$ref: '#/definitions/identifier'}
+      body: {type: boolean}
+      include_members: {type: boolean}
+      include_binding: {type: boolean}
+      containers_only: {type: boolean}
+      product_id: {$ref: '#/definitions/identifier'}
+      member_id: {$ref: '#/definitions/identifier'}
+      kind_contract: {$ref: '#/definitions/identifier'}
+      kind_contracts:
+        type: array
+        items: {$ref: '#/definitions/identifier'}
+        maxItems: 1000
+        uniqueItems: true
+      source_metadata: {type: boolean}
+      record_type: {type: string}
+      family: {type: string}
+      collection: {$ref: '#/definitions/identifier'}
+      partition_key: {$ref: '#/definitions/identifier'}
+      derivation_id: {$ref: '#/definitions/identifier'}
+      input_product_id: {$ref: '#/definitions/identifier'}
+      input_role: {$ref: '#/definitions/identifier'}
+      items: {type: boolean}
+      fields:
+        type: array
+        minItems: 1
+        maxItems: 100
+        uniqueItems: true
+        items: {$ref: '#/definitions/identifier'}
+      target_product_id: {$ref: '#/definitions/identifier'}
+      target_partition_key: {$ref: '#/definitions/identifier'}
+      item_key:
+        type: array
+        minItems: 1
+        items: {anyOf: [{type: string}, {type: integer}]}
+      premises:
+        type: array
+        uniqueItems: true
+        maxItems: 1000
+        items:
+          type: object
+          required: [rule_fingerprint, premise]
+          properties:
+            rule_fingerprint: {$ref: '#/definitions/identifier'}
+            premise: {$ref: '#/definitions/identifier'}
+          additionalProperties: false
+    additionalProperties: false
+  selected_answer_key:
+    type: array
+    minItems: 2
+    maxItems: 6
+    items:
+      anyOf: [{type: string}, {type: integer, minimum: 0}]
+  selected_answer_result:
+    type: object
+    required: [cut, rows, answer_after, oversized]
+    properties:
+      cut: {$ref: '#/definitions/cut_selection'}
+      rows:
+        type: array
+        items: {type: object}
+      answer_after:
+        anyOf: [{$ref: '#/definitions/selected_answer_key'}, {type: 'null'}]
+      oversized:
+        anyOf: [{$ref: '#/definitions/selected_answer_key'}, {type: 'null'}]
+    additionalProperties: false
   read_demand_result_request:
     type: object
     properties:
@@ -2350,6 +2426,30 @@ definitions:
       uncovered_count: {type: integer, minimum: 0}
       discovery_complete: {type: boolean}
     required: [selection_name, selection_generation, state, obligation_count, settled_count, unavailable_count, pending_count, uncovered_count, discovery_complete]
+    additionalProperties: false
+  read_governed_selection_request:
+    type: object
+    properties:
+      project_id: {$ref: '#/definitions/identifier'}
+      selection_name: {$ref: '#/definitions/identifier'}
+      selection_generation: {type: integer, minimum: 1}
+      scope: {$ref: '#/definitions/demand_read_scope'}
+      mode: {enum: [current, last-settled]}
+      read_id: {$ref: '#/definitions/read_id'}
+    required: [project_id, selection_name]
+    additionalProperties: false
+  read_governed_selection_result:
+    type: object
+    properties:
+      selection_name: {$ref: '#/definitions/identifier'}
+      selection_generation: {type: [integer, 'null'], minimum: 1}
+      state: {enum: [Fresh, Pending, Unavailable, Unknown]}
+      last_settled: {type: boolean}
+      demand_id:
+        anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]
+      read_id:
+        anyOf: [{$ref: '#/definitions/read_id'}, {type: 'null'}]
+    required: [selection_name, selection_generation, state, last_settled, demand_id, read_id]
     additionalProperties: false
   read_demand_settlement_request:
     type: object
@@ -3155,6 +3255,27 @@ operations:
   - write
   - evaluate
 
+- name: read_selected_outputs
+  profile: command
+  request: selected_answer_request
+  result: selected_answer_result
+  purposes: [read, write, evaluate]
+- name: read_selected_partitions
+  profile: command
+  request: selected_answer_request
+  result: selected_answer_result
+  purposes: [read, write, evaluate]
+- name: read_selected_derivation_facts
+  profile: command
+  request: selected_answer_request
+  result: selected_answer_result
+  purposes: [read, write, evaluate]
+- name: read_selected_proofs
+  profile: command
+  request: selected_answer_request
+  result: selected_answer_result
+  purposes: [read, write, evaluate]
+
 - name: resume_data_demand
   profile: command
   request: read_demand_result_request
@@ -3240,3 +3361,9 @@ operations:
   request: rank_pdf_search_projection_request
   result: rank_pdf_search_projection_result
   purposes: [read]
+
+- name: read_governed_selection
+  profile: read
+  request: read_governed_selection_request
+  result: read_governed_selection_result
+  purposes: [read, write, evaluate]

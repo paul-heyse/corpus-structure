@@ -121,9 +121,27 @@ def unsupported_rows(
         )
     ]
     if selected.reference.member_id is None:
-        for row in scope.index.rows_for(
-            "kb.data_product_member", product_id=selected.reference.product_id
-        ):
+        live = getattr(scope, "live", None)
+        if live is None:
+            from .selected_contribution_input import LiveContributionRead
+
+            index = scope.index
+            if isinstance(index, LiveContributionRead):
+                raise ValueError("detached member metadata requires its acquired index")
+            members = index.rows_for(
+                "kb.data_product_member", product_id=selected.reference.product_id
+            )
+        else:
+            members = (
+                row
+                for row in live.answers(
+                    "read_selected_outputs",
+                    product_id=selected.reference.product_id,
+                    use_id=selected.use_id,
+                )
+                if row["member_id"] is not None
+            )
+        for row in members:
             if len(candidates) > request.max_members:
                 raise RichQueryRefused("contribution projection exceeds its actual member bound")
             context = {

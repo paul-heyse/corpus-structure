@@ -245,6 +245,54 @@ def read_demand_result(
     return page
 
 
+def read_selected_answer(
+    connection,
+    program: Literal[
+        "read_selected_outputs",
+        "read_selected_partitions",
+        "read_selected_derivation_facts",
+        "read_selected_proofs",
+    ],
+    demand_id: str,
+    *,
+    project_id: str,
+    read_id: str | None = None,
+    scope: Mapping[str, Any] | None = None,
+    after: list | None = None,
+    limit: int = 100,
+    max_bytes: int = 8 * 1024 * 1024,
+    **filters,
+) -> dict:
+    """Execute a native answer program on a new cut or on its exact continuation."""
+    from .data_operation_storage import DataOperationStorage
+
+    if program not in {
+        "read_selected_outputs",
+        "read_selected_partitions",
+        "read_selected_derivation_facts",
+        "read_selected_proofs",
+    }:
+        raise ValueError("unknown native selected answer program")
+    if after is not None and read_id is None:
+        raise ValueError("a selected answer continuation requires its acquired cut")
+    request: dict[str, Any] = dict(
+        filters,
+        demand_id=demand_id,
+        project_id=project_id,
+        limit=limit,
+        max_bytes=max_bytes,
+        scope=dict(scope or {}),
+    )
+    if read_id is not None:
+        request["read_id"] = read_id
+    if after is not None:
+        request["answer_after"] = after
+    result = DataOperationStorage(connection)._invoke(program, request)
+    if result["oversized"] is not None:
+        raise ValueError(f"selected answer row exceeds max_bytes: {result['oversized']!r}")
+    return result
+
+
 def stream_demand_result(
     connection,
     demand_id: str,

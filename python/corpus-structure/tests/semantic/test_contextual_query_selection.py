@@ -1,6 +1,5 @@
 """Exact selected member acquisition controls, without native/provider claims."""
 
-from contextlib import contextmanager
 from copy import deepcopy
 from typing import Any
 
@@ -103,41 +102,35 @@ def test_selected_member_uses_its_own_nominal_kind_and_body(monkeypatch):
         contribution_id="unadmitted:carrier", anchors=[dict(start=0, end=3, source_piece="Ada")]
     )
 
-    class Index:
-        def frontier_rows(self, name):
-            return (
-                dict(fate="fulfilled", use_id="unadmitted:use", derivation_id="unadmitted:episode"),
-            )
+    header = dict(
+        product_id=selector.product_id,
+        member_id=selector.member_id,
+        kind_contract="member-kind",
+        kind="urn:carrier",
+        meaning_body=semantic_value(expected),
+        subject=context.subject,
+        subject_definition=context.subject_definition,
+        original_source=context.original_source,
+        analyzed_scope=json_loads(context.analyzed_scope),
+        use_id="unadmitted:use",
+        derivation_id="unadmitted:episode",
+        output_member_id=None,
+        role="result",
+        position=0,
+        multiplicity=1,
+    )
+    headers = [header]
 
-        def mapping(self, name, key):
-            return {
-                "kb.data_product": {
-                    selector.product_id: dict(
-                        kind_contract="parent-kind",
-                        canonical_body=semantic_value({"not": "the carrier"}),
-                    )
-                },
-                "kb.data_product_member": {
-                    (selector.product_id, selector.member_id): dict(
-                        kind_contract="member-kind", body=semantic_value(expected)
-                    )
-                },
-                "sem.data_kind_contract": {
-                    "parent-kind": dict(kind="urn:parent"),
-                    "member-kind": dict(kind="urn:carrier"),
-                },
-            }[name]
+    def answer(connection, program, demand, **request):
+        assert program == "read_selected_outputs" and demand == selector.demand_id
+        assert request["scope"] == {"product_ids": [selector.product_id]}
+        assert request["product_id"] == selector.product_id
+        assert request["member_id"] == selector.member_id
+        assert request["body"] is True and request["containers_only"] is False
+        assert request["limit"] == 2
+        return dict(cut=cut.record, rows=headers, answer_after=None, oversized=None)
 
-    @contextmanager
-    def index(connection, demand, **kwargs):
-        yield cut, Index()
-
-    def selected_entries(index, read, **kwargs):
-        assert kwargs["member_id"] == selector.member_id
-        return (occurrence,)
-
-    monkeypatch.setattr(demand_results, "selected_record_index", index)
-    monkeypatch.setattr(owner, "selected_source_entries", selected_entries)
+    monkeypatch.setattr(demand_results, "read_selected_answer", answer)
     body, entry, actual_cut = owner._selected_product(
         None, selector, project_id=context.project_id, kind_name="urn:carrier"
     )
@@ -145,4 +138,15 @@ def test_selected_member_uses_its_own_nominal_kind_and_body(monkeypatch):
     with pytest.raises(ValueError, match="nominal contract"):
         owner._selected_product(
             None, selector, project_id=context.project_id, kind_name="urn:parent"
+        )
+
+    headers.append({**header, "use_id": "unadmitted:other-use"})
+    with pytest.raises(ValueError, match="one exact selected fulfilled output proof"):
+        owner._selected_product(
+            None, selector, project_id=context.project_id, kind_name="urn:carrier"
+        )
+    headers.clear()
+    with pytest.raises(ValueError, match="one exact selected fulfilled output proof"):
+        owner._selected_product(
+            None, selector, project_id=context.project_id, kind_name="urn:carrier"
         )

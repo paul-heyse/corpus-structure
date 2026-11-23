@@ -1,7 +1,7 @@
 """Acquire one reference parent through an exact live selection before opening its body."""
 
 from dataclasses import replace
-from typing import Literal, overload
+from typing import Any, Literal, overload
 
 from sqlalchemy import Text, bindparam, column, func, select
 from sqlalchemy.dialects.postgresql import JSONB
@@ -45,20 +45,9 @@ class LiveReferenceAccess:
         self.read_id = read_id
         self.trust_snapshot = trust_snapshot
         self.max_partition_bytes = max_partition_bytes
-        self._current: tuple[BoundRoleMember, AdmittedDataRead, object] | None = None
+        self._current: tuple[BoundRoleMember, AdmittedDataRead] | None = None
 
-    def authorize(self, binding: ProducingReferenceInput) -> None:
-        self._current = None
-        # Equality of projected replacement inputs never unlocks the original parent.
-        members = tuple(
-            member
-            for member in self.selection.role(binding.role).members
-            if (member.product, member.member, member.kind_contract)
-            == (binding.product_id, binding.member_id, binding.kind_contract)
-        )
-        if len(members) != 1 or members[0].multiplicity != 1:
-            raise PermissionError("original reference parent is outside the exact current support")
-        (member,) = members
+    def _read(self, member: BoundRoleMember, *, metadata_only: bool) -> AdmittedDataRead:
         selection = self.selection.binding
         context = selection.subject_context
         if context is None:
@@ -74,13 +63,18 @@ class LiveReferenceAccess:
             original_source=context.original_source,
             analyzed_scope=json_loads(context.analyzed_scope),
             selected_pins=[{"product_id": member.product, "member_id": member.member}],
+            metadata_only=metadata_only,
         )
         expected_evidence = {read.admission_evidence} if read.accepted_kind_contracts else set()
         if set(selection.admission_evidence) != expected_evidence:
             raise PermissionError("reference selection belongs to another native read boundary")
+        return read
+
+    @staticmethod
+    def _exact_member(read, member, field):
         rows = read.relation.c
-        acquired = self.connection.execute(
-            select(rows.meaning_body)
+        return (
+            select(rows[field])
             .where(
                 rows.product == member.product,
                 rows.member.is_not_distinct_from(member.member),
@@ -98,10 +92,32 @@ class LiveReferenceAccess:
                 rows.multiplicity == member.multiplicity,
             )
             .limit(2)
-        ).fetchall()
+        )
+
+    def authorize(self, binding: ProducingReferenceInput) -> None:
+        self._current = None
+        # Equality of projected replacement inputs never unlocks the original parent.
+        members = tuple(
+            member
+            for member in self.selection.role(binding.role).members
+            if (member.product, member.member, member.kind_contract)
+            == (binding.product_id, binding.member_id, binding.kind_contract)
+        )
+        if len(members) != 1 or members[0].multiplicity != 1:
+            raise PermissionError("original reference parent is outside the exact current support")
+        (member,) = members
+        read = self._read(member, metadata_only=True)
+        acquired = self.connection.execute(self._exact_member(read, member, "product")).fetchall()
         if len(acquired) != 1:
             raise PermissionError("exact original reference parent is no longer available")
-        self._current = member, read, acquired[0].meaning_body
+        self._current = member, read
+
+    def _body(self, pin: BoundRoleMember) -> object:
+        read = self._read(pin, metadata_only=False)
+        rows = self.connection.execute(self._exact_member(read, pin, "meaning_body")).fetchall()
+        if len(rows) != 1:
+            raise PermissionError("exact original reference body is no longer available")
+        return decode_semantic_value(rows[0].meaning_body)
 
     def _authorized(self, product_id: str):
         if self._current is None or self._current[0].product != product_id:
@@ -109,15 +125,15 @@ class LiveReferenceAccess:
         return self._current
 
     def product(self, product_id: str) -> object:
-        pin, _, body = self._authorized(product_id)
+        pin, _ = self._authorized(product_id)
         if pin.member is not None:
             raise PermissionError("selected member does not authorize its whole parent body")
-        return decode_semantic_value(body)
+        return self._body(pin)
 
     def member(self, product_id: str, member_id: str) -> object:
-        pin, read, body = self._authorized(product_id)
+        pin, read = self._authorized(product_id)
         if pin.member == member_id:
-            return decode_semantic_value(body)
+            return self._body(pin)
         if pin.member is not None:
             raise PermissionError("selected member does not authorize another member body")
         selected = self.connection.scalar(
@@ -130,7 +146,7 @@ class LiveReferenceAccess:
     def item(
         self, product_id: str, collection: str, partition_key: str, item_key: ReferenceKey
     ) -> object:
-        pin, read, _ = self._authorized(product_id)
+        pin, read = self._authorized(product_id)
         if pin.member is not None:
             raise PermissionError("selected member does not authorize its parent's partitions")
         items = func.ops.data_binding_reference_item(
@@ -162,6 +178,101 @@ def reference_input_address(pin, *, occurrence_binding=False, occurrence_positio
     )
 
 
+class SelectedNativeReferenceAccess:
+    """Reference target bodies reachable through one selected output's exact inputs."""
+
+    def __init__(self, live, selected):
+        self.live = live
+        self.selected = selected
+        self.bound: ProducingReferenceInput | None = None
+
+    def inputs(self, *, role, body=False, product_id=None):
+        filters = {"input_role": role}
+        if product_id is not None:
+            filters["input_product_id"] = product_id
+        return self.live.answers(
+            "read_selected_derivation_facts",
+            use_id=self.selected.use_id,
+            derivation_id=self.selected.derivation_id,
+            body=body,
+            **filters,
+        )
+
+    @staticmethod
+    def _matches(row, binding):
+        return (
+            row["role"] == binding.role
+            and row["product_id"] == binding.product_id
+            and row.get("member_id") == binding.member_id
+            and row["kind_contract"] == binding.kind_contract
+            and row["multiplicity"] == binding.multiplicity
+        )
+
+    def authorize(self, binding):
+        self.bound = None
+        rows = (
+            row
+            for row in self.inputs(role=binding.role, product_id=binding.product_id)
+            if self._matches(row, binding)
+        )
+        if next(rows, None) is None:
+            raise PermissionError("original reference parent is outside the exact selected support")
+        self.bound = binding
+
+    def _pin(self, product_id):
+        if self.bound is None or self.bound.product_id != product_id:
+            raise PermissionError("reference body requires exact parent authorization")
+        return self.bound
+
+    def _body(self, binding):
+        rows = (
+            row
+            for row in self.inputs(role=binding.role, body=True, product_id=binding.product_id)
+            if self._matches(row, binding)
+        )
+        row = next(rows, None)
+        if row is None:
+            raise PermissionError("exact original reference body is no longer available")
+        return decode_semantic_value(row["meaning_body"])
+
+    def _address(self, product_id, **address):
+        rows = iter(
+            self.live.answers(
+                "read_selected_partitions",
+                use_id=self.selected.use_id,
+                product_id=product_id,
+                **address,
+            )
+        )
+        row = next(rows, None)
+        if row is None:
+            raise KeyError(tuple(address.values()))
+        if next(rows, None) is not None:
+            raise ValueError("reference repeats its exact target address")
+        return decode_semantic_value(row["meaning_body"])
+
+    def product(self, product_id):
+        binding = self._pin(product_id)
+        if binding.member_id is not None:
+            raise PermissionError("selected member does not authorize its whole parent body")
+        return self._body(binding)
+
+    def member(self, product_id, member_id):
+        binding = self._pin(product_id)
+        if binding.member_id == member_id:
+            return self._body(binding)
+        if binding.member_id is not None:
+            raise PermissionError("selected member does not authorize another member body")
+        return self._address(product_id, member_id=member_id)
+
+    def item(self, product_id, collection, partition_key, item_key):
+        if self._pin(product_id).member_id is not None:
+            raise PermissionError("selected member does not authorize its parent's partitions")
+        return self._address(
+            product_id, collection=collection, partition_key=partition_key, item_key=list(item_key)
+        )
+
+
 class PreparedSelectedOutputReferences:
     """One acquired cut/use with reusable exact target bindings and resolvers.
 
@@ -172,6 +283,46 @@ class PreparedSelectedOutputReferences:
 
     def __init__(self, scope, selected):
         from .detached_reference_resolution import IndexedReferenceAccess
+
+        live = getattr(scope, "live", None)
+        self.derivation_id = selected.derivation_id
+        self.output_role = selected.output["role"]
+        self.targets = {}
+        self._original_roles = {}
+        self.definition: dict[str, Any]
+        if live is not None:
+            from .data_operation_admission import bound_data_operation_model
+            from .data_operation_kind_refinements import input_kind_contracts
+            from .releases import open_release
+
+            if selected.selection is None or selected.release_id is None:
+                raise PermissionError("selected reference requires its disclosed producing binding")
+            model = live.model
+            if selected.release_id != scope.cut.record["release_id"]:
+                model = bound_data_operation_model(
+                    open_release(live.connection, selected.release_id)
+                )
+            operation = model.operation(selected.operation_id)
+            roles = [role for role in operation.roles if role.direction == "input"]
+            contracts = input_kind_contracts(model, (role.kind for role in roles))
+            self.definition = {
+                "input_roles": [
+                    {
+                        "name": role.name,
+                        "kind": role.kind,
+                        "accepted_kind_contracts": contracts[role.kind],
+                    }
+                    for role in roles
+                ],
+                "support_contract": {
+                    "reference_targets": [target.record() for target in operation.reference_targets]
+                },
+            }
+            self.index = None
+            self.project_id = scope.cut.record["project_id"]
+            self.selection = selected.selection
+            self.access = SelectedNativeReferenceAccess(live, selected)
+            return
 
         def row_map(relation, *fields):
             return scope.index.mapping(relation, fields)
@@ -191,8 +342,6 @@ class PreparedSelectedOutputReferences:
         definitions = row_map("sem.data_operation_definition", "release_id", "operation_id")
         definition = definitions[episode["release_id"], selected.operation_id]
         self.index = scope.index
-        self.derivation_id = selected.derivation_id
-        self.output_role = selected.output["role"]
         self.project_id = cut["project_id"]
         self.selection = selection
         self.definition = definition
@@ -201,7 +350,18 @@ class PreparedSelectedOutputReferences:
             cut["project_id"],
             population_archive=getattr(scope.index, "population_archive", None),
         )
-        self.targets = {}
+
+    def _inputs(self, role):
+        if isinstance(self.access, SelectedNativeReferenceAccess):
+            if role not in self._original_roles:
+                self._original_roles[role] = tuple(self.access.inputs(role=role))
+            return self._original_roles[role]
+        assert self.index is not None
+        return tuple(
+            self.index.rows_for(
+                "ops.data_derivation_input", derivation_id=self.derivation_id, role=role
+            )
+        )
 
     @staticmethod
     def _require_slot(reference, target):
@@ -249,11 +409,7 @@ class PreparedSelectedOutputReferences:
             for pin in selection["inputs"]
             if pin["role"] == role
         }
-        originals = tuple(
-            self.index.rows_for(
-                "ops.data_derivation_input", derivation_id=self.derivation_id, role=role
-            )
-        )
+        originals = self._inputs(role)
         if not uses_occurrence and len(originals) != 1:
             raise ValueError("selected reference lacks its scalar original input")
         bindings = []
@@ -267,16 +423,19 @@ class PreparedSelectedOutputReferences:
             )
             if address not in current_support:
                 continue
-            parent = access.product_header(product_id)
-            if parent is None or parent["project_id"] != self.project_id:
-                continue
-            bound_packet = (
-                parent if member_id is None else access.members.get((product_id, member_id))
-            )
-            if bound_packet is None:
-                continue
+            if isinstance(access, SelectedNativeReferenceAccess):
+                bound_packet = original
+            else:
+                parent = access.product_header(product_id)
+                if parent is None or parent["project_id"] != self.project_id:
+                    continue
+                bound_packet = (
+                    parent if member_id is None else access.members.get((product_id, member_id))
+                )
+                if bound_packet is None:
+                    continue
             kind_contract = bound_packet["kind_contract"]
-            if kind_contract not in access.kinds or kind_contract not in contracts:
+            if kind_contract not in contracts:
                 raise ValueError(
                     "selected reference differs from its declared producing input kind"
                 )
@@ -290,12 +449,13 @@ class PreparedSelectedOutputReferences:
                     binding, occurrence=str(original["position"]), occurrence_position=True
                 )
             elif occurrence_field is not None:
-                body_field = "canonical_body" if member_id is None else "body"
-                occurrence_packet = (
-                    access.products.get(product_id) if member_id is None else bound_packet
-                )
-                if occurrence_packet.get(body_field) is None:
-                    continue
+                if not isinstance(access, SelectedNativeReferenceAccess):
+                    body_field = "canonical_body" if member_id is None else "body"
+                    occurrence_packet = (
+                        access.products.get(product_id) if member_id is None else bound_packet
+                    )
+                    if occurrence_packet.get(body_field) is None:
+                        continue
                 binding = replace(
                     binding,
                     occurrence=reference_input_occurrence(access, binding, occurrence_field),
@@ -319,13 +479,7 @@ class PreparedSelectedOutputReferences:
         members, without manufacturing a member address or reading a body.
         """
         target, producing, _ = self._prepare(path)
-        originals = tuple(
-            self.index.rows_for(
-                "ops.data_derivation_input",
-                derivation_id=self.derivation_id,
-                role=target["input_role"],
-            )
-        )
+        originals = self._inputs(target["input_role"])
         if len(producing.inputs) != len(originals):
             raise ValueError("original input role is incomplete in the exact selected use")
         for binding in producing.inputs:

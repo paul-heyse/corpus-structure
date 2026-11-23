@@ -10,9 +10,14 @@ from corpus_structure.semantic._data_operation_wire import (
     WireSubjectId,
 )
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-from corpus_structure.semantic.demand_results import selected_record_index
+from corpus_structure.semantic.demand_results import (
+    CutSelection,
+    read_selected_answer,
+    selected_record_index,
+)
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.selected_contribution_input import (
+    LiveContributionRead,
     SelectedContributionScope,
 )
 from corpus_structure.semantic.value_codec import decimal_digit_limit
@@ -41,29 +46,58 @@ def selected_contribution_selection(request, *, product_ids=None) -> WireDemandR
 
 
 @contextmanager
-def selected_contribution_scope(connection, request, *, product_ids=None):
+def selected_contribution_scope(connection, request, *, product_ids=None, require_support=False):
     scope = selected_contribution_selection(request, product_ids=product_ids)
-    with selected_record_index(
+    if require_support:
+        with selected_record_index(
+            connection,
+            request.demand_id,
+            project_id=request.project_id,
+            scope=scope,
+            read_id=request.read_id,
+            expected_cut=request.expected_cut,
+            max_bytes=request.max_graph_bytes,
+            max_total_bytes=request.max_graph_bytes,
+            max_total_records=request.max_graph_records,
+            capture_frontier=True,
+        ) as (cut, index):
+            prepared = open_release(connection, cut.record["release_id"])
+            index.freeze()
+            yield SelectedContributionScope(
+                cut,
+                index,
+                prepared,
+                bound_data_operation_model(prepared),
+                scope,
+                request.max_support_edges,
+                decimal_fixed_point_digits=decimal_digit_limit(),
+            )
+        return
+    first = read_selected_answer(
         connection,
+        "read_selected_outputs",
         request.demand_id,
         project_id=request.project_id,
         scope=scope,
         read_id=request.read_id,
-        expected_cut=request.expected_cut,
+        limit=1,
         max_bytes=request.max_graph_bytes,
-        max_total_bytes=request.max_graph_bytes,
-        max_total_records=request.max_graph_records,
-        capture_frontier=True,
-    ) as (cut, index):
-        prepared = open_release(connection, cut.record["release_id"])
-        model = bound_data_operation_model(prepared)
-        index.freeze()
-        yield SelectedContributionScope(
-            cut,
-            index,
-            prepared,
-            model,
-            scope,
-            request.max_support_edges,
-            decimal_fixed_point_digits=decimal_digit_limit(),
-        )
+    )
+    cut = CutSelection.from_native(first["cut"])
+    if request.expected_cut is not None and request.expected_cut != cut.identity:
+        raise ValueError("selected contribution differs from its expected cut")
+    prepared = open_release(connection, cut.record["release_id"])
+    model = bound_data_operation_model(prepared)
+    live = LiveContributionRead(
+        connection, model, cut, scope, request.max_graph_bytes, request.max_graph_records
+    )
+    yield SelectedContributionScope(
+        cut,
+        live,
+        prepared,
+        model,
+        scope,
+        request.max_support_edges,
+        decimal_fixed_point_digits=decimal_digit_limit(),
+        live=live,
+    )

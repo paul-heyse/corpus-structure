@@ -95,7 +95,16 @@ def structural_scope(connection, request, *, roots, source_products=()):
                 raise ValueError("detached structural closure exceeds its examined bound")
             yield scope
             return
-        with selected_contribution_scope(connection, acquired, product_ids=products) as scope:
+        # Protected issuer support and source-journey custody retain their
+        # established acquisition until those native answer shapes are available.
+        require_support = bool(
+            source_products
+            or getattr(request, "admissions", ())
+            or getattr(request, "admission", None)
+        )
+        with selected_contribution_scope(
+            connection, acquired, product_ids=products, require_support=require_support
+        ) as scope:
             yield StructuralScope(
                 scope.cut,
                 scope.index,
@@ -105,6 +114,7 @@ def structural_scope(connection, request, *, roots, source_products=()):
                 scope.max_support_edges,
                 implementation,
                 decimal_fixed_point_digits=scope.decimal_fixed_point_digits,
+                live=scope.live,
             )
 
 

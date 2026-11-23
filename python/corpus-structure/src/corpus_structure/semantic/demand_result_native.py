@@ -78,7 +78,7 @@ def _endpoint(name, body, locals_, *, request=True):
     )
 
 
-def _read_demand_result(model, *, context_only=False, scheduler=False):
+def _read_demand_result(model, *, context_only=False, scheduler=False, answer=None):
     from .obligation_readiness_native import scheduler_authorized
 
     demand = model.tables["ops.data_demand"]
@@ -126,13 +126,64 @@ def _read_demand_result(model, *, context_only=False, scheduler=False):
     )
     capture_row = {name: pinned(name) for name in boundary_columns}
     capture_row["trust_snapshot"] = snapshot
+    required_selectors = {
+        "read_selected_outputs": (),
+        "read_selected_partitions": ("use_id", "product_id"),
+        "read_selected_derivation_facts": ("use_id",),
+        "read_selected_proofs": ("use_id", "product_id", "premises"),
+    }
+    answer_guards = (
+        ()
+        if answer is None
+        else (
+            *(
+                (
+                    _refusal(
+                        or_(*(~payload.has_key(name) for name in required_selectors[answer[0]])),
+                        "selected answer requires its declared lookup selectors",
+                        "22023",
+                    ),
+                )
+                if required_selectors[answer[0]]
+                else ()
+            ),
+            *(
+                (
+                    _refusal(
+                        payload.has_key("product_id") == payload.has_key("derivation_id"),
+                        "derivation facts require exactly one derivation or product selector",
+                        "22023",
+                    ),
+                )
+                if answer[0] == "read_selected_derivation_facts"
+                else ()
+            ),
+            *(
+                (
+                    _refusal(
+                        or_(
+                            payload.has_key("collection") == payload.has_key("member_id"),
+                            and_(payload.has_key("item_key"), ~payload.has_key("partition_key")),
+                        ),
+                        "partition reads require a collection or member and an exact item address",
+                        "22023",
+                    ),
+                )
+                if answer[0] == "read_selected_partitions"
+                else ()
+            ),
+        )
+    )
     return _endpoint(
-        "acquire_data_read_context"
+        answer[0]
+        if answer is not None
+        else "acquire_data_read_context"
         if context_only
         else "resume_data_demand"
         if scheduler
         else "read_demand_result",
         (
+            *answer_guards,
             *(
                 (
                     _refusal(
@@ -146,6 +197,22 @@ def _read_demand_result(model, *, context_only=False, scheduler=False):
             ),
             SelectInto(
                 _exact_row(demand, demand.c.id == payload["demand_id"].astext), ("d",), strict=True
+            ),
+            *(
+                (
+                    _refusal(
+                        project.is_distinct_from(payload["project_id"].astext),
+                        "selected read is outside its project",
+                        "42501",
+                    ),
+                    _refusal(
+                        and_(payload.has_key("answer_after"), ~acquisition),
+                        "a selected answer continuation requires its acquired cut",
+                        "22023",
+                    ),
+                )
+                if answer is not None
+                else ()
             ),
             If(
                 and_(~acquisition, scope == _json("{}")),
@@ -356,6 +423,18 @@ def _read_demand_result(model, *, context_only=False, scheduler=False):
                 )
                 if context_only
                 else (
+                    SelectInto(answer[1](model, payload), ("results",)),
+                    _refusal(
+                        and_(
+                            ~results["oversized"].is_distinct_from(_json("null")),
+                            func.octet_length(func.data.canonical_json(results)) + 100 > max_bytes,
+                        ),
+                        "complete native selected answer envelope exceeds max_bytes",
+                    ),
+                    Return(func.jsonb_build_object("payload", results)),
+                )
+                if answer is not None
+                else (
                     SelectInto(read_page(model, scheduler=scheduler), ("results",)),
                     _refusal(
                         and_(
@@ -530,8 +609,24 @@ def _revoke_support(model):
 
 
 def demand_result_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
+    from .selected_answer_native import (
+        derivation_facts_answer,
+        outputs_answer,
+        partitions_answer,
+        proofs_answer,
+    )
     from .selected_archive_native import selected_archive_programs
 
+    answers = (
+        (
+            ("read_selected_outputs", outputs_answer),
+            ("read_selected_partitions", partitions_answer),
+            ("read_selected_derivation_facts", derivation_facts_answer),
+            ("read_selected_proofs", proofs_answer),
+        )
+        if "kb.data_product_population" in model.tables
+        else ()
+    )
     routines = (
         _revoke_support(model),
         _endpoint(
@@ -548,6 +643,7 @@ def demand_result_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
         _read_demand_result(model),
         _read_demand_result(model, scheduler=True),
         _read_demand_result(model, context_only=True),
+        *(_read_demand_result(model, answer=answer) for answer in answers),
     )
     return tuple(
         ProgramDeclaration(

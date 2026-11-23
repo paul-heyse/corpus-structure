@@ -61,3 +61,17 @@ def test_demand_cursor_validates_embedded_native_request():
 def test_demand_cursor_rejects_ambiguous_or_nonfinite_json(document):
     with pytest.raises(ValueError, match="invalid selected-result cursor"):
         decode_demand_cursor(base64.urlsafe_b64encode(document).decode())
+
+
+def test_governed_cursor_keeps_exact_named_generation():
+    value = cursor()
+    value["governance"] = {
+        "project_id": "project:A",
+        "selection_name": "working",
+        "generation": 2,
+        "mode": "current",
+    }
+    assert decode_demand_cursor(encode_cursor(value)) == value
+    value["governance"]["generation"] = True
+    with pytest.raises(ValueError, match="invalid selected-result cursor"):
+        decode_demand_cursor(encode_cursor(value))

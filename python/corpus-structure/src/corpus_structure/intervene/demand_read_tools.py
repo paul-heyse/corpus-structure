@@ -11,6 +11,10 @@ from pydantic import BaseModel
 from corpus_structure.semantic.continuation_codec import decode_resource_handle
 from corpus_structure.semantic.data_operation_json import FiniteJsonValue, finite_result_record
 from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
+from corpus_structure.semantic.governed_reads import (
+    GovernedDemandQueryRequest,
+    serve_governed_demand_query,
+)
 from corpus_structure.serve.characterization import (
     DemandCharacterizationRequest,
     DemandDefinitionRequest,
@@ -26,7 +30,7 @@ from corpus_structure.serve.selected_neighborhood import (
 
 class SelectedResult(BaseModel):
     format: Literal["demand-result-structured-v2"] = "demand-result-structured-v2"
-    cut_id: str
+    cut_id: str | None
     result: dict[str, FiniteJsonValue]
     resource: str | None = None
 
@@ -89,13 +93,30 @@ def register_demand_read_tools(
     register_structural_read_tools(server, reader, project=project, demand=demand)
 
     def selected(request, projection=None, *, scheme="selected-result"):
-        projection = serve_demand_query if projection is None else projection
+        governed = isinstance(request, GovernedDemandQueryRequest)
+        if governed:
+            scheme = "governed-selected-result"
         if project is not None and request.project_id != project:
             raise ValueError("selected result belongs to another server project")
-        if demand is not None and request.demand_id != demand:
+        if (
+            demand is not None
+            and isinstance(request, DemandQueryRequest)
+            and request.demand_id != demand
+        ):
             raise ValueError("selected result belongs to another server demand")
         with reader() as connection:
-            report = projection(connection, request)
+            if projection is not None:
+                report = projection(connection, request)
+            elif isinstance(request, GovernedDemandQueryRequest):
+                report = serve_governed_demand_query(connection, request)
+            else:
+                report = serve_demand_query(connection, request)
+            if (
+                demand is not None
+                and governed
+                and report.get("freshness", {}).get("demand_id") != demand
+            ):
+                raise ValueError("governed result belongs to another server demand")
         return SelectedResult(
             cut_id=report["cut_id"],
             result=finite_result_record(report),
@@ -106,7 +127,7 @@ def register_demand_read_tools(
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ValueError, KeyError)
-    def read_result(ctx: Context, request: DemandQueryRequest):
+    def read_result(ctx: Context, request: DemandQueryRequest | GovernedDemandQueryRequest):
         """Read selected members/operations/source/support with explicit demand/project pins.
 
         The structured result carries its native cut identity and selected data.
@@ -123,6 +144,15 @@ def register_demand_read_tools(
         content = response.model_dump_json()
         if len(content.encode()) > request.max_bytes:
             raise ValueError("complete selected resource exceeds max_bytes")
+        return content
+
+    @server.resource("corpus://governed-selected-result/{handle}")
+    def governed_selected_result(handle: str) -> str:
+        """Continue an acquired governed cut with current native authorization."""
+        request = decode_resource_handle(handle, GovernedDemandQueryRequest)
+        content = selected(request).model_dump_json()
+        if len(content.encode()) > request.max_bytes:
+            raise ValueError("complete governed resource exceeds max_bytes")
         return content
 
     @server.tool(annotations={"readOnlyHint": True})

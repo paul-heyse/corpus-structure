@@ -47,30 +47,133 @@ class SelectedContribution:
     use_id: str
     derivation_id: str
     output: dict[str, Any]
+    selection: dict | None = field(default=None, kw_only=True)
+    release_id: str | None = field(default=None, kw_only=True)
+
+
+@dataclass
+class LiveContributionRead:
+    """Invocation-owned native answers over one exact authorized cut."""
+
+    connection: Any
+    model: Any
+    cut: Any
+    scope: Any
+    max_bytes: int
+    max_records: int
+    retained_bytes: int = 0
+    retained_records: int = 0
+
+    def answers(self, program, **filters):
+        from .demand_results import CutSelection, read_selected_answer
+
+        after = None
+        while True:
+            answer = read_selected_answer(
+                self.connection,
+                program,
+                self.cut.record["demand_id"],
+                project_id=self.cut.record["project_id"],
+                read_id=self.cut.record["read_id"],
+                scope=self.scope,
+                after=after,
+                max_bytes=self.max_bytes,
+                **filters,
+            )
+            if CutSelection.from_native(answer["cut"]).content != self.cut.content:
+                raise ValueError("selected answer differs from its exact acquired cut")
+            if answer.get("oversized") is not None:
+                raise SelectedGraphBudgetExceeded(
+                    "selected answer row exceeds byte bound: " + str(answer["oversized"]),
+                    cut=self.cut,
+                )
+            for row in answer["rows"]:
+                self.retained_bytes += len(json_bytes(row))
+                self.retained_records += 1
+                if self.retained_bytes > self.max_bytes or self.retained_records > self.max_records:
+                    raise SelectedGraphBudgetExceeded(
+                        "selected answers exceed examined bound", cut=self.cut
+                    )
+                yield row
+            following = answer["answer_after"]
+            if following is None:
+                return
+            if following == after:
+                raise ValueError("selected answer continuation did not advance")
+            after = following
 
 
 @dataclass(frozen=True)
 class SelectedContributionScope:
     cut: CutSelection
-    index: SelectedRecordIndex
+    index: SelectedRecordIndex | LiveContributionRead
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
     scope: WireDemandReadScope
     max_support_edges: int
     decimal_fixed_point_digits: int = field(kw_only=True)
+    live: LiveContributionRead | None = field(default=None, kw_only=True)
 
     def products(self, *, product_id: str | None = None) -> Iterator[SelectedContribution]:
-        products = self.index.mapping("kb.data_product", ("id",))
-        members = self.index.mapping("kb.data_product_member", ("product_id", "member_id"))
-        episodes = self.index.mapping("ops.data_derivation", ("id",))
-        requests = self.index.mapping("ops.data_request", ("id",))
-        kinds = self.index.mapping("sem.data_kind_contract", ("kind_contract",))
+        live = getattr(self, "live", None)
+        if live is not None:
+            filters = {} if product_id is None else {"product_id": product_id}
+            for row in live.answers(
+                "read_selected_outputs", body=True, include_binding=True, **filters
+            ):
+                context = SubjectContext(
+                    self.cut.record["project_id"],
+                    row["subject"],
+                    row["original_source"],
+                    json_bytes(row["analyzed_scope"]),
+                    subject_definition=row["subject_definition"],
+                )
+                reference = DdoRichSelectedMember(
+                    product_id=row["product_id"],
+                    member_id=row["member_id"],
+                    kind_contract=row["kind_contract"],
+                    support_references=(
+                        ComputationalSupportReference(
+                            derivation_id=row["derivation_id"], admission_use_id=row["use_id"]
+                        ),
+                    ),
+                )
+                yield SelectedContribution(
+                    reference,
+                    context,
+                    decode_semantic_value(
+                        row["meaning_body"],
+                        decimal_fixed_point_digits=self.decimal_fixed_point_digits,
+                    ),
+                    row["kind"],
+                    row["operation_id"],
+                    row["use_id"],
+                    row["derivation_id"],
+                    {
+                        "role": row["role"],
+                        "position": row["position"],
+                        "product_id": row["product_id"],
+                        "member_id": row["output_member_id"],
+                        "multiplicity": row["multiplicity"],
+                    },
+                    selection=row["selection"],
+                    release_id=row["release_id"],
+                )
+            return
+        index = self.index
+        if isinstance(index, LiveContributionRead):
+            raise ValueError("detached contribution scope requires its acquired index")
+        products = index.mapping("kb.data_product", ("id",))
+        members = index.mapping("kb.data_product_member", ("product_id", "member_id"))
+        episodes = index.mapping("ops.data_derivation", ("id",))
+        requests = index.mapping("ops.data_request", ("id",))
+        kinds = index.mapping("sem.data_kind_contract", ("kind_contract",))
         authorities = {
             (leaf.derivation_id, leaf.use_id)
-            for row in self.index.rows("ops.data_authority_leaf")
+            for row in index.rows("ops.data_authority_leaf")
             for leaf in (NativeAuthorityLeaf.model_validate(row),)
         }
-        for use in self.index.frontier_rows("uses"):
+        for use in index.frontier_rows("uses"):
             if use["fate"] != "fulfilled" or use["derivation_id"] is None:
                 continue
             if (use["derivation_id"], use["use_id"]) in authorities:
@@ -79,9 +182,7 @@ class SelectedContributionScope:
                 continue
             episode = episodes[use["derivation_id"]]
             request = requests[episode["request_id"]]
-            for output in self.index.rows_for(
-                "ops.data_derivation_output", derivation_id=episode["id"]
-            ):
+            for output in index.rows_for("ops.data_derivation_output", derivation_id=episode["id"]):
                 if product_id is not None and output["product_id"] != product_id:
                     continue
                 product = products[output["product_id"]]
@@ -141,20 +242,28 @@ class SelectedContributionScope:
         if selected.nominal != RICH_NAMESPACE + "DdoRichConsolidation":
             raise ValueError("selected contribution is not a declared rich graph whole")
         body = DdoRichConsolidation.model_validate(selected.body)
-        references, wholes = actual_graph_inputs(
-            self.index,
-            selected.derivation_id,
-            use_id=selected.use_id,
-            cut=self.cut,
-            max_support_edges=self.max_support_edges,
-            decimal_fixed_point_digits=self.decimal_fixed_point_digits,
-        )
-        kinds = self.index.mapping("sem.data_kind_contract", ("kind_contract",))
-        retained = tuple(
-            item
-            for item in wholes
-            if kinds[item.reference.kind_contract]["kind"] == RICH_NAMESPACE + "DdoRichAdmission"
-        )
+        live = getattr(self, "live", None)
+        if live is not None:
+            references, wholes, retained = self._live_graph_inputs(selected)
+        else:
+            index = self.index
+            if isinstance(index, LiveContributionRead):
+                raise ValueError("detached graph requires its acquired index")
+            references, wholes = actual_graph_inputs(
+                index,
+                selected.derivation_id,
+                use_id=selected.use_id,
+                cut=self.cut,
+                max_support_edges=self.max_support_edges,
+                decimal_fixed_point_digits=self.decimal_fixed_point_digits,
+            )
+            kinds = index.mapping("sem.data_kind_contract", ("kind_contract",))
+            retained = tuple(
+                item
+                for item in wholes
+                if kinds[item.reference.kind_contract]["kind"]
+                == RICH_NAMESPACE + "DdoRichAdmission"
+            )
         return read_rich_graph(
             self.prepared,
             self.model,
@@ -163,6 +272,48 @@ class SelectedContributionScope:
             inputs=references,
             whole_inputs=wholes,
             retained_graphs=retained,
+        )
+
+    def _live_graph_inputs(self, selected):
+        live = self.live
+        if live is None:
+            raise ValueError("native graph inputs require their acquired read")
+        references, wholes, retained = {}, {}, {}
+        for ordinal, row in enumerate(
+            live.answers(
+                "read_selected_derivation_facts",
+                use_id=selected.use_id,
+                derivation_id=selected.derivation_id,
+                body=True,
+            )
+        ):
+            if ordinal >= self.max_support_edges:
+                raise SelectedGraphBudgetExceeded(
+                    "selected inputs exceed examined-edge bound", cut=self.cut
+                )
+            reference = DdoRichSelectedMember(
+                product_id=row["product_id"],
+                member_id=row["member_id"],
+                kind_contract=row["kind_contract"],
+                support_references=read_support_references(row["support"]),
+            )
+            key = rich_reference_key(reference)
+            references[key] = reference
+            if reference.member_id is None:
+                whole = RichWholeInput(
+                    reference,
+                    decode_semantic_value(
+                        row["meaning_body"],
+                        decimal_fixed_point_digits=self.decimal_fixed_point_digits,
+                    ),
+                )
+                wholes[key] = whole
+                if row["kind"] == RICH_NAMESPACE + "DdoRichAdmission":
+                    retained[key] = whole
+        return (
+            tuple(references[key] for key in sorted(references)),
+            tuple(wholes[key] for key in sorted(wholes)),
+            tuple(retained[key] for key in sorted(retained)),
         )
 
 

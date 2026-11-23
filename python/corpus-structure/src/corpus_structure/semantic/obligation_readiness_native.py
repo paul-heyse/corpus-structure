@@ -148,7 +148,6 @@ def obligation_readiness(model):
         definitions.c.command_class.is_(None),
     )
     covered = and_(
-        scheduler_authorized(),
         func.ops.ddo_demand_active(demands.c.id),
         or_(func.jsonb_array_length(definitions.c.input_roles) > 0, no_input_premises),
         ~invalid_role,
@@ -1078,7 +1077,7 @@ def obligation_settlement(model):
     )
 
 
-def demand_settlement(model):
+def demand_settlement(model, *, governed=False):
     """Observe the selected scope once, sharing native validity across its uses.
 
     This is an explicit fresh/pinned observation, not a claim based on an empty
@@ -1106,7 +1105,70 @@ def demand_settlement(model):
     demand_id = core_variable("d", demands.c.id.type, "id")
     project = core_variable("d", demands.c.project_id.type, "project_id")
     scope = core_variable("boundary", reads.c.scope.type, "scope")
-    scoped = _scoped_read_obligations(model).cte("settlement_scope").prefix_with("MATERIALIZED")
+    selected_scope = _scoped_read_obligations(model).cte("requested_settlement_scope")
+    coverage_complete = literal(True)
+    if governed:
+        selected_operations = _items(
+            core_variable("d", JSONB(), "selection")["operations"], "coverage_operation"
+        )
+        roots = select(
+            selected_scope.c.operation_id,
+            selected_scope.c.subject,
+            selected_scope.c.original_source,
+        ).cte("coverage_dependencies", recursive=True)
+        dependencies = _items(selected_operations.c.value["dependencies"], "coverage_dependency")
+        roots = roots.union(
+            select(
+                dependencies.c.value[()].astext, roots.c.subject, roots.c.original_source
+            ).select_from(
+                roots.join(
+                    selected_operations,
+                    selected_operations.c.value["operation"].astext == roots.c.operation_id,
+                ).join(dependencies, literal(True))
+            )
+        )
+        obligations = model.tables["ops.data_obligation"]
+        coverage_complete = (
+            ~select(1)
+            .select_from(roots)
+            .where(
+                ~select(1)
+                .select_from(obligations)
+                .where(
+                    obligations.c.demand_id == demand_id,
+                    obligations.c.operation_id == roots.c.operation_id,
+                    obligations.c.subject == roots.c.subject,
+                    obligations.c.original_source.is_not_distinct_from(roots.c.original_source),
+                    func.ops.ddo_read_visible(
+                        obligations.c.created_at, obligations.c.created_xid, boundary
+                    ),
+                )
+                .correlate(roots)
+                .exists()
+            )
+            .exists()
+        )
+        scoped = (
+            select(obligations)
+            .where(
+                obligations.c.demand_id == demand_id,
+                func.ops.ddo_read_visible(
+                    obligations.c.created_at, obligations.c.created_xid, boundary
+                ),
+                select(1)
+                .select_from(roots)
+                .where(
+                    roots.c.operation_id == obligations.c.operation_id,
+                    roots.c.subject == obligations.c.subject,
+                    roots.c.original_source.is_not_distinct_from(obligations.c.original_source),
+                )
+                .exists(),
+            )
+            .cte("settlement_scope")
+            .prefix_with("MATERIALIZED")
+        )
+    else:
+        scoped = selected_scope
     ready = (
         select(
             scoped.c.id,
@@ -1217,7 +1279,7 @@ def demand_settlement(model):
     # Narrow resource cuts do not silently become a statement about their unseen
     # upstream selection. Their wider freshness interpretation belongs to its owner.
     accounted = and_(
-        scope == cast(literal("{}"), JSONB()),
+        literal(True) if governed else scope == cast(literal("{}"), JSONB()),
         func.ops.ddo_read_visible(heads.c.created_at, heads.c.created_xid, boundary),
     )
     unavailable = and_(
@@ -1326,10 +1388,19 @@ def demand_settlement(model):
         ),
     )
     producer_decisions = producer.join(producing, producing.c.obligation_id == producer.c.id)
+    discovery_relevant = (
+        select(1)
+        .select_from(scoped)
+        .where(scoped.c.operation_id == discovery.c.value["producer"].astext)
+        .exists()
+        if governed
+        else literal(True)
+    )
     discovery_complete = (
         ~select(1)
         .select_from(discovery)
         .where(
+            discovery_relevant,
             or_(
                 ~select(1)
                 .select_from(producer_decisions)
@@ -1346,7 +1417,7 @@ def demand_settlement(model):
                 )
                 .correlate(discovery)
                 .exists(),
-            )
+            ),
         )
         .exists()
     )
@@ -1362,7 +1433,12 @@ def demand_settlement(model):
                         and_(
                             discovery_complete,
                             count > 0,
-                            func.bool_and(observed.c.state == "settled"),
+                            and_(
+                                func.bool_and(observed.c.state.in_(("settled", "unavailable"))),
+                                func.bool_or(observed.c.state == "settled"),
+                            )
+                            if governed
+                            else func.bool_and(observed.c.state == "settled"),
                         ),
                         "settled",
                     ),
@@ -1388,6 +1464,7 @@ def demand_settlement(model):
                 ),
                 uncovered_count=func.count(observed.c.obligation_id).filter(observed.c.uncovered),
                 discovery_complete=discovery_complete,
+                **({"coverage_complete": coverage_complete} if governed else {}),
             ).label("value"),
         )
         .group_by(observed.c.name, observed.c.generation)
@@ -1405,14 +1482,25 @@ def demand_settlement(model):
     )
     return NativeRoutine(
         "ops",
-        "read_demand_settlement",
+        "ddo_governed_settlement" if governed else "read_demand_settlement",
         (Parameter("p_payload", pg_type("jsonb")),),
         pg_type("jsonb"),
         Block(
             (
-                If(
-                    ~scheduler_authorized(),
-                    (Raise("demand settlement requires writer or evaluator authority", "42501"),),
+                *(
+                    ()
+                    if governed
+                    else (
+                        If(
+                            ~scheduler_authorized(),
+                            (
+                                Raise(
+                                    "demand settlement requires writer or evaluator authority",
+                                    "42501",
+                                ),
+                            ),
+                        ),
+                    )
                 ),
                 SelectInto(
                     select(core_relation_row(reads)).where(reads.c.id == payload["read_id"].astext),
@@ -1429,10 +1517,42 @@ def demand_settlement(model):
                 ),
                 Perform(func.ops.ddo_require_read_current(boundary, project)),
                 Assign("p", func.jsonb_build_object("scope", scope)),
+                *(_governed_coverage_authorization(model, scoped) if governed else ()),
                 Return(func.jsonb_build_object("payload", result)),
             ),
-            (Local("boundary", reads), Local("d", demands), Local("p", pg_type("jsonb"))),
+            (
+                Local("boundary", reads),
+                Local("d", demands),
+                Local("p", pg_type("jsonb")),
+                *((Local("coverage_universe", pg_type("text")),) if governed else ()),
+            ),
         ),
         security_definer=True,
         search_path=("pg_catalog", "pg_temp"),
+    )
+
+
+def _governed_coverage_authorization(model, scoped):
+    """Coverage cannot disclose a protected upstream operation through its state."""
+    definitions = model.tables["sem.data_operation_definition"]
+    kinds = model.tables["sem.data_kind_contract"]
+    roles = _items(definitions.c.input_roles.op("||")(definitions.c.output_roles), "coverage_role")
+    return (
+        ForQuery(
+            ("coverage_universe",),
+            select(kinds.c.universe)
+            .distinct()
+            .select_from(
+                scoped.join(
+                    definitions,
+                    and_(
+                        definitions.c.operation_id == scoped.c.operation_id,
+                        definitions.c.release_id == core_variable("d", Text(), "release_id"),
+                    ),
+                )
+                .join(roles, literal(True))
+                .join(kinds, kinds.c.kind_contract == roles.c.value["kind_contract"].astext)
+            ),
+            (Perform(func.ops.ddo_authorize(core_variable("coverage_universe", Text()))),),
+        ),
     )

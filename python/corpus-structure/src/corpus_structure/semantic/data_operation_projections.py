@@ -1689,7 +1689,13 @@ def _latest_read_use(metadata, obligations):
 
 
 def _selected_support_output_rows(
-    metadata, *, purpose="read", one_use=True, member_aware=False, exact_obligation=None
+    metadata,
+    *,
+    purpose="read",
+    one_use=True,
+    member_aware=False,
+    exact_obligation=None,
+    requested_products=(),
 ):
     """Whole outputs reached by exact scoped selected current support."""
     obligations = _scoped_read_obligations(metadata, exact_obligation=exact_obligation).cte(
@@ -1792,6 +1798,9 @@ def _selected_support_output_rows(
                         reached,
                         producing_reached,
                         literal(True) if member_aware else outputs.c.member_id.is_(None),
+                        or_(*(products.c.id == key for key in requested_products))
+                        if requested_products
+                        else literal(True),
                         products.c.project_id == _var("d.project_id", Text),
                         _set_valid(reached_validity, "episode", episodes.c.id),
                     ),
