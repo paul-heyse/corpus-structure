@@ -149,7 +149,7 @@ class WorkerRuntime:
         self.timeout = request["timeout_seconds"]
         self.inference = inference
         self.DocumentParser, self.GenerationSettings = DocumentParser, GenerationSettings
-        self.client = httpx.Client(timeout=self.timeout)
+        self.client = httpx.Client(timeout=self.timeout, trust_env=False)
 
     def close(self) -> None:
         self.client.close()

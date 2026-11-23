@@ -12,6 +12,7 @@ import os
 from collections.abc import Mapping
 from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, dataclass, field
+from functools import partial
 from hashlib import file_digest, sha256
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -116,9 +117,17 @@ def _implementation_files(mode):
         return common
     if mode == "recognized":
         return (
-            *common,
+            "semantic/pdf_transforms.py",
+            "semantic/pdf_recognition_custody.py",
+            "semantic/pdf_effect_contract.py",
+            "semantic/data_operation_pdf_effect.py",
+            "semantic/pdf_record_reader.py",
+            "semantic/pdf_integrated.py",
+            "semantic/pdf_observations.py",
+            "semantic/identity.py",
             "ingest/pdf_recognition.py",
             "ingest/pdf_incumbent_recovery.py",
+            "ingest/pdf_capacity.py",
             "core/process_lifetime.py",
         )
     extra = (
@@ -194,6 +203,8 @@ def pdf_transform_custody(
     elif mode == "recognized":
         from corpus_structure.ingest.pdf_recognition import NemotronRecipe
 
+        from .pdf_recognition_custody import recognition_runtime
+
         if not isinstance(recognition_recipe, NemotronRecipe):
             raise ValueError("recognition requires an explicit immutable NemotronRecipe")
         resources = PdfRecognitionResources.model_validate(resources)
@@ -214,6 +225,11 @@ def pdf_transform_custody(
             worker_source=worker.read_bytes().hex(),
             interpreter_digest=_file_hash(interpreter),
         )
+        if (
+            recognition_recipe.identity_assurance == "trusted_managed_service"
+            and options.source_recovery is None
+        ):
+            record["recognition_runtime"] = recognition_runtime(interpreter, worker)
     return SourceArtifact(
         "pdf-" + mode + "/execution-custody",
         canonical_bytes(record),
@@ -221,7 +237,7 @@ def pdf_transform_custody(
     )
 
 
-def pdf_transform_specification(mode):
+def pdf_transform_specification(mode, *, managed_recognition=False):
     from .data_operation_prepared_products import PreparedProductSpecification
 
     endpoint = _endpoint(mode)
@@ -254,6 +270,14 @@ def pdf_transform_specification(mode):
             ("prepare_recognition_page_products", prepare_recognition_page_products),
             ("prepare_recognition_report", prepare_recognition_report),
         )
+    managed_functions = ()
+    if managed_recognition:
+        from .pdf_recognition_custody import recognition_functions
+
+        managed_functions = tuple(
+            (function.__module__ + "." + function.__qualname__, function)
+            for function in recognition_functions()
+        )
     prefix = "corpus_structure.semantic.pdf_transforms."
     return PreparedProductSpecification(
         (
@@ -264,6 +288,7 @@ def pdf_transform_specification(mode):
                 for name in (*methods, "recipe_bytes")
             ),
             *((prefix + name, function) for name, function in helpers),
+            *managed_functions,
         ),
         support_modules=(
             "corpus_structure.semantic.input_values",
@@ -286,6 +311,19 @@ def pdf_transform_assets(record):
             recognition_bytes=record["recognition_bytes"],
             worker_digest=record["worker_digest"],
             interpreter_digest=record["interpreter_digest"],
+            files=[
+                (name, sha256(bytes.fromhex(content)).hexdigest())
+                for name, content in record["files"]
+            ],
+        )
+        from .pdf_recognition_custody import recognition_runtime_identity
+
+        acquired = record.get("recognition_runtime")
+        material["execution"] = recognition_runtime_identity(acquired) if acquired else None
+        return SourceArtifact(
+            "pdf-recognized/profile-assets",
+            canonical_bytes({"profile": "pdf-recognition-execution-v1", **material}),
+            reuse_eligible=acquired is not None,
         )
     return code_asset(
         "pdf-" + mode + "/profile-assets",
@@ -330,7 +368,7 @@ def recognition_policy_asset(record):
     )
 
 
-def pdf_transform_operation_sources(mode, **profile):
+def pdf_transform_operation_sources(mode, *, standard_producer=None, **profile):
     from .pdf_domain import pdf_helper_asset
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
@@ -338,6 +376,7 @@ def pdf_transform_operation_sources(mode, **profile):
     if mode == "integrated":
         recognition = pdf_transform_operation_sources(
             "recognized",
+            standard_producer=standard_producer,
             options=profile.pop("recognition_options"),
             recognition_recipe=profile.pop("recognition_recipe"),
             resources=profile.pop("resources"),
@@ -345,17 +384,16 @@ def pdf_transform_operation_sources(mode, **profile):
             input_operation="source.pdf/capture",
         )
     custody = pdf_transform_custody(mode, **profile)
-    own = pdf_transform_specification(mode).capture(
+    record = json.loads(custody.content)
+    own = pdf_transform_specification(
+        mode, managed_recognition="recognition_runtime" in record
+    ).capture(
         _root(),
         boundary_contracts=(
             custody,
-            pdf_transform_assets(json.loads(custody.content)),
-            pdf_helper_asset(),
-            *(
-                (recognition_policy_asset(json.loads(custody.content)),)
-                if mode == "recognized"
-                else ()
-            ),
+            pdf_transform_assets(record),
+            pdf_helper_asset(standard_producer=standard_producer),
+            *((recognition_policy_asset(record),) if mode == "recognized" else ()),
         ),
     )
 
@@ -992,6 +1030,7 @@ class PreparedPdfTransform:
             PdfObservedRequest,
             observation_meaning_digest,
         )
+        from .pdf_recognition_custody import managed_page_generation, recognition_worker_command
 
         claim = execution_owner.claim
         if claim is None:
@@ -1011,6 +1050,8 @@ class PreparedPdfTransform:
             source = PreparedRecognitionSource(original.content, original.digest)
             recipe = NemotronRecipe(**self.record["recognition_recipe"])
             resources = PdfRecognitionResources.model_validate(self.record["resources"])
+            runtime = self.record.get("recognition_runtime")
+            execution_digest = pdf_transform_assets(self.record).digest if runtime else None
             selected.context.require_operation("recognize_pdf_observation")
             specification = next(
                 source.content
@@ -1030,6 +1071,11 @@ class PreparedPdfTransform:
 
             def retain(page, actual_recipe):
                 report = prepare_recognition_report(page, actual_recipe)
+                generation = (
+                    managed_page_generation(page, actual_recipe, source.digest, execution_digest)
+                    if execution_digest is not None
+                    else None
+                )
                 prepared_products = tuple(
                     prepare_recognition_page_products(
                         page,
@@ -1040,6 +1086,7 @@ class PreparedPdfTransform:
                         structural_pin=selected.parent,
                         report=report,
                         verify_retained=options.source_recovery is not None,
+                        managed_generation=generation,
                         check_active=check_active,
                     )
                 )
@@ -1117,6 +1164,15 @@ class PreparedPdfTransform:
                 endpoint=resources.endpoint,
                 receipts=Path(resources.receipts),
                 timeout_seconds=resources.timeout_seconds,
+                worker_command=partial(
+                    recognition_worker_command,
+                    Path(resources.python),
+                    Path(resources.script),
+                    record=runtime,
+                )
+                if runtime
+                else None,
+                execution_digest=execution_digest,
             )
             stream = (
                 worker.replay_completed_pages(source, recipe, requested, check_active=check_active)
@@ -1346,6 +1402,7 @@ def prepare_recognition_page_products(
     *,
     structural_pin: ProductReference | None = None,
     verify_retained=False,
+    managed_generation: str | None = None,
     report: PreparedRecognitionReport | None = None,
     check_active,
 ):
@@ -1353,15 +1410,22 @@ def prepare_recognition_page_products(
     from corpus_structure.ingest.pdf_recognition import recognition_observation_values
 
     from .pdf_integrated import prepare_integrated_pdf_product
+    from .pdf_recognition_custody import verify_managed_observation
 
     report = prepare_recognition_report(page, recipe) if report is None else report
     if report.report.page_no != page.page_no or report.report.recipe_digest != recipe.digest:
         raise ValueError("recognition report belongs to a different page/recipe")
-    retained = 0
+    retained, attributed = 0, 0
     for ordinal, (row, raw, artifacts) in enumerate(
-        page.requests(verify_retained=verify_retained, expected_requests=report.requests)
+        page.requests(
+            verify_retained=verify_retained,
+            verify_paths=managed_generation is not None,
+            expected_requests=report.requests,
+        )
     ):
         check_active()
+        if managed_generation is not None:
+            attributed += verify_managed_observation(row, raw, artifacts, managed_generation)
         observation = recognition_observation_values(page, row, raw, source=source, recipe=recipe)
         if structural_pin is not None:
             if not isinstance(structural_pin, ProductReference):
@@ -1381,6 +1445,8 @@ def prepare_recognition_page_products(
         yield product
     if retained != len(report.requests):
         raise ValueError("recognition request inventory changed during native retention")
+    if managed_generation is not None and not attributed:
+        raise ValueError("managed recognition page has no attributed terminal response")
 
 
 def execute_pdf_organization(receiver, capture):
@@ -1446,7 +1512,8 @@ class PreparedPdfTransformPort:
 
         record = self.profile.record
         mode = self.profile.mode
-        specification = pdf_transform_specification(mode)
+        runtime = record.get("recognition_runtime") if mode == "recognized" else None
+        specification = pdf_transform_specification(mode, managed_recognition=runtime is not None)
         if specification.functions[0][0] != self.operation.callable_surfaces[0].declaration:
             raise PortRefusal("PDF selected endpoint differs from its admitted declaration")
         capture_role = next(role for role in self.operation.roles if role.direction == "input")
@@ -1470,6 +1537,8 @@ class PreparedPdfTransformPort:
                 "PDF transformation implementation changed after acquisition: " + str(error)
             ) from error
         if mode == "recognized":
+            from .pdf_recognition_custody import verify_recognition_runtime
+
             try:
                 files.extend(
                     (
@@ -1480,6 +1549,10 @@ class PreparedPdfTransformPort:
                         ),
                     )
                 )
+                if runtime is not None:
+                    if runtime["worker"] != record["worker_digest"]:
+                        raise ValueError("recognition worker differs from its executable custody")
+                    files.extend(verify_recognition_runtime(runtime))
             except (FileCustodyError, OSError) as error:
                 raise ValueError(
                     "recognition worker/interpreter changed after acquisition: " + str(error)

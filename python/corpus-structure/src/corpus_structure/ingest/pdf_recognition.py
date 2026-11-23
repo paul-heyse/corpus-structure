@@ -153,7 +153,7 @@ def admit_service_generation(endpoint: str, recipe: NemotronRecipe) -> dict[str,
     import httpx
 
     base = endpoint.rstrip("/").removesuffix("/v1")
-    response = httpx.get(base + "/corpus/generation", timeout=10)
+    response = httpx.get(base + "/corpus/generation", timeout=10, trust_env=False)
     response.raise_for_status()
     record = response.json()
     if (
@@ -345,7 +345,11 @@ class RecognitionPage:
         return not self.terminal_outcome
 
     def requests(
-        self, *, verify_retained: bool = False, expected_requests: tuple[bytes, ...] | None = None
+        self,
+        *,
+        verify_retained: bool = False,
+        verify_paths: bool = False,
+        expected_requests: tuple[bytes, ...] | None = None,
     ) -> Iterator[tuple[dict[str, Any], bytes, tuple[bytes, ...]]]:
         """Durable rows survive worker/process loss before result.json is finalized."""
         paths = sorted(
@@ -371,12 +375,14 @@ class RecognitionPage:
 
         def owned(name: str) -> Path:
             path = self.directory / name
-            if verify_retained and (path.name != name or path.resolve().parent != root):
+            if (verify_retained or verify_paths) and (
+                path.name != name or path.resolve().parent != root
+            ):
                 raise ValueError("retained recognition artifact escaped its attempt directory")
             return path
 
         for ordinal, path in enumerate(paths):
-            if verify_retained:
+            if verify_retained or verify_paths:
                 path = owned(path.name)
             request_content = path.read_bytes()
             if expected_requests is not None and request_content != expected_requests[ordinal]:
@@ -450,8 +456,11 @@ class RecognitionPage:
 class _RecognitionSlot:
     """One serial pipe borrower; process-group death precedes slot release or restart."""
 
-    def __init__(self, owner: RecognitionWorker) -> None:
+    def __init__(
+        self, owner: RecognitionWorker, *, worker_command: Callable[[Path], list[str]] | None = None
+    ) -> None:
         self.owner = owner
+        self.worker_command = worker_command
         self.process: subprocess.Popen[bytes] | None = None
         self.lock = Lock()
 
@@ -493,9 +502,12 @@ class _RecognitionSlot:
             try:
                 check_active()
                 if self.process is None:
+                    command = self.worker_command
                     with (input_path.parent / "worker.log").open("ab") as log:
                         self.process = subprocess.Popen(
-                            [str(self.owner.python), str(self.owner.script), "--serve"],
+                            command(input_path.parent)
+                            if command is not None
+                            else [str(self.owner.python), str(self.owner.script), "--serve"],
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=log,
@@ -578,9 +590,15 @@ class RecognitionWorker:
         endpoint: str,
         receipts: Path,
         timeout_seconds: float = 1800.0,
+        worker_command: Callable[[Path], list[str]] | None = None,
+        execution_digest: str | None = None,
     ) -> None:
+        if (worker_command is None) != (execution_digest is None):
+            raise ValueError("recognition executable command and identity require joint custody")
         self.python, self.script = python, script
         self.endpoint, self.receipts, self.timeout_seconds = endpoint, receipts, timeout_seconds
+        self.worker_command = worker_command
+        self.execution_digest = execution_digest
         self.last_page: RecognitionPage | None = None
         self._operation: _RecognitionOperation | None = None
 
@@ -644,7 +662,10 @@ class RecognitionWorker:
         check_active()
         if type(page_no) is not int or not 1 <= page_no <= operation.page_count:
             raise ValueError("recognition page outside retained source")
-        parent = self.receipts / operation.source.digest / recipe.digest / f"page-{page_no:05d}"
+        parent = self.receipts / operation.source.digest / recipe.digest
+        if self.execution_digest is not None:
+            parent /= self.execution_digest
+        parent /= f"page-{page_no:05d}"
         parent.mkdir(parents=True, exist_ok=True)
         if reuse:
             for path in sorted(parent.glob("attempt-*/result.json"), reverse=True):
@@ -654,6 +675,7 @@ class RecognitionWorker:
                     if (
                         submitted.get("source_digest") != operation.source.digest
                         or submitted.get("recipe_digest") != recipe.digest
+                        or submitted.get("execution_digest") != self.execution_digest
                     ):
                         raise ValueError(
                             "retained recognition page has different source/recipe premises"
@@ -696,6 +718,8 @@ class RecognitionWorker:
                 source_digest=operation.source.digest,
                 physical_page_concurrency=operation.concurrency,
             )
+            if self.execution_digest is not None:
+                request["execution_digest"] = self.execution_digest
             input_path = directory / "input.json"
             input_path.write_bytes(canonical_bytes(request))
             result = slot.execute(input_path, check_active)
@@ -780,7 +804,9 @@ class RecognitionWorker:
                 raise
         operation = _RecognitionOperation(source, recipe, document, page_count, concurrency)
         self._operation = operation
-        slots = [_RecognitionSlot(self) for _ in range(concurrency)]
+        slots = [
+            _RecognitionSlot(self, worker_command=self.worker_command) for _ in range(concurrency)
+        ]
         pages = iter(page_numbers)
         pending: dict[Future[RecognitionPage], _RecognitionSlot] = {}
         primary = None
