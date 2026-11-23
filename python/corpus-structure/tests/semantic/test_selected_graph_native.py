@@ -218,8 +218,6 @@ def test_native_requestless_population_fate_survives_tools_and_resources(declare
 
 
 def test_native_graph_reader_exits_before_snapshot_and_topology(declared_serving_case, monkeypatch):
-    from sqlalchemy.exc import ResourceClosedError
-
     from corpus_structure.semantic import graph_inspection, selected_graph
     from corpus_structure.semantic.graph_runtime import nx
 
@@ -277,9 +275,9 @@ def test_native_graph_reader_exits_before_snapshot_and_topology(declared_serving
     page = graph_inspection.read_graph_inspection(reader, request)
     assert page.standing == "complete" and page.items
     assert events == ["reader-entered", "reader-exited", "snapshot", "components"]
-    assert indexes[0].connection.closed
-    with pytest.raises(ResourceClosedError, match="closed"):
-        indexes[0].connection.exec_driver_sql("SELECT count(*) FROM records")
+    assert indexes[0].population_archive is None
+    with pytest.raises(ValueError, match="selected relations are closed"):
+        tuple(indexes[0].records())
 
     # A fresh budget-limited observation must commit its acquired native read
     # context, too. Reopening that exact cut in another transaction proves it.

@@ -94,6 +94,11 @@ class LiveSelectedRelations(SelectedRelationLookup):
         self._relations = {}
         self._lookups = {}
         self._frontier = defaultdict(dict)
+        self._closed = False
+
+    def _require_open(self):
+        if self._closed:
+            raise ValueError("selected relations are closed")
 
     def append(self, payload, *, allow_equal=False):
         self.append_record(native_json_loads(payload), payload=payload, allow_equal=allow_equal)
@@ -142,6 +147,7 @@ class LiveSelectedRelations(SelectedRelationLookup):
                 self.retained_records += 1
 
     def freeze(self):
+        self._require_open()
         if self._pending is None:
             return
         grouped = defaultdict(list)
@@ -198,10 +204,12 @@ class LiveSelectedRelations(SelectedRelationLookup):
                 yield row
 
     def frontier_rows(self, kind):
+        self._require_open()
         for _, payload in sorted(self._frontier[kind].items()):
             yield self.reader.frontier(kind, native_json_loads(payload))
 
     def frontier_row(self, kind, identity):
+        self._require_open()
         payload = self._frontier[kind].get(identity)
         return None if payload is None else self.reader.frontier(kind, native_json_loads(payload))
 
@@ -215,7 +223,9 @@ class LiveSelectedRelations(SelectedRelationLookup):
             yield self.reader.loads(payload.as_py(), validate=False)
 
     def close(self):
+        self._closed = True
         self._pending = None
         self._relations.clear()
         self._lookups.clear()
         self._frontier.clear()
+        self.population_archive = None
