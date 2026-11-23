@@ -89,10 +89,10 @@ variant of the carrier. Source-set proofs and pins on bound inputs keep their ex
 checks.
 
 **One resolver.** Python resolves any reference through one function over validated carriers:
-the role gives the producing input; an item reference gives a partition, decoded once and
-memoised by digest, then an index by the declared key. PostgreSQL resolves a member by its keyed
-row; it resolves an item address inside one acquired partition or consumes an applicable
-membership proof covering that address. An existing partition without that item must fail
+the role gives the producing input; an item reference supplies the declared key for indexed
+native access or an already acquired typed population. A finite batch resolves through one
+keyed relation. PostgreSQL resolves members and items through their keyed rows, with an applicable
+membership proof where the read contract requires one. An existing partition without that item must fail
 resolution. Before body hydration or disclosure of existence, authorize the actual target
 parent: project, kind and exact current selected cut for a live use; captured custody for
 detached replay. An original producing binding supplies address meaning, never permission to
@@ -118,6 +118,53 @@ one product's partition to another's, is a `refers_to` rule with the pair of dig
 A reference from a graph member into a population is a product-scope rule on the citing body
 with the cited partition's digest in the premise. Closures that need the source text, or
 agreement of source and selectors between two products, are attested.
+
+<a id="columnar-reference-and-binding"></a>
+## Typed reference and binding relations
+
+**Selected planning target · Proposed · 2026-11-22.** The
+[columnar redesign amendment](../set-based-execution_2026-11-21.md#columnar-redesign-amendment)
+selects columnar-basis I04/I08/I09 and analytical-redesign I01/I03/I04/I07 for these
+consumers. Rule confirmation and the focused target review precede dependent production
+adoption. The shared [typed population contract](common-analytical-basis.md#columnar-population-target)
+and [item admission](populations-rules-and-proofs.md#typed-item-admission) supply the
+canonical item, its declared address and authenticated input relation.
+
+**References established once.** Admission extracts declared references into typed rows
+with the citing product/member/item, slot, target role, occurrence discriminator and target
+address. Canonical body meaning remains role-relative. Extract these rows from admitted
+canonical values or verify them against that projection before closure checks; caller-supplied
+address columns cannot establish their own correctness. Carry product context once in the
+member envelope and bind each member to it. Generic member bodies retain their canonical
+representation. Closure becomes an anti-join or keyed existence check over these facts,
+with multiplicity and meaningful order carried explicitly. Two formal reports can both bind
+construction even when their producers each emit at position zero.
+
+**Binding rows shared at their read scope.** Materialize the authorized binding relation once
+for a pinned read and reuse it in readiness, attachment and hydration. Keep parameters,
+inference, population choices and other actual Python decisions explicit in the submitted
+selection. Compare them with the authored predicate and current trust cut at the native
+boundary. Reuse a content relation only under its complete release, read and interpretation
+premises. Reacquire current eligibility and authority at each actual effect or disclosure.
+The existing ordered union locks, prepared attachment scopes, completion canonical bytes and
+retained seal remain useful foundations. Further result-array and per-item work reductions
+follow evidence of residual cost under the existing mutation owner.
+
+**Hydration and memo.** Key acquired content by the authenticated stored digest plus release,
+schema and interpretation dependencies. A point reference uses the indexed native item path;
+a finite population uses one Arrow/DuckDB join through the analytical owner. Keep a shared
+acquired view for consumers needing the same population, and construct Python objects only
+for the requested fields when their kernel requires them. Cached content carries no grant to
+read an original or current parent. Distinguish a missing address from a hidden parent and
+retain original producing bindings separately from current selected support.
+
+**Delivery and acceptance.** SBX-05 migrates reference extraction, resolution and the selected
+read consumers. SBX-06 migrates shared binding facts and settlement, and SBX-07 consumes typed
+projections for its block-local memo. Exercise conflicting typed references, duplicate addresses,
+two independent reports, missing items, repeated blocks, revoked support, both commit orders,
+per-item refusal and idempotent replay. Keep distinct proof establishments and exact occurrence
+binding through the [replacement sequence](cutover-and-qualification.md#columnar-cutover-sequence).
+The broader read program and archive retirement remain with SBX-11/12.
 
 ## Read projections
 
@@ -649,8 +696,9 @@ and one with a resolving reference is admitted, the expectation written by hand.
 processed through two different upstream product ids with equal read content yields byte-equal
 construction and HanLP bodies. A required cited dependency is represented in support and its
 revocation follows the declared substitution/establishment policy. An existing partition with a
-missing item refuses resolution. Resolving one token reference decodes one partition, with
-authority acquired first and unrelated partitions, uses and protected leaves excluded. Compare
+missing item refuses resolution. Resolving one token reference uses the indexed item address, with authority acquired first
+and unrelated partitions, uses and protected leaves excluded. A finite batch can share its
+authenticated typed population. Compare
 two uses of one derivation with different selections and a transitive input from another
 demand; verify historical address meaning and exact current support independently. Live page
 revocation and the protected issuer case retain refusal; detached readback retains captured
@@ -661,8 +709,11 @@ exercises this interface before the remaining families migrate.
 ## SBX-06 — Projection-keyed request identity
 
 The [completed common projection pilot](common-analytical-basis.md#pilot-implementation-and-evidence)
-selected immutable acquired annotation rows. Use the installed successor to extend the scoped
-native controls through actual governed changes, exact current support and downstream adoption.
+selected immutable acquired annotation rows as the dated baseline. The
+[columnar replacement](#columnar-reference-and-binding) preserves its projection and occurrence
+semantics through typed acquisition and selected native readback. Extend the scoped native
+controls through actual governed changes, exact current support and downstream adoption on the
+replacement root.
 The shared [change scenarios](cutover-and-qualification.md#change-scenarios) own the journey.
 [Post-pilot review I01/I04](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I04)
 

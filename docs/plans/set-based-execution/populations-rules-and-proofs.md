@@ -11,7 +11,9 @@ SBX-01 to SBX-04. Source facts are **Inspected** at `7a415d18d`; design statemen
 
 The [post-SBX-01 amendment](../set-based-execution_2026-11-21.md#post-sbx-01-review-amendment)
 integrates review [I01–I04](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I01).
-The contracts below are the planned target; they do not expand SBX-01's completed native scope.
+The [columnar redesign amendment](../set-based-execution_2026-11-21.md#columnar-redesign-amendment)
+reopens the physical portions of SBX-01/02 while preserving the dated scope of their earlier
+native evidence. The revised contracts below are Proposed and await the recorded rule decisions.
 
 ## Baseline
 
@@ -48,13 +50,20 @@ A kind declares **collections** on its multivalued slots. A collection declares 
 (partitioned, identified or bound), and for a partitioned collection its partition key, its item
 order, the fields that form an item's address, and its **field groups**.
 
-**Storage.** `kb.data_product_partition(product_id, collection, partition_key, ordinal,
-partition_digest, item_count, group_digests, placement, body)`, primary key on the first three, with an
-index for ordinal order. `body` is the tagged value of one partition. `group_digests` is a
-mapping from field-group name to the digest of that group's values in item order.
+**Storage · Proposed revision · 2026-11-22.** A partition header keeps product, collection,
+partition key, ordinal, digest, item count, field-group digests and placement. Its items are
+stored once as generic logged rows keyed by product, collection, partition and item ordinal,
+with declared item-address parts and canonical item text. Declaration-derived indexed projections
+supply fields used by native rules and keyed reads. A new collection supplies its model
+contract to the same storage and compiler. Typed per-collection tables remain a conditional
+projection for a demonstrated access need. The implemented tagged-body layout remains the
+baseline of earlier receipts. [Admission and recovery](#typed-item-admission)
 
-**Identity.** `partition_digest = ddo_identity('partition', body)`, with its Python twin through
-`canonical_identity`. The existing identity function already takes its domain as a parameter, so
+**Identity.** The logical partition body is the ordered collection value, even when stored as
+item rows. `partition_digest = ddo_identity('partition', body)` retains its definition, with its
+Python reference through `canonical_identity`. Generate canonical item text once and aggregate
+the exact item texts in order under that existing frame. Native admission checks each item and
+its rule/address projections, then recomputes the partition and field-group aggregates. The existing identity function already takes its domain as a parameter, so
 no new hashing protocol is introduced. In the product header the collection property becomes a
 record of content root, placement root, partition count and item count. The content root is the
 identity of key-sorted `(partition_key, partition_digest)` pairs. The separate placement root
@@ -106,17 +115,64 @@ directions agree" and "lexeme count equals token count" then cease to be rules.
 identified collection the member's content-hash id is the unit digest. Nothing about the four
 bound kinds changes.
 
-*Alternatives rejected.* A typed list inside the body: no keyed access, and the only premise for
-any rule is the whole body. One typed row per token: no PostgreSQL consumer, a table and revision
-per record type, and reconstruction of tagged values from columns with an absent-against-null
-hazard. Generic member rows without the wrapper: keeps per-item rows and the row-against-body
-equality check and adds no set semantics. Building on the five projection families: they were a
-second copy with an equality check, opt-in, in fixed shapes; here the partition is the only
-store and a collection kind cannot be published any other way.
+**Layout decision.** The earlier body-only target matched whole-block Python readers. Native
+rules and reference lookup now read items relationally, meeting ADR-0144's revisit condition.
+Generic logged item rows serve that workload while partitions remain the identity and reuse
+unit. Per-collection DDL would add a physical shape and registration for each population.
+Keeping both partition bodies and item rows would retain the equality and reconstruction work.
+The replacement retires partition body storage with its active readers when the integrated
+slice is complete. Oversized partitions still need an explicit execution-fit decision, since
+ordered digest aggregation buffers a partition's text.
 
-*What would reopen it.* A PostgreSQL consumer of token-level joins: add typed rows as a
-projection derived from partitions. Blocks so uneven that one partition is most of a product: a
-secondary split, decided at SBX-00.
+<a id="typed-item-admission"></a>
+## Typed item admission and retained publication
+
+**Selected for planning · Proposed · 2026-11-22.** SBX-01/02 deliver the common native boundary
+for the [typed population target](common-analytical-basis.md#columnar-population-target).
+Small controls keep their document contract. Population-bearing calls prepare authenticated
+session-private intake, stream Arrow batches with the existing `copy_arrow_stream` pgpq encoder
+on the caller's Psycopg/SQLAlchemy transaction, and invoke one set routine. Native intake and
+output shapes derive from the same release contract. A mismatched result contract rolls the
+transaction back before effects commit. ADR-0128/0144/0145 changes follow the coordinator's
+explicit rule dispositions before production adoption.
+
+A cheap fence check precedes content preparation. Check canonical item shape and lexical form
+once, and derive native rule/address columns from that admitted value or compare every supplied
+projection against it. A valid item digest with forged projection fields refuses. Share the
+validated item relation across partition count/order, address uniqueness, group commitment,
+declared rule and reference-closure queries. Keep per-rule conclusion, fingerprint and admissible
+establishment separate. Exact multiplicity, item order and optional-value states are preserved.
+PostgreSQL owns declared-form evaluation. Producer diagnostics can aid early refusal, while the
+producer establishes attested facts under the captured rule determinant.
+
+The protected routine inserts checked rows once into logged retained storage associated with
+the exact request, task, attempt, holder, release and content. Recheck current fencing, support,
+reference closure and required proof standing at the effect boundary. Publication authenticates
+the retained seal and promotes those same rows atomically with products, proofs and uses.
+Session-private intake is temporary transport. Durable retained rows survive a lost acknowledgement
+and server restart. Recovery acquires their exact identity and current authority. Repeated
+retention of the same content is idempotent, conflicting content refuses, and a failed or
+interrupted COPY exposes no publishable partial product. No purpose role gains unconstrained
+insertion into retained product storage. Direct COPY into retained rows is conditional on a
+complete attempt-scoped permission design.
+
+Member collections carry shared context once per product and keep heterogeneous canonical bodies.
+Extract typed role, occurrence, collection, partition and address rows once during admission.
+They feed closure checks and the live and detached resolvers. Reuse the once-validated member
+relation for admission and replay correspondence. Preserve the independent replay comparison
+when an idempotent insert writes nothing. Bind two independent reports at their producer-local
+position zero without inventing cross-producer ordering.
+
+**Replacement evidence.** Use independent expectations for exact canonical identities across
+non-ASCII/control text, all optional states, null, wide integers/decimals, float spelling, sets,
+bags, mappings and nested HanLP records. Include forged address/span columns, duplicate or absent
+members, cross-attempt and cross-purpose writes, stale fence, interrupted COPY, malformed typed
+result, conflicting replay, lost acknowledgement and recovery. Exercise publication and selected
+readback with original and current input roles, revoked support and both independent reports.
+The synthetic identity/transaction probes establish feasibility for their covered shapes.
+Real purpose-role and recovery controls remain required on the integrated root.
+[Boundary evidence](../../design_review/evidence/2026-11-22_sbx-columnar-basis/README.md) ·
+[Cutover sequence](cutover-and-qualification.md#columnar-cutover-sequence)
 
 ## Rules
 
@@ -127,7 +183,7 @@ reads, as typed paths; and a checker, `admission` or `producer`.
 **Forms.** Five set forms: `unique`, `dense_ordinal`, `ordered_by`, `span_within`, `refers_to`.
 Row-local predicates reuse the closed expression vocabulary already compiled for physical tables
 (`PhysicalExpression`, `cs/schema/relational.py`), generalized from a table to a selection over a
-partition body's items. Paths reuse the output-witness path language
+admitted item rows. Paths reuse the output-witness path language
 (`cs/semantic/data_operation_output_witnesses.py`), which already resolves paths against property
 nodes and refuses unknown fields.
 
@@ -229,15 +285,17 @@ is not a model fact. The refinement is to express the rule as a form.
 <a id="sbx-01"></a>
 ## SBX-01 — Collections and partitions
 
-**Vision.** The model can declare a collection; the compiler derives collections beside member
-kinds; PostgreSQL has the partition table and admits partitions, recomputing each partition
-digest, each group digest and the root from the bodies it receives; Python computes the same
-values. An operation's completion carries a header and partitions. No kind uses it yet.
+**Revised physical scope · Proposed · 2026-11-22.** The model declares a collection and the
+compiler derives its Arrow schema, item/address projection, canonical-text producer and native
+admission shape. PostgreSQL stores partition headers and generic logged item rows, verifies
+projection fidelity and aggregates the existing partition/group/root identities. SBX-03 supplies
+the first complete producer and consumer slice. Retire the body-only admission and storage
+when that replacement is integrated. The verified statements below describe the earlier scope.
 
-**Owns.** The collection annotation and its compile pass; the partition table and its place in
-the physical model; admission of partitions inside the existing product admission program;
-disclosure for partition rows, which follows the product's kind; the Python twin and the
-completion wire shape; the field-group mechanism; the address type for partitioned items.
+**Owns.** The collection compiler, partition headers and generic items, authenticated typed
+intake and retained storage, projection fidelity, field-group identities and keyed disclosure.
+The common analytical owner supplies canonical generation and the exact Python reference.
+SBX-08/09 supplies the acquired carrier and process-boundary acceptance.
 
 **Failure behaviour.** A partition whose recomputed digest differs from the header's root
 contribution refuses the product. A collection declared partitioned that arrives as a list in the
@@ -358,10 +416,19 @@ authoring. SBX-20 owns registration of the integrated Revision A, including subs
 <a id="sbx-03"></a>
 ## SBX-03 — The first populations
 
-**Selected placement · 2026-11-22.** The [annotation-fork pilot decision](common-analytical-basis.md#pilot-implementation-and-evidence)
+**Completed pilot placement · 2026-11-22.** The [annotation-fork pilot decision](common-analytical-basis.md#pilot-implementation-and-evidence)
 retains immutable annotation blocks and acquired contextual rows. Primary construction uses the
 already admitted blocks. The real fork passed on its private current-source root. Those receipts
-establish their captured source and selected use. Final integrated acceptance remains open.
+establish their captured source and selected use. Final integrated acceptance remains open. The [typed population target](common-analytical-basis.md#columnar-population-target)
+now schedules a complete acquisition-to-consumer replacement before the next cold root.
+
+**Revised integration · Proposed · 2026-11-22.** Migrate annotation → canonical → construction
+through typed production, sealed worker IPC, native item admission and selected readback first.
+Extend to HanLP/declaration and affected member families before declaring the generic replacement
+complete. Share acquired inventories and distinct rule-premise projections within the completion.
+Remove restored tagged views, repeated canonicalization, thawing and duplicate consumer indexes
+with their migrated users. Keep the current source, rule fingerprints, exact original role,
+placement and current-use authority in the independent expected results.
 
 **Installed successor · Proposed · 2026-11-22.** Finish the canonical, HanLP, declaration and
 primary construction migrations on that route. Use the ordinary installed successor shared by
@@ -590,6 +657,14 @@ navigation and coverage facts and the annotation layout, address and token facts
 The intrinsic navigation proof over construction members does not by itself establish all those
 cross-input premises. Keep ingress and atomic native publication as the admission boundaries.
 [Review I02](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I02)
+
+**Shared premise preparation · Proposed · 2026-11-22.** Prepare the union of observations once
+per completion. Decode or acquire each source population once, compute each distinct field
+projection and group commitment once, and reuse them across matching rules. Keep separate rule
+fingerprints, premise identities and attestation records. Named construction consumes the same
+acquired annotation and interpreted inventory. Changed observations invalidate only the matching
+prepared facts. Scope reuse to the release, schema, exact content and completion lifetime.
+[Redesign I01](../../plan_improvement_reviews/set-based-execution-efficiency-and-analytical-redesign_2026-11-22.md#I01)
 
 **Completion and witness efficiency · Scheduled · 2026-11-22.** Integrate
 [review I04](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I04)

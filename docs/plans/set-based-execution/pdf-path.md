@@ -4,7 +4,8 @@
 **Created:** 2026-11-21.
 
 This companion owns the PDF path from an original to published records. It owns SBX-14 to SBX-17
-and is carried by native revision C. It is independent of the other companions. Source facts are
+and is carried by native revision C. It consumes the shared typed carrier and analytical
+execution contracts. Directly used custody and column checks may land through SBX-08/09. Source facts are
 **Inspected** at `7a415d18d`; counts of repeated work are counts of call sites.
 
 **Kept as it is.** The per-row identity fold mirrored in PostgreSQL, which is the only link
@@ -106,7 +107,7 @@ for PDF transport only when a named retained consumer can remove repeated work a
 write, recovery and read route. Any selected replacement must preserve acknowledgement custody,
 restart and digest behavior, with a genuinely recovered spool in acceptance. Immediate reuse uses
 in-memory batches and the existing spill owner handles transient pressure. SBX-17 settles its
-external-sort choice below from the complete operation.
+external sort below through the shared DuckDB owner.
 [Review I04](../../plan_improvement_reviews/set-based-execution-common-analytics_2026-11-22.md#I04) ·
 [Selected structural replay owner](owner-resolved-reads.md#sbx-12) ·
 [PDF streaming custody](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_streaming.py#L71)
@@ -133,6 +134,50 @@ family using the stage and companion schemas, and its contract includes the capt
 The child rebuilds and validates with the producer's mapping and callback policy. Membership
 closure (ordinals dense per parent and field; count equals declared length; map keys unique) is
 checked over the typed rows before the rebuild.
+
+<a id="columnar-pdf-certification"></a>
+## Typed certification and document adoption
+
+**Proposed · 2026-11-22.** Combine
+[columnar I07](../../plan_improvement_reviews/set-based-execution-columnar-basis_2026-11-22.md#I07)
+and [redesign I05](../../plan_improvement_reviews/set-based-execution-efficiency-and-analytical-redesign_2026-11-22.md#I05)
+under SBX-14–17. The [shared analytical target](common-analytical-basis.md#columnar-population-target)
+provides Arrow schemas and ownership and one configured DuckDB owner. Certification consumes
+existing authenticated IPC through `pa.memory_map`, `pa.ipc.open_file` and owned batches. Use
+DuckDB over those typed columns for stream descriptor/part joins, grouped duplicate and ordinal
+checks, binary-collated frame ordering and typed validation capture. Preserve the canonical
+per-record frame and ordered identity fold, with exact value conversion only at that boundary.
+Replace the certifier's SQLite JSON row store, per-row JSON round trips and artifact bytes-to-hex
+bridge together with their consumers. Share keyed typed companion relations with the validators.
+
+Choose model-derived expressions for logical row values and canonical frames under the captured
+lowering policy. Establish parity for the full normalization contract, including absent fields,
+explicit null, numeric spelling and non-ASCII keys. The generic canonical reference supplies
+independent expected values. Fold rows by column where compatible, and retain the final ordered
+fold where the protocol requires it. This changes the implementation of the calculation while
+preserving its defined result. Keep full independent encode/decode expectations and deliberate
+invalid fixtures.
+
+Stage a document's batches and access rows by the existing transaction-owned Arrow COPY route.
+Reassess commit scope over the whole document, acknowledgement and restart obligations together.
+Use one document adoption transaction when the complete input is available. Any retained partial
+recognition acknowledgements remain explicit recovery boundaries. Derived access rows follow
+SBX-15's PostgreSQL owner. Acquired input handles keep their maps and buffer owners alive through
+consumption, success, refusal or cancellation. A verified immutable handle may replace repeated
+whole-file checks only within its established custody lifetime. Recovery or an external transfer
+reacquires the exact bytes and their admission premises.
+
+The complete certification/store replacement stays with SBX-16/17. SBX-08/09 may consume a
+columnar build-id comparison and distinct stream-id selection before the fresh native probe, or
+an owned verified handle, when that retires work in an actual current path. Its completion then
+covers that consumer and relevant tamper and cleanup controls. Population qualification consumes the directly affected early PDF slices, while SBX-16/17
+retain the complete certification replacement.
+
+**Completion evidence.** Independently assert the exact logical and stream roots, ordered frames,
+shared and unreferenced streams, empty inputs, duplicate page/record/part refusal, captured-policy
+changes, post-encoding tamper detection and genuine interrupted/recovered adoption. Verify file,
+reader, connection and spill cleanup on early exit. Replace the mechanism-specific SQLite and
+hex controls with the equivalent behavioral assertions on the typed route.
 
 <a id="sbx-14"></a>
 ## SBX-14 — One rebuild, under the captured policy
@@ -239,11 +284,11 @@ certification files, holding maps and batches until the readers finish. The exis
 stream decoder remains the route for page payloads. Preserve ordinal and duplicate expectations
 independently of the typed reader. [Arrow file reader](https://arrow.apache.org/docs/python/generated/pyarrow.ipc.open_file.html)
 
-**Open choice, settled in the package.** The engine for the external sort of frames: the
-analytical owner over a temporary Arrow file, or the existing SQLite table. Either keeps byte
-order, duplicate refusal and bounded spill, which the fold requires. Choose the simpler complete
-route, including cleanup and canonical encoding. Keep SQLite if it needs less total integration,
-and reuse the existing encoder in either route.
+**Selected plan target · Proposed · 2026-11-22.** Use the shared DuckDB analytical owner for
+external frame ordering and grouped/join checks over typed IPC. Its invocation owns spill,
+registered inputs and output readers. Implement the [complete certification replacement](#columnar-pdf-certification)
+and retire the SQLite certifier store with its consumers. Preserve binary order, duplicate
+refusal and the canonical fold, and validate failure cleanup through the real worker path.
 
 **Fidelity conditions.** The inputs to the folds pass through normalizations that are part of
 each digest's effective definition: nulls dropped after a JSON round trip, key-presence tests,

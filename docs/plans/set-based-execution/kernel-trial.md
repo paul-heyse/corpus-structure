@@ -13,8 +13,10 @@ the trial investigation ran, which are re-run and retained by SBX-18.
 and [I03](../../plan_improvement_reviews/set-based-execution-common-analytics_2026-11-22.md#I03)
 expand the comparison to captured DuckDB SQL and PostgreSQL-native set work. The
 [common analytical basis](common-analytical-basis.md#typed-population-pilot) owns the earlier
-annotation-fork pilot and its recorded immutable-carrier decision. SBX-18/19 use its implemented projection and
-transfer results when applicable and keep their complete family trial downstream. The
+annotation-fork pilot and its dated immutable-carrier decision. The
+[reconciled columnar target](common-analytical-basis.md#columnar-population-target) proposes a
+replacement producer-to-consumer path. SBX-18/19 consume applicable evidence and keep their
+complete scoped-relations family trial downstream. The
 [pinned-build probe](../../design_review/evidence/2026-11-22_sbx-common-analytics/README.md)
 establishes fixture-level DuckDB 2.0.0 and PyArrow 26.0.0 behavior, including a typed window
 through the existing owner and blocked connection use until an active result is drained.
@@ -23,9 +25,51 @@ Production adoption and integrated qualification remain open.
 **Efficiency amendment · Scheduled · 2026-11-22.** The
 [validation and PostgreSQL review I06](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I06)
 adds complete-path comparison and exact wide-value conditions to the existing trial.
-The annotation carrier remains selected by its pilot. This package evaluates the named
+The pilot carrier is the implemented baseline for comparison with the proposed typed path. This package evaluates the named
 scoped-relations workload, using the shared [transfer](common-analytical-basis.md#postgresql-placement-and-transfer)
 and [numeric fidelity](common-analytical-basis.md#numeric-fidelity) contracts.
+
+<a id="columnar-analytical-prerequisites"></a>
+## Shared analytical prerequisites brought forward
+
+**Proposed · 2026-11-22.** The [reconciled amendment](../set-based-execution_2026-11-21.md#columnar-redesign-amendment)
+brings the shared fidelity, resource and query-custody parts of SBX-18 before the first typed
+population slice. Those prerequisites serve SBX-01–09 and are owned in the
+[common analytical target](common-analytical-basis.md#columnar-population-target). SBX-19 still
+owns the scoped-relations implementation, independent expected results and adopt, adjust or
+stop decision for that family. The bulk validation design does not establish that another
+kernel's semantics can move into the engine.
+
+Use DuckDB 2.0.0 through the existing analytical owner for relational plans, `from_arrow(pa.Table)`
+for reusable known populations, and `to_arrow_reader(batch_size=...)` for incremental output.
+Windows, range and semi/anti joins, ordered aggregates and `EXCEPT ALL` express the population
+work. Prepare declared shapes once per model and implementation identity. Explicitly own
+materialization for multiple consumers. Keep a reader single-use unless the input is deliberately
+materialized. Set binary collation, UTC, observable order, NULL placement and tie rules. Retain
+exact canonical values where the engine's types or functions differ from the domain.
+
+Arrow 26.0.0 owns schema, batches, IPC and suitable direct column kernels. Acero remains a
+candidate for a specific filter/project stream whose input, output, buffer and cancellation
+lifetimes remove work. The small paused-consumer probe shows read-ahead on that fixture. It
+cannot establish the general absence of backpressure. Python's exposed options, retained
+operator state and spill support must match the selected responsibility. A second relational
+planner requires its own concrete integration benefit.
+
+Configure `pa.set_cpu_count`, `pa.set_io_thread_count`, scanner readahead and DuckDB `threads`,
+async I/O settings, `memory_limit` and private spill under the existing execution-policy owner.
+A buffer-manager limit does not cover complete process memory. Preserve captured code and
+model correspondence, cancellation drain and final resource release. These obligations are
+prerequisites for the actual worker path, without a separate broad qualification campaign.
+
+**Canonical production and authoring.** The reconciled target proposes model-derived canonical
+item text and ordered digest aggregation while keeping the existing identity definition and
+independent Python reference. The recorded identity-rule change must be resolved before use.
+Keep typed authoring under ADR-0135. Captured raw SQL remains a candidate requiring its existing
+decision route, rather than a prerequisite of the columnar pivot. Independent fidelity cases
+cover optional states, wide numbers, escaping, sets, bags and nested mappings before the
+selected generator is used on supported collections.
+[Rule routes](common-analytical-basis.md#decision-routes) ·
+[Library controls](../../design_review/evidence/2026-11-22_sbx-columnar-basis/README.md)
 
 ## Why a trial and not a commitment
 
@@ -73,7 +117,7 @@ range joins; mention to caption by a grouped count; the earlier row with the sam
 window; formal symbols per equation as one join in place of a re-scan per declaration;
 participants to passages and to source intervals by containment and overlap.
 
-**The seam.** Regular expressions, `casefold`, edit distance and canonical identity encoding
+**The seam.** Regular expressions, `casefold`, edit distance and canonical scalar production
 use the existing Python semantics wherever the pinned engine differs. Reconsider an individual
 field only after independent positive and negative parity cases. Acquire typed rows and their
 established invariants under SBX-08/04 before reuse. External input and conversions that can
@@ -86,8 +130,9 @@ answers for the existing typed-expression route, captured DuckDB SQL, and Postgr
 work. Direct Arrow compute remains useful for simple column transforms. Choose one coherent
 implementation for the selected family after accounting for its conversion, preparation and
 cleanup. Capture explicit ordering, NULL placement, join multiplicity and same-position tie
-semantics, including any ASOF match and ordered aggregate. Keep the existing canonical encoder
-at publication.
+semantics, including any ASOF match and ordered aggregate. Reuse the shared canonical-text
+contract within its approved scope. Scoped-relations identity keeps its existing Python
+publication contract unless the family decision explicitly extends that scope.
 
 The [PostgreSQL placement and transfer comparison](common-analytical-basis.md#postgresql-placement-and-transfer)
 owns the shared cut, authorization, ADBC baseline and conditional extension investigation. Feed
@@ -107,8 +152,9 @@ the rule needs per-group counts. Compare the same steps with named captured
 `row_number() OVER (PARTITION BY ... ORDER BY ... NULLS ...)`, `QUALIFY` and ordered aggregates.
 Pair dense-order checks with duplicate cardinality and expected-scope anti-joins so a rank-only
 comparison cannot hide a duplicate or absent group. Bind explicit role, occurrence and generation
-keys where the fact needs them. Set `default_collation` to `binary` beside UTC and preserve
-Python canonical encoding at publication. [Existing analytical owner](../../../python/corpus-structure/src/corpus_structure/analytics.py#L34) ·
+keys where the fact needs them. Set `default_collation` to `binary` beside UTC. Apply the
+shared canonical-text contract only within its approved identity and fidelity scope.
+[Existing analytical owner](../../../python/corpus-structure/src/corpus_structure/analytics.py#L34) ·
 [DuckDB 2.0 expression API](https://duckdb.org/docs/2.0/clients/python/expression) ·
 [Window functions](https://duckdb.org/docs/2.0/sql/functions/window_functions)
 

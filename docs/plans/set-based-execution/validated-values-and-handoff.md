@@ -5,8 +5,9 @@ Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
 This companion owns what happens to a value between PostgreSQL and a kernel, and between one
-operation and the next, inside Python. It owns SBX-08 to SBX-10. None of its packages changes a
-published value or needs a native revision. Source facts are **Inspected** at `7a415d18d`.
+operation and the next, inside Python. It owns SBX-08 to SBX-10. The revised typed carrier is integrated with the native item
+representation before the replacement root. Source facts below describe the original
+**Inspected** baseline at `7a415d18d`.
 
 ## Baseline
 
@@ -53,6 +54,49 @@ columns, selected formula inputs. Formula contexts depend on configuration as we
 which accepts only JSON types and `Decimal`; a body carrying a date, an optional state or a
 collection value would raise.
 
+<a id="typed-worker-custody"></a>
+## Typed worker custody and lifetime
+
+**Selected planning target · Proposed · 2026-11-22.** Follow the
+[columnar redesign amendment](../set-based-execution_2026-11-21.md#columnar-redesign-amendment)
+and the shared [population contract](common-analytical-basis.md#columnar-population-target).
+Rule confirmation for ADR-0145 precedes dependent adoption. SBX-08 retains the single validating
+constructor and SBX-09 retains its request/reply and loaded-code verification bracket.
+
+**One owned representation.** An acquired population holds model-derived Arrow columns,
+canonical item commitments and established facts under the release and interpretation contract.
+Expose only the consumer's declared projection. Preserve explicit optional states and adequate
+numeric meaning. In-process consumers can share compatible buffers while retaining their
+owner. Derive an inventory or index once for a real consumer lifetime. Completion owns the
+shared observations and distinct premise projections for its rule attestations. Remove the
+restoration, repeated canonicalization, freezing and thawing superseded by those acquired views.
+
+**Process boundary.** Write sealed Arrow IPC with PyArrow 26.0.0 `ipc.new_file`, then accept
+through `ipc.open_file` over a memory-mapped file owned by the invocation. Bind schema, logical
+commitments, transfer seal, request identity and declared input projection. Authenticate the
+transfer before relying on its data. IPC byte equality establishes transfer custody while the
+canonical commitments establish logical identity. The parent keeps backing storage alive until
+worker completion and result acceptance. Refuse a changed file, schema or request, and release
+readers, mappings and temporary files on success, failure, expiry and cancellation. Retain the
+post-encoding verification point for PDF/visual outputs and checks covering late code imports.
+
+**Resource ownership.** Configure Arrow CPU/I/O pools at the worker/process owner and coordinate
+DuckDB threads, asynchronous I/O, spill and active invocations through the existing execution
+policy. A relation reader supplies incremental result consumption; joins, windows, sorting and
+aggregates still own retained state. Explicitly materialize once when several consumers need a
+single-use reader. Charge cached typed views by retained backing allocation or scope them to the
+invocation. A small slice can retain a much larger buffer. Close the consumer before releasing
+its source and retire any connection whose cleanup cannot establish a usable state.
+
+**Scope and acceptance.** First migrate annotation, canonical and construction, then HanLP and
+affected member producers and consumers before replacement-root qualification. Remove their
+old population packet path with the migrated callers. Use independent commitments and field
+expectations for multiple batches, empty values, all optional states, dictionary/chunk changes,
+wide numbers, nested HanLP records and renamed/repeated blocks. Exercise early reader close,
+expired attempts, transferred-byte tamper, alias mutation, cancellation and repeated invocation
+cleanup. The [cutover owner](cutover-and-qualification.md#columnar-cutover-sequence) reconciles
+source/root/context applicability of earlier receipts.
+
 ## Target
 
 **A carrier retains established validation.** A source or product carrier can be constructed only
@@ -63,8 +107,9 @@ through its own boundary. A changed validation premise belongs to that boundary'
 construction supplies the custody end ("a hand-built wrapper is not authority") without repeating
 unchanged payload validation.
 
-**Validated once, derived once.** A carrier holds its bytes and its decoded, frozen value. Its
-derived payload views (row view, indexes, inventory, identity) are computed once and held with it.
+**Validated once, derived once.** A population carrier owns its established typed relation and
+its canonical commitments. Small control values retain their appropriate immutable representation.
+Derived payload views (row view, indexes, inventory, identity) are computed once within that owner.
 Immutable payload interpretation is shared per process through a bounded registry keyed by content
 digest and decoder contract. Under [partitions](populations-rules-and-proofs.md#collections-and-partitions)
 the unit held is the partition, keyed by its digest, which PostgreSQL already supplies. Two placed
@@ -91,7 +136,7 @@ envelope and the kernel all use. Role values are not deep-copied; carriers are i
 
 **Workers.** A worker receives bytes sealed by the request digest and accepts them through the
 single acceptance path, as the formal operation does today. The parent validates the returned
-product against its own carriers. The packet format is unchanged.
+product against its own carriers. Population transport follows the sealed typed worker contract below.
 
 **One bracket.** Each port builds its authenticated slice once at admission, covering its code
 closure and assets. Check it inside actual work admission, after capacity is granted, and after
@@ -109,12 +154,12 @@ it does not detect a file changed during the run.
 <a id="sbx-08"></a>
 ## SBX-08 — Validated carriers
 
-**Population hand-off · Selected · 2026-11-22.** The [annotation-fork pilot](common-analytical-basis.md#pilot-implementation-and-evidence)
-retains immutable blocks and already-acquired contextual rows. Primary construction now consumes
-the admitted blocks directly. Finish the affected consumers on that carrier, preserving sealed
-ingress, exact byte admission, attempt correspondence and cleanup. The pilot's alternate Arrow
-transport and native extraction controls remain scoped comparison evidence. The final ordinary
-and spawned consumer paths use the selected carrier.
+**Population hand-off · Revised planning target · 2026-11-22.** The
+[annotation-fork pilot](common-analytical-basis.md#pilot-implementation-and-evidence) selected
+immutable blocks and established scoped parity. That implementation is the baseline for the
+[typed worker replacement](#typed-worker-custody). Migrate acquisition and actual consumers
+together, preserving established facts, exact commitments, attempt correspondence and cleanup.
+The replacement closes only when its ordinary and spawned routes use the same typed contract.
 
 <a id="sbx-live-page-handoff"></a>
 ### Admitted live page handoff

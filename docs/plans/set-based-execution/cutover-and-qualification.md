@@ -1,7 +1,8 @@
 # Cutover and qualification
 
 **Status:** The early producer chain passed in a private target. The cold-root rehearsal
-registered and installed the replacement on an empty database. Integrated acceptance remains open.
+registered and installed the previous physical design on an empty database. Qualification is paused.
+The proposed columnar replacement below precedes the next cold-root authoring and acceptance.
 Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
@@ -31,23 +32,67 @@ dedicated PostgreSQL cluster.
 guard. The checkout immediately before this implementation was `83ab2996d`. SBX-20 uses the
 stage revision and its Git-held native inventory when it prepares the stage transition.
 
+<a id="columnar-cutover-sequence"></a>
+### Columnar replacement before the next cold root
+
+**Proposed · 2026-11-22.** The [reconciled amendment](../set-based-execution_2026-11-21.md#columnar-redesign-amendment)
+selects one typed population path before the next development baseline. The root currently
+registered on `main` records the previous carrier and storage. Keep its dated receipts and
+reassess their applicability by exact source, root, harness and provider context. Independent
+semantic expectations and unaffected scopes remain useful. The source traces establish avoidable
+conversion and repeated work. Native timing attribution and the relative memory contributions
+remain open. Qualification stays paused during this documentation revision.
+
+1. Resolve the recorded rule impacts and the focused target review before production work that
+   depends on changed boundaries. Develop the [shared typed carrier](common-analytical-basis.md#columnar-population-target),
+   canonical-text and engine contracts together with [native item admission](populations-rules-and-proofs.md#typed-item-admission).
+   Use the existing execution-policy owner for Arrow pools, DuckDB threads and spill, worker
+   activity and lifetime. Bring forward the [SBX-18 prerequisites](kernel-trial.md#columnar-analytical-prerequisites).
+2. Deliver annotation → canonical → construction as a complete slice through producer acquisition,
+   worker handoff, transactional COPY, declared-rule admission and exact selected readback. Share
+   completion-owned premise preparation and acquired inventories. Native admission derives or
+   verifies typed rule and address columns against canonical items before relying on them.
+3. Extend the same boundary to nested HanLP/declaration and affected member products. Carry
+   common context once and typed references through their actual consumers. Complete the early
+   [keyed and bulk read](owner-resolved-reads.md#columnar-selected-read) and
+   [worker custody](validated-values-and-handoff.md#typed-worker-custody) scope needed for SBX-09.
+   Retire replaced population packet transport and restoration with its migrated consumers.
+4. Reuse the authenticated session-private COPY intake precedent, then insert admitted rows
+   once into logged retained storage. Publication promotes those same retained rows. Establish
+   attempt ownership, crash-safe acknowledgement and purpose-role permissions. Direct upload
+   into retained tables requires its own demonstrated attempt-scoped permission boundary.
+5. Author and register one null-predecessor root from the complete replacement and install it
+   empty on a qualification target. Reconcile all retained test identities and exact preparation
+   premises. Start one managed owner with bounded cohorts, independent commit clones and real
+   provider scopes. Increase activity only after observing headroom and release. Keep the PDF
+   certification replacement with SBX-14–17, and the general read/replay program with SBX-11/12.
+   Their directly consumed early slices retain their own acceptance through SBX-09.
+6. Qualify the final source and root before the empty development reset below. Stage stays
+   with SBX-20. The scoped-relations family still reaches its own SBX-19 adoption decision.
+
+**Required failure and fidelity cases.** Use independent expected canonical commitments for
+wide numbers, negative zero, exact temporal values, all optional states, nulls, nested mappings,
+sets and bags. Exercise forged projection columns, cross-attempt upload, stale fences before
+preparation and at effects, interrupted COPY, lost acknowledgements, retained-row recovery,
+same-digest replay and individual refusal. Preserve the moved, renamed, repeated, split and
+merged block scenarios, both independent construction reports, current and revoked support,
+post-encoding worker tamper checks and authentic finite and rich publication-to-detached replay.
+Regenerate affected source/root evidence. The fixture parity probes establish their named
+library behavior, and production performance remains unmeasured.
+
 ### Development reset through SBX-09
 
-1. Integrate the remaining consumers of the [selected immutable carrier](common-analytical-basis.md#pilot-implementation-and-evidence)
-   and finish the functional changes through SBX-09, including the
-   [live-page handoff](validated-values-and-handoff.md#sbx-live-page-handoff) and
-   [summary correction](owner-resolved-reads.md#sbx-live-summary-correction). Apply the
-   [efficiency qualification setup](#sbx-efficiency-qualification) before attribution and
-   targeted checks. Verify the already registered sole root against final source. When
-   captured native artifacts change, use an empty authoring database on `18/corpus`
-   created with `uv run ci db init --creation-only` and bind the reader and maintenance
-   settings to it. Run `uv run ci model change preview`, `candidate` and
-   `inspect-candidate` for `semantic_sbx_current_root` with a null predecessor and zero data
-   steps. Confirm captured source, descriptor, objects, grants and rollback. Register the
-   inspected candidate with `uv run ci model change register` and install it with
-   `uv run ci db init` on a separate fresh qualification target. Confirm the sole head,
-   exact descriptor, and intended purpose-role admission and refusal for final source.
-   The retired development chain has a recorded Git baseline for SBX-20.
+1. Complete the [columnar replacement sequence](#columnar-cutover-sequence), including the
+   early selected-read and custody consumers. Apply the [efficiency qualification setup](#sbx-efficiency-qualification)
+   and resolve the pending architectural decisions before dependent implementation. When the
+   integrated captured native artifacts are final, use an empty authoring database on `18/corpus`
+   created with `uv run ci db init --creation-only` and bind reader and maintenance settings to it.
+   Run `uv run ci model change preview`, `candidate` and `inspect-candidate` for
+   `semantic_sbx_current_root` with a null predecessor and zero data steps. Confirm source,
+   descriptor, objects, grants and rollback. Register with `uv run ci model change register`
+   and install with `uv run ci db init` on a fresh qualification target. Confirm the sole head,
+   exact descriptor and purpose-role admission and refusal. The retired development chain has
+   a recorded Git baseline for SBX-20.
 2. Run `just turn-end` before final-source qualification. Run `uv run ci test` and
    `uv run ci check` for the applicable ordinary and shared fault scope. Use
    `uv run ci test --providers-only` for changed real annotation and canonical, HanLP
@@ -106,12 +151,12 @@ Advance a bounded correction before broad qualification when source inspection o
 evidence shows that it removes material repeated work, contention or preparation from a
 required journey while preserving its contract. This includes required journeys that
 already finish within their watchdog. Use a bounded comparison when attribution or lifecycle
-cost could change the choice. For an early scalar read, use the additional
-[SBX-11 selection criteria](owner-resolved-reads.md#sbx-native-read-attribution).
+cost could change the choice. Apply the [SBX-11 attribution
+criteria](owner-resolved-reads.md#sbx-native-read-attribution) to residual scalar read work.
 Inconclusive attribution leaves any required failing identity open while independent work
 continues. Record any remaining conditional optimization and its revisit trigger with the
-owner. Broader SBX-11/12 work and the SBX-18/19 placement decision keep their
-sequence. A changed authority, custody or architectural rule follows the
+owner. The [columnar sequence](#columnar-cutover-sequence) brings forward the consumed
+SBX-11/12 read slice and SBX-18 analytical prerequisites. Their wider scopes retain their owners. A changed authority, custody or architectural rule follows the
 [existing decision route](common-analytical-basis.md#decision-routes) before adoption.
 
 Once scoped read corrections pass, run heavyweight native cases and lighter cases as

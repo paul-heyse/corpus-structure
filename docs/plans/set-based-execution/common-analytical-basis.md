@@ -1,8 +1,10 @@
 # Common analytical basis
 
-**Scheduled · 2026-11-22.** Companion of the [SBX
-coordinator](../set-based-execution_2026-11-21.md#common-analytics-review-amendment). It owns the
-SBX-03/08 pilot, the shared projection contract and the PostgreSQL placement comparison. Package
+**Proposed revision · 2026-11-22.** Companion of the [SBX
+coordinator](../set-based-execution_2026-11-21.md#columnar-redesign-amendment). It owns the
+typed population contract, engine placement, canonical item production and PostgreSQL transfer.
+The reconciled target below awaits the coordinator's explicit rule decisions before dependent
+implementation. The completed SBX-03/08 pilot remains dated evidence. Package
 disposition stays in the coordinator. The full scoped-relations trial and the frozen replay reader
 have their own owners. [Source review
 I01–I04](../../plan_improvement_reviews/set-based-execution-common-analytics_2026-11-22.md)
@@ -16,6 +18,94 @@ The detached reader's earlier removal of a second completion representation illu
 stable hand-off can remove. Failures at installed descriptor correspondence exercise a different
 guarantee. [Inspected paths and scoped
 observations](../../plan_improvement_reviews/set-based-execution-common-analytics_2026-11-22.md#where-the-burden-comes-from)
+
+<a id="columnar-population-target"></a>
+## Typed population target
+
+**Selected for planning · Proposed · 2026-11-22.** The complete target joins the
+[columnar review I01–I06](../../plan_improvement_reviews/set-based-execution-columnar-basis_2026-11-22.md#I01)
+and [redesign review I01–I03, I06–I07](../../plan_improvement_reviews/set-based-execution-efficiency-and-analytical-redesign_2026-11-22.md#I02).
+Derive the population schema and generated computation from the effective release's collection,
+field, address and rule declarations. Produce Arrow columns at acquisition, share one acquired
+population across compatible consumers, carry sealed IPC through actual process boundaries,
+and publish through the native [typed-item admission](populations-rules-and-proofs.md#typed-item-admission).
+Partitions retain their identity, proof and reuse grain. Generic item rows supply authoritative
+keyed and set access. A new collection needs a declaration and derived shape, without a new
+per-collection database table or bespoke resolver.
+
+**Value fidelity.** Derive `pa.schema`, `pa.field`, structs and lists from the model. Represent
+`present`, `known-absent`, `unknown`, `unavailable` and explicit null distinctly where the model
+allows them. Keep exact canonical lexical values for unbounded integers, wide decimals, floats
+and instants wherever the physical engine type would lose meaning. A discriminated nested
+struct with child lists is the first HanLP shape. Its record order contributes to partition
+identity. Dictionary encoding, chunking, compression and buffer layout are physical choices.
+Use `RecordBatch.validate(full=True)` for physical consistency and explicit column predicates
+for required-value and model constraints. The physical Arrow check does not establish domain
+rules or the declared absence states.
+
+**Canonical production.** Preserve the current `canonical_identity` definition. Produce each
+item's canonical tagged text once from the typed population, retaining the Python definition as
+reference. Generate exact framing, escaping, field ordering and ordered partition/field-group
+aggregates from the schema. Carry hard scalar spellings into those expressions as data. The
+native authority checks canonical item text and its shape once and derives or compares every
+rule/address projection against that item before using the projection. Then it recomputes the
+partition, field-group and root commitments from ordered item text. False supplied spans or
+addresses must refuse even when the canonical text and its digest are otherwise valid.
+
+A generator must cover its admitted tag set or refuse at generation. It must preserve all value
+states, open-mapping key order, Unicode/control escaping, set deduplication, bag multiplicity,
+float signs and exact decimal/instant spellings. Engine expression text is outside semantic
+fingerprints. The retained 60-partition identity probe covers one limited row shape. It leaves
+these broader cases open for independent parity checks before that generator's production use.
+[Identity probe](../../design_review/evidence/2026-11-22_sbx-columnar-basis/README.md) ·
+[Numeric contract](#numeric-fidelity)
+
+**One local relational owner.** DuckDB 2.0.0 owns composed local set computation through the
+existing analytical owner. Use `from_arrow(pa.Table)`, windows, semi/anti and range joins,
+ordered aggregates and `EXCEPT ALL` as each operation requires. Prepare model-bound plans once
+and bind runtime inputs separately. A consumer receives `to_arrow_reader(batch_size=...)` for
+incremental output, or an explicitly materialized relation when more than one scan is needed.
+A reader input is single-use. Output batching does not bound a hash join, sort or aggregate's
+state. Binary collation, UTC, explicit order/NULL placement and complete occurrence keys govern
+observable results. Declared rules remain authoritative in PostgreSQL, while producer plans
+establish attested rules and distinct premise projections.
+
+Arrow owns buffers, schemas, IPC and suitable direct column kernels. Acero is conditional for
+an identified filter/project stream that removes an intermediate and has an owned reader and
+resource lifetime. The small threaded fixture demonstrated read-ahead. It did not establish
+absence of eventual backpressure. Inspect exposed queue controls and retained operator state
+for the chosen path. A second general planner has no selected consumer in this target.
+[Arrow reference](../../libraries/analytical_infrastructure/pyarrow.md) ·
+[DuckDB reference](../../libraries/analytical_infrastructure/duckdb_2.md) ·
+[Library evidence](../../design_review/evidence/2026-11-22_sbx-analytical-redesign/README.md)
+
+**Ingress and handoff.** Use strict `pyarrow.json` with an explicit schema only where the provider
+format carries every required value state. Otherwise construct columns directly while acquiring
+those states. Seal `ipc.new_file` output and retain its owner through `ipc.open_file` and
+memory-mapped consumption. IPC digests authenticate the transfer. Logical digests authenticate
+the population. Share a table or materialized owned result for a fork. A compact slice must not
+silently keep a disproportionately large parent allocation alive. Retire tagged transport,
+freezing/thawing, restoration and duplicate indexes with the consumers moved in that slice.
+[Custody owner](validated-values-and-handoff.md#sbx-08)
+
+**Transaction placement.** The existing Psycopg/SQLAlchemy transaction owns pgpq binary COPY
+and protected native admission. Use session-private authenticated intake followed by one
+protected insertion into logged retained item rows. Publication promotes those same retained
+rows. ADBC PostgreSQL 1.13.0 serves eligible committed bulk reads through the existing exact
+exported/imported snapshot and `fetch_record_batch()`. Retain same-session access for scratch
+state and uncommitted values. COPY-compatible reads and bound results have different native
+buffering. Do not infer bounded transfer from the result-reader type alone. Broad ADBC ingest,
+federated writes and direct COPY into retained storage stay conditional on a complete ownership,
+permission and type-fidelity design. [Placement](#postgresql-placement-and-transfer) ·
+[ADBC reference](../../libraries/postgresql/adbc-driver-postgresql.md)
+
+**Resources and acceptance.** Configure Arrow CPU/I/O pools once under process ownership and
+DuckDB threads, asynchronous I/O, memory, private spill and reader cleanup under the existing
+execution policy. Capture the actual exposed settings for the installed versions. Assess the
+full producer→worker→admission→selected-read path, including conversion, canonical publication,
+cleanup and recovered input. Choose the physical design before the next cold root. Qualification
+and the empty reset follow the integrated replacement; prior receipts retain their original
+source and context. [Execution sequence](cutover-and-qualification.md#columnar-cutover-sequence)
 
 <a id="projection-contract"></a>
 ## Projection contract
@@ -65,16 +155,17 @@ nanoseconds in the chosen boundary's independent controls.
 <a id="typed-population-pilot"></a>
 ## Typed population pilot
 
-**Decided · 2026-11-22.** Retain the acquired immutable annotation carrier and its admitted
-blocks through the remaining consumers. The comparison protocol below records the completed
+**Completed pilot decision · 2026-11-22.** The pilot selected the acquired immutable annotation
+carrier and its admitted blocks for the compared routes. The [typed population target](#columnar-population-target)
+revisits acquisition, consumers and storage together under the reconciled planning decision. The comparison protocol below records the completed
 pilot method. Its dated results and selection are in [pilot evidence](#pilot-implementation-and-evidence).
 The [post-pilot review I01–I06](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md)
 supplies the scheduled amendments whose current disposition belongs to the coordinator.
 
 ### Completed comparison protocol
 
-The following directions retain the method used by the completed comparison. Current execution
-uses the recorded immutable-carrier decision and final-root acceptance in the coordinator.
+The following directions retain the method used by the completed comparison. The revised
+execution sequence is owned by the [coordinator amendment](../set-based-execution_2026-11-21.md#columnar-redesign-amendment).
 
 The protocol started with runnable SBX-01 partitions, the SBX-02 proof-binding slice, SBX-05 exact reference
 resolution for the slice and SBX-08 acquired carriers. Use newly admitted fixtures on the existing
@@ -189,9 +280,9 @@ this slice. The PostgreSQL membership route extracts and materializes tagged fie
 lookup that can use the already admitted in-process rows. Its ADBC projection crosses the wire
 with typed columns, while the protected native routine still constructs each tagged packet before
 extraction. The DuckDB connector trial was `not_run` because this pilot exposed no additional
-transfer work it could remove through that same guarded source. Keep these scoped findings for
-the later SBX-18/19 placement decision. Qualify the selected carrier on the final SBX-09 root
-with its remaining consumers.
+transfer work it could remove through that same guarded source. Keep these scoped findings as the baseline for
+the subsequent placement decision. Reassess source/root applicability when qualifying the
+replacement carrier under the [revised target](#columnar-population-target).
 
 <a id="postgresql-placement-and-transfer"></a>
 ## PostgreSQL placement and transfer
@@ -220,24 +311,24 @@ The pilot established exact decimal, UTC and null fidelity on that route. A new 
 verify its own schema and exact selected cut. [Existing transfer and lifetimes](../../../python/corpus-structure/src/corpus_structure/serve/companion_export.py#L125) ·
 [ADBC Python API](https://arrow.apache.org/adbc/current/python/api/adbc_driver_postgresql.html)
 
-**Transfer selection after the efficiency review · Scheduled · 2026-11-22.** A cross-session
+**Transfer conditions · 2026-11-22.** A cross-session
 scan requires the exact acquiring pin to be committed or otherwise already visible in the
 imported snapshot and the called projection to be purpose-granted. Snapshot export does not
 make the acquiring transaction's uncommitted rows visible to the child. Exercise that visibility
 condition with a concurrent change before choosing ADBC for a new live consumer.
 
-Start live read improvement with native projection before packet construction and reuse of
-the admitted page and exact same-cut binding facts. Keep the annotation fork's selected
-immutable carrier. Use a columnar candidate when a named typed population or finite archive
-can remove a complete extraction, materialization or repeated relation scan. Compare the
+Project before packet construction and reuse the admitted page and exact same-cut binding facts.
+The [typed population target](#columnar-population-target) selects columnar acquisition for the
+replacement annotation fork and eligible finite reads. For other consumers, choose it where
+it removes a complete extraction, materialization or repeated relation scan. Compare the
 entire route through transfer, conversion, query, publication or archive authentication,
 cold reopen and cleanup. The existing analytical owner supplies resources and relation
 execution. Use relation `to_arrow_reader(batch_size=...)` for incremental output, with a
 deliberately bounded `to_arrow_table()` when materialization serves repeat scans. A connection
 `execute(...).to_arrow_reader()` copies the complete result in DuckDB 2.0. Verify actual
 producer behavior and close readers before connection reuse. Preserve explicit keys, ordering
-and bag multiplicity through both paths. SBX-11 owns live selection, SBX-12 owns the improved
-D1 replay comparison, and SBX-18/19 own broader named computation placement.
+and bag multiplicity through both paths. SBX-11/12 own the early consumed read and replay
+slice and the later general programs. SBX-18/19 own broader named computation placement.
 [Efficiency review I06](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I06) ·
 [DuckDB 2.0 Arrow export](https://duckdb.org/docs/2.0/guides/python/export_arrow) ·
 [Analytical lifetime](kernel-trial.md#sbx-18)
@@ -277,6 +368,8 @@ its typed authoring or attachment policy is affected.
 
 | Selection that changes a rule | Owning decision |
 |---|---|
+| Population-bearing typed parameters and results | [ADR-0128](../../adr/0128-wire-contract-boundary-validation.md), DESIGN §B4/B5 and the coordinator rule decisions |
+| Engine production of canonical text with the Python definition/reference retained | [ADR-0021](../../adr/0021-instance-and-structure-authorities.md), DESIGN §B4 and the kernel fidelity owner |
 | Captured SQL at the DuckDB or native PostgreSQL owner | [ADR-0135](../../adr/0135-declared-facts-and-typed-database-programs.md), DESIGN §B4/B5 and D3 |
 | Scoped-relations authoring or connection lifetime that changes the accepted trial | [ADR-0148](../../adr/0148-sbx-kernel-trial.md) and the SBX-18/19 owner |
 | Typed worker transport that changes sealed custody | [ADR-0145](../../adr/0145-sbx-custody-boundary.md) and SBX-08/09 |
@@ -294,7 +387,10 @@ could change the choice between conforming routes.
 <a id="capability-dispositions"></a>
 ## Capability dispositions after the pilot
 
-**Scheduled · 2026-11-22.** This section carries the broad capability screen and investigation
+**Reconciled planning dispositions · Proposed · 2026-11-22.** The [typed population target](#columnar-population-target)
+selects Arrow representation and transport plus DuckDB local relational work before SBX-09.
+The completed pilot and its original selection remain evidence for their compared routes.
+This section carries the broad capability screen and investigation
 conditions from the [post-pilot review](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#library-capabilities-examined-and-where-they-pay).
 Each consumer owns its concrete API, acceptance and current disposition. These are bounded
 investigations with decision outcomes, rather than obligations to adopt every available feature.
@@ -308,12 +404,12 @@ keeps scoped capability probes distinct from integrated production evidence.
 
 | Capability and placement | Disposition and decision condition |
 |---|---|
-| Typed Arrow schemas, nested lists/structs, dictionaries and chunks, presence and scalar kernels | Use at existing batch boundaries. Derive `pa.schema`, list/struct fields and exact scalar types from the model, and call `RecordBatch.validate(full=True)` for physical structure. Preserve semantic rules at their owner. SBX-03/08 use the selected immutable objects. Dense Arrow transforms may use `pyarrow.compute` expressions, `struct_field`, `list_flatten` and `list_parent_indices` when the consumer already owns those columns. |
-| Arrow expressions, `Table.group_by`, joins and Acero `Declaration` execution | Conditional in SBX-18/19 when one already typed dense population can share preparation across several consumers. Compare the complete path with the current typed DuckDB owner and native sets. Verify exact null, presence, ordering and multiplicity before selection. Add no common engine abstraction in advance of a selected consumer. |
-| DuckDB windows, grouped checks, semi/anti joins and bag differences | SBX-18/19 own the concrete trial. SBX-04/05 retain owner-native validation and admitted indexes. Independent typed comparisons are useful where they reveal a plausible wrong result. |
+| Typed Arrow schemas, nested lists/structs, dictionaries and chunks, presence and scalar kernels | Use at existing batch boundaries. Derive `pa.schema`, list/struct fields and exact scalar types from the model, and call `RecordBatch.validate(full=True)` for physical structure. Preserve semantic rules at their owner. SBX-03/08 migrate the acquired carrier and affected consumers under the typed population target. Dense Arrow transforms may use `pyarrow.compute` expressions, `struct_field`, `list_flatten` and `list_parent_indices` when the consumer already owns those columns. |
+| Arrow expressions, `Table.group_by`, joins and Acero `Declaration` execution | Arrow direct column kernels fit existing columns. Acero is conditional for a concrete filter/project stream with owned buffering and cleanup. DuckDB owns local composed relational work. Inspect actual read-ahead and blocking state before choosing a stream. |
+| DuckDB windows, grouped checks, semi/anti joins and bag differences | Bring the shared analytical owner and fidelity prerequisites forward for the SBX-03/04 population slice. PostgreSQL evaluates declared forms. DuckDB producer plans establish attested facts and derived outputs. SBX-19 retains its scoped-relations family decision. |
 | Recursive `WITH ... USING KEY`, temporary relations, `MERGE` and triggers | A finite independent selector comparison is optional under SBX-06. Include role, occurrence and generation in the relevant state key, preserve bags using `EXCEPT ALL`, and compare explicit expected arms. The retained probe demonstrates loss from a node-only key. Native publication and readiness retain atomic effects. Revisit local state machinery only if a later analytical consumer needs it. [Probe](../../design_review/evidence/2026-11-22_sbx09-review/README.md) · [Recursive CTE contract](https://duckdb.org/docs/2.0/sql/query_syntax/with) |
 | ASOF, range and NEAREST joins | Candidate in SBX-19 for batched correspondence proposals or range questions. Establish direction, tie rules, extent semantics and independent exact provenance before acceptance. A nearest candidate alone cannot establish occurrence identity. |
-| IPC projection, C Data/C Stream and batch readers | SBX-16 owns projected candidate replay. SBX-18 owns analytical output lifetime. Retain typed buffer owners and treat an imported `RecordBatchReader` as a consumed stream unless explicitly materialized once for repeat scans. An input projection cannot establish omitted-column logical identity. |
+| IPC projection, C Data/C Stream and batch readers | SBX-08/09 own sealed population IPC and the shared analytical prerequisites. SBX-16 owns projected PDF candidate replay. Retain typed buffer owners and treat an imported `RecordBatchReader` as a consumed stream unless explicitly materialized once for repeat scans. An input projection cannot establish omitted-column logical identity. |
 | Parquet pruning, row groups, statistics, manifests and spill | SBX-12 owns frozen replay. Choose projected and filtered scans or a bounded reusable lookup from the actual access shape. Physical compression and row-group changes preserve logical identity. Investigate layout or spill quantitatively only when serious memory or scan uncertainty can change the choice. |
 | DuckDB VARIANT and Arrow extension types, graph/spatial/text/vector extensions | Revisit only for a named consumer whose domain benefits from the extra representation or indexed query. Use model-derived fixed types for the present rules. DuckPGQ would introduce another graph projection and needs an actual uncovered analysis. Retrieval index choices belong with retrieval consumers. |
 | Flight/Flight SQL, Substrait, device/GPU interchange, remote DuckDB/Quack and DuckLake | Deferred until a consumer can name the eliminated handoff or computation and account for the new execution, deployment and custody boundary. A new durable authority follows the existing architecture decision route. |

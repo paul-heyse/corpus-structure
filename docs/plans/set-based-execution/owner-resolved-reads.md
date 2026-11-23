@@ -4,8 +4,9 @@
 **Created:** 2026-11-21.
 
 This companion owns the read side: what a reader may ask PostgreSQL, what the replaying readers
-carry, and how answers are paged and cached. It owns SBX-11 to SBX-13 and is carried by native
-revision B. Source facts are **Inspected** at `7a415d18d`. The common analytics amendment
+carry, and how answers are paged and cached. It owns SBX-11 to SBX-13. The early typed item/read
+slice is carried by the replacement SBX-09 root. The general read program and archive work retain
+native revision B ownership. Source facts are **Inspected** at `7a415d18d`. The common analytics amendment
 schedules review I04 below against source `d884fa8a2` and review commit `8fab53dd5`.
 
 ## Baseline
@@ -78,6 +79,54 @@ footer. Integrated archive publication and recovery still require the SBX-12 evi
 [Review I04](../../plan_improvement_reviews/set-based-execution-common-analytics_2026-11-22.md#I04) ·
 [Pinned-build evidence](../../design_review/evidence/2026-11-22_sbx-common-analytics/README.md)
 
+<a id="columnar-selected-read"></a>
+## Typed selected access and replay
+
+**Selected planning target · Proposed · 2026-11-22.** The
+[columnar redesign amendment](../set-based-execution_2026-11-21.md#columnar-redesign-amendment)
+selects a guarded keyed and bulk read slice before SBX-09 qualification. It consumes the
+[stored item relation](populations-rules-and-proofs.md#typed-item-admission) and the
+[typed reference/binding contract](references-and-projection-keys.md#columnar-reference-and-binding).
+The general answer programs, freshness/cursor work and complete archive retirement remain with
+SBX-11/12. Rule confirmation precedes adoption of the revised population-bearing wire boundary.
+
+**One source for two access shapes.** A point access authenticates the actual producing role,
+selected use and parent, then reaches the declared item key through the native index. Fetch only
+its required content and authority premises. A finite bulk request selects the authorized item
+relation before tagged envelope construction. Its row schema is the model-derived projection,
+with canonical item text where logical identity requires it. Member envelopes carry common context
+once and expose typed reference rows. Derive binding rows once per read scope. Cached content and
+stored digests may avoid reconstruction, while each actual use rechecks current authority and
+required support. Reacquire completeness for absence answers and distinguish an undisclosed
+parent from an absent item.
+
+**Columnar extraction.** Reuse the companion export's exact-snapshot pattern for committed
+bulk reads: keep the authorizing PostgreSQL transaction alive, import its snapshot into the owned
+ADBC PostgreSQL 1.13.0 session, run eligible unparameterized COPY-compatible projection SQL and
+consume `fetch_record_batch()` through bounded batches. Typed results must reach their real
+consumer or `ParquetWriter` directly. Keep same-session Psycopg reads where uncommitted state is
+required. Bound ADBC results use a different native buffering path, so the reader interface alone
+establishes no memory bound. Preserve purpose-role, schema, cut and cancellation ownership through
+reader close and transaction settlement. See [transfer contracts](common-analytical-basis.md#columnar-population-target).
+
+**One relational replay.** SBX-12 reads sealed Parquet relations directly through DuckDB 2.0.0
+and uses anti-joins, `EXCEPT ALL`, grouped counts and explicitly ordered digest aggregation for
+closure, membership and identity. Carry original producing bindings and captured cut evidence.
+Both live and detached inputs feed the same structural projection contract. Remove the selected
+SQLite index, JSONL-to-index reconstruction and per-product lookup loops when their replaying
+consumers have moved. Keep the canonical fold where it is required for content commitments.
+The early SBX-09 slice migrates its authentic finite/rich export and replay consumers; completing
+that slice establishes its declared scope, while the remaining archive consumers stay open.
+
+**Publication and verification.** The manifest seals the full relation file set, schema,
+logical commitments, selected scope, lineage and authorized empty relations. Choose Parquet
+sorting and row-group layout for the requested keys, then verify actual pruning only where it
+could affect the layout decision. Existing probes establish filter/projection plan evidence.
+Exercise a missing item in a valid partition, two producer-local positions, duplicate references,
+revocation after cache warming or between pages, concurrent commits after snapshot export,
+malformed canonical/projection pairs and an interrupted archive publication. Preserve authentic
+finite and rich replay under the [replacement qualification sequence](cutover-and-qualification.md#columnar-cutover-sequence).
+
 ## Target
 
 **A small family of programs behind one boundary.** Each calls the shared read-currency and
@@ -87,7 +136,7 @@ authorization steps and shares the scope, walk and output projections.
 |---|---|---|
 | Frontier (existing) | The cut, obligations, uses with their output references | Unchanged in role |
 | Outputs | For uses in scope: derivation, request operation, output role and position, product or member with kind and context, body on request; filtered by kind, member or address, record type; keyset-paged over output position and member or partition | Stripping and rebuilding the join; member filters after the fact; one-obligation paging |
-| Partitions | For a product and collection: partitions by key or in ordinal order, with digests and item counts, bodies and chosen field groups on request | Whole-body reads for populations |
+| Partitions/items | For an authorized product and collection: partition metadata, indexed item addresses, or selected typed rows and field groups in declared order | Whole-partition hydration for point references and JSON expansion before bulk transfer |
 | Derivation facts | For a derivation: its recorded inputs with resolved support; for a product: its producing derivations with release, recipe and outcome | Scans of input and output relations; the Python mirror of support matching |
 | Proofs | For products or partitions and a rule set: which are established | New |
 | Support subgraph (existing export) | The raw relations of the closure, now including partitions and proof rows | Unchanged in role; for replay only |
@@ -211,12 +260,12 @@ projection, which is what makes replay meaningless.
 <a id="sbx-11"></a>
 ## SBX-11 — The read programs
 
-**Conditional early scalar slice · Scheduled · 2026-11-22.** SBX-11 owns the installed scalar
-construction caller through the existing resolver and guarded exact-parent/partition reads.
-After the [admitted-page correction](validated-values-and-handoff.md#sbx-live-page-handoff),
-advance this bounded slice before the SBX-09 reset only when a required ordinary caller still
-violates its accepted contract or existing bound and representative native attribution identifies
-a conforming correction. Its final contract must remove full-closure preparation, work within
+**Early scalar slice · Proposed replacement · 2026-11-22.** SBX-11 owns the scalar construction
+caller and its transition from guarded parent/partition reads to
+[indexed item access](#columnar-selected-read). The earlier registered-root plan made an
+interim correction conditional on a reproduced bound failure and native attribution. The
+typed replacement supplies its keyed path as a direct consumer of the physical redesign.
+Its final contract must remove full-closure preparation, work within
 the normal 8 MiB examined bound, and preserve producing input, exact current use, occurrence,
 multiplicity and withheld-versus-absent behavior. SBX-05 supplies that caller's reference and
 occurrence contract. Reuse the acquired cut and authorize each lookup. The fork's 64 MiB
@@ -270,11 +319,11 @@ and absent-versus-withheld standing. Include equal-content members with differen
 uses. A digest or context-only acquisition supplies only the
 facts its contract establishes.
 
-Record the selected correction, a reasoned decision to retain the current route, or partial
-attribution with the missing observation and revisit condition. Advance a native correction
-under the conditional early slice only when its reproduction and attribution satisfy that
-slice's criteria. An inconclusive optimization inquiry leaves every failing required identity
-open under the cutover owner. The full keyed reader migration remains in this package.
+Record the selected correction or partial attribution with the missing observation and revisit
+condition. Keep residual timing-driven work conditional on material cost in the route that will
+survive the replacement. The early keyed path remains a required consumer of the proposed
+replacement; the full keyed reader migration remains in this package. An inconclusive
+optimization inquiry leaves failing required identities open under the cutover owner.
 [Coordinator amendment](../set-based-execution_2026-11-21.md#validation-postgresql-efficiency-amendment)
 
 **Additional scope and evidence.** Demonstrate a keyed read, a legitimate empty
@@ -312,8 +361,8 @@ mirror of input support matching; member expansion and filtering over whole bodi
 headers in the outputs answer.
 
 **Failure behaviour.** A request for a body the principal may not see refuses as today. A page
-that cannot fit one row within its byte bound refuses, naming the row; with partitions the unit
-is a block, not a product.
+that cannot fit one row within its byte bound refuses, naming the row. Typed item reads enforce
+row and byte limits before hydration; partition metadata retains its own access shape.
 
 **Evidence.** For each migrated reader, its existing tests pass with expectations unchanged. The
 outputs program, asked for members of one kind in one product, returns exactly those rows, in
