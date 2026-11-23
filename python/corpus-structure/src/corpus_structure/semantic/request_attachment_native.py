@@ -1097,6 +1097,7 @@ def _attachment_program(model, protocol: bytes):
     projection_digest = _value("projection_digest")
     computation_key = _value("projected_basis_key")
     reused_id = _value("reused_id")
+    reused_intent = _value("reused_intent")
     reused_completion = _value("reused_completion", JSONB())
     projected_adoption = _value("projected_adoption", Boolean())
     lifecycle = wire["data_task_state"]["x-ddo-lifecycle"]
@@ -1556,7 +1557,7 @@ def _attachment_program(model, protocol: bytes):
     )
     prior = requests.alias("projected_producer_request")
     candidates = (
-        select(episodes.c.id, intents.c.payload)
+        select(episodes.c.id, intents.c.id, intents.c.payload)
         .select_from(
             computations.join(prior, prior.c.id == computations.c.request_id)
             .join(
@@ -1595,7 +1596,7 @@ def _attachment_program(model, protocol: bytes):
         ),
         (
             ForQuery(
-                ("reused_id", "reused_completion"),
+                ("reused_id", "reused_intent", "reused_completion"),
                 candidates,
                 (
                     CatchDependencyInvalidity(
@@ -1608,7 +1609,7 @@ def _attachment_program(model, protocol: bytes):
                                 (
                                     Perform(
                                         func.ops.ddo_assert_output_references(
-                                            current_request, reused_completion
+                                            current_request, reused_completion, reused_intent
                                         )
                                     ),
                                 ),
@@ -2117,6 +2118,7 @@ def _attachment_program(model, protocol: bytes):
                 "projection_digest",
                 "projected_basis_key",
                 "reused_id",
+                "reused_intent",
             )
         ),
         Local("task", pg_type("bigint")),

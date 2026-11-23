@@ -369,7 +369,9 @@ class SelectedAnnotationTargets:
         self.index = index
         self.demand_id = cut.record["demand_id"]
         self.access = IndexedReferenceAccess(
-            lambda relation, *keys: index.mapping(relation, keys), cut.record["project_id"]
+            lambda relation, *keys: index.mapping(relation, keys),
+            cut.record["project_id"],
+            population_archive=getattr(index, "population_archive", None),
         )
         self.producers = {}
 
@@ -445,9 +447,9 @@ class SelectedAnnotationTargets:
                 reference,
                 ReferenceTarget("sentences", "partition-item", binding.kind_contract, "rows"),
             )
-            packet = self.access.partitions[
+            packet = self.access.partition_header(
                 binding.product_id, reference.collection, reference.partition_key
-            ]
+            )
         except (KeyError, ValueError) as error:
             raise ReferenceError(
                 "annotation witness is outside the exact selected partition"

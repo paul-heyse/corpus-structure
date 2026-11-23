@@ -69,6 +69,24 @@ class IndexedReferenceAccess:
             (product_id, collection, partition_key), item_key, self._partition
         )
 
+    def partition_header(self, product_id, collection, partition_key):
+        from .selected_population_archive import POPULATION_HEADERS
+
+        if self._population_archive is not None:
+            rows = tuple(
+                self._population_archive.rows(
+                    POPULATION_HEADERS,
+                    product_id=product_id,
+                    collection=collection,
+                    partition_key=partition_key,
+                )
+            )
+            if len(rows) > 1:
+                raise ValueError("selected population repeats its partition address")
+            if rows:
+                return rows[0]
+        return self.partitions[product_id, collection, partition_key]
+
     def _partition(self, product_id: str, collection: str, partition_key: str):
         partition = self.partitions[product_id, collection, partition_key]
         parent = self.product_header(product_id)

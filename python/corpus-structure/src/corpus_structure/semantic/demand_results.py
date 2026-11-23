@@ -440,7 +440,7 @@ def _close_selected_archive(connection, handle):
     )
 
 
-def stream_selected_archive_population(connection, handle, *, items):
+def stream_selected_archive_population(connection, handle, *, items, partition=None):
     """Fetch typed rows from the same authenticated scratch handle without JSON assembly."""
     from sqlalchemy import BigInteger, Boolean, Text, bindparam, func, select
 
@@ -454,11 +454,15 @@ def stream_selected_archive_population(connection, handle, *, items):
             bindparam("collection", type_=Text()),
             bindparam("partition", type_=Text()),
             bindparam("ordinal", type_=BigInteger()),
+            bindparam("selected_product", type_=Text()),
+            bindparam("selected_collection", type_=Text()),
+            bindparam("selected_partition", type_=Text()),
         )
         .table_valued(*population_fields(), "fits")
         .alias("selected_population")
     )
     after = (None, None, None, None)
+    product, collection, key = (None, None, None) if partition is None else partition
     while True:
         rows = (
             connection.execute(
@@ -466,6 +470,9 @@ def stream_selected_archive_population(connection, handle, *, items):
                 dict(
                     handle=handle,
                     items=items,
+                    selected_product=product,
+                    selected_collection=collection,
+                    selected_partition=key,
                     **dict(
                         zip(("product", "collection", "partition", "ordinal"), after, strict=True)
                     ),

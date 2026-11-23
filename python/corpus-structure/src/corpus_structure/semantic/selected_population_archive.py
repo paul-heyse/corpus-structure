@@ -202,27 +202,56 @@ class LivePopulationArchive:
         self.handle = None
 
     def rows(self, relation, **fields):
-        if relation != POPULATION_HEADERS:
-            raise ValueError("online selected populations expose metadata or one addressed item")
-        return self.index.rows_for(relation, **fields) if fields else self.index.rows(relation)
+        if relation == POPULATION_HEADERS:
+            return self.index.rows_for(relation, **fields) if fields else self.index.rows(relation)
+        if relation != POPULATION_ITEMS or set(fields) != set(KEY_FIELDS):
+            raise ValueError("online population items require one exact partition address")
+        return self._items(fields)
+
+    def _items(self, fields):
+        from .demand_results import stream_selected_archive_population
+
+        key = tuple(fields[field] for field in KEY_FIELDS)
+        parent = self.index.mapping(POPULATION_HEADERS, KEY_FIELDS)[key]
+        examined = 0
+        count = 0
+        for batch in stream_selected_archive_population(
+            self.connection, self._handle(), items=True, partition=key
+        ):
+            for row in batch:
+                if row["ordinal"] != count or tuple(row[name] for name in KEY_FIELDS) != key:
+                    raise ValueError("selected archive rows differ from their requested partition")
+                count += 1
+                examined += 16 + sum(
+                    len(row[name].encode("utf-8"))
+                    for name in (*KEY_FIELDS, "address_key", "canonical_text")
+                )
+                if examined > self.max_bytes:
+                    raise ValueError("selected archive population exceeds max_bytes")
+                yield row
+        if count != parent["item_count"]:
+            raise ValueError("selected archive rows differ from the admitted item count")
+
+    def _handle(self):
+        from .demand_results import _open_selected_archive
+
+        if self.handle is None:
+            self.handle = _open_selected_archive(
+                self.connection, self.cut, max_bytes=self.max_bytes, batch_rows=64
+            )
+        return self.handle
 
     def item(self, product_id, collection, partition_key, item_key):
         from sqlalchemy import bindparam, func, select
         from sqlalchemy.dialects.postgresql import JSONB
-
-        from .demand_results import _open_selected_archive
 
         parent = self.index.mapping(POPULATION_HEADERS, KEY_FIELDS).get(
             (product_id, collection, partition_key)
         )
         if parent is None:
             raise KeyError(item_key)
-        if self.handle is None:
-            self.handle = _open_selected_archive(
-                self.connection, self.cut, max_bytes=self.max_bytes, batch_rows=1
-            )
         projection = func.ops.read_selected_archive_item(
-            self.handle,
+            self._handle(),
             product_id,
             collection,
             partition_key,

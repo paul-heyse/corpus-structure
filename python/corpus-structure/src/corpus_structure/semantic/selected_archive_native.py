@@ -62,6 +62,7 @@ from .native_program import (
     core_variable,
     pg_type,
 )
+from .native_program import literal as pg_literal
 from .native_program_registry import ProgramDeclaration
 
 
@@ -607,6 +608,9 @@ def _population_reader(model, sessions, keys, issuer, locals_):
     after_collection = core_variable("p_after_collection", Text())
     after_partition = core_variable("p_after_partition", Text())
     after_ordinal = core_variable("p_after_ordinal", BigInteger())
+    selected_product = core_variable("p_product", Text())
+    selected_collection = core_variable("p_collection", Text())
+    selected_partition = core_variable("p_partition", Text())
     products = model.tables["kb.data_product"]
     visible = model.tables["kb.data_product_population"]
     parents = model.tables["ops.data_retained_population"]
@@ -628,6 +632,13 @@ def _population_reader(model, sessions, keys, issuer, locals_):
     )
     text_null, number_null = cast(null(), Text()), cast(null(), BigInteger())
     identity = tuple(visible.c[name] for name in KEY_FIELDS)
+    coordinates = (selected_product, selected_collection, selected_partition)
+    selected_partition_scope = or_(
+        and_(*(coordinate.is_(None) for coordinate in coordinates)),
+        and_(
+            *(field == coordinate for field, coordinate in zip(identity, coordinates, strict=True))
+        ),
+    )
     headers = (
         select(
             *identity,
@@ -640,7 +651,7 @@ def _population_reader(model, sessions, keys, issuer, locals_):
             text_null.label("canonical_text"),
         )
         .select_from(source)
-        .where(~items_requested)
+        .where(~items_requested, selected_partition_scope)
     )
     members = (
         select(
@@ -658,7 +669,7 @@ def _population_reader(model, sessions, keys, issuer, locals_):
                 items, and_(*(items.c[field] == visible.c[field] for field in retained_key))
             )
         )
-        .where(items_requested)
+        .where(items_requested, selected_partition_scope)
     )
     typed = headers.union_all(members).subquery("selected_typed_population")
     keys_ordered = (
@@ -711,6 +722,9 @@ def _population_reader(model, sessions, keys, issuer, locals_):
             Parameter("p_after_collection", pg_type("text")),
             Parameter("p_after_partition", pg_type("text")),
             Parameter("p_after_ordinal", pg_type("bigint")),
+            Parameter("p_product", pg_type("text"), pg_literal(None)),
+            Parameter("p_collection", pg_type("text"), pg_literal(None)),
+            Parameter("p_partition", pg_type("text"), pg_literal(None)),
         ),
         returns=returns,
         table_columns=(
@@ -725,6 +739,13 @@ def _population_reader(model, sessions, keys, issuer, locals_):
         body=Block(
             (
                 *_read_population_cut(model, sessions, keys, issuer, handle),
+                _refusal(
+                    and_(
+                        or_(*(coordinate.is_(None) for coordinate in coordinates)),
+                        or_(*(coordinate.is_not(None) for coordinate in coordinates)),
+                    ),
+                    "selected population lookup requires a complete partition address",
+                ),
                 ReturnQuery(
                     select(
                         *(case((fits, prefix.c[name])) for name in population_fields()),

@@ -46,6 +46,21 @@ def _body(index, product, member=None):
 
 
 def _partition(index, product_id, collection, partition_key):
+    from corpus_structure.semantic.selected_population_archive import POPULATION_HEADERS
+
+    if (archive := getattr(index, "population_archive", None)) is not None:
+        typed = tuple(
+            archive.rows(
+                POPULATION_HEADERS,
+                product_id=product_id,
+                collection=collection,
+                partition_key=partition_key,
+            )
+        )
+        if len(typed) == 1:
+            return typed[0]
+        if typed:
+            raise SelectedReferenceRefusal("reference partition repeats its exact address")
     rows = tuple(
         index.rows_for(
             "kb.data_product_partition",
@@ -59,6 +74,37 @@ def _partition(index, product_id, collection, partition_key):
             "reference partition is outside the exact selected native closure"
         )
     return rows[0]
+
+
+def _restore_annotation(index, product_id, source, header, layout, partition):
+    from corpus_structure.semantic.data_operation_json import native_json_loads
+    from corpus_structure.semantic.selected_population_archive import POPULATION_ITEMS
+    from corpus_structure.semantic.sentence_partitions import SentenceBlock
+    from corpus_structure.semantic.sentence_products import (
+        _annotation_block,
+        _annotation_row,
+        _restore_selected_annotation_rows,
+        restore_selected_annotation_partition,
+    )
+
+    if "body" in partition:
+        return restore_selected_annotation_partition(source, header, layout, partition)
+    rows = index.population_archive.rows(
+        POPULATION_ITEMS,
+        product_id=product_id,
+        collection=partition["collection"],
+        partition_key=partition["partition_key"],
+    )
+    block = SentenceBlock(
+        partition["partition_key"],
+        partition["ordinal"],
+        partition["placement"]["start"],
+        partition["placement"]["end"],
+        tuple(decode_semantic_value(native_json_loads(row["canonical_text"])) for row in rows),
+    )
+    row = _annotation_row(_annotation_block(layout, block))
+    (product,) = _restore_selected_annotation_rows(source, header, (row,))
+    return product
 
 
 def _output_address(row):
@@ -409,9 +455,6 @@ class PreparedNativeReferenceScoring:
 
         from corpus_structure.ingest.annotation_views import annotation_view
         from corpus_structure.ingest.annotations import AnnotationUnavailable
-        from corpus_structure.semantic.sentence_products import (
-            restore_selected_annotation_partition,
-        )
 
         from .native_scoring import SelectedNativeScoringQuestion, score_native
 
@@ -471,8 +514,8 @@ class PreparedNativeReferenceScoring:
             key = json_bytes(pin), partition_key, required
             if key not in stage.views:
                 if partition_key not in stage._products:
-                    stage._products[partition_key] = restore_selected_annotation_partition(
-                        source, checked, layout, packet
+                    stage._products[partition_key] = _restore_annotation(
+                        index, product_id, source, checked, layout, packet
                     )
                 product = stage._products[partition_key]
                 stage.views[key] = annotation_view(product, text, Vocab(), required=required)
