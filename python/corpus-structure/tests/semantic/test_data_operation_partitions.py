@@ -186,7 +186,7 @@ def test_compiled_collection_admits_header_and_checks_native_item_schema(product
     originals = [[{"start": 0, "end": 4}]] * 3
     key = realize(product_connection, context, completion(originals))
     with (
-        pytest.raises(DBAPIError, match="partition item violates"),
+        pytest.raises(DBAPIError, match="population item is not canonical or violates"),
         product_connection.begin_nested(),
     ):
         realize(

@@ -286,15 +286,6 @@ class WireProductPartitionPlacement(TypedDict):
     start: Required[WireNonnegativeInteger]
 
 
-class WireProductPartition(TypedDict):
-    body: Required[WireSemanticValue]
-    collection: Required[WireIdentifier]
-    ordinal: Required[WireNonnegativeInteger]
-    partition_digest: Required[WireIdentifier]
-    partition_key: Required[WireIdentifier]
-    placement: Required[WireProductPartitionPlacement]
-
-
 class WireProductPopulationManifest(TypedDict):
     collection: Required[WireIdentifier]
     group_digests: Required[dict[str, WireIdentifier]]
@@ -310,7 +301,7 @@ class WireProduct(TypedDict):
     body: Required[WireSemanticValue]
     kind_contract: Required[WireKindContract]
     members: Required[list[WireProductMember]]
-    partitions: NotRequired[list[WireProductPartition | WireProductPopulationManifest]]
+    partitions: NotRequired[list[WireProductPopulationManifest]]
 
 
 class WireOutputMember(TypedDict):
@@ -1392,6 +1383,15 @@ class WirePopulation(TypedDict):
     name: Required[WireIdentifier]
     population_id: Required[WirePopulationId]
     semantic_key: Required[WireIdentifier]
+
+
+class WireProductPartition(TypedDict):
+    body: Required[WireSemanticValue]
+    collection: Required[WireIdentifier]
+    ordinal: Required[WireNonnegativeInteger]
+    partition_digest: Required[WireIdentifier]
+    partition_key: Required[WireIdentifier]
+    placement: Required[WireProductPartitionPlacement]
 
 
 class WirePublishDataDerivationRequest(TypedDict):

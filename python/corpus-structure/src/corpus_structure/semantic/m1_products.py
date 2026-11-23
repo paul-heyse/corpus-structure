@@ -78,6 +78,7 @@ def m1_profile_assets(configuration, record_schemas):
         "semantic/declared_candidate_products.py",
         "semantic/sentence_products.py",
         "semantic/sentence_partitions.py",
+        "semantic/data_operation_partitions.py",
         "semantic/sentence_population_inputs.py",
     )
     return SourceArtifact(
@@ -141,6 +142,7 @@ def m1_acquisition_specification():
         ),
         support_modules=(
             "corpus_structure.semantic.declared_candidate_products",
+            "corpus_structure.semantic.data_operation_partitions",
             "corpus_structure.semantic.data_operation_prepared_call",
         ),
     )
@@ -231,7 +233,9 @@ class PreparedM1Inputs:
             partitions=annotations.packets,
             populations=annotations.populations,
         )
-        if checked["source"] != primary["source"] or tuple(checked["selectors"]) != tuple(primary["selectors"]):
+        if checked["source"] != primary["source"] or tuple(checked["selectors"]) != tuple(
+            primary["selectors"]
+        ):
             raise ValueError("M1 annotations belong to another exact source/scope")
         from corpus_structure.ingest.sentences import SentenceConfig
 
@@ -347,8 +351,10 @@ def execute_m1_kernel(
     )
     return (
         yield from M1SourceCandidatesOperation(profile).run(
-            primary, annotation_placements.attach(annotation_header, annotation_items),
-            construction, sources,
+            primary,
+            annotation_placements.attach(annotation_header, annotation_items),
+            construction,
+            sources,
         )
     )
 

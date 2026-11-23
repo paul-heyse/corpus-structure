@@ -278,6 +278,7 @@ def _canonical_population_table(
     import pyarrow as pa
 
     from .data_operation_values import decode_semantic_value
+    from .native_source_view import thaw_native
     from .sentence_partitions import COLLECTION
 
     selected = inventory["collections"][COLLECTION]
@@ -303,7 +304,7 @@ def _canonical_population_table(
                 count, block_rows = geometry.table.num_rows, geometry.rows()
                 digest = part["geometry_digest"]
             else:
-                block_rows = decode_semantic_value(part["body"])
+                block_rows = decode_semantic_value(thaw_native(part["body"]))
                 count = len(block_rows)
                 digest = sha256(canonical_bytes(part["body"])).hexdigest()
             placements.append(
@@ -746,8 +747,8 @@ class PreparedCanonicalPort:
         ):
             raise PortRefusal("canonical projection requires its actual nominal inventory role")
         partitioned = values[0].partitioned
-        if binding is not None and partitioned.populations:
-            if not isinstance(values[0], HydratedRoleValue):
+        if binding is not None:
+            if not isinstance(values[0], HydratedRoleValue) or partitioned.packets:
                 raise PortRefusal("canonical geometry requires its authenticated selected role")
             HydratedRoleValue._require_selected(values[0], binding)
         retained = sentence_product_payload(

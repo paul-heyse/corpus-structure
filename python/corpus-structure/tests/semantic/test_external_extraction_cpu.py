@@ -35,7 +35,7 @@ from corpus_structure.semantic.data_operation_partitions import partition_header
 from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.external_extraction import (
-    RichAnnotationPackets,
+    RichAnnotationInputs,
     execute_rich_kernel,
     rich_external_declarations,
 )
@@ -43,10 +43,17 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.sentence_population_inputs import SentencePopulationInputs
 from corpus_structure.semantic.types import ResolvedDependencies
 from semantic.proposals_support import batch
 from semantic.test_external_rich_extraction import controlled_external_sources, frame, packet
 from semantic.test_external_rich_extraction import rich_bundle as rich_bundle
+
+
+def annotation_metadata(role, position, packets=()):
+    return RichAnnotationInputs(
+        role, position, SentencePopulationInputs((), tuple(canonical_bytes(p) for p in packets))
+    )
 
 
 @pytest.fixture(scope="module")
@@ -273,7 +280,7 @@ def actual_extraction_replies(captured_rich):
             (
                 "prepare.external_extraction",
                 prepare_basis(prepared, model),
-                (RichAnnotationPackets("annotations", 0, ()),),
+                (annotation_metadata("annotations", 0),),
             ),
             ("locate.external_extraction", locate_basis(model), ()),
         ):
@@ -281,11 +288,14 @@ def actual_extraction_replies(captured_rich):
                 action=action,
                 input_basis=basis,
                 asset_content=asset,
-                annotation_packets=annotations,
+                annotations=annotations,
+                annotation_items=(),
                 prepared=prepared,
                 check_active=lambda: None,
             )
-            packet_digest = sha256(descriptor.packet(bound.arguments, signature)).hexdigest()
+            packet_digest = sha256(
+                descriptor.packet(bound.arguments, signature, populations={"annotation_items": ()})
+            ).hexdigest()
             reply = drive_prepared_work(
                 plan_cpu_call(
                     descriptor,
@@ -294,6 +304,7 @@ def actual_extraction_replies(captured_rich):
                     verify=lambda: None,
                     execution_owner=SimpleNamespace(cpu=cpu, reservation=None),
                     check_active=lambda: None,
+                    population_inputs={"annotation_items": ()},
                 ),
                 lambda: None,
             )
@@ -374,7 +385,7 @@ def test_child_refuses_other_recipe_and_wrong_source_context(captured_rich):
             "prepare.external_extraction",
             semantic_value(basis),
             asset,
-            annotation_packets=(RichAnnotationPackets("annotations", 0, ()),),
+            annotations=(annotation_metadata("annotations", 0),),
             prepared=prepared,
             check_active=lambda: None,
         )
@@ -390,9 +401,9 @@ def test_child_preserves_actual_nondense_sequence_positions(captured_rich):
         "prepare.external_extraction",
         tagged,
         placement_asset(sources),
-        annotation_packets=(
-            RichAnnotationPackets("context_annotations", 12, ()),
-            RichAnnotationPackets("annotations", 0, ()),
+        annotations=(
+            annotation_metadata("context_annotations", 12),
+            annotation_metadata("annotations", 0),
         ),
         prepared=prepared,
         check_active=lambda: None,
@@ -412,7 +423,7 @@ def test_child_preserves_actual_nondense_sequence_positions(captured_rich):
 def test_annotation_packet_authenticates_rows_and_placement_against_selected_header():
     packet = partition_packet("rows", "block-one", 0, 5, 8, [{"ordinal": 0, "end": 3}])
     header = {"rows": partition_header((packet,))}
-    (block,) = RichAnnotationPackets("annotations", None, (packet,)).attach(header).blocks
+    (block,) = annotation_metadata("annotations", None, (packet,)).attach(header, ()).blocks
     assert (block.key, block.start, block.end, block.rows) == (
         "block-one",
         5,
@@ -421,14 +432,14 @@ def test_annotation_packet_authenticates_rows_and_placement_against_selected_hea
     )
     replaced = deepcopy(packet)
     replaced["body"] = semantic_value([{"ordinal": 0, "end": 2}])
-    with pytest.raises(ValueError, match="content digest"):
-        RichAnnotationPackets("annotations", None, (replaced,)).attach(header)
+    with pytest.raises(ValueError, match="partition digest differs"):
+        annotation_metadata("annotations", None, (replaced,)).attach(header, ())
     moved = deepcopy(packet)
     moved["placement"] = {"start": 10, "end": 13}
-    with pytest.raises(ValueError, match="selected header"):
-        RichAnnotationPackets("annotations", None, (moved,)).attach(header)
-    with pytest.raises(ValueError, match="selected header"):
-        RichAnnotationPackets("annotations", None, ()).attach(header)
+    with pytest.raises(ValueError, match="selected collection commitment"):
+        annotation_metadata("annotations", None, (moved,)).attach(header, ())
+    with pytest.raises(ValueError, match="selected collection commitment"):
+        annotation_metadata("annotations", None).attach(header, ())
 
 
 def test_child_refuses_packets_at_unselected_sequence_position(captured_rich):
@@ -438,9 +449,9 @@ def test_child_refuses_packets_at_unselected_sequence_position(captured_rich):
             "prepare.external_extraction",
             prepare_basis(prepared, model),
             placement_asset(sources),
-            annotation_packets=(
-                RichAnnotationPackets("annotations", 0, ()),
-                RichAnnotationPackets("context_annotations", 7, ()),
+            annotations=(
+                annotation_metadata("annotations", 0),
+                annotation_metadata("context_annotations", 7),
             ),
             prepared=prepared,
             check_active=lambda: None,

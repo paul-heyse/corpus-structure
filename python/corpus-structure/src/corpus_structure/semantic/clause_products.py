@@ -32,6 +32,7 @@ _PATHS = (
     "semantic/declared_candidate_products.py",
     "semantic/structural_products.py",
     "semantic/sentence_partitions.py",
+    "semantic/data_operation_partitions.py",
     "semantic/sentence_population_inputs.py",
     "semantic/data_product_reference.py",
     "semantic/declared_record_sources.py",
@@ -83,6 +84,7 @@ def clause_operation_sources():
             for name in (
                 "methods/clause_classification_declared.py",
                 "semantic/clause_products.py",
+                "semantic/data_operation_partitions.py",
                 "semantic/data_operation_prepared_call.py",
             )
         ),

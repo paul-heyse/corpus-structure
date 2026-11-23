@@ -210,7 +210,9 @@ def _compact_fixture_population(connection, packet):
     manifests, upload = [], []
     for partition in packet["partitions"]:
         body = decode_semantic_value(partition["body"])
-        groups = specification["declarations"].get(partition["collection"], {}).get("field_groups", {})
+        groups = (
+            specification["declarations"].get(partition["collection"], {}).get("field_groups", {})
+        )
         manifests.append(
             {
                 **{key: value for key, value in partition.items() if key != "body"},
@@ -240,7 +242,12 @@ def realize(connection, context, packet):
         packet, upload = _compact_fixture_population(connection, packet)
         model = get_metadata()
         scratch, _ = population_scratch_specs(model)
-        if connection.scalar(text("SELECT to_regclass(:scratch)"), {"scratch": scratch.qualified_name}) is None:
+        if (
+            connection.scalar(
+                text("SELECT to_regclass(:scratch)"), {"scratch": scratch.qualified_name}
+            )
+            is None
+        ):
             connection.execute(scratch.create_statement())
         connection.exec_driver_sql("TRUNCATE TABLE pg_temp.ddo_population_upload")
         if upload:
@@ -248,8 +255,15 @@ def realize(connection, context, packet):
         intent = "fixture-intent:" + uuid4().hex
         connection.execute(
             insert(model.tables["ops.data_completion_intent"]).values(
-                id=intent, request_id=intent, generation=1, producer_task_id=1, producer_attempt=1,
-                producer_holder="fixture", runtime_id="fixture", payload={}, payload_digest="fixture",
+                id=intent,
+                request_id=intent,
+                generation=1,
+                producer_task_id=1,
+                producer_attempt=1,
+                producer_holder="fixture",
+                runtime_id="fixture",
+                payload={},
+                payload_digest="fixture",
                 created_at=datetime.now(UTC),
             )
         )
@@ -257,7 +271,9 @@ def realize(connection, context, packet):
             text(
                 "SELECT ops.ddo_retain_population_rows("
                 "jsonb_populate_record(NULL::ops.data_request,:context), :intent, :completion)"
-            ).bindparams(bindparam("context", type_=JSONB()), bindparam("completion", type_=JSONB())),
+            ).bindparams(
+                bindparam("context", type_=JSONB()), bindparam("completion", type_=JSONB())
+            ),
             {
                 "context": json.loads(json.dumps(context)),
                 "intent": intent,
@@ -469,6 +485,7 @@ def partition_fixture(connection):
 
 def test_typed_population_copy_admits_once_and_promotes_exact_items(product_connection):
     import pyarrow as pa
+
     from corpus_structure.schema.integrity import role_name
     from corpus_structure.semantic.arrow_transfer import copy_arrow_stream
     from corpus_structure.semantic.data_operation_json import json_bytes
@@ -618,6 +635,11 @@ def test_typed_population_copy_admits_once_and_promotes_exact_items(product_conn
     stage(upload)
     with pytest.raises(DBAPIError, match="another attempt or release"), conn.begin_nested():
         consume(claiming=dict(fence, attempt=2))
+    stage([dict(row, canonical_text=row["canonical_text"] + " ") for row in upload])
+    with pytest.raises(DBAPIError, match="population item is not canonical"), conn.begin_nested():
+        consume()
+    assert conn.scalar(text("SELECT count(*) FROM ops.data_retained_population_item")) == 0
+    stage(upload)
     consume()
     assert conn.scalar(text("SELECT count(*) FROM ops.data_retained_population_item")) == 3
     assert conn.scalar(text("SELECT count(*) FROM kb.data_product_population")) == 0
@@ -710,13 +732,16 @@ def test_binding_population_read_is_limited_to_admitted_whole_products(product_c
 
     returned = read()
     assert {row.product_id for row in returned} == {admitted}
+    expected = []
+    for packet in product["partitions"]:
+        items = packet["body"][1]
+        assert isinstance(items, list)
+        expected.extend(
+            (packet["partition_key"], position, item) for position, item in enumerate(items)
+        )
     assert [
         (row.partition_key, row.item_ordinal, json.loads(row.canonical_text)) for row in returned
-    ] == [
-        (packet["partition_key"], position, item)
-        for packet in product["partitions"]
-        for position, item in enumerate(packet["body"][1])
-    ]
+    ] == expected
     assert read(pin_member="manifest") == read(read_id="other") == []
     assert read(capacity=1) == [(None, None, None, None)]
 
@@ -741,7 +766,9 @@ def test_partition_admission_recomputes_content_groups_and_roots(product_connect
     for n, row in enumerate(rows):
         assert row.ordinal == n and row.item_count == 1
         assert row.partition_digest == packet["partitions"][n]["partition_digest"]
-        assert json.loads(row.canonical_text) == packet["partitions"][n]["body"][1][0]
+        items = packet["partitions"][n]["body"][1]
+        assert isinstance(items, list)
+        assert json.loads(row.canonical_text) == items[0]
         assert row.group_digests == partition_group_digests(bodies[n], declaration["field_groups"])
 
     from copy import deepcopy
@@ -753,13 +780,8 @@ def test_partition_admission_recomputes_content_groups_and_roots(product_connect
     shuffled["partitions"].reverse()
     assert realize(product_connection, context, shuffled) == key
     reordered_mapping = deepcopy(packet)
-    tagged_items = reordered_mapping["partitions"][0]["body"][1]
-    assert isinstance(tagged_items, list)
-    item = tagged_items[0]
-    assert isinstance(item, list)
-    fields = item[1]
-    assert isinstance(fields, list)
-    fields.reverse()
+    reversed_fields = dict(reversed(list(bodies[0][0].items())))
+    reordered_mapping["partitions"][0]["body"] = semantic_value([reversed_fields])
     assert realize(product_connection, context, reordered_mapping) == key
 
     edited = deepcopy(packet)
@@ -843,7 +865,10 @@ def test_partition_replay_refuses_missing_stored_row(product_connection):
         text("DELETE FROM ops.data_retained_population WHERE product_id=:key AND ordinal=0"),
         {"key": key},
     )
-    with pytest.raises(DBAPIError, match="visible population differs"), product_connection.begin_nested():
+    with (
+        pytest.raises(DBAPIError, match="visible population differs"),
+        product_connection.begin_nested(),
+    ):
         realize(product_connection, context, packet)
 
 

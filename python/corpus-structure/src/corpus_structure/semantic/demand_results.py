@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Generator, Iterator, Mapping
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager, nullcontext, suppress
 from dataclasses import dataclass, field
 from functools import cached_property
 from hashlib import sha256
@@ -556,6 +556,8 @@ def selected_record_index(
     from pathlib import Path
     from tempfile import TemporaryDirectory
 
+    from sqlalchemy.exc import DBAPIError
+
     from .data_operation_read_index import SelectedRecordIndex
 
     if max_total_records is not None and (
@@ -681,8 +683,16 @@ def selected_record_index(
 
             populations = LivePopulationArchive(connection, index, cut, max_bytes)
             index.population_archive = populations
-            yield cut, index
-            populations.close()
+            try:
+                yield cut, index
+            except BaseException:
+                # PostgreSQL releases the scratch handle on rollback if a failed
+                # statement has already aborted the caller's transaction.
+                with suppress(DBAPIError):
+                    populations.close()
+                raise
+            else:
+                populations.close()
         finally:
             index.close()
 

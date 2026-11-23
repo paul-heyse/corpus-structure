@@ -219,9 +219,7 @@ def test_actual_population_readback_binds_moved_renamed_and_split_occurrences(
 
         def partitions(product):
             return sorted(
-                (
-                    row for row in populations if row["product_id"] == product.row["product_id"]
-                ),
+                (row for row in populations if row["product_id"] == product.row["product_id"]),
                 key=lambda row: row["ordinal"],
             )
 
@@ -344,8 +342,7 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
             packets = {
                 (row["product_id"], row["partition_key"]): row
                 for row in selected_population_packets(connection, page.cut)
-                if row["product_id"]
-                in {canonical.row["product_id"], annotation.row["product_id"]}
+                if row["product_id"] in {canonical.row["product_id"], annotation.row["product_id"]}
             }
         assert len(packets) == 2
         (annotated,) = [
@@ -759,8 +756,7 @@ def test_actual_construction_names_admitted_annotation_rows(
             rows = [
                 decode_semantic_value(packet["body"])
                 for packet in selected_population_packets(connection, page.cut)
-                if packet["partition_key"]
-                == native_support[0]["target"]["partition_key"]
+                if packet["partition_key"] == native_support[0]["target"]["partition_key"]
             ]
         (selected,) = rows
         key = native_support[0]["target"]["item_key"]
@@ -779,6 +775,7 @@ def test_actual_annotation_fork_shares_admitted_source_and_formal_input(
         canonical_projection_spec,
     )
     from corpus_structure.semantic.constructions.retained_declarations import DECLARATION_FAMILY
+    from corpus_structure.semantic.data_operation_partitions import partition_header
     from corpus_structure.semantic.data_product_reference import read_semantic_reference
     from corpus_structure.semantic.demand_results import selected_read_snapshot
     from corpus_structure.semantic.identity import canonical_bytes
@@ -894,9 +891,10 @@ def test_actual_annotation_fork_shares_admitted_source_and_formal_input(
         projected = project_annotation_rows(profile, annotation["body"], admitted.values())
         candidate = spawned_canonical_values(kernel.prepared, projected, spec, monkeypatch)
         assert canonical_bytes(candidate) == canonical_bytes(canonical_values(projected, spec))
-        assert profile.output(candidate).content == canonical_bytes(canonical["body"])
+        header = {**candidate["header"], "rows": partition_header(candidate["partitions"])}
+        assert canonical_bytes(header) == canonical_bytes(canonical["body"])
         for partition in candidate["partitions"]:
-            observed = published[partition["partition_key"]]
+            observed = dict(published[partition["partition_key"]])
             assert all(partition[field] == observed[field] for field in partition)
 
         fields = ("partition_key", "record_type", "ordinal", "start", "end")

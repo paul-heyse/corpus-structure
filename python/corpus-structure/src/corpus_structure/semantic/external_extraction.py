@@ -179,7 +179,11 @@ def external_extraction_operation_sources():
                 (_ROOT / name).read_bytes(),
                 str((_ROOT / name).resolve()),
             )
-            for name in ("methods/external_extraction.py", "semantic/external_extraction.py")
+            for name in (
+                "methods/external_extraction.py",
+                "semantic/external_extraction.py",
+                "semantic/data_operation_partitions.py",
+            )
         ),
         boundary_contracts=(external_extraction_assets(),),
     )
@@ -293,9 +297,8 @@ def _proposal_source(prepared, source, annotations: RichAnnotationsInput, pin):
     native = FrozenNativeSource.acquire(prepared, source)
     base = DeclaredNativeFrameSource.from_source(native, canonical_bytes(pin).decode())
     header = annotations.header
-    if (
-        header["source"] != native.value["source"]
-        or tuple(header["selectors"]) != tuple(native.value["selectors"])
+    if header["source"] != native.value["source"] or tuple(header["selectors"]) != tuple(
+        native.value["selectors"]
     ):
         raise ValueError("source annotations differ from exact original source/scope")
     sentences = []
@@ -493,6 +496,7 @@ def locate_external_extraction(
     packet = prepared.validate_json("DdoExternalExtractionPacket", json_bytes(packet)).model_dump(
         mode="python", exclude_unset=True
     )
+
     def acquire_frame(content, pin, version):
         return DeclaredNativeFrameSource.acquire_record(prepared, content, pin, version)
 
@@ -523,7 +527,9 @@ def execute_rich_profile(receiver, values):
     return receiver.execute(values)
 
 
-def _rich_kernel_inputs(action, input_basis, annotations, annotation_items, *, prepared, asset_content):
+def _rich_kernel_inputs(
+    action, input_basis, annotations, annotation_items, *, prepared, asset_content
+):
     """Read actual child operands and captured policy, without parent pin claims."""
     from itertools import islice
 

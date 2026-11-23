@@ -1,5 +1,8 @@
 """Read current selected populations for independent test expectations."""
 
+from typing import Any, TypedDict, cast
+
+from corpus_structure.semantic._data_operation_wire import WireProductPartitionPlacement
 from corpus_structure.semantic.data_operation_json import native_json_loads
 from corpus_structure.semantic.demand_results import (
     _close_selected_archive,
@@ -7,6 +10,18 @@ from corpus_structure.semantic.demand_results import (
     stream_selected_archive_population,
 )
 from corpus_structure.semantic.selected_population_archive import HEADER_FIELDS, KEY_FIELDS
+
+
+class SelectedPopulationPacket(TypedDict):
+    product_id: str
+    collection: str
+    partition_key: str
+    partition_digest: str
+    ordinal: int
+    item_count: int
+    group_digests: dict[str, str]
+    placement: WireProductPartitionPlacement
+    body: list[Any]
 
 
 def selected_population_packets(connection, cut):
@@ -20,13 +35,13 @@ def selected_population_packets(connection, cut):
     def key(row):
         return tuple(row[field] for field in KEY_FIELDS)
 
-    packets = {}
+    packets: dict[tuple[str, ...], SelectedPopulationPacket] = {}
     for row in rows(False):
         packet = {field: row[field] for field in HEADER_FIELDS}
         for name in ("group_digests", "placement"):
             packet[name] = native_json_loads(packet[name])
         assert key(row) not in packets
-        packets[key(row)] = {**packet, "body": ["sequence", []]}
+        packets[key(row)] = cast(SelectedPopulationPacket, {**packet, "body": ["sequence", []]})
     for row in rows(True):
         items = packets[key(row)]["body"][1]
         assert row["ordinal"] == len(items)

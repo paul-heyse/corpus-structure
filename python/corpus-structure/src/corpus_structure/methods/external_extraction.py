@@ -321,12 +321,18 @@ class RichExtractionInputOperation:
                 ],
             }
         ],
+        "bound_inputs": ["annotations", "context_annotations"],
         "opaque": [
             {
                 "reference": "corpus_structure.semantic.external_extraction",
                 "contract": "external-extraction/algorithm-assets",
                 "role": "captured-packet-placement-and-reference-kernels",
-            }
+            },
+            {
+                "reference": "corpus_structure.semantic.data_operation_partitions.PartitionedInput",
+                "contract": "external-extraction/algorithm-assets",
+                "role": "owned-annotation-population",
+            },
         ],
         "assets": [
             {

@@ -45,6 +45,7 @@ _PATHS = (
     "semantic/characterization_manifests.py",
     "semantic/reference_resolution.py",
     "semantic/sentence_partitions.py",
+    "semantic/data_operation_partitions.py",
     "semantic/data_operation_population.py",
     "semantic/enriched_document_products.py",
     "model/semantic/data-operation-constructions.yaml",
@@ -101,6 +102,7 @@ def declaration_operation_sources():
             for name in (
                 "methods/declaration_syntax.py",
                 "semantic/declaration_products.py",
+                "semantic/data_operation_partitions.py",
                 "semantic/data_operation_prepared_call.py",
             )
         ),

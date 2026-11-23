@@ -1,7 +1,8 @@
 # Cutover and qualification
 
-**Status · 2026-11-23.** The typed population root installed on the fresh qualification
-target. Final-root qualification in serialized cohorts and the development reset are open.
+**Status · 2026-11-23.** The first typed population root installed on the fresh qualification
+target. The combined runtime includes the remaining consumer migrations and native body
+storage retirement. Its cold installation, qualification and development reset are open.
 Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
@@ -34,13 +35,13 @@ stage revision and its Git-held native inventory when it prepares the stage tran
 <a id="columnar-cutover-sequence"></a>
 ### Columnar replacement before the next cold root
 
-**Proposed · 2026-11-22.** The [reconciled amendment](../set-based-execution_2026-11-21.md#columnar-redesign-amendment)
-selects one typed population path before the next development baseline. The root currently
-registered on `main` records the previous carrier and storage. Keep its dated receipts and
+**Execution · 2026-11-23.** The [reconciled amendment](../set-based-execution_2026-11-21.md#columnar-redesign-amendment)
+selects one typed population path before the next development baseline. The first typed
+registration predates native body storage retirement. Keep the dated receipts and
 reassess their applicability by exact source, root, harness and provider context. Independent
 semantic expectations and unaffected scopes remain useful. The source traces establish avoidable
 conversion and repeated work. Native timing attribution and the relative memory contributions
-remain open. Qualification stays paused during this documentation revision.
+remain open. Run qualification one managed cohort at a time.
 
 1. Resolve the recorded rule impacts and the focused target review before production work that
    depends on changed boundaries. Develop the [shared typed carrier](common-analytical-basis.md#columnar-population-target),
@@ -99,7 +100,7 @@ against the preceding registered kernel. The corrective selections passed all 15
 declaration identities by selected scope (`874bac106f654fbe999e68fa9e87f002`) and the
 spawned construction identity (`c060de811e9d4fb7ba669e9ee4cf89bc`). A separate selection
 passed all 16 Arrow, canonical identity and IPC identities (`3c3150e9daf54ff8aa1227063e1327db`).
-The draft control requires the replacement installation.
+The draft control passed with the first typed installation below.
 
 The dedicated `corpus_structure_sbx09_typed_author` database passed rollback-only
 `uv run ci model change candidate` (`7513fd70e5c54c2abe8df888c9683911`) after authoring
@@ -114,8 +115,24 @@ candidate predates final type corrections. Type validation then passed
 `18ef4dc232464ab8a85e3d42a020a782` and `uv run ci db init` installed it on
 `corpus_structure_sbx09_typed_qualification`. Maintenance readback matched the descriptor
 and found empty originals, demands, products, and retained populations. The reader can use
-the keyed read routines. Upload preparation is granted to the writer. Exact-root provider and
-replay obligations, remaining retirement, and the development reset remain open.
+the keyed read routines. Upload preparation is granted to the writer.
+
+**First installed-root controls · Tested by selected scope · 2026-11-23.** Private
+`uv run ci test --native-host private --workers 1` passed all five installed-root ordinary
+identities in `e20f010b745d4054962dc8fbfd33a25d`, including authentic finite and rich
+publication-to-detached replay and original draft recovery. Repository checks passed in
+`a140f986b53f450da082522ae28113ab`, and `just model check` passed. The real-provider run
+`5fe2124e2b5d4357b3fdacb22bdddce7` was interrupted before recapture. Its two observed
+failures were shared request-byte credit refusals on the annotation and canonical chain.
+
+**Combined source · Implemented · 2026-11-23.** Rich extraction, clauses, M1, and selected
+evaluation now use typed population inputs. Acquired request credit accounts for hydrated
+populations and leaves room for compact control. spaCy and HanLP produce Arrow populations.
+Canonical workers return bounded Arrow IPC in the authenticated reply and retain block-local
+memo rows independently of current placement. The root source removes
+`kb.data_product_partition` and its native body admission and read routines. The generated
+product contract carries population manifests. Historical replay support still recognizes its
+earlier archive schema. The combined source requires its own root and qualification.
 
 ### Development reset through SBX-09
 

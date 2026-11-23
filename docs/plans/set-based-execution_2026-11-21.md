@@ -1,9 +1,10 @@
 # Set-based execution
 
-**Status · 2026-11-23.** The typed population implementation is in progress against the
-[accepted redesign](#columnar-redesign-amendment). Native typed admission and indexed readback
-have focused PostgreSQL evidence. The replacement root was authored, registered and installed on
-the fresh qualification target. Integrated qualification and the development reset are open.
+**Status · 2026-11-23.** The [accepted redesign](#columnar-redesign-amendment) has typed producers,
+workers, retained rows, and selected consumers on `main`. The first typed root installed
+empty and passed selected replay and draft recovery. The integrated source includes the
+remaining consumer migrations and native body storage retirement. Its cold install,
+functional qualification, and the development reset are open.
 [Typed implementation checkpoint](set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation) ·
 [Qualification checkpoint](set-based-execution/cutover-and-qualification.md#sbx-09-qualification-pause)
 
@@ -242,8 +243,10 @@ SBX-20 to SBX-22 close the series.
 
 ### Remaining execution through SBX-09
 
-**Proposed execution sequence · 2026-11-22.** The prior registered root and pilot retain
-their evidence. Follow the [accepted rule decisions](#columnar-rule-confirmation) and focused target review for the replacement.
+**Execution sequence · 2026-11-23.** The prior registered root and pilot retain their evidence.
+The [typed implementation checkpoint](set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation)
+owns current implementation and qualification evidence. Follow the
+[accepted rule decisions](#columnar-rule-confirmation) and focused target review for the replacement.
 
 1. Settle the coupled carrier, identity and storage design, then bring forward the model schema,
    custody, engine and resource prerequisites from SBX-18. Preserve the installed control

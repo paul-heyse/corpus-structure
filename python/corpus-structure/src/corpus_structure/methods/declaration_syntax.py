@@ -181,12 +181,18 @@ class DeclarationSyntaxOperation:
                 ],
             }
         ],
+        "bound_inputs": ["canonical", "hanlp"],
         "opaque": [
             {
                 "reference": "corpus_structure.semantic.declaration_products.execute_declaration_profile",
                 "contract": "declarations/profile-assets",
                 "role": "native-declaration-syntax-kernel",
-            }
+            },
+            {
+                "reference": "corpus_structure.semantic.data_operation_partitions.PartitionedInput",
+                "contract": "declarations/profile-assets",
+                "role": "owned-language-populations",
+            },
         ],
         "assets": [
             {

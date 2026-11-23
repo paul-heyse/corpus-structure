@@ -1,5 +1,7 @@
 """Declared partition collections and their canonical content and placement identities."""
 
+from __future__ import annotations
+
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict

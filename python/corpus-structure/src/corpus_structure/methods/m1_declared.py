@@ -780,6 +780,7 @@ class M1SourceCandidatesOperation:
                 ],
             },
         ],
+        "bound_inputs": ["annotations"],
         "opaque": [
             {
                 "reference": "collections.abc.Generator",
@@ -790,6 +791,11 @@ class M1SourceCandidatesOperation:
                 "reference": "corpus_structure.semantic.m1_products.execute_declared_m1",
                 "contract": "m1/profile-assets",
                 "role": "original-resumable-inspection-kernel",
+            },
+            {
+                "reference": "corpus_structure.semantic.data_operation_partitions.PartitionedInput",
+                "contract": "m1/profile-assets",
+                "role": "owned-annotation-population",
             },
             {
                 "reference": "corpus_structure.methods.m1_source.M1GlinerRequest",
@@ -844,6 +850,10 @@ class M1SourceCandidatesOperation:
         )
 
     def run(
-        self, primary: dict, annotations: PartitionedInput, construction: dict, sources: tuple[dict, ...]
+        self,
+        primary: dict,
+        annotations: PartitionedInput,
+        construction: dict,
+        sources: tuple[dict, ...],
     ) -> Generator[M1GlinerRequest, M1GlinerReply, M1CandidateProduct]:
         return (yield from execute_declared_m1(self, primary, annotations, construction, sources))

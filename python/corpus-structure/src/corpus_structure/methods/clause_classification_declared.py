@@ -377,12 +377,18 @@ class ClauseClassificationOperation:
                 ],
             },
         ],
+        "bound_inputs": ["canonical"],
         "opaque": [
             {
                 "reference": "corpus_structure.semantic.clause_products.execute_clause_classification",
                 "contract": "clauses/profile-assets",
                 "role": "exact-retained-native-model-to-focus-projection",
-            }
+            },
+            {
+                "reference": "corpus_structure.semantic.data_operation_partitions.PartitionedInput",
+                "contract": "clauses/profile-assets",
+                "role": "owned-canonical-population",
+            },
         ],
         "assets": [
             {

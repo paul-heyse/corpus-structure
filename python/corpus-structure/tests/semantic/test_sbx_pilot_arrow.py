@@ -86,8 +86,8 @@ def test_canonical_arrow_reply_reuses_local_rows_and_binds_current_placement(pro
     after = _memoized_canonical_materialization.cache_info()
     assert after.misses == before.misses + 1
     assert after.hits == before.hits + 2
-    assert original_reply.table["start"].to_pylist() == [0, 0]
-    assert moved_reply.table["start"].to_pylist() == [0, 0, 0, 0]
+    assert original_reply.table["start"].to_pylist() == [{"narrow": 0, "wide": None}] * 2
+    assert moved_reply.table["start"].to_pylist() == [{"narrow": 0, "wide": None}] * 4
     addresses = [
         row["partition_key"]["value"] for row in moved_reply.table["annotation"].to_pylist()
     ]
