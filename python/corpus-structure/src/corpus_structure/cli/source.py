@@ -46,7 +46,7 @@ def find(
     """Search the explicit selected native source population and retain retrievable handles."""
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.cli.output import read_request_bytes, write_report_text
-    from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+    from corpus_structure.semantic.data_operation_json import finite_result_bytes, json_loads
     from corpus_structure.semantic.pdf_source_search import search_source_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.serve.source_search import SourceSearchRequest, search_source
@@ -61,7 +61,7 @@ def find(
         ):
             response = search_source(connection, selected)
     if json:
-        write_report_text(json_bytes(response.model_dump(mode="python")).decode() + "\n")
+        write_report_text(finite_result_bytes(response.model_dump(mode="python")).decode() + "\n")
     else:
         emit(response, json=False)
 
