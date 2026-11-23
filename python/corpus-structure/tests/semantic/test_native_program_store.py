@@ -12,8 +12,12 @@ def test_generator_identity_carries_checked_native_codec_capabilities():
 
     identity = capture_generator_code()
     profiles = {item.reference: item for item in identity.external_runtime}
-    assert {"rapidjson", "decimal", "hashlib", "datetime"} <= profiles.keys()
-    assert all(item.files and item.symbols for item in profiles.values())
+    native_profiles = {"rapidjson", "decimal", "hashlib", "datetime", "math", "base64"}
+    assert native_profiles | {"json"} <= profiles.keys()
+    assert all(item.files and item.modules for item in profiles.values())
+    assert all(profiles[name].symbols for name in native_profiles)
+    assert profiles["json"].contract == "standard-json-v1"
+    assert profiles["json"].symbols == ()
     for item in profiles.values():
         item.check()
 

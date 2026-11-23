@@ -82,8 +82,8 @@ def test_record_field_order_types_and_model_constraints():
         )
 
 
-def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_path, monkeypatch):
-    from corpus_structure.semantic import native_products, pdf_record_model
+def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_path):
+    from corpus_structure.semantic import native_products
 
     for name, content in physical_source_closure(
         PHYSICAL_MODEL.name, lambda name: PHYSICAL_MODEL.with_name(name).read_bytes()
@@ -105,22 +105,21 @@ def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_pat
         physical_source_closure(copied.name, lambda name: copied.with_name(name).read_bytes())
     )
     changed_id = physical_model_id(copied)
-    changed.info["physical_model_id"] = changed_id
+    assert changed.info["physical_model_id"] == changed_id
     ddl = str(CreateTable(changed.tables["kb.pdf_record_membership"]).compile(dialect=dialect()))
     assert "ordinal >= 2" in ddl
     assert changed_id != get_physical_model_id()
     before = native_products.current_admission_fields()
     before_arrow = record_arrow_schema("kb.pdf_record_membership")
-    monkeypatch.setattr(pdf_record_model, "metadata", changed)
     after = native_products.current_admission_fields(target_metadata=changed)
     assert before["physical_checks_source_digest"] != after["physical_checks_source_digest"]
     assert before["physical_id"] == get_physical_model_id()
     assert after["physical_id"] == changed_id
     assert not before_arrow.equals(
-        record_arrow_schema("kb.pdf_record_membership"), check_metadata=True
+        record_arrow_schema("kb.pdf_record_membership", model=changed), check_metadata=True
     )
     with pytest.raises(ValidationError, match="greater than or equal to 2"):
-        record_boundary_adapter("kb.pdf_record_membership").validate_python(
+        record_boundary_adapter("kb.pdf_record_membership", model=changed).validate_python(
             dict(
                 product_id="p",
                 revision_id="r",
@@ -131,7 +130,7 @@ def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_pat
             )
         )
     with pytest.raises(ValidationError, match="literal"):
-        record_boundary_adapter("kb.pdf_record_native").validate_python(
+        record_boundary_adapter("kb.pdf_record_native", model=changed).validate_python(
             dict(
                 product_id="p",
                 revision_id="r",

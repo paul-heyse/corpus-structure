@@ -289,10 +289,17 @@ include its completed identities when continuing the final-source complement.
 The combined main CPU custody and captured-factory selection passed all seven
 identities (`8b259c4380954e33986bf8ca2b08af60`). `uv run ci check` passed after
 integration (`2755db34d18b45ec8295badaec6ff377`) and `just model check` confirmed
-the registered projections. The remaining release-independent cohort is split by
+the registered projections. The real learned-definition retry on that source passed
+with exact component custody (`109643e730524dae9224f7453a50ae5c`). The corrected
+physical model tests passed typed Arrow, native constraint and producer artifact
+checks (`a93451301f644c8189dd72c919216144`, `7125f61d44a3495aa32c58639a030afb`).
+The remaining release-independent cohort is split by
 test module across four managed attempts (`e96be9a7d015488b91fd2e427ce0672f`,
 `96a5c98ccb684d5eb53c6beafc67c42d`, `9e08ded443c14db8b95b462488604008`,
 `b665e3bb03e34938b649402319f663c4`) to preserve completed work if a worker crashes.
+The private native complement continues in three bounded cohorts
+(`594b3d3e2173426aaf7cc6c97cf05613`, `d58f7dbe6ab84ee28b7031de5ed031dd`,
+`ec0ada305c66400a8e6462707af36e5b`) after the learned provider released the device.
 
 **Cold authoring checkpoint · 2026-11-21.** `uv run ci db init --creation-only` created
 `corpus_structure_sbx09_author` on the dedicated cluster. Managed preview
@@ -898,6 +905,12 @@ specific to the old mechanism.
   `semantic/record_projection.py`, after a reader search at the execution head. The
   `select_pdf_integration` path stays while the streaming reconciliation tests use it as their
   independent check.
+- SBX-09 qualification found that the test-only record projection roundtrip still expects
+  fields retired by the declared native source pin (`96a5c98ccb684d5eb53c6beafc67c42d`).
+  Current production uses its family declaration preparation and artifact metadata. The
+  unused projection, indexing and reconstruction functions have no production caller in
+  the application, developer tooling or Rust workspace. Carry useful independent pin and
+  value expectations forward when removing that machinery.
 - Smaller items: the recognition replay's duplicated sort-key column; the stale duplicate of the
   duckdb hold in `docs/pins.md`; the served-row codec's reference to a disk tier.
 - A search, made once and not added to the repository checks, for each retired name: the member

@@ -165,9 +165,10 @@ def test_reference_subtree_and_sequential_isolation(cli):
     assert "`ci schema inspect`" not in group.stdout
     author = cli("docs", "commands", "interpretations", "author", "--stdout")
     assert author.exit_code == 0, author.output
-    assert "{RELEASE} {KIND} {INPUT}" in author.stdout
-    assert "Structural validation" in author.stdout
-    assert "private knowledge" in author.stdout
+    assert "{RELEASE} {INPUT}" in author.stdout
+    assert "NativeDemandRequest" in author.stdout
+    assert "actual kind contracts" in author.stdout
+    assert "without running downstream inference" in author.stdout
     assert "`ci interpretations lookup`" not in author.stdout
 
 

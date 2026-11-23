@@ -171,7 +171,7 @@ def test_lowering_identity_requires_matching_captured_artifacts(artifact_name, m
     def source(name):
         artifact = domain.source(name)
         if name == artifact_name or name.endswith("/" + artifact_name):
-            return replace(artifact, content=artifact.content + b"\nchanged")
+            return replace(artifact, content=artifact.content + b"\n")
         return artifact
 
     with pytest.raises(ValueError, match=message):

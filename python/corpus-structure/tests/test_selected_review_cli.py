@@ -87,6 +87,11 @@ def test_current_review_export_uses_exact_native_demand_and_reader_transaction(
     seen = []
     connection = object()
 
+    class Publication:
+        def report(self):
+            assert not state["active"]
+            return {"version": "controlled-native-export", "manifest_digest": "a" * 64}
+
     class Engine:
         @contextmanager
         def begin(self):
@@ -104,7 +109,7 @@ def test_current_review_export_uses_exact_native_demand_and_reader_transaction(
     def export(actual_connection, demand, **kwargs):
         assert state["active"] and actual_connection is connection
         seen.append((demand, kwargs))
-        return {"version": "controlled-native-export"}
+        return Publication()
 
     monkeypatch.setattr(runtime, "open_runtime_engine", engine)
     monkeypatch.setattr(demand_export, "export_demand_result", export)
@@ -141,7 +146,7 @@ def test_current_review_export_uses_exact_native_demand_and_reader_transaction(
     ]
     assert json.loads(result.stdout) == {
         "path": str(destination),
-        "manifest": {"version": "controlled-native-export"},
+        "manifest": {"version": "controlled-native-export", "manifest_digest": "a" * 64},
     }
     assert not state["active"]
 
