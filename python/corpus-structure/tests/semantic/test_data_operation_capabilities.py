@@ -82,6 +82,66 @@ def test_compiled_factory_is_captured_from_original_static_owner(tmp_path, monke
         acquired()
 
 
+def test_runtime_custody_visits_only_consumed_generic_owners(tmp_path, monkeypatch):
+    from corpus_structure.semantic.data_operation_cpu import _prepared_runtime_members
+    from corpus_structure.semantic.data_operation_ports import (
+        _authenticated_closed_slice,
+        _verify_closed_runtime_sources,
+    )
+    from corpus_structure.semantic.runtime_slice import AuthenticatedSlice
+
+    name = "consumed_runtime_generic_fixture"
+    path = tmp_path / f"{name}.py"
+    content = b"""\
+class GenericHelper[T]:
+    def value(self) -> int:
+        return 4
+
+class Unrelated[T]:
+    def value(self) -> int:
+        return 9
+
+def helper() -> int:
+    return 5
+
+def prepared_entry() -> int:
+    return helper()
+
+def entry() -> int:
+    return GenericHelper().value()
+"""
+    path.write_bytes(content)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    module = importlib.import_module(name)
+    monkeypatch.delattr(module, "Unrelated")
+    sources = PythonSourceCollection((PythonSource(name, content, str(path)),))
+    modules = {name: module}
+    paths = {name: path}
+    expected = {f"{name}.{member}" for member in ("GenericHelper", "GenericHelper.value", "entry")}
+
+    _verify_closed_runtime_sources(sources, modules, paths, expected)
+    retained = _authenticated_closed_slice(sources, modules, paths, expected)
+    assert module.entry() == 4
+    retained.check()
+    prepared = AuthenticatedSlice(
+        (), modules, _prepared_runtime_members(sources, modules, name + ".prepared_entry", ()), ()
+    )
+    assert module.prepared_entry() == 5
+    prepared.check()
+
+    monkeypatch.setattr(module.GenericHelper, "value", lambda self: 0)
+    with pytest.raises(ValueError, match="authenticated runtime slice changed"):
+        retained.check()
+    with pytest.raises(ValueError, match="runtime callable implementation differs"):
+        _verify_closed_runtime_sources(sources, modules, paths, expected)
+
+    monkeypatch.setattr(module, "helper", lambda: 0)
+    with pytest.raises(ValueError, match="authenticated runtime slice changed"):
+        prepared.check()
+    with pytest.raises(ValueError, match="prepared CPU kernel helper"):
+        _prepared_runtime_members(sources, modules, name + ".prepared_entry", ())
+
+
 def test_archived_factory_uses_explicit_runtime_location_and_refuses_another_origin(
     tmp_path, monkeypatch
 ):

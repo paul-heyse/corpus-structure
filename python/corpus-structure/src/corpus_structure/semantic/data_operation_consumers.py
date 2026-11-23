@@ -557,8 +557,12 @@ def resolve_consumer_selection(model, sources, operation, receiver, *, authorize
     path = Path(source.filename).resolve()
     module = importlib.import_module(source.module)
     code = compile(source.content, str(path), "exec", dont_inherit=True)
-    entries = tuple(_runtime_members(ast.parse(source.content).body, module, code, source.module))
-    entry = next((entry for entry in entries if entry[0] == capability.entrypoint), None)
+    entry = next(
+        _runtime_members(
+            ast.parse(source.content).body, module, code, source.module, {capability.entrypoint}
+        ),
+        None,
+    )
     if entry is None:
         raise PortRefusal("consumer implementation is absent from acquired source")
     owner_name, method_name = capability.entrypoint.removeprefix(source.module + ".").rsplit(".", 1)
@@ -618,10 +622,16 @@ def resolve_prepared_factory(model, sources, operation):
     module = importlib.import_module(source.module)
     path = Path(source.filename).resolve()
     expected = compile(source.content, str(path), "exec", dont_inherit=True)
-    entries = tuple(
-        _runtime_members(ast.parse(source.content).body, module, expected, source.module)
+    entry = next(
+        _runtime_members(
+            ast.parse(source.content).body,
+            module,
+            expected,
+            source.module,
+            {capability.entrypoint},
+        ),
+        None,
     )
-    entry = next((entry for entry in entries if entry[0] == capability.entrypoint), None)
     if entry is None or not isinstance(entry[2], staticmethod):
         raise PortRefusal("prepared acquisition requires its original static method")
     function = entry[2].__func__

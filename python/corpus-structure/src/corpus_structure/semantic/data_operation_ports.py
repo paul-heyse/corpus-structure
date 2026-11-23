@@ -856,7 +856,9 @@ class ResolvedPythonPort:
                         or len(value.value) < role.minimum
                         or (role.maximum is not None and len(value.value) > role.maximum)
                     ):
-                        raise PortRefusal("partitioned sequence requires its acquired ordered carriers")
+                        raise PortRefusal(
+                            "partitioned sequence requires its acquired ordered carriers"
+                        )
                     arguments[role.parameter] = value.value
                     continue
                 typed_dict_fields = (
@@ -1503,28 +1505,73 @@ def _source_reference(node, module):
     raise PortRefusal("class base requires a closed named reference")
 
 
-def _runtime_members(statements, owner, code, prefix):
-    codes = {item.co_name: item for item in code.co_consts if isinstance(item, CodeType)}
-    for node in statements:
-        if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
-            path = prefix + "." + node.name
-            value = inspect.getattr_static(owner, node.name)
-            yield path, node, value, codes.get(node.name)
-            if isinstance(node, ast.ClassDef):
-                expected = codes.get(node.name)
+def _runtime_definition_code(owner_code, node, qualname):
+    name = node.name
+    line = min([node.lineno, *(decorator.lineno for decorator in node.decorator_list)])
+    if node.type_params:
+        # Python nests the definition under the type-parameter evaluation scope.
+        wrapper_name = f"<generic parameters of {name}>"
+        enclosing = qualname.rpartition(".")[0]
+        wrapper_qualname = f"{enclosing}.{wrapper_name}" if enclosing else wrapper_name
+        wrapper = next(
+            (
+                item
+                for item in owner_code.co_consts
+                if isinstance(item, CodeType)
+                and item.co_qualname == wrapper_qualname
+                and item.co_firstlineno == line
+            ),
+            None,
+        )
+        if wrapper is None:
+            return None
+        owner_code = wrapper
+    return next(
+        (
+            item
+            for item in owner_code.co_consts
+            if isinstance(item, CodeType)
+            and item.co_qualname == qualname
+            and item.co_firstlineno == line
+        ),
+        None,
+    )
+
+
+def _runtime_members(statements, owner, code, prefix, expected_nodes):
+    """Resolve only admitted members and their lexical class containers."""
+    containers = set()
+    for member in expected_nodes:
+        container = member.rpartition(".")[0]
+        while container.startswith(prefix + "."):
+            containers.add(container)
+            container = container.rpartition(".")[0]
+
+    def visit(statements, owner, code, scope):
+        for node in statements:
+            if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+                path = scope + "." + node.name
+                descend = isinstance(node, ast.ClassDef) and path in containers
+                if path not in expected_nodes and not descend:
+                    continue
+                expected = _runtime_definition_code(code, node, path[len(prefix) + 1 :])
                 if expected is None:
-                    raise PortRefusal("class code is unavailable: " + path)
-                yield from _runtime_members(node.body, value, expected, path)
-        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
-            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            for target in targets:
-                if isinstance(target, ast.Name) and hasattr(owner, target.id):
-                    yield (
-                        prefix + "." + target.id,
-                        node,
-                        inspect.getattr_static(owner, target.id),
-                        None,
-                    )
+                    raise PortRefusal("runtime definition code is unavailable: " + path)
+                value = inspect.getattr_static(owner, node.name)
+                if path in expected_nodes:
+                    yield path, node, value, expected
+                if descend:
+                    yield from visit(node.body, value, expected, path)
+            elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                for target in targets:
+                    if not isinstance(target, ast.Name):
+                        continue
+                    path = scope + "." + target.id
+                    if path in expected_nodes and hasattr(owner, target.id):
+                        yield path, node, inspect.getattr_static(owner, target.id), None
+
+    yield from visit(statements, owner, code, prefix)
 
 
 def _stream_annotation_references():
@@ -1582,19 +1629,18 @@ def _authenticated_closed_slice(
         module = modules[source.module]
         tree = ast.parse(source.content)
         code = compile(source.content, str(paths[source.module]), "exec", dont_inherit=True)
-        for path, _node, value, _expected in _runtime_members(
-            tree.body, module, code, source.module
+        for path, _node, _value, _expected in _runtime_members(
+            tree.body, module, code, source.module, expected_nodes
         ):
-            if path in expected_nodes:
-                components = path.removeprefix(source.module + ".").split(".")
+            components = path.removeprefix(source.module + ".").split(".")
 
-                def getter(module=module, components=components):
-                    value = module
-                    for component in components:
-                        value = inspect.getattr_static(value, component)
-                    return value
+            def getter(module=module, components=components):
+                value = module
+                for component in components:
+                    value = inspect.getattr_static(value, component)
+                return value
 
-                members.append(getter)
+            members.append(getter)
     files = tuple(
         verified_file(paths[source.module], sha256(source.content).hexdigest())
         for source in sources.sources
@@ -1643,10 +1689,8 @@ def _verify_closed_runtime_sources(
         code = compile(source.content, str(paths[source.module]), "exec", dont_inherit=True)
         tree = ast.parse(source.content)
         for path, node, value, expected_code in _runtime_members(
-            tree.body, module, code, source.module
+            tree.body, module, code, source.module, expected_nodes
         ):
-            if path not in expected_nodes:
-                continue
             name = path.removeprefix(source.module + ".")
             if isinstance(node, ast.FunctionDef):
                 if (
@@ -1790,11 +1834,7 @@ def _verify_closed_runtime_sources(
                     or node.keywords
                 ):
                     raise PortRefusal("runtime class requires a plain supplied owner: " + name)
-                expected_bases = tuple(_source_reference(base, module) for base in node.bases) or (
-                    object,
-                )
-                if value.__bases__ != expected_bases:
-                    raise PortRefusal("runtime class bases differ: " + name)
+                expected_bases = tuple(_source_reference(base, module) for base in node.bases)
                 allowed = {
                     "__module__",
                     "__dict__",
@@ -1804,8 +1844,15 @@ def _verify_closed_runtime_sources(
                     "__static_attributes__",
                     "__annotations__",
                     "__annotate_func__",
+                    "__annotations_cache__",
                     "__data_operation__",
                 }
+                if node.type_params:
+                    _verify_runtime_type_parameters(value, node, expected_bases, name)
+                    expected_bases += (typing.Generic,)
+                    allowed.update(("__orig_bases__", "__parameters__", "__type_params__"))
+                if value.__bases__ != (expected_bases or (object,)):
+                    raise PortRefusal("runtime class bases differ: " + name)
                 for item in node.body:
                     if isinstance(item, (ast.FunctionDef, ast.ClassDef)):
                         allowed.add(item.name)
@@ -1818,6 +1865,35 @@ def _verify_closed_runtime_sources(
                 raise PortRefusal(
                     "runtime owner needs an explicit acquired correspondence: " + name
                 )
+
+
+def _verify_runtime_type_parameters(value, node, bases, name):
+    parameters = vars(value).get("__type_params__")
+    original_bases = vars(value).get("__orig_bases__", ())
+    if (
+        type(parameters) is not tuple
+        or len(parameters) != len(node.type_params)
+        or any(
+            not isinstance(declared, ast.TypeVar)
+            or declared.bound is not None
+            or declared.default_value is not None
+            or not isinstance(actual, typing.TypeVar)
+            or actual.__name__ != declared.name
+            or not actual.__infer_variance__
+            or actual.__covariant__
+            or actual.__contravariant__
+            or actual.__bound__ is not None
+            or actual.__constraints__
+            or actual.__default__ is not typing.NoDefault
+            for declared, actual in zip(node.type_params, parameters, strict=True)
+        )
+        or vars(value).get("__parameters__") != parameters
+        or not original_bases
+        or original_bases[:-1] != bases
+        or get_origin(original_bases[-1]) is not typing.Generic
+        or get_args(original_bases[-1]) != parameters
+    ):
+        raise PortRefusal("runtime class type parameters differ: " + name)
 
 
 def _input_annotation(parameter: inspect.Parameter) -> Any:
@@ -2278,8 +2354,10 @@ def _verify_consumed_globals(
         module = modules[source.module]
         tree = ast.parse(source.content)
         code = compile(source.content, source.filename, "exec", dont_inherit=True)
-        for path, node, value, _ in _runtime_members(tree.body, module, code, source.module):
-            if path in expected_nodes and isinstance(node, ast.ClassDef):
+        for path, node, value, _ in _runtime_members(
+            tree.body, module, code, source.module, expected_nodes
+        ):
+            if isinstance(node, ast.ClassDef):
                 uses.extend(
                     (source.module, item.id)
                     for base in node.bases
@@ -2287,8 +2365,7 @@ def _verify_consumed_globals(
                     if isinstance(item, ast.Name)
                 )
             if (
-                path not in expected_nodes
-                or not isinstance(node, ast.FunctionDef)
+                not isinstance(node, ast.FunctionDef)
                 or path.count(".") <= source.module.count(".") + 1
             ):
                 continue

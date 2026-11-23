@@ -6,7 +6,9 @@ ports or prepared kernel adapters create descriptors after their own admission.
 
 from __future__ import annotations
 
+import ast
 import importlib
+import importlib.util
 import inspect
 import sys
 from collections.abc import Callable, Mapping
@@ -15,6 +17,7 @@ from dataclasses import dataclass
 from functools import cached_property, lru_cache
 from hashlib import sha256
 from pathlib import Path
+from types import ModuleType
 from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin, overload
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -422,9 +425,106 @@ def _load_descriptor(content):
     return _LoadedCall(function, check, signature, adapters)
 
 
-def _load_original(call):
-    import ast
+def _prepared_runtime_members(sources, modules: dict[str, ModuleType], entrypoint, helpers):
+    """Resolve prepared entrypoints and the source members their code can reach."""
+    from .data_operation_ports import PortRefusal, _code_globals, _runtime_members
 
+    source_by_module = {source.module: source for source in sources.sources}
+    compiled = {}
+    required = {entrypoint, *helpers}
+    pending = dict.fromkeys((entrypoint, *helpers))
+    seen = set()
+    getters = []
+
+    def retain(owner, components):
+        def getter(owner=owner, components=components):
+            value = owner
+            for component in components:
+                value = inspect.getattr_static(value, component)
+            return value
+
+        getters.append(getter)
+
+    def discover(value):
+        actual = value.__func__ if isinstance(value, (staticmethod, classmethod)) else value
+        if inspect.isfunction(actual) and actual.__module__ in modules:
+            qualified = actual.__module__ + "." + actual.__qualname__
+            if "<locals>" not in qualified and qualified not in seen:
+                pending[qualified] = None
+
+    while pending:
+        qualified = next(iter(pending))
+        del pending[qualified]
+        seen.add(qualified)
+        module_name = max(
+            (name for name in modules if qualified.startswith(name + ".")),
+            key=len,
+            default=None,
+        )
+        if module_name is None:
+            raise PortRefusal("prepared CPU kernel helper is outside its acquired sources")
+        source = source_by_module[module_name]
+        module = modules[module_name]
+        if module_name not in compiled:
+            compiled[module_name] = (
+                ast.parse(source.content),
+                compile(source.content, source.filename, "exec", dont_inherit=True),
+            )
+        tree, code = compiled[module_name]
+        entry = next(_runtime_members(tree.body, module, code, module_name, {qualified}), None)
+        if entry is None:
+            raise PortRefusal("prepared CPU kernel helper is outside its acquired sources")
+        _, node, value, expected_code = entry
+        actual = value.__func__ if isinstance(value, (staticmethod, classmethod)) else value
+        if qualified not in required and isinstance(node, ast.FunctionDef) and node.decorator_list:
+            original = inspect.getattr_static(actual, "__wrapped__", None)
+            if inspect.isfunction(original):
+                retain(actual, ("__wrapped__",))
+                if inspect.getattr_static(actual, "loader", None) is original:
+                    retain(actual, ("loader",))
+                actual = original
+        if (
+            not inspect.isfunction(actual)
+            or actual.__code__ != expected_code
+            or actual.__globals__ is not module.__dict__
+        ):
+            raise PortRefusal("prepared CPU kernel helper differs: " + qualified)
+        retain(module, tuple(qualified[len(module_name) + 1 :].split(".")))
+        globals = _code_globals(actual.__code__)
+        defined = {item.name for item in tree.body if isinstance(item, ast.FunctionDef)}
+        for name in globals:
+            helper = module_name + "." + name
+            if name in defined:
+                if helper not in seen:
+                    pending[helper] = None
+            else:
+                discover(vars(module).get(name))
+        package = module_name if Path(source.filename).name == "__init__.py" else module.__package__
+        for child in ast.walk(node):
+            if isinstance(child, ast.ImportFrom):
+                reference = "." * child.level + (child.module or "")
+                imported = (
+                    importlib.util.resolve_name(reference, package) if child.level else reference
+                )
+                owner = modules.get(imported)
+                if owner is not None:
+                    for alias in child.names:
+                        imported_value = vars(owner).get(alias.name)
+                        if inspect.isfunction(imported_value):
+                            retain(owner, (alias.name,))
+                            discover(imported_value)
+            elif isinstance(child, ast.Attribute) and isinstance(child.value, ast.Name):
+                name = child.value.id
+                owner = vars(module).get(name) if name in globals else None
+                if isinstance(owner, ModuleType) and modules.get(owner.__name__) is owner:
+                    imported_value = vars(owner).get(child.attr)
+                    if inspect.isfunction(imported_value):
+                        retain(owner, (child.attr,))
+                        discover(imported_value)
+    return getters
+
+
+def _load_original(call):
     from .data_operation_ports import PortRefusal, _runtime_members
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
@@ -512,9 +612,13 @@ def _load_original(call):
             source = next(source for source in sources.sources if source.module == module_name)
             code = compile(source.content, source.filename, "exec", dont_inherit=True)
             members = _runtime_members(
-                ast.parse(source.content).body, modules[module_name], code, module_name
+                ast.parse(source.content).body,
+                modules[module_name],
+                code,
+                module_name,
+                {call.entrypoint},
             )
-            selected = next((entry for entry in members if entry[0] == call.entrypoint), None)
+            selected = next(members, None)
             actual = function.__func__ if inspect.ismethod(function) else function
             if (
                 selected is None
@@ -555,39 +659,7 @@ def _load_original(call):
             verified_file(paths[source.module], digests[source.module])
             for source in sources.sources
         )
-        getters = []
-        required_helpers = set(call.expected_nodes)
-        for source in sources.sources:
-            module = modules[source.module]
-            for path, _node, value, expected_code in _runtime_members(
-                ast.parse(source.content).body,
-                module,
-                compile(source.content, source.filename, "exec", dont_inherit=True),
-                source.module,
-            ):
-                actual_helper = (
-                    value.__func__ if isinstance(value, (staticmethod, classmethod)) else value
-                )
-                if path in required_helpers:
-                    if (
-                        not inspect.isfunction(actual_helper)
-                        or actual_helper.__code__ != expected_code
-                        or actual_helper.__globals__ is not module.__dict__
-                    ):
-                        raise PortRefusal("prepared CPU kernel helper differs: " + path)
-                    required_helpers.remove(path)
-                if inspect.isfunction(actual_helper):
-                    components = path.removeprefix(source.module + ".").split(".")
-
-                    def getter(module=module, components=components):
-                        value = module
-                        for component in components:
-                            value = inspect.getattr_static(value, component)
-                        return value
-
-                    getters.append(getter)
-        if required_helpers:
-            raise PortRefusal("prepared CPU kernel helper is outside its acquired sources")
+        getters = _prepared_runtime_members(sources, modules, call.entrypoint, call.expected_nodes)
         actual = function.__func__ if inspect.ismethod(function) else function
         globals = tuple(
             (modules[module_name], name, actual.__builtins__.get(name))
@@ -1011,16 +1083,33 @@ def execute_python_coroutine(
     signature = prepared.signature
     with ExitStack() as owner:
         arguments = _requested_populations(
-            call, content, signature, populations, prepared_releases,
-            request_digest, population_bytes, owner, check_active,
+            call,
+            content,
+            signature,
+            populations,
+            prepared_releases,
+            request_digest,
+            population_bytes,
+            owner,
+            check_active,
         )
         bound = _bound_arguments(
-            call, signature, check_active, prepared_releases,
-            adapters=prepared.adapters, populations=arguments,
+            call,
+            signature,
+            check_active,
+            prepared_releases,
+            adapters=prepared.adapters,
+            populations=arguments,
         )
         return _drive_cpu_coroutine(
-            prepared, bound, connection, check_active, prepare_runtime,
-            max_reply_bytes, fence, request_digest or sha256(content).hexdigest(),
+            prepared,
+            bound,
+            connection,
+            check_active,
+            prepare_runtime,
+            max_reply_bytes,
+            fence,
+            request_digest or sha256(content).hexdigest(),
         )
 
 
