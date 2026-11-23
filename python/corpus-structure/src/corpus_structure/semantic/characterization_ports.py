@@ -30,6 +30,7 @@ from .construction_products import (
 )
 from .data_operation_model import SubjectContext
 from .data_operation_outcomes import successful_return_outcome
+from .data_operation_partitions import PartitionedInput
 from .data_operation_population import AcquiredPopulation
 from .data_operation_values import decode_semantic_value
 from .data_product_reference import DataProductReference
@@ -720,15 +721,21 @@ class PreparedCharacterizationPort(ABC):
             )
             if kind is None:
                 raise PortRefusal("view member has no admitted concrete nominal kind")
-            partitioned = isinstance(value, Mapping) and set(value) == {"header", "partitions"}
+            populations = ()
+            if isinstance(value, PartitionedInput):
+                body, packets, populations = value.header, value.packets, value.populations
+            elif isinstance(value, Mapping) and set(value) == {"header", "partitions"}:
+                body = canonical_bytes(value["header"])
+                packets = tuple(map(canonical_bytes, value["partitions"]))
+            else:
+                body, packets = canonical_bytes(_body(value)), None
             product = RetainedCharacterizationProduct.acquire(
                 self.prepared,
                 self.model,
                 kind,
-                canonical_bytes(value["header"] if partitioned else _body(value)),
-                partitions=tuple(map(canonical_bytes, value["partitions"]))
-                if partitioned
-                else None,
+                body,
+                partitions=packets,
+                populations=populations,
             )
             context = SubjectContext(
                 binding.subject_context.project_id,

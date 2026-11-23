@@ -19,7 +19,7 @@ from .characterization_manifests import (
 )
 from .data_operation_identity import body_identity, contextual_product_identity
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
-from .data_operation_partitions import partition_header
+from .data_operation_partitions import partition_commitment_header, partition_header
 from .data_operation_source_sets import FrozenSourceSet, SelectedSourceSetEntry
 from .data_product_reference import DataProductMemberReference, DataProductReference
 from .identity import canonical_bytes
@@ -127,12 +127,27 @@ class RetainedCharacterizationProduct:
         return result
 
     @classmethod
-    def acquire(cls, prepared, model, kind, content, *, subject_context=None, partitions=None):
-        if type(content) is not bytes or (
-            partitions is not None
-            and (
-                type(partitions) is not tuple
-                or any(type(packet) is not bytes for packet in partitions)
+    def acquire(
+        cls,
+        prepared,
+        model,
+        kind,
+        content,
+        *,
+        subject_context=None,
+        partitions=None,
+        populations=(),
+    ):
+        if (
+            type(content) is not bytes
+            or type(populations) is not tuple
+            or (partitions and populations)
+            or (
+                partitions is not None
+                and (
+                    type(partitions) is not tuple
+                    or any(type(packet) is not bytes for packet in partitions)
+                )
             )
         ):
             raise TypeError("retained characterization requires immutable body and packet bytes")
@@ -145,7 +160,7 @@ class RetainedCharacterizationProduct:
             raise ValueError("view input lacks a concrete declared characterization kind")
         collections = ()
         partition_blocks = None
-        if partitions is not None:
+        if partitions is not None or populations:
             owner = next(row for row in model.kinds if row.semantic_id == kind)
             collections = tuple(
                 sorted(
@@ -156,14 +171,27 @@ class RetainedCharacterizationProduct:
             )
             header = json.loads(content)
             if definition.name == "DdoSourceAnnotations":
-                from .sentence_partitions import acquire_sentence_partitions
+                from .sentence_partitions import acquire_sentence_blocks
 
                 if collections != ("rows",):
                     raise ValueError("source annotations require their declared rows collection")
-                _, partition_blocks = acquire_sentence_partitions(partitions, header.get("rows"))
+                partition_blocks = acquire_sentence_blocks(
+                    partitions or (), header.get("rows"), populations=populations
+                )
+            elif populations:
+                groups = defaultdict(list)
+                for population in populations:
+                    groups[population.commitment.collection].append(population.commitment)
+                if groups.keys() - set(collections) or any(
+                    partition_commitment_header(groups[name]) != header.get(name)
+                    for name in collections
+                ):
+                    raise ValueError(
+                        "retained characterization differs from selected population commitments"
+                    )
             else:
                 packet_groups = defaultdict(list)
-                for packet in map(json.loads, partitions):
+                for packet in map(json.loads, partitions or ()):
                     packet_groups[packet["collection"]].append(packet)
                 if packet_groups.keys() - set(collections) or any(
                     partition_header(packet_groups[name]) != header.get(name)

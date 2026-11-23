@@ -1131,7 +1131,7 @@ class NativeDemandExecutor:
                 )
                 value = tuple(
                     member.partitioned
-                    if typed
+                    if typed or (member.partitioned is not None and member.partitioned.populations)
                     else member.partitioned.value()
                     if member.partitioned is not None
                     else member.value()

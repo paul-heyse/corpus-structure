@@ -238,6 +238,11 @@ The withdrawn public read remained refused. These cases exercised Standard captu
 the installed recognition worker against a finite loopback service. Real model-provider
 accuracy belongs to its own qualification.
 
+The real Docling GPU control passed (`a154309556b348dba963e516bd1b0fc9`) on original
+physical pages 120–122. Prefilled resume converted only the missing pages. A complete
+spool then rebuilt the same records with no additional page conversion. The result
+establishes provider spool recovery and exact same-spool record output.
+
 **Release and source custody · Tested by selected identity · 2026-11-23.** The refreshed
 root passed exact historical PDF raw-lineage refusal and original-byte retention for
 both URI spellings in `93f2164200f44263a2350809f550cfab`. The deployment case passed its
@@ -251,6 +256,18 @@ case, including the application-only preview, deployment and first ordinary dema
 after replacing the retired partition-table fixture with typed populations and preserving
 the acquired populations in synchronous construction snapshots. `uv run ci check` passed
 on those changes (`4d26368ff9ca4665b0aae8411b6b2045`).
+
+**Real provider follow-through · 2026-11-23.** The private provider cohort
+`b6c7d0836df34ca9a521d7123b6b6fd4` passed learned-definition publication with exact
+provider and component-source custody. The contextual-discovery case failed while
+hydrating its supporting annotation collection. The executor now passes acquired
+populations through to the retained-characterization port. The port checks the
+committed population headers and derives the annotation blocks needed by the parent.
+The contextual worker receives the resulting headers and original role addresses.
+The original invocation outcome is retained and managed recovery settled its custody.
+The fresh-root retry passed exact contextual graph publication and detached reference
+replay (`e5dc07c0fc214c0c9089dfc54327da5c`). `uv run ci check` passed on the same source
+(`4ca0b69c86574c129a9571aa99d363c8`).
 
 ### Development reset through SBX-09
 
