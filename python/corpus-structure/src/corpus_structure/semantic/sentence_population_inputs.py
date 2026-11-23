@@ -65,6 +65,7 @@ def sentence_extent_blocks(value: PartitionedInput, commitment):
     if not value.populations:
         return acquire_sentence_blocks(value.packets, commitment)
 
+    import pyarrow as pa
     import pyarrow.compute as pc
 
     from .data_operation_population import AcquiredPopulation
@@ -73,11 +74,17 @@ def sentence_extent_blocks(value: PartitionedInput, commitment):
     result = []
     for part in sorted(value.populations, key=lambda part: part.commitment.ordinal):
         placement, population = part.commitment, part.population
-        filtered = population.table.filter(pc.equal(population.table["record_type"], "sentence"))
+        sentence_rows = pc.call_function(
+            "equal", [population.table["record_type"], pa.scalar("sentence")]
+        )
+        filtered = population.table.filter(sentence_rows)
         sentences = AcquiredPopulation._from_table(population.layout, filtered)
         result.append(
             SentenceBlock(
-                placement.key, placement.ordinal, placement.start, placement.end,
+                placement.key,
+                placement.ordinal,
+                placement.start,
+                placement.end,
                 tuple(sentences.rows()),
             )
         )
