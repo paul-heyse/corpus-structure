@@ -407,6 +407,8 @@ def _dispatch(
                     {"slot": slot, "generation": generation},
                     prepared_releases=releases,
                     request_digest=request_digest,
+                    populations=packet.populations,
+                    population_bytes=sum(offer.byte_length for offer in packet.populations),
                 )
             else:
                 result = execute_python_call(
@@ -716,7 +718,7 @@ class _ReleaseCPUView:
             populations=populations,
         )
 
-    def submit_closed_python_stream(self, admission, content, connection, check_active):
+    def submit_closed_python_stream(self, admission, content, connection, check_active, *, populations=()):
         return self.scope._submit(
             admission,
             content,
@@ -724,6 +726,7 @@ class _ReleaseCPUView:
             "closed-python-stream",
             connection,
             capsule=self.capsule,
+            populations=populations,
         )
 
 
@@ -981,8 +984,11 @@ class CPUExecutionScope:
             admission, content, check_active, "closed-python", populations=populations
         )
 
-    def submit_closed_python_stream(self, admission, content, connection, check_active):
-        return self._submit(admission, content, check_active, "closed-python-stream", connection)
+    def submit_closed_python_stream(self, admission, content, connection, check_active, *, populations=()):
+        return self._submit(
+            admission, content, check_active, "closed-python-stream", connection,
+            populations=populations,
+        )
 
     def _submit(
         self,

@@ -241,23 +241,16 @@ def prepared_cpu_descriptor(sources, entrypoint, prepared_release_id, asset_cust
     )
 
 
-def plan_cpu_call(
+def cpu_population_packet(
     descriptor,
     bound,
     signature,
-    *,
-    verify,
-    execution_owner,
-    check_active,
     population_inputs: Mapping[str, PopulationCPUInput | tuple[PopulationCPUInput, ...]]
     | None = None,
 ):
-    """One validated original call, one shared admission, one physically owned reply."""
-    from corpus_structure.core.method import PreparedWork
-
+    """Frame compact control and ordered IPC attachments for one physical request."""
     if not isinstance(descriptor, PythonCPUDescriptor):
         raise ValueError("CPU call requires its acquired source descriptor")
-    check_active()
     populations, transfers = {}, []
     inputs = population_inputs or {}
     declared = _population_parameters(signature)
@@ -265,7 +258,7 @@ def plan_cpu_call(
         inputs
         and (
             descriptor.verification != "prepared-kernel"
-            or descriptor.invocation_form not in {"scalar", "batch"}
+            or descriptor.invocation_form not in {"scalar", "batch", "coroutine"}
         )
     ):
         raise ValueError("CPU population inputs differ from their admitted kernel parameters")
@@ -295,7 +288,25 @@ def plan_cpu_call(
             (inp.population, entry.binding(name, position))
             for position, (inp, entry) in enumerate(zip(owned, entries, strict=True))
         )
-    packet = descriptor.packet(bound.arguments, signature, populations=populations)
+    return descriptor.packet(bound.arguments, signature, populations=populations), transfers
+
+
+def plan_cpu_call(
+    descriptor,
+    bound,
+    signature,
+    *,
+    verify,
+    execution_owner,
+    check_active,
+    population_inputs: Mapping[str, PopulationCPUInput | tuple[PopulationCPUInput, ...]]
+    | None = None,
+):
+    """One validated original call, one shared admission, one physically owned reply."""
+    from corpus_structure.core.method import PreparedWork
+
+    check_active()
+    packet, transfers = cpu_population_packet(descriptor, bound, signature, population_inputs)
     cpu = execution_owner.cpu
 
     def submit():
@@ -621,7 +632,7 @@ def _open_populations(
         set(call.populations) != set(declared)
         or len(offers) != sum(len(entries) for entries in call.populations.values())
         or call.verification != "prepared-kernel"
-        or call.invocation_form not in {"scalar", "batch"}
+        or call.invocation_form not in {"scalar", "batch", "coroutine"}
     ):
         raise ValueError("CPU population transfer differs from its authorized kernel parameters")
     arguments, layouts, models = {}, {}, {}
@@ -670,6 +681,20 @@ def _open_populations(
     return arguments
 
 
+def _requested_populations(
+    call, content, signature, populations, prepared_releases,
+    request_digest, population_bytes, owner, check_active,
+):
+    if not call.populations and not populations:
+        return {}
+    if request_digest != sha256(content).hexdigest():
+        raise ValueError("CPU population request differs from its transfer identity")
+    return _open_populations(
+        call, signature, populations, prepared_releases,
+        request_digest, population_bytes, owner, check_active,
+    )
+
+
 def execute_python_call(
     content: bytes,
     check_active,
@@ -684,20 +709,10 @@ def execute_python_call(
     call = _Call.model_validate_json(content, strict=True)
     prepared = _load(call)
     with ExitStack() as owner:
-        arguments = {}
-        if call.populations or populations:
-            if request_digest != sha256(content).hexdigest():
-                raise ValueError("CPU population request differs from its transfer identity")
-            arguments = _open_populations(
-                call,
-                prepared.signature,
-                populations,
-                prepared_releases,
-                request_digest,
-                population_bytes,
-                owner,
-                check_active,
-            )
+        arguments = _requested_populations(
+            call, content, prepared.signature, populations, prepared_releases,
+            request_digest, population_bytes, owner, check_active,
+        )
         bound = _bound_arguments(
             call,
             prepared.signature,
@@ -725,6 +740,9 @@ def execute_python_stream(
     fence,
     prepared_releases=None,
     request_digest=None,
+    *,
+    populations=(),
+    population_bytes=0,
 ):
     """Child-owned iterator with one item per authenticated parent pull credit."""
     import json
@@ -744,8 +762,10 @@ def execute_python_stream(
             fence,
             prepared_releases,
             request_digest=request_digest,
+            populations=populations,
+            population_bytes=population_bytes,
         )
-    if call.invocation_form != "stream":
+    if call.invocation_form != "stream" or populations or call.populations:
         raise ValueError("CPU stream requires its admitted stream descriptor")
     prepared = _load(call)
     signature = prepared.signature
@@ -845,33 +865,45 @@ def execute_python_coroutine(
     fence,
     prepared_releases=None,
     request_digest=None,
+    *,
+    populations=(),
+    population_bytes=0,
 ):
     """Child-only original generator; one typed reply advances one pending question.
 
     Domain failure disposition is part of the declared reply type. Unexpected
     infrastructure errors never become fabricated answers or replayed computation.
     """
-    import json
-    from collections.abc import Generator
-    from hashlib import sha256
-
     prepared = _load(call)
     signature = prepared.signature
-    from typing import get_args
+    with ExitStack() as owner:
+        arguments = _requested_populations(
+            call, content, signature, populations, prepared_releases,
+            request_digest, population_bytes, owner, check_active,
+        )
+        bound = _bound_arguments(
+            call, signature, check_active, prepared_releases,
+            adapters=prepared.adapters, populations=arguments,
+        )
+        return _drive_cpu_coroutine(
+            prepared, bound, connection, check_active, prepare_runtime,
+            max_reply_bytes, fence, request_digest or sha256(content).hexdigest(),
+        )
+
+
+def _drive_cpu_coroutine(
+    prepared, bound, connection, check_active, prepare_runtime, max_reply_bytes, fence, digest
+):
+    import json
+    from collections.abc import Generator
 
     question_adapter, reply_adapter, result_adapter = tuple(
-        prepared.adapters.get(item) for item in get_args(signature.return_annotation)
-    )
-    bound = _bound_arguments(
-        call, signature, check_active, prepared_releases, adapters=prepared.adapters
+        prepared.adapters.get(item) for item in get_args(prepared.signature.return_annotation)
     )
     generator = prepared.function(*bound.args, **bound.kwargs)
     if not isinstance(generator, Generator):
         raise ValueError("CPU coroutine callable did not return its original generator")
-    digest, ordinal = (
-        request_digest if request_digest is not None else sha256(content).hexdigest(),
-        0,
-    )
+    ordinal = 0
 
     def send(state, value):
         frame = canonical_bytes(

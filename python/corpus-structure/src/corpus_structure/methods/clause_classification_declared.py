@@ -3,6 +3,7 @@
 from typing import ClassVar
 
 from corpus_structure.semantic.clause_products import execute_clause_classification
+from corpus_structure.semantic.data_operation_partitions import PartitionedInput
 
 
 class ClauseClassificationOperation:
@@ -417,7 +418,7 @@ class ClauseClassificationOperation:
         self,
         source: dict,
         predicates: dict,
-        canonical: dict,
+        canonical: PartitionedInput,
         gliner_observations: tuple[dict, ...],
         gliner_candidates: tuple[dict, ...],
         d1_observations: tuple[dict, ...],

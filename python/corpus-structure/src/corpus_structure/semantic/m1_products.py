@@ -26,9 +26,11 @@ from .data_operation_model import (
     ResolvedRoleBinding,
     SubjectContext,
 )
+from .data_operation_population import AcquiredPopulation
 from .declared_contexts import DeclaredContextPopulation
 from .declared_record_sources import DeclaredNativeFrameSource
 from .identity import canonical_bytes
+from .sentence_population_inputs import SentencePopulationInputs, prepare_sentence_populations
 from .types import PreparedRelease, SourceArtifact, SourceBundle
 
 _MODEL = Path(__file__).parents[1] / "model/semantic/data-operation-candidate-inspection.yaml"
@@ -76,6 +78,7 @@ def m1_profile_assets(configuration, record_schemas):
         "semantic/declared_candidate_products.py",
         "semantic/sentence_products.py",
         "semantic/sentence_partitions.py",
+        "semantic/sentence_population_inputs.py",
     )
     return SourceArtifact(
         "m1/profile-assets",
@@ -209,6 +212,7 @@ class PreparedM1Inputs:
     ) -> Generator[M1GlinerRequest, M1GlinerReply, M1CandidateProduct]:
         from corpus_structure.methods.source_preparation import prepare_source
 
+        from .data_operation_json import json_loads
         from .sentence_products import SourceAnnotations, source_annotation_rows
 
         frame = DeclaredNativeFrameSource.acquire(
@@ -219,12 +223,13 @@ class PreparedM1Inputs:
         )
         if frame.pin not in {source.pin for source in population.sources}:
             raise ValueError("primary source is outside its declared complete context population")
-        checked = annotations["header"]
+        checked = json_loads(annotations.header)
         inventory = SourceAnnotations(
-            canonical_bytes(checked),
+            annotations.header,
             self.prepared,
             self.model,
-            partitions=tuple(canonical_bytes(packet) for packet in annotations["partitions"]),
+            partitions=annotations.packets,
+            populations=annotations.populations,
         )
         if checked["source"] != primary["source"] or tuple(checked["selectors"]) != tuple(primary["selectors"]):
             raise ValueError("M1 annotations belong to another exact source/scope")
@@ -309,7 +314,9 @@ def execute_declared_m1(
 
 def execute_m1_kernel(
     primary: dict,
-    annotations: dict,
+    annotation_header: bytes,
+    annotation_placements: SentencePopulationInputs,
+    annotation_items: tuple[AcquiredPopulation, ...],
     construction: dict,
     sources: tuple[dict, ...],
     primary_member: BoundRoleMember,
@@ -340,7 +347,8 @@ def execute_m1_kernel(
     )
     return (
         yield from M1SourceCandidatesOperation(profile).run(
-            primary, annotations, construction, sources
+            primary, annotation_placements.attach(annotation_header, annotation_items),
+            construction, sources,
         )
     )
 
@@ -524,9 +532,19 @@ class M1InvocationPlan:
         role = next(role for role in binding.roles if role.role == "sources")
         if tuple(value.member for value in selected_sources) != role.members:
             raise ValueError("M1 native selector changed the exact source population")
+        physical_arguments = dict(arguments.arguments)
+        nominal_annotations = physical_arguments.pop("annotations")
+        if nominal_annotations is not annotations.partitioned:
+            raise ValueError("M1 annotations differ from their exact admitted partitioned input")
+        placements, transfers = prepare_sentence_populations(
+            nominal_annotations, self.port.identity.recipe
+        )
         signature = inspect.signature(execute_m1_kernel, eval_str=True)
         bound = signature.bind(
-            **arguments.arguments,
+            **physical_arguments,
+            annotation_header=nominal_annotations.header,
+            annotation_placements=placements,
+            annotation_items=tuple(item.population for item in transfers),
             primary_member=primary.member,
             annotation_member=annotations.member,
             construction_member=construction.member,
@@ -574,6 +592,7 @@ class M1InvocationPlan:
             execution_owner=execution_owner,
             check_active=check_active,
             answer_plan=answer,
+            population_inputs={"annotation_items": transfers},
         )
         evidence = (
             TypeAdapter(tuple[ProviderExecutionReceipt, ...]).dump_json(tuple(receipts))

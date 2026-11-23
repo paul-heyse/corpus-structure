@@ -64,7 +64,7 @@ class _Pull:
 
 
 class OwnedCPUStream:
-    def __init__(self, cpu, admission, packet, check_active):
+    def __init__(self, cpu, admission, packet, check_active, *, populations=()):
         self.cpu = cpu
         self.pulls = []
         self.closed = False
@@ -75,9 +75,14 @@ class OwnedCPUStream:
         self.max_bytes = cpu.policy.max_reply_bytes
         self.fence = {"slot": admission.slot, "generation": admission.generation}
         try:
-            self.handle = cpu.submit_closed_python_stream(
-                admission, packet, self.child, check_active
-            )
+            if populations:
+                self.handle = cpu.submit_closed_python_stream(
+                    admission, packet, self.child, check_active, populations=populations
+                )
+            else:
+                self.handle = cpu.submit_closed_python_stream(
+                    admission, packet, self.child, check_active
+                )
             self.digest = self.handle.digest
         except BaseException:
             self.parent.close()
@@ -233,7 +238,8 @@ class OwnedCPUCoroutine(OwnedCPUStream):
 
 
 def plan_cpu_coroutine(
-    descriptor, bound, signature, *, verify, execution_owner, check_active, answer_plan
+    descriptor, bound, signature, *, verify, execution_owner, check_active, answer_plan,
+    population_inputs=None,
 ):
     """Keep one original CPU generator alive across typed provider exchanges.
 
@@ -243,12 +249,12 @@ def plan_cpu_coroutine(
     """
     import json
 
-    from .data_operation_cpu import PythonCPUDescriptor, coroutine_adapters
+    from .data_operation_cpu import PythonCPUDescriptor, coroutine_adapters, cpu_population_packet
 
     if not isinstance(descriptor, PythonCPUDescriptor) or descriptor.invocation_form != "coroutine":
         raise ValueError("CPU coroutine requires its acquired coroutine descriptor")
     question_adapter, reply_adapter, result_adapter = coroutine_adapters(signature, descriptor)
-    packet = descriptor.packet(bound.arguments, signature)
+    packet, transfers = cpu_population_packet(descriptor, bound, signature, population_inputs)
     cpu, stream = execution_owner.cpu, None
 
     def start():
@@ -256,12 +262,13 @@ def plan_cpu_coroutine(
         verify()
         check_active()
         admission = cpu.try_admit(
-            check_active, reservation=execution_owner.reservation, packet_bytes=len(packet)
+            check_active, reservation=execution_owner.reservation,
+            packet_bytes=None if transfers else len(packet),
         )
         if admission is None:
             return None
         try:
-            stream = OwnedCPUCoroutine(cpu, admission, packet, check_active)
+            stream = OwnedCPUCoroutine(cpu, admission, packet, check_active, populations=transfers)
             return stream.pull()
         except BaseException:
             if not admission.submitted:

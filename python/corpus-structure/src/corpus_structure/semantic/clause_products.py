@@ -11,8 +11,14 @@ from pathlib import Path
 from typing import Any
 
 from .data_operation_model import ResolvedRoleBinding, SubjectContext
+from .data_operation_population import AcquiredPopulation
 from .identity import canonical_bytes
 from .python_module_projection import admitted_operation_module_meaning
+from .sentence_population_inputs import (
+    SentencePopulationInputs,
+    prepare_sentence_populations,
+    sentence_extent_blocks,
+)
 from .types import PreparedRelease, SourceArtifact
 
 _ROOT = Path(__file__).parents[1]
@@ -26,6 +32,7 @@ _PATHS = (
     "semantic/declared_candidate_products.py",
     "semantic/structural_products.py",
     "semantic/sentence_partitions.py",
+    "semantic/sentence_population_inputs.py",
     "semantic/data_product_reference.py",
     "semantic/declared_record_sources.py",
 )
@@ -83,15 +90,13 @@ def clause_operation_sources():
     )
 
 
-def canonical_context_rows(header, packets, *, text_length):
+def canonical_context_rows(header, partitioned, *, text_length):
     """Index admitted sentence extents once and retain their stable row ordinals."""
-    from .data_operation_partitions import partition_header
-    from .sentence_partitions import COLLECTION, blocks_from_packets
+    from .sentence_partitions import COLLECTION
 
-    if header[COLLECTION] != partition_header(packets):
-        raise ValueError("clause canonical rows differ from their selected commitment")
+    blocks = sentence_extent_blocks(partitioned, header[COLLECTION])
     result = {}
-    for block in blocks_from_packets(packets):
+    for block in blocks:
         if not 0 <= block.start <= block.end <= text_length:
             raise ValueError("clause canonical block exceeds its original source")
         sentences = []
@@ -376,7 +381,7 @@ def execute_clause_classification(
 ):
     from .contributions import contribution_identity
     from .data_operation_admission import bound_data_operation_model
-    from .data_operation_json import json_bytes
+    from .data_operation_json import json_bytes, json_loads
     from .data_product_reference import SemanticReference
     from .declared_candidate_products import candidate_member_values
     from .declared_structural_calls import PreparedStructuralInputs
@@ -422,7 +427,7 @@ def execute_clause_classification(
         raise ValueError("clause predicate member substitutes its retained source-bound identity")
     from .data_operation_identity import body_identity, contextual_product_identity
 
-    canonical_header = canonical["header"]
+    canonical_header = json_loads(canonical.header)
     if canonical_header["source"] != frame.value["source"] or tuple(
         canonical_header["selectors"]
     ) != tuple(frame.value["selectors"]):
@@ -445,7 +450,7 @@ def execute_clause_classification(
     ):
         raise ValueError("clause canonical header differs from its exact bound product")
     canonical_rows = canonical_context_rows(
-        canonical_header, canonical["partitions"], text_length=len(frame.text)
+        canonical_header, canonical, text_length=len(frame.text)
     )
     pairs = []
     for prefix, observations, candidates, observation_class, candidate_class in (
@@ -672,6 +677,9 @@ def execute_clause_classification(
 
 def clause_kernel(
     arguments: dict,
+    canonical_header: bytes,
+    canonical_placements: SentencePopulationInputs,
+    canonical_items: tuple[AcquiredPopulation, ...],
     roles: tuple[ResolvedRoleBinding, ...],
     context: SubjectContext,
     *,
@@ -684,7 +692,7 @@ def clause_kernel(
 
     return ClauseClassificationOperation(
         PreparedClauseInputs(prepared, roles, context, check_active)
-    ).run(**arguments)
+    ).run(canonical=canonical_placements.attach(canonical_header, canonical_items), **arguments)
 
 
 @dataclass
@@ -700,9 +708,17 @@ class ClauseCallPlan:
 
         if binding is None or binding.subject_context is None:
             raise ValueError("clause call requires its exact qualified binding")
+        arguments = dict(arguments.arguments)
+        canonical = arguments.pop("canonical")
+        placements, transfers = prepare_sentence_populations(
+            canonical, self.port.identity.recipe, groups=("geometry",)
+        )
         signature = inspect.signature(clause_kernel, eval_str=True)
         bound = signature.bind(
-            arguments=arguments.arguments,
+            arguments=arguments,
+            canonical_header=canonical.header,
+            canonical_placements=placements,
+            canonical_items=tuple(item.population for item in transfers),
             roles=binding.roles,
             context=binding.subject_context,
             prepared=self.prepared,
@@ -715,6 +731,7 @@ class ClauseCallPlan:
                 bound,
                 captured,
                 prepared_release_id=self.prepared.release_id,
+                population_inputs={"canonical_items": transfers},
                 verify=self.verify,
                 execution_owner=execution_owner,
                 check_active=check_active,

@@ -2,6 +2,7 @@
 
 from typing import ClassVar
 
+from corpus_structure.semantic.data_operation_partitions import PartitionedInput
 from corpus_structure.semantic.external_extraction import execute_rich_profile
 
 
@@ -342,10 +343,10 @@ class RichExtractionInputOperation:
     def run(
         self,
         source: dict,
-        annotations: dict,
+        annotations: PartitionedInput,
         policy: dict,
         context_sources: tuple[dict, ...],
-        context_annotations: tuple[dict, ...],
+        context_annotations: tuple[PartitionedInput, ...],
         scopes: tuple[dict, ...],
     ) -> dict:
         return execute_rich_profile(

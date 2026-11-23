@@ -71,6 +71,7 @@ from corpus_structure.semantic.data_operation_ports import (
     HydratedRoleValue,
     PortRefusal,
     PythonBatchMember,
+    partitioned_sequence,
     resolve_python_port,
 )
 from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
@@ -358,6 +359,18 @@ class _RequestExecution:
         self.hydrated_sizes = {}
         self.hydrated_inputs = None
         self.uncertain_submission = False
+
+    def bound_after_hydration(self, hydrated_bytes, policy):
+        # An IPC write reserves its full bounded file before it is created.
+        # Encoded bytes can exceed the Arrow buffers measured during hydration.
+        uses_populations = any(
+            member.partitioned is not None and member.partitioned.populations
+            for selection in self.consumer_inputs.values()
+            for _, members in selection.values
+            for member in members
+        )
+        packet_bytes = policy.max_packet_bytes if uses_populations else hydrated_bytes
+        self.reservation.reduce_to(hydrated_bytes + packet_bytes + 3 * policy.max_reply_bytes)
 
     def submit_python(self, callback):
         if getattr(self.invocation.pool, "failed", False):
@@ -1105,8 +1118,18 @@ class NativeDemandExecutor:
                     )
                 values.append(HydratedRoleValue._from_bound_scalar(role, contract, members[0]))
             else:
+                signature = getattr(context.ports.get(ready.operation), "logical_signature", None)
+                typed = (
+                    signature is not None
+                    and roles[role].parameter in signature.parameters
+                    and partitioned_sequence(signature.parameters[roles[role].parameter].annotation)
+                )
                 value = tuple(
-                    member.partitioned.value() if member.partitioned is not None else member.value()
+                    member.partitioned
+                    if typed
+                    else member.partitioned.value()
+                    if member.partitioned is not None
+                    else member.value()
                     for member in members
                 )
                 values.append(HydratedRoleValue(role, contract, value))
@@ -1117,11 +1140,12 @@ class NativeDemandExecutor:
         if answer.operation != ready.operation:
             raise PortRefusal("completion belongs to another operation")
         operation = context.model.operation(ready.operation)
+        if any(value.partitions for value in answer.outputs):
+            raise PortRefusal("native population output requires typed manifests and COPY rows")
         output_bytes = sum(
             len(value.content)
             + len(value.meaning or b"")
             + sum(map(len, value.members))
-            + sum(map(len, value.partitions))
             + sum(partition.items.nbytes for partition in value.populations)
             for value in answer.outputs
         )
@@ -1141,9 +1165,7 @@ class NativeDemandExecutor:
             if value.meaning is None:
                 raise PortRefusal("native output requires canonical typed meaning")
             populations.extend((value.role, position, partition) for partition in value.populations)
-            partitions = [partition.manifest() for partition in value.populations] or [
-                native_json_loads(partition) for partition in value.partitions
-            ]
+            partitions = [partition.manifest() for partition in value.populations]
             outputs.append(
                 {
                     "role": value.role,
@@ -1705,8 +1727,8 @@ class NativeDemandExecutor:
                 phase = "hydration"
                 inputs = self._hydrate(ready, physical, context=context)
                 phase = "computation"
-                reservation.reduce_to(
-                    2 * physical.hydrated_sizes[ready.obligation] + 3 * self.policy.max_reply_bytes
+                physical.bound_after_hydration(
+                    physical.hydrated_sizes[ready.obligation], self.policy
                 )
                 answer = yield from physical.relay(
                     port.plan_python(
@@ -1836,7 +1858,7 @@ class NativeDemandExecutor:
                     failures.append(self._retained_failure(error, claim, phase=phase))
             if pending:
                 physical.hydrated_inputs = None
-                reservation.reduce_to(2 * hydrated_bytes + 3 * self.policy.max_reply_bytes)
+                physical.bound_after_hydration(hydrated_bytes, self.policy)
                 active, rejected = [], []
                 for row in pending:
                     try:

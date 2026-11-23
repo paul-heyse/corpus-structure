@@ -225,6 +225,10 @@ class HydratedRoleValue(PythonRoleValue):
         return selected
 
 
+def partitioned_sequence(annotation) -> bool:
+    return get_origin(annotation) is tuple and get_args(annotation) == (PartitionedInput, Ellipsis)
+
+
 def _hydrated_container(annotation):
     """Select outer shape once from the acquired callable, without coercing members."""
     origin = get_origin(annotation)
@@ -558,7 +562,7 @@ class PortAdapters:
             if signature is not None:
                 for parameter in signature.parameters.values():
                     annotation = _input_annotation(parameter)
-                    if annotation is not PartitionedInput:
+                    if annotation is not PartitionedInput and not partitioned_sequence(annotation):
                         self.get(annotation)
                 annotation = signature.return_annotation
                 if get_origin(annotation) not in (Generator, Iterator):
@@ -842,6 +846,18 @@ class ResolvedPythonPort:
                     if isinstance(value, HydratedRoleValue) and value.selected is not None:
                         HydratedRoleValue._require_selected(value, binding)
                     arguments[role.parameter] = value.partitioned
+                    continue
+                if partitioned_sequence(annotation):
+                    if (
+                        role.collection != "sequence"
+                        or not isinstance(value, HydratedRoleValue)
+                        or type(value.value) is not tuple
+                        or any(type(item) is not PartitionedInput for item in value.value)
+                        or len(value.value) < role.minimum
+                        or (role.maximum is not None and len(value.value) > role.maximum)
+                    ):
+                        raise PortRefusal("partitioned sequence requires its acquired ordered carriers")
+                    arguments[role.parameter] = value.value
                     continue
                 typed_dict_fields = (
                     annotation.__annotations__ if typing.is_typeddict(annotation) else None

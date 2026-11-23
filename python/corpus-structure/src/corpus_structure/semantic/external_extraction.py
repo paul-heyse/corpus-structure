@@ -9,11 +9,16 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any, Literal
 
-from ._data_operation_wire import WireProductPartition
 from .data_operation_json import json_bytes, wire_json_loads
+from .data_operation_population import AcquiredPopulation
 from .identity import canonical_bytes
 from .python_module_projection import admitted_operation_module_meaning
 from .sentence_partitions import SentenceBlock
+from .sentence_population_inputs import (
+    SentencePopulationInputs,
+    prepare_sentence_populations,
+    sentence_extent_blocks,
+)
 from .types import PreparationProfile, SourceArtifact, SourceBundle
 
 _ROOT = Path(__file__).parents[1]
@@ -32,6 +37,7 @@ _FILES = (
     "semantic/data_operation_partitions.py",
     "methods/llm/cascade.py",
     "semantic/sentence_partitions.py",
+    "semantic/sentence_population_inputs.py",
     "semantic/source_products.py",
     "semantic/analysis_policies.py",
     "semantic/declared_math_products.py",
@@ -52,28 +58,21 @@ class RichAnnotationsInput:
 
 
 @dataclass(frozen=True)
-class RichAnnotationPackets:
-    """Packets for one exact annotation occurrence in the CPU authority basis."""
+class RichAnnotationInputs:
+    """Compact placement for one exact annotation occurrence in the CPU authority basis."""
 
     role: Literal["annotations", "context_annotations"]
     position: int | None
-    packets: tuple[WireProductPartition, ...]
+    partitions: SentencePopulationInputs
 
-    def attach(self, header: dict) -> RichAnnotationsInput:
-        from .data_operation_identity import canonical_identity
-        from .data_operation_partitions import partition_header
-        from .sentence_partitions import COLLECTION, blocks_from_packets
+    def attach(self, header: dict, populations) -> RichAnnotationsInput:
+        from .sentence_partitions import COLLECTION
 
-        if partition_header(self.packets) != header.get(COLLECTION):
-            raise ValueError("rich extraction annotation packets differ from their selected header")
-        blocks = blocks_from_packets(self.packets)
-        digests = {packet["partition_key"]: packet["partition_digest"] for packet in self.packets}
-        if any(
-            canonical_identity("partition", list(block.rows)).key != digests[block.key]
-            for block in blocks
-        ):
-            raise ValueError("rich extraction annotation packet differs from its content digest")
-        return RichAnnotationsInput(header, blocks)
+        selected = self.partitions.attach(canonical_bytes(header), populations)
+        return RichAnnotationsInput(
+            header,
+            sentence_extent_blocks(selected, header.get(COLLECTION)),
+        )
 
 
 def external_extraction_inputs(
@@ -524,8 +523,10 @@ def execute_rich_profile(receiver, values):
     return receiver.execute(values)
 
 
-def _rich_kernel_inputs(action, input_basis, annotation_packets, *, prepared, asset_content):
+def _rich_kernel_inputs(action, input_basis, annotations, annotation_items, *, prepared, asset_content):
     """Read actual child operands and captured policy, without parent pin claims."""
+    from itertools import islice
+
     from .data_operation_admission import bound_data_operation_model
     from .data_operation_values import decode_semantic_value
 
@@ -553,9 +554,19 @@ def _rich_kernel_inputs(action, input_basis, annotation_packets, *, prepared, as
     declarations = {role.name: role for role in operation.roles if role.direction == "input"}
     if set(roles) - declarations.keys():
         raise ValueError("rich extraction CPU basis has an undeclared input role")
-    attachments = {(entry.role, entry.position): entry for entry in annotation_packets}
-    if len(attachments) != len(annotation_packets):
-        raise ValueError("rich extraction annotation packets repeat a selected occurrence")
+    attachments = {}
+    remaining = iter(annotation_items)
+    for entry in annotations:
+        address = entry.role, entry.position
+        if address in attachments:
+            raise ValueError("rich extraction annotations repeat a selected occurrence")
+        count = len(entry.partitions.placements)
+        attached_items = tuple(islice(remaining, count))
+        if len(attached_items) != count:
+            raise ValueError("rich extraction annotations lack their admitted population")
+        attachments[address] = entry, attached_items
+    if next(remaining, None) is not None:
+        raise ValueError("rich extraction annotations include an unbound population")
 
     def body_for(row):
         if row["role"] not in _ANNOTATION_ROLES:
@@ -563,7 +574,8 @@ def _rich_kernel_inputs(action, input_basis, annotation_packets, *, prepared, as
         selected = attachments.pop((row["role"], row["position"]), None)
         if selected is None:
             raise ValueError("rich extraction annotation packets lack a selected occurrence")
-        return selected.attach(row["body"])
+        entry, items = selected
+        return entry.attach(row["body"], items)
 
     values = {}
     for name, declaration in declarations.items():
@@ -623,7 +635,8 @@ def execute_rich_kernel(
     input_basis: list,
     asset_content: str,
     *,
-    annotation_packets: tuple[RichAnnotationPackets, ...] = (),
+    annotations: tuple[RichAnnotationInputs, ...] = (),
+    annotation_items: tuple[AcquiredPopulation, ...] = (),
     prepared,
     check_active,
 ) -> dict:
@@ -634,7 +647,8 @@ def execute_rich_kernel(
     model, _basis, roles, values, policy = _rich_kernel_inputs(
         action,
         input_basis,
-        annotation_packets,
+        annotations,
+        annotation_items,
         prepared=prepared,
         asset_content=asset_content,
     )
@@ -669,6 +683,8 @@ class RichInvocationPlan:
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
         from .data_operation_cpu_basis import cpu_authority_value, cpu_input_basis_from_binding
+        from .data_operation_json import json_loads
+        from .data_operation_partitions import PartitionedInput
         from .data_operation_prepared_call import PreparedCallResult
 
         if binding is None or binding.subject_context is None:
@@ -688,19 +704,21 @@ class RichInvocationPlan:
             name: (values[name],) if role.collection == "scalar" else tuple(values[name])
             for name, role in declarations.items()
         }
-        annotation_packets = []
+        annotations, transfers = [], []
         selected_roles = {role.role: role.members for role in binding.roles}
         for name in _ANNOTATION_ROLES:
             if name not in declarations:
                 continue
             headers = []
             for member, value in zip(selected_roles[name], bodies[name], strict=True):
-                if set(value) != {"header", "partitions"}:
+                if type(value) is not PartitionedInput:
                     raise ValueError("rich extraction requires selected annotation partitions")
-                headers.append(value["header"])
-                annotation_packets.append(
-                    RichAnnotationPackets(name, member.position, tuple(value["partitions"]))
+                headers.append(json_loads(value.header))
+                placement, populations = prepare_sentence_populations(
+                    value, recipe, groups=("geometry",)
                 )
+                annotations.append(RichAnnotationInputs(name, member.position, placement))
+                transfers.extend(populations)
             bodies[name] = tuple(headers)
         input_basis = cpu_input_basis_from_binding(recipe, binding, bodies)
         signature = inspect.signature(execute_rich_kernel, eval_str=True)
@@ -708,7 +726,8 @@ class RichInvocationPlan:
             action=self.operation,
             input_basis=input_basis,
             asset_content=self.asset_content,
-            annotation_packets=tuple(annotation_packets),
+            annotations=tuple(annotations),
+            annotation_items=tuple(item.population for item in transfers),
             prepared=self.prepared,
             check_active=check_active,
         )
@@ -718,6 +737,7 @@ class RichInvocationPlan:
             bound,
             captured,
             prepared_release_id=self.prepared.release_id,
+            population_inputs={"annotation_items": tuple(transfers)},
             execution_owner=execution_owner,
             check_active=check_active,
         )

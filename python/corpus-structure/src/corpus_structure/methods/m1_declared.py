@@ -4,6 +4,7 @@ from collections.abc import Generator
 from typing import ClassVar
 
 from corpus_structure.methods.m1_source import M1CandidateProduct, M1GlinerReply, M1GlinerRequest
+from corpus_structure.semantic.data_operation_partitions import PartitionedInput
 from corpus_structure.semantic.m1_products import execute_declared_m1
 
 
@@ -843,6 +844,6 @@ class M1SourceCandidatesOperation:
         )
 
     def run(
-        self, primary: dict, annotations: dict, construction: dict, sources: tuple[dict, ...]
+        self, primary: dict, annotations: PartitionedInput, construction: dict, sources: tuple[dict, ...]
     ) -> Generator[M1GlinerRequest, M1GlinerReply, M1CandidateProduct]:
         return (yield from execute_declared_m1(self, primary, annotations, construction, sources))
