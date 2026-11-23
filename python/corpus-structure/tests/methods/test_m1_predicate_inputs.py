@@ -1,6 +1,5 @@
 """Current selected M1 qualification from controlled columns, without provider evidence."""
 
-import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -23,12 +22,14 @@ from corpus_structure.semantic.data_operation_model import (
     ResolvedRoleBinding,
     SubjectContext,
 )
+from corpus_structure.semantic.data_operation_partitions import PartitionedInput
 from corpus_structure.semantic.formal_evidence import grammar_identity
 from corpus_structure.semantic.formal_products import FormalEvidenceOptions, prepare_formal_evidence
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.m1_products import PreparedM1Inputs, m1_operation_inputs
 from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.sentence_partitions import produce_sentence_populations
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
     PreparedNativeSources,
@@ -171,10 +172,9 @@ def selected_inputs(acquired, detached):
         context.project_id,
         lambda: None,
     )
-    inventory = {
-        "header": json.loads(annotations.content),
-        "partitions": list(map(json.loads, annotations.partitions)),
-    }
+    annotation_kind = next(kind for kind in model.kinds if kind.name == "DdoSourceAnnotations")
+    populations = produce_sentence_populations(annotations.partition_blocks, prepared, annotation_kind)
+    inventory = PartitionedInput(annotations.content, (), populations)
     return profile, source, inventory, construction, context
 
 

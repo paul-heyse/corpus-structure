@@ -2,6 +2,7 @@
 
 from typing import ClassVar
 
+from corpus_structure.semantic.data_operation_partitions import PartitionedInput
 from corpus_structure.semantic.predicate_products import execute_predicate_profile
 
 
@@ -830,7 +831,7 @@ class PredicateEvidenceOperation:
     def run(
         self,
         source: dict,
-        annotations: dict,
+        annotations: PartitionedInput,
         constructions: tuple[dict, ...],
         formal: tuple[dict, ...],
     ) -> dict:

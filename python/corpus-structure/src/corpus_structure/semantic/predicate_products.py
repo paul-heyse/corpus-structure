@@ -9,8 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from .data_operation_model import ResolvedRoleBinding, SubjectContext
+from .data_operation_partitions import PartitionedInput
+from .data_operation_population import AcquiredPopulation
 from .identity import canonical_bytes
 from .python_module_projection import admitted_operation_module_meaning
+from .sentence_population_inputs import SentencePopulationInputs, prepare_sentence_populations
 from .types import PreparedRelease, SourceArtifact
 
 _ROOT = Path(__file__).parents[1]
@@ -31,6 +34,8 @@ _PATHS = (
     "semantic/contributions.py",
     "semantic/contribution_input_references.py",
     "semantic/record_contracts.py",
+    "semantic/sentence_partitions.py",
+    "semantic/sentence_population_inputs.py",
     "semantic/sentence_products.py",
     "semantic/construction_products.py",
     "semantic/data_product_reference.py",
@@ -115,7 +120,7 @@ class PreparedPredicateInputs:
             subject_definition=member.subject_definition,
         )
 
-    def run(self, source, annotations, constructions, formal):
+    def run(self, source, annotations: PartitionedInput, constructions, formal):
         from corpus_structure.methods.predicate_contributions import (
             declared_predicate_evidence,
             predicate_qualifier_refusal,
@@ -144,11 +149,12 @@ class PreparedPredicateInputs:
         native = acquired_source_annotations(
             self.prepared,
             model,
-            canonical_bytes(annotations["header"]),
-            tuple(canonical_bytes(packet) for packet in annotations["partitions"]),
+            annotations.header,
+            annotations.packets,
             selected,
             member=annotation_member,
             project=self.context.project_id,
+            populations=annotations.populations,
         )
         retained_formal = []
         for member, body in zip(self.members("formal"), formal, strict=True):
@@ -250,6 +256,9 @@ def execute_predicate_profile(receiver, source, annotations, constructions, form
 
 def predicate_kernel(
     arguments: dict,
+    annotation_header: bytes,
+    annotation_placements: SentencePopulationInputs,
+    annotation_items: tuple[AcquiredPopulation, ...],
     roles: tuple[ResolvedRoleBinding, ...],
     context: SubjectContext,
     *,
@@ -258,9 +267,10 @@ def predicate_kernel(
 ) -> dict:
     from corpus_structure.methods.predicate_declared import PredicateEvidenceOperation
 
+    annotations = annotation_placements.attach(annotation_header, annotation_items)
     return PredicateEvidenceOperation(
         PreparedPredicateInputs(prepared, roles, context, check_active)
-    ).run(**arguments)
+    ).run(annotations=annotations, **arguments)
 
 
 @dataclass
@@ -273,12 +283,19 @@ class PredicateCallPlan:
             raise ValueError("predicate original source or semantic assets changed")
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
-
         if binding is None or binding.subject_context is None:
             raise ValueError("predicate call requires its exact qualified binding")
+        operands = dict(arguments.arguments)
+        annotations = operands.pop("annotations")
+        placements, transfers = prepare_sentence_populations(
+            annotations, self.port.identity.recipe
+        )
         signature = inspect.signature(predicate_kernel, eval_str=True)
         bound = signature.bind(
-            arguments=arguments.arguments,
+            arguments=operands,
+            annotation_header=annotations.header,
+            annotation_placements=placements,
+            annotation_items=tuple(item.population for item in transfers),
             roles=binding.roles,
             context=binding.subject_context,
             prepared=self.prepared,
@@ -291,6 +308,7 @@ class PredicateCallPlan:
                 bound,
                 captured,
                 prepared_release_id=self.prepared.release_id,
+                population_inputs={"annotation_items": transfers},
                 verify=self.verify,
                 execution_owner=execution_owner,
                 check_active=check_active,
