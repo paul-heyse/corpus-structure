@@ -8,11 +8,11 @@ and is carried by native revision C. It consumes the shared typed carrier and an
 execution contracts. Directly used custody and column checks may land through SBX-08/09. Source facts are
 **Inspected** at `7a415d18d`; counts of repeated work are counts of call sites.
 
-**Kept as it is.** The per-row identity fold mirrored in PostgreSQL, which is the only link
-between Python's validation and the stored rows; the page payload encoding, which preserves
-absent against null and integer against float and which PostgreSQL cannot read; publication of
-recognition observations as products; spool custody across attempts; Docling validation of a
-derived document before lowering.
+**Preserved contracts.** The per-row identity fold mirrored in PostgreSQL links Python's
+validation to the stored rows. Page payloads preserve absent versus null and integer versus
+float. Recognition observations remain products. Spool custody spans attempts. Docling
+validates the derived document before lowering. SBX-16 owns the conditional comparison of
+physical IPC layouts.
 
 ## Baseline
 
@@ -79,13 +79,12 @@ results, exact historical custody, and refusal of the withdrawn public use.
 
 ## Target
 
-**One rebuild.** `reconstruct_native_document` is the only assembler of a document from rows. It
-is fed by a reader over rows fetched in keyset pages (records, memberships, streams in bulk), the
-shape the validation child already uses. Transforms, whole-document reads, per-item reads and the
-validation child use it. Exports that stream to a file keep a streaming writer, fed by the same
-ordered rows, and selected-source keeps its subtree events; both are writers of bytes, not
-builders of the document a transform works on. Transforms thereby gain the checks they lack, and
-the proven routine is the used one.
+**One rebuild.** `reconstruct_native_document` is the only assembler of a document from rows.
+Transforms, whole-document reads and the validation child use it under the producing schema
+and callback policy. The reader supplies records, memberships and stream descriptors in
+ordered keyset pages. The same ordered rows can feed a streaming export writer. Per-item and
+subtree reads use the [sparse access relations](#sbx-pdf-sparse-access) to limit acquisition to
+the selected scope and retain the selected-source subtree event representation.
 
 **Access columns derived where the rows are.** At prepare, PostgreSQL derives the relational
 columns (pointer, parent, ordinal, label, layer, section owner, text, regions) from the staged
@@ -133,11 +132,11 @@ program fills them from its argument. Files become independent of the build, rec
 rewriting them, and recertification checks the original files' digests.
 
 **Certification reads the files.** Two passes over the memory-mapped IPC batches. The first
-collects stream descriptors by stream id and folds part bodies per stream with an expected-next
-ordinal check. The second builds each row's frame from the row and the descriptors and emits
-frames to an external sort, then folds in order. Companions and their fields are held keyed for
-the validators. Duplicate refusals that primary keys gave become explicit checks in the sort and
-the fold.
+collects compact descriptors and part coordinates, checks stream identity and part order, and
+folds the original part bodies per stream from their acquired IPC buffers. The second builds
+each record's frame from the row and descriptors, sorts frames externally and folds them in
+order. Companions and their fields are keyed for validators. Explicit set and ordinal checks
+preserve the duplicate refusals previously supplied by the certification store.
 
 The [pinned PyArrow 26.0.0](../../../python/corpus-structure/pyproject.toml#L23) route uses
 `memory_map`, `ipc.open_file` and
@@ -160,11 +159,18 @@ and [redesign I05](../../plan_improvement_reviews/set-based-execution-efficiency
 under SBX-14–17. The [shared analytical target](common-analytical-basis.md#columnar-population-target)
 provides Arrow schemas and ownership and one configured DuckDB owner. Certification consumes
 existing authenticated IPC through `pa.memory_map`, `pa.ipc.open_file` and owned batches. Use
-DuckDB over those typed columns for stream descriptor/part joins, grouped duplicate and ordinal
-checks, binary-collated frame ordering and typed validation capture. Preserve the canonical
-per-record frame and ordered identity fold, with exact value conversion only at that boundary.
+DuckDB over compact typed stream coordinates for descriptor/part joins, grouped duplicate and
+ordinal checks, binary-collated frame ordering and typed validation capture. Pass opaque part
+bodies from the live IPC buffers to the ordered fold. Preserve the canonical per-record
+frame and exact value conversion at that boundary.
 Replace the certifier's SQLite JSON row store, per-row JSON round trips and artifact bytes-to-hex
-bridge together with their consumers. Share keyed typed companion relations with the validators.
+bridge together with their consumers. Share keyed typed companion relations and the
+[publication access shapes](#sbx-pdf-sparse-access) with the validators. Project recognition
+outcomes, coverage scope, cell/table/page relationships and runtime bindings, retaining parent
+and element ordinals through nested expansion. Use grouped counts for duplicates and anti-joins
+for missing outcomes and dangling pointers. Captured policy decides eligibility and empty
+scope meaning. Checks that require a rebuilt nominal object remain at the rebuild boundary.
+[Review I04](../../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I04)
 
 Choose model-derived expressions for logical row values and canonical frames under the captured
 lowering policy. Establish parity for the full normalization contract, including absent fields,
@@ -207,8 +213,8 @@ passed with `uv run ci test --workers 1 -- python/corpus-structure/tests/semanti
 **Owns.** The paged row reader for `reconstruct`; migration of transforms and whole-document
 reads to it; the capture contract's lowering; the child's use of it.
 
-**Removes.** `hydrate_document` and whole-document use of the event stream; the materialization
-bound's second evaluation of the event query, if nothing else needs it.
+**Removes.** `hydrate_document` and whole-document use of the event stream. SBX-15 owns the
+replacement of the repeated size and payload evaluations for protected reads.
 
 **Failure behaviour.** A published row set with a containment cycle, a wrong ordinal or a count
 mismatch refuses a transform's input, where today it would be accepted or would not terminate.
@@ -222,8 +228,8 @@ fixture is built with a policy that differs.
 <a id="sbx-15"></a>
 ## SBX-15 — Access columns derived at publication
 
-**Owns.** The derivation program; the reduced checker; the region view; staging of the JSON copy
-alone; the pure document-to-items function for validators.
+**Owns.** The derivation program, sparse read projections, the reduced checker, the region view,
+staging of the JSON copy alone, and the pure document-to-items function for validators.
 
 **Removes.** Column staging and its row equality; the checker's column, ordinal, section and
 region sections; the stored region table.
@@ -232,13 +238,40 @@ region sections; the stored region table.
 A staged JSON copy that disagrees with the rows is refused as now. Region reads by pointer and
 index return today's values through the view.
 
+<a id="sbx-pdf-sparse-access"></a>
+### Sparse access and certification relations
+
+**Scheduled · 2026-11-23.** Derive pointer, ancestry, page, original diagnostic order and
+report membership at publication under the existing access owner. Key the relation by exact
+publication and report occurrence. Batch authorized pointer and ancestry lookups and hydrate
+opaque bodies only for the selected diagnostics. Share the relationship shapes with SBX-17
+certification. Before staging, the pure document-to-items function supplies the same meaning
+to the validators. Retire family-wide report scans and redundant reader caches as their consumers
+move.
+
+Use one invocation-owned selected source and bounded acquired projections for item, region,
+formula and contextual diagnostics. Supply selected math through the
+[shared acquired reader](owner-resolved-reads.md#sbx-acquired-reader) with the exact proof,
+formula and original source use. Batch catalog headers at the selected cut, preserving each
+native publication receipt check, continuation and disclosure semantics. Visual evidence uses
+the same sparse address contract and retains submitted-page, coordinate and mapping-availability
+checks.
+
+Use one bounded native evaluation for row delivery and exact size refusal before transfer.
+Consider an admitted address window with stored lengths only when those lengths refer to the
+same authorized snapshot and returned representation and would avoid material work. Qualify a
+selected formula and ancestors amid unrelated diagnostics, multiple reports sharing a local
+position, protected refusal, an oversized selected value and a fully ordered document rebuild.
+Verify that the selected statement runs once, that an oversized response refuses before body
+transfer and that sparse reads skip unrelated report bodies. Compare catalog and visual
+results against independent expectations.
+[Review I11](../../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I11)
+
 <a id="sbx-16"></a>
 ## SBX-16 — One document, verified carriers, build identifier at load
 
-**Projected candidate replay · Scheduled · 2026-11-22.** Candidate `_read_replay` currently
-hashes bytes, decodes every column and recomputes the whole-page logical digest before
-`iter_batches` selects the caller's columns. Status and geometry use different projections.
-Carry the exact byte-to-logical admission in the page carrier, then reuse
+**Projected candidate replay · Scheduled · 2026-11-22.** Status and geometry use distinct
+projections. Carry the exact byte-to-logical admission in the page carrier, then reuse
 `PreparedPayloadFamily.read_batch(payload, schema_digest=..., columns=...)` for sparse reads.
 Its PyArrow 26.0.0 implementation uses `pa.BufferReader`, `pa.ipc.open_stream` and
 `pa.ipc.IpcReadOptions(included_fields=top_level_indices, use_threads=False)`, compares the full
@@ -256,7 +289,8 @@ together with whole-page `logical_digest` recomputation. A projected result cann
 omitted-column identity, as the retained payload probe demonstrates. When status and geometry
 can share one bounded admitted batch, use `RecordBatch.select()` on that owned value instead.
 Keep owner lifetime through all buffer consumers and release derived state with its carrier.
-Keyed region rendering and one-observation visual mapping stay on their current selected routes.
+Keyed region rendering and one-observation visual mapping consume the
+[sparse access contract](#sbx-pdf-sparse-access).
 [Post-pilot I05](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I05) ·
 [Projected custody probe](../../design_review/evidence/2026-11-22_sbx09-review/README.md)
 
@@ -275,9 +309,16 @@ authorization; recovery without rebind. The document interface seals the validat
 owns cached byte views through lowering, certification and access projection, integrating
 [I07](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I07).
 
-**Identity.** Changing the listed lowering modules and callables changes the lowering identity,
-and retiring a module changes the standard producer contract. Both happen once, in revision C,
-with the lists updated in the same change.
+**Identity.** Attribute each lowering and module change to the producer that consumes it.
+Standard capture, recognition and transformed publication retain their own determining
+inputs and executable custody. Shared record schemas and codecs affect every producer that
+consumes them. Historical replay uses the exact archived lowering committed by the publication
+receipt. In the revision C comparison, separate a transformed-publication change from a
+genuinely shared schema or codec change. Qualify a policy-only remap that reuses eligible
+capture and recognition, and a recovered-page journey verifying the original admitted bytes
+and the producing lowering.
+[ADR-0155](../../adr/0155-pdf-producer-custody.md) ·
+[Native revisions](cutover-and-qualification.md#native-revisions)
 
 **Failure behaviour.** A file whose bytes changed between acknowledgement and adoption is refused
 at adoption. Mutation through a former draft alias cannot change the sealed lowering input. The
@@ -292,6 +333,38 @@ digests. A mutation attempt through a retained draft alias leaves the sealed low
 unchanged. Releasing the sealed owner releases its derived views. Parent and child use the same
 captured policy, including after recovery.
 
+<a id="sbx-pdf-payload-layout"></a>
+### Page payload layout and projected execution
+
+**Conditional investigations · 2026-11-23.** The selected pinned codec can skip decoding
+columns, while the published reader still concatenates the entire stream before decoding and
+the recovery reader acquires whole-file bytes. Use a real recovered page with a small candidate
+inventory and large OCR parts. Compare the bounded stream baseline against an IPC file backed
+by a verified native owner or a page manifest binding independently sealed candidate and OCR
+streams. The file candidate uses `pa.memory_map`, `pa.ipc.open_file`,
+`RecordBatchFileReader.get_batch()` and `IpcReadOptions(included_fields=...)` under the same
+verified custody. Select another layout only if a named consumer avoids material transfer or
+live bytes through the full capture, publication and recovery path. Preserve one page receipt
+and acknowledgement, whole-page logical admission, exact schema and page correspondence,
+validity evidence and ordered replay. Verify the full result and seal independently of the
+sparse projection, including a change to omitted bytes and a genuine restart. Keep the
+existing bounded page stream if the requirement or savings cannot be established.
+[Published payload reader](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_record_reader.py#L980) ·
+[Recovered payload reader](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_candidate_source.py#L45) ·
+[Arrow IPC](../../libraries/analytical_infrastructure/pyarrow.md#71-arrow-ipc-native-columnar-interchange)
+
+Keep the simple projected reader and current Arrow nested kernels as the execution baseline.
+Independently of layout, consider a PyArrow 26.0.0 Acero plan using
+`RecordBatchReaderSourceNodeOptions`, filter and project nodes, and
+`Declaration.to_reader()` if it removes a pass over admitted batches. Ensure the source
+projection carries all fields used by the plan. The retained threaded probe read ahead beyond
+immediate demand. Adopt fusion only with equivalent projected and full results, bounded retained
+buffers and reader release on early close and cancellation. Keep joins, grouping and order
+checks over compact coordinates under the shared analytical owner.
+[Acero reader and operators](../../libraries/analytical_infrastructure/pyarrow.md#42-acero-the-native-streaming-execution-engine) ·
+[Retained streaming evidence](../../design_review/evidence/2026-11-22_sbx-columnar-basis/README.md) ·
+[Review I12](../../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I12)
+
 <a id="sbx-17"></a>
 ## SBX-17 — Certification and validation without round trips
 
@@ -299,12 +372,13 @@ captured policy, including after recovery.
 child's reads; closure checks before the rebuild; conversion of logical rows by column in the
 companion export with the existing encoder.
 
-Consume SBX-16's admitted page and replay carriers in the certifier and child. Retain complete
-logical validation where the whole payload first enters the domain or its premises change.
+Consume SBX-15's access relation shapes and SBX-16's admitted page and replay carriers in the
+certifier and child. Retain complete logical validation where the whole payload first enters
+the domain or its premises change.
 Use `pa.memory_map`, `pa.ipc.open_file` and `RecordBatchFileReader.get_batch()` for typed
 certification files, holding maps and batches until the readers finish. The existing page
-stream decoder remains the route for page payloads. Preserve ordinal and duplicate expectations
-independently of the typed reader. [Arrow file reader](https://arrow.apache.org/docs/python/generated/pyarrow.ipc.open_file.html)
+stream decoder is the default pending the [layout decision](#sbx-pdf-payload-layout). Preserve
+ordinal and duplicate expectations independently of the typed reader. [Arrow file reader](https://arrow.apache.org/docs/python/generated/pyarrow.ipc.open_file.html)
 
 **Selected plan target · Proposed · 2026-11-22.** Use the shared DuckDB analytical owner for
 external frame ordering and grouped/join checks over typed IPC. Its invocation owns spill,
@@ -318,7 +392,9 @@ and companion bodies parsed to float before decimal. The acceptance corpus inclu
 exponent-spelled floats, null against absent columns and non-ASCII keys.
 
 **Evidence.** Retained certifications and a real recovery reproduce their recorded logical and
-stream-inventory digests on that corpus. A duplicate record id, a duplicate part ordinal and a
-duplicate page are each refused, with the expectation written by hand. The validation child
-reads no JSON string per row. The companion export's logical-row digest is unchanged on a
-mixed-type batch.
+stream-inventory digests on that corpus. Independent fixtures cover duplicate record, part
+ordinal and page refusal, missing formula outcomes, dangling report pointers, policy-defined
+empty scope, and distinct report occurrences sharing a local position. Verify the ordered
+part fold with shared and unreferenced streams and exercise cleanup on early exit. The
+validation child reads typed rows directly. The companion export's logical-row digest is
+unchanged on a mixed-type batch.

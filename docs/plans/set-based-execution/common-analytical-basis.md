@@ -313,8 +313,17 @@ verify its own schema and exact selected cut. [Existing transfer and lifetimes](
 **Transfer conditions · 2026-11-22.** A cross-session
 scan requires the exact acquiring pin to be committed or otherwise already visible in the
 imported snapshot and the called projection to be purpose-granted. Snapshot export does not
-make the acquiring transaction's uncommitted rows visible to the child. Exercise that visibility
-condition with a concurrent change before choosing ADBC for a new live consumer.
+make the acquiring transaction's uncommitted rows or its `pg_temp` state visible to the child.
+The selected archive stages keys in that session and extracts their typed batches in the owning
+transaction. Use the same transaction's Psycopg COPY route for session-local publication inputs
+and uncommitted admission. Use ADBC `fetch_record_batch()` for a committed exact pin and
+purpose-granted projection when it removes a transfer or conversion from the whole route.
+Parameter-bound statements can take a different result transport from COPY-compatible
+statements. Verify the actual path and column fidelity, including the exact lexical transfer
+for values that lose information in a driver mapping. Exercise concurrent change and release
+the child reader, transaction and connection before releasing the source snapshot.
+[Archive transfer](owner-resolved-reads.md#sbx-verified-archive) ·
+[PostgreSQL driver 1.13.0 contracts](https://arrow.apache.org/adbc/25/driver/postgresql.html)
 
 Project before packet construction and reuse the admitted page and exact same-cut binding facts.
 The [typed population target](#columnar-population-target) selects columnar acquisition for the
@@ -368,12 +377,13 @@ its typed authoring or attachment policy is affected.
 | Selection that changes a rule | Owning decision |
 |---|---|
 | Population-bearing typed parameters and results | [ADR-0128](../../adr/0128-wire-contract-boundary-validation.md), DESIGN §B4/B5 and the coordinator rule decisions |
-| Engine production of canonical text with the Python definition/reference retained | [ADR-0021](../../adr/0021-instance-and-structure-authorities.md), DESIGN §B4 and the kernel fidelity owner |
+| Engine production of canonical text with the Python definition/reference retained | [ADR-0154](../../adr/0154-sbx-columnar-populations.md) for the selected SBX scope, DESIGN §B4 and the kernel fidelity owner |
 | Captured SQL at the DuckDB or native PostgreSQL owner | [ADR-0135](../../adr/0135-declared-facts-and-typed-database-programs.md), DESIGN §B4/B5 and D3 |
-| Scoped-relations authoring or connection lifetime that changes the accepted trial | [ADR-0148](../../adr/0148-sbx-kernel-trial.md) and the SBX-18/19 owner |
-| Typed worker transport that changes sealed custody | [ADR-0145](../../adr/0145-sbx-custody-boundary.md) and SBX-08/09 |
+| Scoped-relations authoring or connection lifetime that changes the accepted trial | [ADR-0154](../../adr/0154-sbx-columnar-populations.md) and the SBX-18/19 owner |
+| Typed worker transport that changes sealed custody | [ADR-0154](../../adr/0154-sbx-columnar-populations.md) and SBX-08/09 |
 | Connector that changes snapshot or selected-read custody | [ADR-0026](../../adr/0026-columnar-semantic-operations.md), DESIGN §B4/B5 and D8 |
-| Native typed layout that changes authoritative partition storage | [ADR-0144](../../adr/0144-sbx-partitioned-products.md), DESIGN and D3 |
+| Native typed layout that changes authoritative partition storage | [ADR-0154](../../adr/0154-sbx-columnar-populations.md), DESIGN and D3 |
+| Narrower installed admission or receipt correspondence | [ADR-0128](../../adr/0128-wire-contract-boundary-validation.md), DESIGN §B4/B5 and [SBX-20](cutover-and-qualification.md#sbx-20) |
 
 Apply the [design review
 cadence](../../design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository)

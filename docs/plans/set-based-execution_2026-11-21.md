@@ -217,27 +217,28 @@ capability consumed.
 | SBX-07 | Complete. Governed canonical reuse passed across occurrence edits and separate annotation captures, with exact placement and revocation. Other current hosts use whole-result execution. | SBX-06, SBX-03 | [RPK](set-based-execution/references-and-projection-keys.md#sbx-07) |
 | SBX-08 | Complete. Acquired source frames and immutable typed, formal, interpreted and composed payloads passed the named provider, handoff and malformed-input checks. | SBX-04/05 proof and address contracts | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-08) |
 | SBX-09 | Complete. Sealed output and reply custody, registered-root use, deployment recovery, both PDF reuse journeys, and applicable ordinary, provider and shared fault qualification passed. The development database was recreated empty on the verified sole root. | Integrated SBX-03–08 behavior, the brought-forward PDF producer slice, and final-source correspondence to the registered root | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-09) · [Verified reset](set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09) |
-| SBX-10 | Derived views and published formula contexts implemented and tested by selected identity. Installed math producer integration remains open. | SBX-08; SBX-03 for token views | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-10) |
-| SBX-11 | Native answer programs and governed freshness installed in development. Selected paging, freshness and replay checked. Remaining custody migrations and full acceptance stay open. | SBX-01 for partition reads; SBX-02 for proof answers; SBX-06 settlement coverage for the freshness slice | [ORR](set-based-execution/owner-resolved-reads.md#sbx-11) |
-| SBX-12 | Selected structural Parquet replay, partition and proof export, unified cursor and substantive cache with current authority | SBX-11; SBX-02 proof and SBX-05 reference contracts; shared typed projection contract | [ORR](set-based-execution/owner-resolved-reads.md#sbx-12) |
-| SBX-13 | Evaluation preflight reduced to what only Python can check | SBX-11 | [ORR](set-based-execution/owner-resolved-reads.md#sbx-13) |
+| SBX-10 | Derived views and published formula contexts tested by selected identity. Consumed-runtime custody and installed math producer integration remain open. | SBX-08 and SBX-03 token views. Selected math readback uses the early SBX-12 reader. | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-10) |
+| SBX-11 | Native answers and freshness installed in development with selected evidence. Finish qualified coverage, address-led work bounds, custody migrations and full acceptance. | SBX-01 partitions, SBX-02 proofs, SBX-06 qualified settlement and the early SBX-12 reader for structural consumers | [ORR](set-based-execution/owner-resolved-reads.md#sbx-11) |
+| SBX-12 | Early typed reader slice, then verified Parquet replay, partition and proof export, unified cursor and substantive cache with current authority | Early contract uses SBX-02 proofs, SBX-05 references and shared typed projections. Full live and detached integration uses SBX-11 acquisition. | [ORR](set-based-execution/owner-resolved-reads.md#sbx-12) |
+| SBX-13 | Separate acquired evaluation cuts and purposes. Consolidate deterministic native preflight, independent Python checks and mutable completion guards. | SBX-11 native binding facts and the early SBX-12 reader slice | [ORR](set-based-execution/owner-resolved-reads.md#sbx-13) |
 | SBX-14 | One document rebuild routine; round-trip validation under the captured policy | — | [PDF](set-based-execution/pdf-path.md#sbx-14) |
-| SBX-15 | Access columns derived at publication; region copy retired | SBX-14 | [PDF](set-based-execution/pdf-path.md#sbx-15) |
+| SBX-15 | Publication-derived access and diagnostic membership, batched sparse reads and retirement of the region copy | SBX-14 rebuild contract | [PDF](set-based-execution/pdf-path.md#sbx-15) |
 | SBX-16 | One document per process; verified page and file carriers; build identifier at load | — | [PDF](set-based-execution/pdf-path.md#sbx-16) |
-| SBX-17 | Certification without round trips; typed validation capture; logical rows by column | SBX-16 | [PDF](set-based-execution/pdf-path.md#sbx-17) |
-| SBX-18 | Shared fidelity, typed authoring and job resource contracts, with the prerequisite slice brought forward for the proposed annotation replacement | — | [KT](set-based-execution/kernel-trial.md#sbx-18) |
-| SBX-19 | Complete scoped-relations comparison through exact artifact nomination and a recorded adoption decision | SBX-18, SBX-08, SBX-05; SBX-06 to qualify projection-keyed reuse | [KT](set-based-execution/kernel-trial.md#sbx-19) |
-| SBX-20 | Native revisions A, B and C registered after applicable comparisons and installed on stage | packages they carry | [CQ](set-based-execution/cutover-and-qualification.md#sbx-20) |
+| SBX-17 | Typed certification, logical rows by column and retirement of duplicate certifier storage | SBX-15 relationship projections, SBX-16 carriers and consumed SBX-18 job contract | [PDF](set-based-execution/pdf-path.md#sbx-17) |
+| SBX-18 | Shared fidelity, one analytical job allocation and bounded comparisons for physical batching and durable output | Existing typed population and worker custody | [KT](set-based-execution/kernel-trial.md#sbx-18) |
+| SBX-19 | Complete scoped-relations comparison through exact artifact nomination and readback, with a recorded adoption decision | SBX-18, SBX-08, SBX-05 and SBX-10 indexes. Complete comparison consumes installed math integration. Projection-keyed qualification consumes SBX-06. | [KT](set-based-execution/kernel-trial.md#sbx-19) |
+| SBX-20 | Attribute the A, B and C effects against exact predecessors, register the resulting chain and install stage | Packages the candidates carry and the observed stage predecessor | [CQ](set-based-execution/cutover-and-qualification.md#sbx-20) |
 | SBX-21 | Retirement sweep, including confirmation of SBX-06 watermark and sweep removal | replacement paths and migrated consumers | [CQ](set-based-execution/cutover-and-qualification.md#sbx-21) |
 | SBX-22 | Final-source qualification, including the shared change scenarios | SBX-20, SBX-21 | [CQ](set-based-execution/cutover-and-qualification.md#sbx-22) |
 
-**Dependencies across the later packages.** The SBX-09 replacement establishes the typed
-population, reference and custody contracts used by the general revision B read and replay
-program. Governed freshness consumes SBX-06 coverage. Revision C's PDF work can develop
-independently once its consumed custody and analytical contracts are settled. Candidate
-comparisons account for shared installed effects and PDF qualification uses fresh capture.
-The scoped-relations trial consumes its named inputs and retains its own adoption decision.
-SBX-20 to SBX-22 close the series.
+**Dependencies across the later packages.** SBX-09 supplies typed population, reference and
+custody contracts. Confirm qualified coverage with SBX-06 and prepare the early SBX-12 reader
+contract for the remaining SBX-11 migrations. The full archive follows its live acquisition
+prerequisites and stable-file verification precedes warm rereads. PDF access and certification
+design can progress in parallel with the shared job allocation and consumed-runtime custody.
+Those shared contracts inform the physical carrier choices and the complete scoped-relations
+comparison. Start predecessor comparison early enough to inform stage authoring.
+[Post-SBX-09 amendment](#post-sbx-09-review-amendment)
 
 <a id="remaining-execution-through-sbx-09"></a>
 ### Execution through SBX-09
@@ -528,9 +529,45 @@ and its applicable verification are complete through the
 [development reset](set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09).
 Historical findings and receipts retain their dates and exact scope.
 
+<a id="post-sbx-09-review-amendment"></a>
+## Post-SBX-09 review amendment
+
+**Scheduled · 2026-11-23.** Integrate the two post-cutover reviews at `c1d834921` and
+`afb63f87a`. PostgreSQL owns scope, current authority, settlement and committed effects.
+Arrow carries finite acquired facts. DuckDB composes local relational work over those facts.
+Detached replay reuses verification only within acquired custody of the verified bytes.
+Keep the installed development checkpoint and the existing evidence distinctions. The
+retained Parquet probe establishes pathname-replacement behavior on its fixture.
+[Development checkpoint](../../STATUS.md) ·
+[Parquet custody probe](../design_review/evidence/2026-11-23_sbx-parquet-scan-custody/README.md)
+
+| Finding | Scheduled owner and closure |
+|---|---|
+| [I01](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I01) | [SBX-11](set-based-execution/owner-resolved-reads.md#sbx-address-led-reads) seeks first and batches references. Exercise unrelated support inside the selected obligation, oversized unselected bodies and revoked continuation. |
+| [I02](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I02) | [Early SBX-12 reader](set-based-execution/owner-resolved-reads.md#sbx-acquired-reader) supplies the common live and detached interpretation. Establish protected-issuer and ordinary-report parity before removing displaced indexes. |
+| [I03](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I03) | [SBX-12](set-based-execution/owner-resolved-reads.md#sbx-verified-archive) verifies cold closure and reuses it inside stable custody. Compare point and full replay from sorted row groups before considering page or side indexes. |
+| [I04](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I04) | [SBX-14–17](set-based-execution/pdf-path.md#columnar-pdf-certification) check typed relationships and preserve canonical frames on genuine recovery. [SBX-20](set-based-execution/cutover-and-qualification.md#native-revisions) attributes split producer effects. |
+| [I05](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I05) | [SBX-18](set-based-execution/kernel-trial.md#sbx-durable-analytical-output) compares the sealed output route through transactional COPY. Require exact commitments, safe failure and recovery, and reduced overlap of whole results. |
+| [I06](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I06) | [SBX-19](set-based-execution/kernel-trial.md#sbx-19) compares one complete typed relational candidate with the current acquired route. Decide after publication, exact nomination and selected readback. |
+| [I07](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I07) | [SBX-20](set-based-execution/cutover-and-qualification.md#sbx-20) compares direct, shared and material effects before stage. Any narrower admission or receipt boundary remains conditional. |
+| [I08](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I08) | [SBX-06 coverage](set-based-execution/references-and-projection-keys.md#settlement-coverage) and [SBX-11 freshness](set-based-execution/owner-resolved-reads.md#freshness-aware-reads) follow qualified dependencies. Exercise sibling and cross-source coverage, historical authorization and current membership. |
+| [I09](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I09) | [Typed acquisition](set-based-execution/owner-resolved-reads.md#sbx-acquired-reader) covers change impact and phased interpretation. [SBX-13](set-based-execution/owner-resolved-reads.md#sbx-13) preserves distinct evaluation cuts and independent controls. |
+| [I10](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I10) | [SBX-12](set-based-execution/owner-resolved-reads.md#sbx-verified-archive) binds verification and lazy scans to the same stable bytes. Exercise path replacement and in-place mutation across the consumption window. |
+| [I11](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I11) | [SBX-15](set-based-execution/pdf-path.md#sbx-pdf-sparse-access) publishes sparse access relations for readers and certification. Verify authorized selection, report order, and exact oversized refusal before transfer. |
+| [I12](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I12) | [SBX-16](set-based-execution/pdf-path.md#sbx-pdf-payload-layout) compares actual bytes acquired and decoded on a recovered sparse page. Layout and Acero remain conditional decisions. |
+| [I13](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I13) | [SBX-18](set-based-execution/kernel-trial.md#sbx-durable-analytical-output) compares physical cohorts and byte-aware folding with independent commitments. [SBX-19](set-based-execution/kernel-trial.md#sbx-19) uses the installed handoff and complete trial boundary. |
+| [I14](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I14) | [SBX-18 allocation](set-based-execution/kernel-trial.md#sbx-analytical-job-allocation) exercises concurrent admitted jobs, a partial reader, cancellation and scratch cleanup. |
+| [I15](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I15) | [SBX-10 runtime custody](set-based-execution/validated-values-and-handoff.md#sbx-consumed-runtime-custody) verifies consumed nodes and installed math. [SBX-20–22](set-based-execution/cutover-and-qualification.md#sbx-20) account for registered effects, last-consumer retirement and final evidence. |
+
+The existing [decision routes](set-based-execution/common-analytical-basis.md#decision-routes)
+govern any rule change revealed by a comparison. Conditional alternatives from the reviews
+have decision criteria in their owning packages. Each decision retains the baseline when the
+candidate cannot preserve semantics and custody or remove material end-to-end work. Timing is
+reserved for comparisons where it can change a choice.
+
 ## Completion
 
-The series is complete when revision A, B and C are registered and deployed on the stage target;
+The series is complete when the registered chain carrying A, B and C effects is deployed on stage;
 the whole-book qualification input runs through the new path; SBX-22's assembled evidence is recorded,
 including the [shared change scenarios](set-based-execution/cutover-and-qualification.md#change-scenarios)
 and the applicable native propagation and read coverage;

@@ -100,21 +100,24 @@ stored digests may avoid reconstruction, while each actual use rechecks current 
 required support. Reacquire completeness for absence answers and distinguish an undisclosed
 parent from an absent item.
 
-**Columnar extraction.** Reuse the companion export's exact-snapshot pattern for committed
-bulk reads: keep the authorizing PostgreSQL transaction alive, import its snapshot into the owned
-ADBC PostgreSQL 1.13.0 session, run eligible unparameterized COPY-compatible projection SQL and
-consume `fetch_record_batch()` through bounded batches. Typed results must reach their real
-consumer or `ParquetWriter` directly. Keep same-session Psycopg reads where uncommitted state is
-required. Bound ADBC results use a different native buffering path, so the reader interface alone
-establishes no memory bound. Preserve purpose-role, schema, cut and cancellation ownership through
-reader close and transaction settlement. See [transfer contracts](common-analytical-basis.md#columnar-population-target).
+**Columnar extraction.** Choose the transfer route by pin visibility and session ownership.
+For a committed pin with a purpose-granted projection, the companion export's pattern keeps
+the authorizing PostgreSQL transaction alive, imports its snapshot into an owned ADBC PostgreSQL
+1.13.0 session and consumes eligible unparameterized COPY-compatible projection SQL with
+`fetch_record_batch()`. Keep same-session Psycopg extraction for uncommitted or
+session-local state, including staged archive keys. ADBC bound results use a different native
+buffering path, so the reader interface alone establishes no memory bound. Deliver typed
+batches to their actual consumer or `ParquetWriter`. Preserve purpose-role, schema, cut and
+cancellation ownership through reader close and transaction settlement.
+[Transfer contracts](common-analytical-basis.md#postgresql-placement-and-transfer)
 
-**One relational replay.** SBX-12 reads sealed Parquet relations directly through DuckDB 2.0.0
-and uses anti-joins, `EXCEPT ALL`, grouped counts and explicitly ordered digest aggregation for
-closure, membership and identity. Carry original producing bindings and captured cut evidence.
-Both live and detached inputs feed the same structural projection contract. Remove the selected
-SQLite index, JSONL-to-index reconstruction and per-product lookup loops when their replaying
-consumers have moved. Keep the canonical fold where it is required for content commitments.
+**One relational replay.** SBX-12 scans Parquet under [verified file custody](#sbx-verified-archive).
+DuckDB 2.0.0 supplies anti-joins, `EXCEPT ALL`, grouped counts and explicitly ordered digest
+aggregation for closure, membership and identity. Carry original producing bindings and
+captured cut evidence. Both live and detached inputs feed the same structural projection
+contract. Remove the selected SQLite index, JSONL-to-index reconstruction and per-product
+lookup loops when their replaying consumers have moved. Keep the canonical fold where it is
+required for content commitments.
 The early SBX-09 slice migrates its authentic finite/rich export and replay consumers; completing
 that slice establishes its declared scope, while the remaining archive consumers stay open.
 
@@ -152,7 +155,9 @@ legitimate empty answer follows from the authorized selection and filter, with u
 partitions kept outside absence claims. Genuine export and replay still acquire the required
 transitive closure. Proof reads follow the rule's [premise and establishment contract](populations-rules-and-proofs.md#proofs).
 
-The response page budget covers delivered rows. For a structural point read, use the exact
+The response page budget covers delivered rows and bytes. The separate
+[examination bound](#sbx-address-led-reads) covers the work needed to find those rows.
+For a structural point read, use the exact
 selected use and producing role to fetch the named member or partition and the support needed
 for its authority. The online backing should follow additional keys only when the reader asks
 for them. An algorithm that needs a graph can build it from that acquired subset. Apply the
@@ -181,14 +186,19 @@ Expose these outcomes for the requested scope.
 | Unavailable | The scope is resolved and the owner establishes that no eligible result can be supplied for it. |
 | Unknown | The owner lacks sufficient coverage evidence to determine freshness or availability. |
 
-A queued item at the immediate consumer is only one sign of pending work. Coverage must include
-committed upstream changes whose propagation has yet to reach that consumer. A branch that
-settles unchanged can advance coverage without a new provider attempt. Independently covered
-scopes stay readable. A caller can explicitly request the last settled cut, identified as such,
-if the current native checks authorize it. Scope, selection and leaf disclosure rules also
-apply to freshness metadata. Responses preserve existing refusal and masking rules for
-protected state, including where disclosing pending work would expose a protected dependency.
+A queued item at the immediate consumer is one sign of pending work. Coverage includes committed
+upstream changes whose propagation has yet to reach that consumer. A branch that settles unchanged
+can advance coverage without a new provider attempt. Independently covered scopes stay readable.
+Use the exact qualified dependency scope prepared by SBX-06 for both paths. The current path
+evaluates settlement on that scope and the selected generation. The explicit `last-settled`
+path checks current trust and disclosure for the captured settled cut without deriving new
+readiness. Later changes to current settlement eligibility leave that historical cut readable
+while current authority permits. An unchanged coverage determination can be reused only when
+its exact scope, generation and authority correspondence survive and the read receipt still
+accounts for the individual acquisition. Scope, selection and leaf disclosure rules also apply
+to freshness metadata, including pending work that could reveal a protected dependency.
 [Push-propagation review I04](../../plan_improvement_reviews/set-based-execution-push-propagation_2026-11-21.md#I04) ·
+[Post-SBX-09 review I08](../../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I08) ·
 [Disclosure owner](../../adr/0147-sbx-owner-resolved-reads.md)
 
 **Online readers ask; replaying readers carry.** A reader with no offline entry point asks for
@@ -198,13 +208,27 @@ offline. The end the replay serves is that someone without the database can conf
 response follows from the exported closure; one implementation over two sources is what carries
 it.
 
-**Replay relations are typed.** Derive relation schemas under the
+<a id="sbx-acquired-reader"></a>
+### Shared acquired reader
+
+Derive relation schemas under the
 [common projection contract](common-analytical-basis.md#projection-contract). Replaying readers
 use one interface with keyed get, children by foreign key, filtered scan, embedded reference,
 and whole-relation iteration. Its live backing acquires rows through the scoped native read
-owner, while its detached backing reads the sealed Parquet archive directly. Preserve canonical
-encoded body fields wherever their exact value forms need that representation, and retain cut
-and frontier bytes. Both backings feed the same structural projection and reference interpretation.
+owner, while its detached backing reads from verified archive custody. Preserve canonical
+encoded body fields wherever their exact value forms need that representation. Both backings
+feed the same structural projection and reference interpretation with the captured producing
+bindings, exact selected use, cut, frontier, protected issuer standing and authorized evidence.
+Keep missing, withheld and incomplete relations distinct. A detached read interprets captured
+standing. Each live acquisition applies native purpose and authority checks.
+
+Bring forward the SBX-12 interface and its first two-backing slice for a protected issuer with
+selectable ordinary report support. The slice establishes the acquired relation contract for
+SBX-11's remaining consumers and SBX-13 before the general archive migration finishes. Migrate
+protected structural admission, source journeys, selected math and contextual witnesses as they
+can consume the scoped facts. Online-only consumers continue to use native answers. Compare
+independent live and detached results for the two uses of one historical producer and move
+refusal and malformed-input expectations with each migration.
 
 **Acquire the shape the consumer uses.** Compare direct Parquet keyed and filtered scans with
 an Arrow relation and a once-built lookup index for the actual structural projection. Use the
@@ -216,6 +240,24 @@ only the governing keys and required support. Remove duplicate closure and index
 their consumers move. Persist a derived dossier relation only when a named rereading consumer
 avoids repeated derivation after accounting for its full write and read cost. Such a relation
 carries its implementation and determining input identities under the same projection contract.
+
+**Finite acquisition phases.** Acquire only the authorized addresses, headers, provenance and
+bodies needed by the next phase. Commit the read receipt and release the transaction and trust
+locks before pure derivation. When derivation discovers another key, acquire a new finite batch
+under the same pinned cut with current authority. A live stream that needs its transaction owns
+it through close, refusal or cancellation. Verify early stop and consumer exception, including
+receipt and lock release. Exercise explicit empty and incomplete cuts, partition field projection
+and missing item keys, and proof fingerprints, premises and establishment provenance.
+
+**Change impact.** Replace the full support exports and SQLite reconstruction before the cache
+lookup with typed selection and coverage headers, exact producing and current-use edges,
+closure/membership and scoped revocation facts for each cut. Compare the acquired relations
+with DuckDB joins, grouped counts and anti-joins where these replace repeated reconstruction.
+Hydrate bodies only for explanations that need them. An unchanged comparison can check its
+determining facts and authority without payload acquisition. Exercise equal-content membership
+changes, repeated occurrences, incomplete discovery, upstream revocation and an unchanged repeat.
+[Post-SBX-09 review I02](../../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I02) ·
+[Post-SBX-09 review I09](../../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I09)
 
 **Seal the archive at its manifest.** The manifest binds relation schemas, selected scope,
 completeness, row order, lineage and file digests. Record an authorized empty relation explicitly.
@@ -236,20 +278,16 @@ cut and evidence.
 
 **A substantive cache key.** Implementation, selection digest and the digests of what the answer
 read: product body digests, partition digests, rule fingerprints. The key survives a fresh cut
-and a revocation that did not touch what was read. Authority is never cached: each call performs
-the context-only authority check and body access for the products it returns, which replaces the
-whole-frontier recheck. An answer that depends on the validity of its support includes that in
-its per-call check. For an answer about proof absence or completeness, a cache hit must also
-establish current membership in the relevant proof and establishment relations. Bypass answer
-reuse for that shape if current membership cannot be established from scoped reads. A new
+and a revocation that did not touch what was read. Each call establishes current authority on
+the exact context and facts it uses, including body access for payloads it returns. This
+replaces the whole-frontier recheck. An answer that depends on the validity of its support
+includes that in its per-call check. For an answer about proof absence or completeness, a cache
+hit must also establish current membership in the relevant proof and establishment relations.
+Bypass answer reuse for that shape if current membership cannot be established from scoped reads. A new
 matching proof can change that answer with the same content digest and rule fingerprint.
 Coverage and authority are established by the native read even on a semantic answer cache hit.
 [Shared change scenarios](cutover-and-qualification.md#change-scenarios) ·
 [Continuation authority](../../adr/0141-serving-continuation-and-reuse.md)
-
-**Transaction scope.** A reader acquires in a short transaction, commits the receipt and releases
-trust locks before deriving, the pattern graph inspection already uses. An online reader that
-asks for an answer shape derives nothing afterwards.
 
 *Alternatives rejected.* Extending the one program with every view and filter: one closure
 digest, so every addition invalidates every receipt, and the meaning of `limit` splits further.
@@ -371,6 +409,35 @@ principal without the evaluator universe is refused a protected body through eac
 An input-support answer equals the native function's result for a fixture with both derivation
 and original support.
 
+<a id="sbx-address-led-reads"></a>
+### Address-led paging and references
+
+**Scheduled · 2026-11-23.** Start each output, partition, derivation-fact or proof read from
+an indexable address in the pinned cut. For outputs and members, use the exact selected use
+and physical output/member coordinates. Apply safe scoped filters before fetching payloads.
+For routine `record_type` or `family` filters, consider compact admission-derived classification
+only when the declared kind supplies the field and the same kind and leaf disclosure rules
+cover it. Otherwise retain exact classification within the bounded candidate work.
+
+Resolve validity and disclosure over bounded candidate windows, then hydrate and serialize
+deliverable rows. Continue past ineligible candidates within the examination bound. Account
+separately for examined work, delivered rows and bytes, and retained buffers. Keep the examined
+position internal and make the public continuation safe for hidden membership. Distinguish
+authorized exhaustion, withholding and a work-limit refusal. An oversized selected row still
+refuses before transfer. Current authority applies on continuation, cache reuse and reopening.
+
+Batch exact references by original producing role and selected use in a typed ordered Arrow
+request/result relation. Preserve request ordinal and multiplicity through every join. Share
+authorized immutable payload for repeated addresses within the same acquisition and purpose.
+Use the existing [attribution route](#sbx-native-read-attribution) to separate acquisition,
+validity and serialization costs. Verify a deep page with unrelated support and members in
+the same obligation, an oversized body outside selected keys, equal payloads with distinct
+producing uses, a reduced budget and revocation between pages. Reuse the independent expected
+rows and distinguish withheld proof from absent proof when matching membership first appears.
+[Post-SBX-09 review I01](../../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I01)
+
+### Development checkpoint and remaining scope
+
 **Implementation checkpoint · 2026-11-23.** The development source declares the four
 answer programs and their shared read-closure membership. The member query uses a native seek
 key and checks current authority on each page. Ordinary contribution and structural consumers
@@ -420,7 +487,9 @@ that obligation because support traversal still precedes the target-row filter. 
 change-impact path, contextual witness and selected math still retain transitive acquisition
 where they need custody beyond the new answer shapes. The textbook direct, CLI and MCP
 journey, protected partition and proof coverage, scoped PostgreSQL attribution, and integrated
-consumer migration remain qualification and implementation obligations of SBX-11.
+consumer migration remain qualification and implementation obligations of SBX-11. Migrate
+those structural readers against the [early acquired interface](#sbx-acquired-reader).
+The [PDF access owner](pdf-path.md#sbx-15) supplies the batched publication headers.
 
 <a id="sbx-12"></a>
 ## SBX-12 — Replay, export, cursor and cache
@@ -480,29 +549,60 @@ from SBX-11. The archive comparison itself follows its runnable proof, reference
 prerequisites and remains scheduled after the SBX-09 cold root.
 [Review I04](../../plan_improvement_reviews/set-based-execution-common-analytics_2026-11-22.md#I04)
 
-**Pinned APIs and selection · Scheduled · 2026-11-22.** Reuse the existing export pattern
-`pyarrow.parquet.ParquetWriter(path, schema).write_batch(batch)` on model-derived typed batches.
-Close each writer, verify its exact schema, logical rows and file digest, then publish the
-complete manifest. Open its exact file set with no inferred schema-union fallback. Compare
-`pyarrow.dataset.dataset(paths, format="parquet", schema=...).scanner(columns=...,
-filter=pyarrow.dataset.field(...) == ...).to_batches()` for filtered/keyed access with the
-analytical owner's `from_parquet()` or named DuckDB `read_parquet()` query for combined relation
-scans. `ParquetFile.iter_batches(columns=...)` supplies projection for sequential reads and has
-no row filter. For repeated keys over a bounded relation, compare one owned Arrow `Table` and
-lookup index. Select by first replay and reread work, movement, verification and buffer lifetime.
-Explicit semantic keys and order govern the answer. File paths and row positions do not replace them.
-[Existing writer](../../../python/corpus-structure/src/corpus_structure/serve/companion_export.py#L196) ·
-[Arrow Dataset API](https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Dataset.html) ·
-[Parquet writer API](https://arrow.apache.org/docs/python/generated/pyarrow.parquet.ParquetWriter.html) ·
-[DuckDB 2.0 Parquet scans](https://duckdb.org/docs/2.0/data/parquet/overview)
+<a id="sbx-verified-archive"></a>
+### Verified archive scans
 
-**Efficiency comparison · Scheduled · 2026-11-22.** Use the improved authenticated D1 replay
-with prepared headers and use/slot bindings as the baseline. Reuse the companion export's
-committed exact-pin, exported snapshot and ADBC `cursor.fetch_record_batch()` transfer where
-the granted projection supplies the required rows. Compare the complete authorized extraction,
-conversion, file authentication, cold reopen, index preparation and repeated query. Use the
-existing analytical relation owner for semijoins, anti-joins, explicitly ordered windows and
-`except_all` where they replace repeated scans. Consume a relation's `to_arrow_reader(batch_size=...)`
+**Scheduled · 2026-11-23.** Reuse the existing export pattern
+`pyarrow.parquet.ParquetWriter(path, schema).write_batch(batch)` on model-derived typed batches.
+Close each writer, verify exact schemas, logical rows and file digests, then publish the complete
+manifest. Cold replay authenticates the trusted manifest and exact files, verifies all required
+bytes including omitted columns, and establishes logical closure, order and partition/root
+commitments. Keep captured release preparation and cross-file verification for rereads only
+while that exact acquired file set, schema, manifest and verification implementation still bind.
+
+Extend the existing file-custody owner over all scan execution. Acquire an owned immutable
+copy for mutable detached inputs before verifying and reading it. A held file may be hashed
+and scanned through the same handle when the storage guarantees immutability. Reacquire and
+verify if custody ends or the file identity is uncertain. A synthetic probe on PyArrow 26.0.0
+and DuckDB 2.0.0 shows lazy DuckDB path reads can open a replacement after initial verification.
+Arrow over the held original handle kept reading the original across that pathname replacement.
+The held-handle result covers replacement only. In-place writes require an independent
+immutability guarantee. Validate custody before delivering rows, and retain it through
+early stop, refusal and release.
+[Custody owner](../../../python/corpus-structure/src/corpus_structure/semantic/file_custody.py#L84) ·
+[Parquet custody probe](../../design_review/evidence/2026-11-23_sbx-parquet-scan-custody/README.md)
+
+**Pinned scan choices.** PyArrow 26.0.0 `ParquetFile(NativeFile).iter_batches(columns=...)`
+or `read_row_group(..., columns=...)` projects held files. Where paths are under exclusive
+immutable custody, use `dataset.Scanner` column projection and exact address filters for
+single-relation reads, or the analytical owner's `from_parquet()` and DuckDB 2.0.0
+`read_parquet()` for combined scans. Use admitted Arrow batches for local joins when the
+path is unsuitable. Verify bag differences with `Relation.except_all()` or SQL `EXCEPT ALL`.
+Open the manifest's exact file set with the declared schema. Sort by actual
+product/collection/partition addresses and choose row groups for the mix of point and full scans.
+The writer's `sorting_columns` records order that the writer input must already satisfy.
+Use DuckDB `EXPLAIN` to check filter and projection placement. Investigate `write_page_index`,
+Bloom filters or a side index only if sorted row groups leave a material selective-read cost,
+and demonstrate benefit on the pinned reader before adopting. PyArrow 26 can write page
+indexes, and its Parquet reader does not use them for filtering. Layout and compression can vary
+while semantic keys, order and commitments remain fixed.
+[Existing writer](../../../python/corpus-structure/src/corpus_structure/serve/companion_export.py#L196) ·
+[Arrow Scanner API](https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Scanner.html) ·
+[Arrow ParquetFile API](https://arrow.apache.org/docs/python/generated/pyarrow.parquet.ParquetFile.html) ·
+[Parquet writer API](https://arrow.apache.org/docs/python/generated/pyarrow.parquet.ParquetWriter.html) ·
+[DuckDB 2.0 Parquet scans](https://duckdb.org/docs/2.0/data/parquet/overview) ·
+[Post-SBX-09 review I03](../../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I03) ·
+[Post-SBX-09 review I10](../../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I10)
+
+**Efficiency comparison.** Use the improved authenticated D1 replay with prepared headers and
+use/slot bindings as the baseline. Keep staged `pg_temp` selected archive keys and their typed
+batch extraction in the owning PostgreSQL session. Exported snapshots do not transfer that
+session-local state. Reuse the companion export's ADBC PostgreSQL 1.13.0
+`cursor.fetch_record_batch()` route only where a committed exact pin is visible in the imported
+snapshot and the purpose-granted projection supplies the required rows. Compare the complete
+authorized extraction, conversion, file authentication, cold reopen, index preparation and
+repeated query. Use the existing analytical relation owner for semijoins, anti-joins, explicitly
+ordered windows and `except_all` where they replace repeated scans. Consume a relation's `to_arrow_reader(batch_size=...)`
 for streaming output. Verify that the selected route does not materialize every Python row before
 returning the reader, and close readers on success, failure and cancellation.
 [Efficiency review I06](../../plan_improvement_reviews/set-based-execution-validation-and-postgresql_2026-11-22.md#I06) ·
@@ -510,9 +610,12 @@ returning the reader, and close readers on success, failure and cancellation.
 
 Extend first replay and reopen acceptance to compare complete schema, selected cut, logical rows,
 explicit ordering, null/presence and occurrence multiplicity independently of physical pushdown.
-Verify exact file authentication before projected interpretation and include changed omitted
-columns, a partial or truncated file, empty relations and protected leaves. The manifest owner
-retains publication and interruption recovery. [Post-pilot I03/I06](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I03)
+Verify the cold open and a reread under stable custody. Exercise pathname replacement and
+in-place mutation before the first batch and during consumption, early close, changed omitted
+columns, a partial or truncated file, empty relations and protected leaves. Assert that rows
+come from the verified bytes or refuse, without accepting any changed bytes. Retain full
+ordered replay with duplicates. The manifest owner retains publication and interruption recovery.
+[Post-pilot I03/I06](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I03)
 
 Include mixed decimal precision and scale, a wider exact tagged lexical value, UTC nanoseconds,
 and two independent equal-valued occurrences. Numeric columns use declared bounds supported by
@@ -579,18 +682,27 @@ evidence for the structural closure path.
 <a id="sbx-13"></a>
 ## SBX-13 — Evaluation preflight
 
-**Owns.** The grade, fit and event plans' preflight. Each keeps the checks with no database
-equivalent, which are the coordinate check against retained source text and the restricted-role
-re-read that enforces the fitter's separation, and relies on the binding and the completion
-guards for the rest.
+**Owns.** The grade, fit and event plans' preflight. Use the native binding facts and
+[early acquired reader](#sbx-acquired-reader), independently of full archive completion.
+Acquire finite immutable facts per exact reference, prediction and original-source cut and
+purpose. Keep the reference demand separate from prediction and enforce the source role on
+acquisition. Use Arrow bundles keyed by cut, use and provenance. Use ordered correspondence
+joins or anti-joins in DuckDB where they remove repeated index reconstruction or event-frame
+reopens within the invocation. Independent authored-coordinate checks and semantic scoring
+retain their own expectations.
 
-**Consequence stated.** A fact the preflight used to refuse on is now refused at completion, by
-the guard, after the kernel has run. That is a change in when a failure appears, not in whether
-it does.
+**Refusal timing.** Establish cheap deterministic input refusals once in native acquisition
+before expensive evaluation where that boundary supplies the required facts. Keep independent
+coordinate checking against retained source text and the restricted-role checks that enforce
+the fitter's separation. Completion still checks mutable premises at effect time. Remove
+duplicate checks only once their actual authority and failure timing are accounted for.
 
-**Evidence.** For each removed preflight check, a fixture that violates the fact is refused by
-the named completion guard. The coordinate check still refuses an authored coordinate whose text
-differs from the source. No evaluation plan opens a second index.
-Retain an independent coordinate expectation and a restricted-role refusal when the protected
-reference cannot be followed. Move those checks with the evaluation readers as duplicate
-preflight and the old index are retired.
+**Evidence.** For each moved check, show that a violating fixture refuses at the named
+acquisition, evaluation or completion owner. Include equal payloads from different producing
+uses, different releases, a protected reference unavailable to the permitted role and an
+authored coordinate whose text differs from the retained source. Verify the native
+deterministic refusal precedes expensive evaluation and the mutable refusal still applies
+at completion. Migrate the independent controls with their consumers and retire the old
+index and duplicate preflight when their last consumers move.
+[Post-SBX-09 review I02](../../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I02) ·
+[Post-SBX-09 review I09](../../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I09)

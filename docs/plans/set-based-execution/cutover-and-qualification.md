@@ -1216,30 +1216,39 @@ comparing candidates.
 |---|---|---|
 | A, identity and propagation | Partition table and admission; rule and proof tables, form evaluators, establish routine and required proofs in binding; reference carrier; projection digests in binding and attachment; durable change delivery, readiness and scoped settlement coverage; retirement of the projection family tables, their checks and readers | Land material product and request identity effects once. Carry the native owner of settlement coverage with the transition it governs. |
 | B, reads | The outputs, partitions, derivation-facts and proofs programs; the public freshness observation for a governed selection; the support export's relation list and read closure membership | Group read and export changes. Check their producer identity and receipt effects separately from shared wire and descriptor changes. |
-| C, PDF | The paged row read for the rebuild; access derivation and the reduced checker; staging without build columns and the adopt program; typed capture reads | Lowering identity and the standard producer contract move once. |
+| C, PDF | The paged row read for the rebuild, publication-derived access and certification relations, the reduced checker, staging without build columns, adoption and typed capture reads | Attribute transformed-publication lowering, Standard capture, recognition and genuinely shared schemas or codecs to their actual consumers under [ADR-0155](../../adr/0155-pdf-producer-custody.md). |
 
 A, B and C are development strands. A and C can be developed independently. B consumes A's
 partition and proof contracts. Its freshness slice also consumes A's native settlement coverage.
-Other read design can proceed while coverage is under development. Author each candidate against
-its exact predecessor snapshot and register the resulting chain in dependency order. Candidate
-effects, including shared descriptor admission, determine whether a development strand can be
-installed independently.
+Other read design can proceed while coverage is under development. Reconcile the strands with
+the SBX-09 development root and its two registered read successors, ending at
+`semantic_sbx_answer_guards`. Inspect the actual registered stage predecessor before authoring
+stage candidates. Author each against its exact predecessor snapshot and register in dependency
+order. Candidate effects, including shared descriptor admission, determine whether a strand
+can be installed independently. The letters identify effect groups, while the actual registered
+chain governs installation, restart and receipt applicability.
 [Coverage contract](references-and-projection-keys.md#settlement-coverage) ·
 [Public read](owner-resolved-reads.md#sbx-11)
 
-Attribute candidate differences to direct SQL or physical changes, shared wire and descriptor
-changes, privileges, application admission, and material producer changes. One digest change can
-alter otherwise unrelated wrappers. An object diff alone does not establish a need to regenerate
-their products. Explain which effects require capture, deployment, admission, or regeneration
-through the existing candidate inspection views. Extend those views only if they cannot supply
-that answer.
+Start the attribution comparison early using the existing candidate inspection views. Compare
+a read implementation change, a wire-only change and a material producer lowering against their
+exact predecessors. Within PDF, distinguish transformed publication from a genuinely shared
+schema or codec change. For the installed math seam, check captured callable identity and the
+exact request attachment. Attribute direct objects, shared wire and descriptor effects, grants,
+release preparation, application admission, receipt currency and material producer identity
+separately. A shared wrapper difference prompts attribution, and regeneration follows material
+producer effects. The recorded SBX-11 kernel-mismatch refusal motivates the comparison and
+leaves the cause of collateral invalidation open.
 
-Retain the global digest unless an actual comparison exposes avoidable admission or receipt
-invalidation and a narrower contract can independently preserve the required checks. Resolve such
-a change through the existing decision route before dependent installation. Compare a read-only
-wire change and a material lowering change against their actual predecessors, checking producer
-and request identity effects in each case.
-[Review I06](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I06)
+Keep the full installation descriptor and current global admission and receipt correspondence
+as the default. Propose narrower correspondence only if the comparison exposes avoidable
+invalidation and equivalent executable, installed descriptor and purpose checks can be
+established independently. Obtain operator confirmation and follow the
+[existing decision route](common-analytical-basis.md#decision-routes) before any dependent
+installation. If the case remains inconclusive, retain the current boundary.
+[SBX-11 refusal and evidence](owner-resolved-reads.md#sbx-11) ·
+[Review I07](../../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I07) ·
+[Deep review I15](../../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I15)
 
 *Alternative rejected.* A revision per package: each identity-changing package would regenerate
 and re-key everything downstream again, and outstanding receipts would be invalidated repeatedly.
@@ -1252,11 +1261,12 @@ and the [replay contract](owner-resolved-reads.md#sbx-12) to the revisions that 
 Use the existing exact predecessor, candidate and stage checks for changes to native types,
 programs, descriptors, grants or wire contracts.
 
-**Order for fresh qualification inputs.** Start with PDF capture and publication under
-revision C, then exercise the operation chains under A in dependency order, each product admitted
-with its partitions and proofs. Exercise reads and exports under B. Establish coverage for the
-newly governed selection from those facts. A newly selected scope needs an established position
-before a current read can report it as settled.
+**Order for fresh qualification inputs.** On the assembled registered chain, start with PDF
+capture and publication, then exercise operation chains in dependency order, each product
+admitted with its partitions and proofs. Establish coverage for the newly governed selection
+from those facts and exercise the read and export paths. A newly selected scope needs an
+established position before a current read can report it as settled. Include an independently
+settled sibling and a historical continuation whose current authorization is checked.
 
 **Checks at each registration.** The repository's native candidate comparison accounts for direct
 and shared changes against the exact predecessor. The release prepares under the new kernel,
@@ -1318,6 +1328,10 @@ specific to the old mechanism.
   conversions and validation they replaced. Follow their worker, publication and selected-reader
   consumers. Confirm the frozen archive no longer rebuilds its covered JSONL/SQLite closure.
   Preserve independent refusal and semantic tests in the respective owners.
+- Follow the last consumers of whole-closure read adapters, evaluator indexes, family-wide PDF
+  report scans and duplicate PDF budget evaluation. Remove displaced routes with their consumer
+  migrations. Keep the independent PDF reconciliation control while it still supplies expected
+  results. Residual searches cover replaced mechanisms and their callers in addition to old names.
 - Confirm retirement of covered recursive readiness watermarks, stored wait hashes and repeated
   discovery sweeps after SBX-06 validates their replacement. Follow consumers in the planner,
   execution, demand reads, record grading and retained evidence. Preserve ordinary pinned reads,
@@ -1344,6 +1358,13 @@ union through the existing result facilities. Keep failed and interrupted result
 affected results when source, harness, environment or shared configuration changes. The final
 provider and whole-book claims belong to their actual managed runs.
 Apply the applicable [stable-source, preparation reuse and bounded cohort rules](#sbx-efficiency-qualification).
+
+For changed readers, reuse an authentic retained input only when its producing source,
+admission, installed descriptor, purpose and captured inputs still establish the premises
+being tested. The SBX-11 passes by selected identity inside a failed aggregate retain their
+named scope and the aggregate retains its failure. Changes to executable or provider
+determinants need fresh evidence for the affected producer. Keep final-source read, native
+recovery, real provider and whole-book claims at their own acceptance boundaries.
 
 **The whole book.** The retained book is processed end to end through the new path, with a
 controlled interruption and an unchanged repeat that produces no new work.
@@ -1392,7 +1413,7 @@ controls. It specifies expected semantic effects rather than a mandatory test pe
 | Reconversion renumbers pointers, with repeated text or split and merged blocks as controls | Equal declared projections can permit computation reuse. A specific occurrence correspondence requires independent evidence. Fresh acquisition supplies current occurrence addresses when correspondence is unavailable. Readback follows the current occurrence without guessing a historical mapping. |
 | One role-relative body is consumed through different selections and a transitive input from another demand | Interpretation uses original derivation bindings. Current support checks use the selected use's authority. Exercise revoked original support with valid equivalent current support, revoked current support, an attestation lacking an admissible establishment, revocation between live pages, and protected issuer refusal. Detached verification establishes captured custody. |
 | The same block is run with different batch peers and order | Compare independently expected bodies, observations and receipts for the actual host and numerical policy. Keep any observed batch determinant in its key. Unsettled locality retains the whole-collection execution premise. |
-| A read-only wire change is compared with a material lowering change | Attribute direct and shared candidate changes, then establish actual producer identity, request identity, admission and receipt effects. Regeneration follows material effects and the registered dependency chain. |
+| Read implementation, wire-only and material lowering changes are compared | Attribute direct and shared candidate effects against exact predecessors, then establish producer identity, request attachment, release, admission and receipt effects separately. For PDF, distinguish transformed publication from shared codec effects on Standard capture or recognition. Regeneration follows material effects and the registered dependency chain. |
 | An installed transition or book run is interrupted and resumed unchanged | Reopen through the existing managed route on the same target. Retain completed applicable work, complete required recovery, and establish that an unchanged repeat creates no new computation work. |
 
 Inspect actual keys, binding decisions and attempts alongside independently expected results. For

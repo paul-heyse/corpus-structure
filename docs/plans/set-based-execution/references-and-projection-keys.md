@@ -1154,6 +1154,26 @@ where observed projections stabilize. Broad fan-out and whole-population or coho
 can still require broad work. Automatic refresh requires separately selected maintenance
 interest and effect authority.
 
+**Qualified dependency scope · Scheduled · 2026-11-23.** Resolve coverage through the
+declared binding roles and exact enrolled dependency facts. Match the qualified context,
+including analyzed scope, and follow the role's subject and source mapping where it changes
+across an edge. Reuse delivery and readiness facts when their determinants cover that scope.
+An unestablished dependency mapping supplies insufficient coverage. The existing frontier
+matches operation, subject and original source. That tuple alone cannot distinguish analyzed
+siblings or represent a role that changes subject or source. Preserve the working native
+delivery and generation fencing that SBX-09 already qualified within its recorded scope.
+
+Supply one prepared qualified scope for [SBX-11 freshness](owner-resolved-reads.md#freshness-aware-reads).
+The current path establishes readiness, validity, discovery and coverage for its generation.
+A historical read applies current trust and disclosure to the captured settled cut through
+that scope and does no new readiness derivation. Verify separate analyzed siblings for the
+same subject, cross-source role correspondence, and independent settlement where an unrelated
+sibling is pending. Exercise a committed upstream change between reads, unchanged readiness,
+old-generation continuation and revocation. Assert the captured cut and current authority
+independently, including protected proof membership when a previously empty scope receives
+its first qualifying proof.
+[Post-SBX-09 review I08](../../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I08)
+
 <a id="readiness-delivery"></a>
 ### Readiness delivery and retirement
 

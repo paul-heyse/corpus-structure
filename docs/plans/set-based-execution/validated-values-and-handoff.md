@@ -506,3 +506,30 @@ The earlier attestation and container-shape failures remain recorded under
 `0cd3058365094184bba9efa060331357`. After keeping the span class in producer execution
 custody, the selected math, formal, span and role-reference run passed all 46 tests
 (`b42be75ac48a415ebc8970da5509c67f`). Installed producer integration remains open.
+
+<a id="sbx-consumed-runtime-custody"></a>
+### Consumed runtime source and installed math handoff
+
+**Scheduled · 2026-11-23.** Runtime source discovery currently enumerates module classes
+before filtering the expected nodes. An unrelated Python 3.14 generic class can therefore
+refuse a plain operation before it reaches the selected callable. Resolve the captured
+dependency inventory first and inspect the consumed functions, classes, members and globals
+along those paths. Resolve the interpreter's class-code correspondence for consumed generic
+classes. Use that discovery in the port's prepared slice and verification and in CPU helper
+capture. Preserve actual transitive dependencies, assets, late imports, and the before-and-after
+execution checks. A consumed dependency whose correspondence cannot be established still refuses.
+The selected runtime inspection scope leaves serving continuation compatibility under its
+existing conservative identity.
+[Runtime member walker](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_ports.py#L1506) ·
+[CPU helper capture](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_cpu.py#L560) ·
+[Continuation decision](../../adr/0141-serving-continuation-and-reuse.md) ·
+[Review I15](../../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I15)
+
+Accept this slice with an unrelated generic helper, a consumed generic helper and an altered
+consumed member. Exercise cold and warmed execution and retain the late-import refusal. Qualify
+the installed math producer through occurrence, normalization and scope, reopening the published
+context and checking configuration, coordinates, original producing use and attachment. Selected
+math readback consumes the [typed reader](owner-resolved-reads.md#sbx-acquired-reader). The
+[scoped-relations trial](kernel-trial.md#sbx-19) can prepare against retained indexes, while
+its complete producer comparison uses the installed math handoff. Attribute any material
+capture, release or request effect under [SBX-20](cutover-and-qualification.md#sbx-20).
