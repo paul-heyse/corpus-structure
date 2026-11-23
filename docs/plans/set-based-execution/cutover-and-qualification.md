@@ -223,6 +223,21 @@ non-PDF evidence using its exact source, test harness and application acquisitio
 `just model check` confirmed the released projections and `uv run ci check` passed after
 typing the manifest test fixture (`28e639b6671c413eb694bf295b1deca2`).
 
+The first fresh-root PDF run (`0eba6afd5ad744399ace2b4024c11aee`) reached both producers
+and failed the new fixture's certificate assertion. A fresh capture performs the
+round trip and records its own oracle receipt. The corrected fixture checks that receipt
+and the exact archived Standard lowering before exercising either kind of reuse.
+
+**PDF reuse · Tested · 2026-11-23.** Both corrected PDF journeys passed in the private
+one-worker result `b705ce4ea9f4478cbf441083d7af3722` on the refreshed root. A policy-only
+remap retained the exact capture and recognition derivations and receipts, sent no
+additional recognition requests, and applied the changed reconciliation policy. After
+withdrawal, the same recognition request advanced to a new native task and generation.
+It adopted the retained page observations and preserved authentic historical custody.
+The withdrawn public read remained refused. These cases exercised Standard capture and
+the installed recognition worker against a finite loopback service. Real model-provider
+accuracy belongs to its own qualification.
+
 ### Development reset through SBX-09
 
 1. Complete the [columnar replacement sequence](#columnar-cutover-sequence), including the

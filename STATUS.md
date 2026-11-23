@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-23. The typed population root installed on a fresh qualification database. The operator brought PDF producer custody forward and its implementation is in qualification. Development runs N29 pending integrated acceptance._ [Typed implementation checkpoint](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation) · [ADR-0154](docs/adr/0154-sbx-columnar-populations.md) · [ADR-0155](docs/adr/0155-pdf-producer-custody.md) · [ADR-0150](docs/adr/0150-sbx-empty-development-cutover.md)
+_Updated 2026-11-23. The refreshed typed population root installed with the approved PDF producer custody and passed both reuse journeys. Serial qualification continues. Development runs N29 pending integrated acceptance._ [Typed implementation checkpoint](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation) · [ADR-0154](docs/adr/0154-sbx-columnar-populations.md) · [ADR-0155](docs/adr/0155-pdf-producer-custody.md) · [ADR-0150](docs/adr/0150-sbx-empty-development-cutover.md)
 
 ## Current owners
 
@@ -12,6 +12,7 @@ _Updated 2026-11-23. The typed population root installed on a fresh qualificatio
 
 ## Last verified
 
+- **Passed · 2026-11-23.** The refreshed root registered and installed empty (`3d460845cdda4a958fce65188ed52ca6`). `just model check` and `uv run ci check` (`28e639b6671c413eb694bf295b1deca2`) passed. Both private one-worker PDF reuse journeys passed (`b705ce4ea9f4478cbf441083d7af3722`). They used Standard capture and the installed recognition worker with a finite loopback service. [Refreshed root and PDF scope](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation)
 - **Passed by selected identity · 2026-11-23.** The real annotation and canonical chain passed typed publication and authenticated Parquet replay on the integrated root (`b54ae7600d93433caa5ccf5fdc81b5ac`). The next cohort passed changed occurrences, cross-capture reuse and HanLP/declaration, and was interrupted after a construction snapshot failure. Managed custody is settled. [Typed provider checks](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation)
 - **Passed by selected identity · 2026-11-23.** All three corrective provider cases passed (`7566d5a501984c7c872c48f74433010b`), including original annotation and formal binding and both independent reports at producer position zero. Managed recovery settled the private test host after the retained invocation failure. All eight shared fault controls passed (`fd0cc642472145bd9eb9314c4bc9cfe8`). [Typed provider checks](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation)
 - **Passed by selected identity and failed · 2026-11-23.** The integrated ordinary run (`87ff53e7f15a4a14aba1702e1f93a158`) passed 14 identities covering event and witness behavior, original draft recovery and authentic replay. It failed the toy fixture grant and two PDF reuse cases. The corrective run (`6110578d566747ff8f4e4555f302146d`) passed the toy filing and three typed custody cases. Release deployment hit the watchdog while re-rendering native SQL. The correction observes live compilation inputs directly. [Ordinary evidence](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation)
@@ -32,6 +33,6 @@ _Updated 2026-11-23. The typed population root installed on a fresh qualificatio
 
 ## Remaining acceptance
 
-- Recapture the root with mode-specific PDF custody. Qualify both PDF reuse journeys, the deployment correction, and remaining real provider and installed-root ordinary scope with serial managed tests. [Cutover sequence](docs/plans/set-based-execution/cutover-and-qualification.md#columnar-cutover-sequence)
+- Finish the deployment correction, source custody and remaining real provider and installed-root ordinary scope with serial managed tests. [Cutover sequence](docs/plans/set-based-execution/cutover-and-qualification.md#columnar-cutover-sequence)
 - Reconcile retained ordinary and provider receipts by exact source, root and context. Witness replay, remaining provider checks and other diagnoses are open. [Qualification checkpoint](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-09-qualification-pause)
 - The development reset remains gated on integrated acceptance. The cutover targets the dedicated development database and discards its prior data. [Development reset](docs/plans/set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09)

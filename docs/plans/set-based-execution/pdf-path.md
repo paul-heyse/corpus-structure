@@ -71,9 +71,10 @@ and codecs. Capture and recognition use the determining inputs and acquired exec
 of their own operation. PostgreSQL selects a publication certificate's lowering from
 the producing operation and retains its exact historical basis.
 
-Qualify a policy-only remap with the existing capture and observation episodes, and
-exercise a later generation with the original authorized historical read and a withdrawn
-public use. [ADR-0155](../../adr/0155-pdf-producer-custody.md) ·
+**Tested · 2026-11-23.** The refreshed root passed the policy remap with the existing
+capture and observation episodes. It also passed the later generation with retained page
+results, exact historical custody, and refusal of the withdrawn public use.
+[ADR-0155](../../adr/0155-pdf-producer-custody.md) ·
 [SBX-09 readiness](cutover-and-qualification.md#sbx-columnar-implementation)
 
 ## Target
