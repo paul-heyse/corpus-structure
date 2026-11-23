@@ -134,6 +134,8 @@ def project_definition_components(
     frame = DeclaredNativeFrameSource.acquire(
         prepared, source, member("source"), project=context.project_id
     )
+    member("observation")
+    member("candidates")
     selected = FrozenNativeSource.acquire(prepared, source)
     retained = retained_definition_windows(frame, observation, candidates)
     blocks, _ = _blocks(selected)

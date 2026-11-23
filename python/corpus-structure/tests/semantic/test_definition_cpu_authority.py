@@ -445,6 +445,14 @@ def test_component_cpu_retains_selected_source_member_and_requires_whole_primary
         )
         with pytest.raises(ValueError, match=r"exact whole (primary|retained) products"):
             invoke(changed)
+        repeated = tuple(
+            replace(role, members=(replace(role.members[0], multiplicity=2),))
+            if role.role == name
+            else role
+            for role in roles
+        )
+        with pytest.raises(ValueError, match=r"exact whole (primary|retained) products"):
+            invoke(repeated)
     duplicated = (
         replace(roles[0], members=(replace(roles[0].members[0], multiplicity=2),)),
         *roles[1:],
