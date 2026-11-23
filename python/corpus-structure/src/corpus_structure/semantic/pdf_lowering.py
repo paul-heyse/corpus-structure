@@ -17,6 +17,10 @@ from .types import SourceArtifact, SourceBundle
 
 LOWERING_CONTRACT = "implementation/pdf/lowering-contract.json"
 LOWERING_PREFIX = "implementation/pdf/lowering/"
+LOWERING_CODE = LOWERING_PREFIX + "code/meaning.json"
+CAPTURE_LOWERING_CONTRACT = LOWERING_PREFIX + "capture-contract.json"
+CAPTURE_LOWERING_CODE = LOWERING_PREFIX + "capture-code/meaning.json"
+CAPTURE_OPERATION = "source.pdf/capture"
 LOWERING_ENTRY_MODULES = (
     "corpus_structure.semantic.pdf_records",
     "corpus_structure.semantic.pdf_certification",
@@ -36,7 +40,9 @@ LOWERING_ENTRY_CALLABLES = (
 PRODUCER_IDENTITY_INPUTS = frozenset(
     {
         "pdf-domain/" + LOWERING_CONTRACT,
-        "pdf-domain/" + LOWERING_PREFIX + "code/meaning.json",
+        "pdf-domain/" + LOWERING_CODE,
+        "pdf-domain/" + CAPTURE_LOWERING_CONTRACT,
+        "pdf-domain/" + CAPTURE_LOWERING_CODE,
     }
 )
 
@@ -154,49 +160,56 @@ def _prepared_lowering_sources(
     )
     if not include_producer:
         return sources, custody
-    code = _lowering_code() if standard_producer is None else None
-    if standard_producer is not None:
-        standard_producer.check()
-    contract = SourceArtifact(
-        "pdf-domain/" + LOWERING_CONTRACT,
-        canonical_bytes(
-            {
-                "profile": DEMAND_LOWERING if standard_producer is None else STANDARD_LOWERING,
-                "compiler_policy": SEMANTIC_COMPILER_VERSION,
-                "code_identity": {
-                    **(
-                        {
-                            "complete": code.complete,
-                            "sha256": code.digest,
-                            "unknowns": sorted(
-                                {(item.module, item.reason) for item in code.unknowns}
-                            ),
-                        }
-                        if code is not None
-                        else {
-                            "complete": True,
-                            "sha256": standard_producer.digest,
-                            "scope": "docling-standard-pdf-stream-v1",
-                        }
-                    ),
-                },
-                "inputs": [
-                    {"name": source.name, "sha256": source.digest}
-                    for source in (*sources, *boundary_sources)
-                ],
-                "libraries": {
-                    **(
-                        {distribution: version for _, distribution, version in code.distributions}
-                        if code is not None
-                        else json.loads(standard_producer.content)["distributions"]
-                    ),
-                    "python": determinant_version("python"),
-                    "unicode-identity": determinant_version("unicode-identity"),
-                },
-            }
-        ),
+
+    def contract(name, profile, code_identity, libraries, excluded):
+        return SourceArtifact(
+            "pdf-domain/" + name,
+            canonical_bytes(
+                {
+                    "profile": profile,
+                    "compiler_policy": SEMANTIC_COMPILER_VERSION,
+                    "code_identity": code_identity,
+                    "inputs": [
+                        {"name": source.name, "sha256": source.digest}
+                        for source in (*sources, *boundary_sources)
+                        if source.name != "pdf-domain/" + excluded
+                    ],
+                    "libraries": {
+                        **libraries,
+                        "python": determinant_version("python"),
+                        "unicode-identity": determinant_version("unicode-identity"),
+                    },
+                }
+            ),
+        )
+
+    code = _lowering_code()
+    generic = contract(
+        LOWERING_CONTRACT,
+        DEMAND_LOWERING,
+        {
+            "complete": code.complete,
+            "sha256": code.digest,
+            "unknowns": sorted({(item.module, item.reason) for item in code.unknowns}),
+        },
+        {distribution: version for _, distribution, version in code.distributions},
+        CAPTURE_LOWERING_CODE,
     )
-    return (contract, *sources), custody
+    if standard_producer is None:
+        return (generic, *sources), custody
+    standard_producer.check()
+    capture = contract(
+        CAPTURE_LOWERING_CONTRACT,
+        STANDARD_LOWERING,
+        {
+            "complete": True,
+            "sha256": standard_producer.digest,
+            "scope": "docling-standard-pdf-stream-v1",
+        },
+        json.loads(standard_producer.content)["distributions"],
+        LOWERING_CODE,
+    )
+    return (generic, capture, *sources), custody
 
 
 @lru_cache(maxsize=1)
@@ -235,24 +248,13 @@ def _implementation_sources(include_producer, native_schema: bytes, standard_pro
     )
     if not include_producer:
         return (schema_source,), ()
-    if standard_producer is not None:
-        standard_producer.check()
-        return (
-            SourceArtifact(
-                "pdf-domain/" + LOWERING_PREFIX + "code/meaning.json", standard_producer.content
-            ),
-            schema_source,
-        ), tuple(
-            verified_file(Path(path), digest)
-            for path, digest in (*standard_producer.first_party, *standard_producer.files)
-        )
     code = _lowering_code()
     if code.complete:
         from corpus_structure._query_custody import capture_workload_sources
 
         capture_workload_sources(root, code)
     sources = (
-        SourceArtifact("pdf-domain/" + LOWERING_PREFIX + "code/meaning.json", code.meaning),
+        SourceArtifact("pdf-domain/" + LOWERING_CODE, code.meaning),
         schema_source,
     )
     custody = (
@@ -261,22 +263,52 @@ def _implementation_sources(include_producer, native_schema: bytes, standard_pro
             for source in code.modules
         ),
     )
+    if standard_producer is not None:
+        standard_producer.check()
+        sources += (
+            SourceArtifact("pdf-domain/" + CAPTURE_LOWERING_CODE, standard_producer.content),
+        )
+        custody += tuple(
+            verified_file(Path(path), digest)
+            for path, digest in (*standard_producer.first_party, *standard_producer.files)
+        )
     return sources, custody
+
+
+def selected_lowering_contract(context, *, expected_digest=None) -> SourceArtifact:
+    """Choose the admitted producing scope or the exact sealed publication basis."""
+    generic = context.domain.source(LOWERING_CONTRACT)
+    capture = next(
+        (
+            source
+            for source in context.domain.sources
+            if source.name == "pdf-domain/" + CAPTURE_LOWERING_CONTRACT
+        ),
+        None,
+    )
+    if expected_digest is not None:
+        for source in (generic, capture):
+            if source is not None and source.digest == expected_digest:
+                return source
+        raise ValueError("sealed PDF lowering identity is absent from the producing release")
+    if capture is not None and context.operation == CAPTURE_OPERATION:
+        return capture
+    return generic
 
 
 def lowering_reuse_complete(context) -> bool:
     """Computation is available when code identity is incomplete; reuse is withheld."""
     require_lowering_identity(context)
-    return json.loads(context.domain.source(LOWERING_CONTRACT).content)["code_identity"]["complete"]
+    return json.loads(selected_lowering_contract(context).content)["code_identity"]["complete"]
 
 
-def require_lowering_identity(context) -> str:
+def require_lowering_identity(context, *, expected_digest=None) -> str:
     """Use the exact retained artifact only after matching its executable closure."""
     from hashlib import sha256
 
     if context.domain is None:
         raise ValueError("PDF certification requires its released lowering contract")
-    retained = context.domain.source(LOWERING_CONTRACT)
+    retained = selected_lowering_contract(context, expected_digest=expected_digest)
     from .metadata import get_metadata
 
     current_boundary = _current_boundary()
@@ -301,7 +333,9 @@ def require_lowering_identity(context) -> str:
 
         standard_producer = standard_pdf_contract()
     current = lowering_sources(standard_producer=standard_producer)
-    if retained.content != current[0].content:
+    if not any(
+        source.name == retained.name and source.content == retained.content for source in current
+    ):
         raise ValueError("PDF lowering contract differs from the captured execution basis")
     declared = json.loads(retained.content)
     for item in declared["inputs"]:

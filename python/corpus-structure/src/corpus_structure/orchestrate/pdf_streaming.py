@@ -213,12 +213,15 @@ def run_private_native_pdf_build(
 
                 require_pdf_database_action(connection, build.release_id, "stage_pdf_producer")
                 from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
+                from corpus_structure.semantic.pdf_lowering import CAPTURE_OPERATION
                 from corpus_structure.semantic.pdf_payloads import (
                     prepare_payload_family,
                     schema_dump,
                 )
 
-                context = pdf_context_for_task(connection, claim.task_id)
+                context = pdf_context_for_task(
+                    connection, claim.task_id, operation=CAPTURE_OPERATION
+                )
                 payload_family = prepare_payload_family(context)
                 payload_schema = schema_dump(payload_family.json_schema)
                 from corpus_structure.ingest.pdf_build_spool import PdfSpoolProducerBasis
@@ -487,9 +490,9 @@ def run_private_native_pdf_build(
                 worker = PdfWorker(recipe, assets=assets, writer_lease=spool.writer_lease)
 
             from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
-            from corpus_structure.semantic.pdf_lowering import LOWERING_CONTRACT
+            from corpus_structure.semantic.pdf_lowering import selected_lowering_contract
 
-            selected_lowering = json.loads(context.domain.source(LOWERING_CONTRACT).content)
+            selected_lowering = json.loads(selected_lowering_contract(context).content)
             selected_producer = (
                 standard_pdf_contract()
                 if selected_lowering["profile"] == STANDARD_LOWERING

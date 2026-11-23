@@ -61,6 +61,21 @@ policy where the producer used the captured ones.
 (`cs/ingest/pdf_producer_contract.py`). Renaming or retiring any of them changes those
 identities.
 
+<a id="pdf-producer-custody"></a>
+### Producer custody through SBX-09
+
+**Accepted · 2026-11-23.** Bring Standard capture custody and independently acquired
+recognition forward for the Integrated route. The release archives the capture-specific
+lowering beside the generic transformed-publication lowering and shares their schemas
+and codecs. Capture and recognition use the determining inputs and acquired execution
+of their own operation. PostgreSQL selects a publication certificate's lowering from
+the producing operation and retains its exact historical basis.
+
+Qualify a policy-only remap with the existing capture and observation episodes, and
+exercise a later generation with the original authorized historical read and a withdrawn
+public use. [ADR-0155](../../adr/0155-pdf-producer-custody.md) ·
+[SBX-09 readiness](cutover-and-qualification.md#sbx-columnar-implementation)
+
 ## Target
 
 **One rebuild.** `reconstruct_native_document` is the only assembler of a document from rows. It

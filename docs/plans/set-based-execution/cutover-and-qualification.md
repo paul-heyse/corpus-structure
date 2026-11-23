@@ -189,11 +189,14 @@ request. Generic capture and recognition independently lack the complete acquire
 closure required for reuse across demands. The new demand contributes to their request IDs,
 and recognition also observes the exact capture episode. A correction requires a capture
 producer admitted for the Integrated path and independently acquired recognition custody.
-The current PDF lowering identity is shared per release. Composing Standard capture with
-Integrated recognition would require mode-specific custody or a complete generic Integrated
-producer closure. This work needs coordination with [Domain Model Operability](../domain-model-operability/execution-identity-and-recovery.md)
-and [PDF producer and replay scope](pdf-path.md#columnar-pdf-certification). Keep both cases
-and the development reset open while the operator settles whether to bring this design forward.
+The baseline shared one lowering identity per release. The operator brought forward the
+mode-specific capture and recognition prerequisites on 2026-11-23. [ADR-0155](../../adr/0155-pdf-producer-custody.md)
+records the selected scope. Acquire the two producing operations independently, preserve
+their shared schemas and existing native receipt authority, and recapture the root when
+the native changes are integrated. Verify the policy-only remap and the historical
+generation and withdrawal journey on that root. Keep the development reset gated on
+integrated acceptance. [Selected executable owner](../domain-model-operability/execution-identity-and-recovery.md) ·
+[PDF producer scope](pdf-path.md#pdf-producer-custody)
 
 ### Development reset through SBX-09
 

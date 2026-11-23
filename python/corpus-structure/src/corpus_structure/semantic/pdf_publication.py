@@ -973,7 +973,7 @@ def capture_published_pdf_oracle(
         raise ValueError(
             "published PDF oracle requires its admitted release and sealed certification"
         )
-    identity = require_lowering_identity(context)
+    identity = require_lowering_identity(context, expected_digest=receipt.lowering_identity)
     if (
         receipt.lowering_identity != identity
         or receipt.attested_logical_digest != reader.reference.content_digest

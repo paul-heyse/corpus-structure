@@ -53,10 +53,17 @@ def pdf_views_custody():
 def pdf_views_operation_sources(
     capture_sources=None, *, mode="standard", transformation_sources=None
 ):
-    from .pdf_domain import pdf_helper_asset
+    from .pdf_domain import HELPER_CONTRACT
     from .primary_operations import combine_primary_sources
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
+    if capture_sources is None:
+        raise ValueError(
+            "PDF source-view discovery requires its actual captured capture dependency"
+        )
+    (helper,) = [
+        asset for asset in capture_sources.boundary_contracts if asset.name == HELPER_CONTRACT
+    ]
     root = Path(__file__).parents[1]
     own = PythonSourceCollection(
         tuple(
@@ -66,12 +73,8 @@ def pdf_views_operation_sources(
                 ("corpus_structure.semantic.pdf_views", Path(__file__)),
             )
         ),
-        boundary_contracts=(pdf_views_assets(), pdf_views_custody(), pdf_helper_asset()),
+        boundary_contracts=(pdf_views_assets(), pdf_views_custody(), helper),
     )
-    if capture_sources is None:
-        raise ValueError(
-            "PDF source-view discovery requires its actual captured capture dependency"
-        )
     if mode == "standard":
         return combine_primary_sources(capture_sources, own)
     if mode not in {"organized", "enriched", "integrated"} or transformation_sources is None:

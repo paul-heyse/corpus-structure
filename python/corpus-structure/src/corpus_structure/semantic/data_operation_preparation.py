@@ -543,11 +543,7 @@ def _acquire_primary_profile(
             raise ValueError("PDF asset manifest requires unique relative artifact names")
         assets.verify()
         standard_producer = None
-        if (
-            recipe.recipe_id == STANDARD_SCOPE
-            and capture.recognition is None
-            and capture.enrichment_options is None
-        ):
+        if recipe.recipe_id == STANDARD_SCOPE and recipe.model_artifacts and recipe.model_revisions:
             from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
 
             standard_producer = standard_pdf_contract()
@@ -570,7 +566,10 @@ def _acquire_primary_profile(
                 yaml.safe_load(read(capture.organization_policy))
             )
             arguments["pdf_organization_sources"] = pdf_transform_operation_sources(
-                "organized", options=policy, directory=location(capture.directory)
+                "organized",
+                options=policy,
+                directory=location(capture.directory),
+                standard_producer=standard_producer,
             )
         input_operation = (
             "source.pdf_sections/organize"
@@ -596,6 +595,7 @@ def _acquire_primary_profile(
                 directory=location(capture.directory),
                 nemotron_endpoint=capture.nemotron_endpoint,
                 input_operation=input_operation,
+                standard_producer=standard_producer,
             )
         if capture.recognition is not None and needs(
             selected_modules,
@@ -639,6 +639,7 @@ def _acquire_primary_profile(
                 resources=resources,
                 directory=location(capture.directory),
                 input_operation=input_operation,
+                standard_producer=standard_producer,
             )
     return arguments
 

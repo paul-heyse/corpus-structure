@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from hashlib import sha256
 from importlib.resources import files
@@ -39,6 +39,7 @@ class PreparedPdfContext:
     domain: PdfDomainContract
     contract_digest: str
     staging: SourceArtifact
+    operation: str | None = None
 
     def require_operation(self, name: str):
         return self.domain.require_operation(name)
@@ -111,7 +112,9 @@ def projection_write_levels(context: PreparedPdfContext, staging: bytes) -> list
     return sorted(set(policy.model_dump(mode="json")["allowed_isolation"]))
 
 
-def pdf_context_for_task(conn: Connection, task_id: int) -> PreparedPdfContext:
+def pdf_context_for_task(
+    conn: Connection, task_id: int, *, operation: str | None = None
+) -> PreparedPdfContext:
     from .releases import open_release
 
     tasks = table("ops.task")
@@ -119,7 +122,7 @@ def pdf_context_for_task(conn: Connection, task_id: int) -> PreparedPdfContext:
     if release_id is None:
         raise ValueError("PDF producer task has no current declared release")
     prepared = open_release(conn, release_id)
-    return pdf_context_for_release(conn, prepared)
+    return replace(pdf_context_for_release(conn, prepared), operation=operation)
 
 
 def pdf_context_for_release(conn: Connection, prepared: PreparedRelease) -> PreparedPdfContext:

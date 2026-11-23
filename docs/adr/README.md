@@ -104,6 +104,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0152](0152-selected-archive-support-keys.md) | Stage selected archive support keys within the acquiring transaction | 2026-11-22 |  | Proposed |  |
 | [ADR-0153](0153-sbx-exact-named-formal-inputs.md) | Select independent formal analyses as an exact named input set | 2026-11-22 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0154](0154-sbx-columnar-populations.md) | Carry SBX populations as typed relations through native item admission | 2026-11-23 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5), [§B6](../design/DESIGN.md#section-b6) | Proposed | [ADR-0144](0144-sbx-partitioned-products.md), [ADR-0145](0145-sbx-custody-boundary.md), [ADR-0148](0148-sbx-kernel-trial.md) |
+| [ADR-0155](0155-pdf-producer-custody.md) | Select PDF capture and recognition custody independently | 2026-11-23 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

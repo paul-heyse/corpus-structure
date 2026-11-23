@@ -808,6 +808,16 @@ book-scale publication, complete streaming integration or adopted consumer quali
 
 > Decision: ADR-0130
 
+**Accepted PDF producer custody · implementation and qualification Proposed · 2026-11-23.**
+The released PDF facet binds one set of schemas, codecs and access contracts. It may carry
+separate lowerings for selected Standard capture and transformed publication. The capture
+port selects its own lowering. Native publication resolves the producing operation from the
+task and checks its certificate against that release. Historical reads use the same archived
+identity established by the sealed publication. Recognition has a separately acquired worker
+and observation receipt.
+
+> Decision: [ADR-0155](../adr/0155-pdf-producer-custody.md)
+
 **Accepted byte custody and current logical-meaning target (2026-11-16); logical-profile implementation pending.** New artifact streams require independently
 verified parts, lengths and canonical byte folds. Whole-stream serialization SHA is optional
 export metadata; original/raw/historical digest custody is unchanged.
@@ -976,6 +986,14 @@ The owner releases mappings, readers, retained capacity and spill on success or 
 [Carrier owner](../plans/set-based-execution/validated-values-and-handoff.md)
 
 > Decision: [ADR-0154](../adr/0154-sbx-columnar-populations.md)
+
+**Accepted Integrated PDF material reuse · implementation and qualification Proposed · 2026-11-23.**
+Capture, recognition and reconciliation compare their own determining inputs and acquired
+execution contracts. Recognition observes the original capture episode. Independent
+producer custody allows an Integrated policy change to reuse eligible upstream work while
+the current demand retains its own support and generation.
+
+> Decision: [ADR-0155](../adr/0155-pdf-producer-custody.md)
 
 **Accepted target · 2026-11-17.** One captured LinkML closure supplies physical types, slot and
 value-set facts for SQL, upload layout and caller generation. A single composer owns each
