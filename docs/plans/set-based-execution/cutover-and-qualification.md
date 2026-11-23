@@ -84,7 +84,7 @@ library behavior, and production performance remains unmeasured.
 
 1. Complete the [columnar replacement sequence](#columnar-cutover-sequence), including the
    early selected-read and custody consumers. Apply the [efficiency qualification setup](#sbx-efficiency-qualification)
-   and resolve the pending architectural decisions before dependent implementation. When the
+   and apply the recorded architectural decisions before dependent implementation. When the
    integrated captured native artifacts are final, use an empty authoring database on `18/corpus`
    created with `uv run ci db init --creation-only` and bind reader and maintenance settings to it.
    Run `uv run ci model change preview`, `candidate` and `inspect-candidate` for

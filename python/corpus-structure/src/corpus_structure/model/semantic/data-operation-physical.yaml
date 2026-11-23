@@ -418,6 +418,71 @@ classes:
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
       ph:immutability: intrinsic
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["request_id","generation"],"target":"ops.data_request_generation.request_id,generation"}]}
+  data_retained_population:
+    in_subset: [ops]
+    attributes:
+      intent_id: {range: string, required: true}
+      output_role: {range: string, required: true}
+      output_position: {range: integer, required: true}
+      collection: {range: string, required: true}
+      partition_key: {range: string, required: true}
+      product_id: {range: string, required: true}
+      ordinal: {range: integer, required: true}
+      partition_digest: {range: string, required: true}
+      item_count: {range: integer, required: true}
+      group_digests: {range: json_payload, required: true}
+      placement: {range: json_payload, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [intent_id, output_role, output_position, collection, partition_key]}
+      unique_product: {unique_key_slots: [intent_id, output_role, output_position, collection, partition_key, product_id]}
+      unique_order: {unique_key_slots: [intent_id, output_role, output_position, collection, ordinal]}
+    annotations:
+      ph:frontier_guard: exempt
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:immutability: intrinsic
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["intent_id"],"target":"ops.data_completion_intent.id"}]}
+      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_retained_population_output_position","predicate":{"op":"ge","args":[{"field":"output_position"},{"value":0}]}},{"name":"ck_retained_population_ordinal","predicate":{"op":"ge","args":[{"field":"ordinal"},{"value":0}]}},{"name":"ck_retained_population_item_count","predicate":{"op":"ge","args":[{"field":"item_count"},{"value":0}]}}]}
+  data_retained_population_item:
+    in_subset: [ops]
+    attributes:
+      intent_id: {range: string, required: true}
+      output_role: {range: string, required: true}
+      output_position: {range: integer, required: true}
+      collection: {range: string, required: true}
+      partition_key: {range: string, required: true}
+      item_ordinal: {range: integer, required: true}
+      address_key: {range: string, required: true}
+      canonical_text: {range: string, required: true}
+      record_type: {range: string, required: false}
+      start: {range: integer, required: false}
+      end: {range: integer, required: false}
+      declared_projection: {range: json_payload, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [intent_id, output_role, output_position, collection, partition_key, item_ordinal]}
+      unique_address: {unique_key_slots: [intent_id, output_role, output_position, collection, partition_key, address_key]}
+    annotations:
+      ph:frontier_guard: exempt
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:immutability: intrinsic
+      ph:indexes: {"tag":"ph:indexes","value":[["intent_id","output_role","output_position","collection","partition_key","record_type","start"]]}
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["intent_id","output_role","output_position","collection","partition_key"],"target":"ops.data_retained_population.intent_id,output_role,output_position,collection,partition_key"}]}
+      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_retained_population_item_ordinal","predicate":{"op":"ge","args":[{"field":"item_ordinal"},{"value":0}]}}]}
+  data_product_population:
+    in_subset: [kb]
+    attributes:
+      product_id: {range: string, required: true}
+      collection: {range: string, required: true}
+      partition_key: {range: string, required: true}
+      intent_id: {range: string, required: true}
+      output_role: {range: string, required: true}
+      output_position: {range: integer, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [product_id, collection, partition_key]}
+      unique_retained: {unique_key_slots: [intent_id, output_role, output_position, collection, partition_key]}
+    annotations:
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:immutability: intrinsic
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id"],"target":"kb.data_product.id"},{"columns":["intent_id","output_role","output_position","collection","partition_key","product_id"],"target":"ops.data_retained_population.intent_id,output_role,output_position,collection,partition_key,product_id"}]}
   data_external_packet:
     in_subset: [ops]
     attributes:

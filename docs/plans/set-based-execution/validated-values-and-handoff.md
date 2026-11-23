@@ -60,7 +60,7 @@ collection value would raise.
 **Selected planning target · Proposed · 2026-11-22.** Follow the
 [columnar redesign amendment](../set-based-execution_2026-11-21.md#columnar-redesign-amendment)
 and the shared [population contract](common-analytical-basis.md#columnar-population-target).
-Rule confirmation for ADR-0145 precedes dependent adoption. SBX-08 retains the single validating
+The operator accepted the revised custody rule on 2026-11-23. SBX-08 retains the single validating
 constructor and SBX-09 retains its request/reply and loaded-code verification bracket.
 
 **One owned representation.** An acquired population holds model-derived Arrow columns,
@@ -96,6 +96,15 @@ wide numbers, nested HanLP records and renamed/repeated blocks. Exercise early r
 expired attempts, transferred-byte tamper, alias mutation, cancellation and repeated invocation
 cleanup. The [cutover owner](cutover-and-qualification.md#columnar-cutover-sequence) reconciles
 source/root/context applicability of earlier receipts.
+
+**Carrier foundation · Tested by selected identity · 2026-11-23.** The effective model
+derives Arrow item layouts for annotation, canonical sentences and HanLP. The acquired shape
+preserves omitted fields, distinct optional states, nested references and wide integers.
+The sealed IPC primitive authenticates request, projection, schema and bytes, and the layout
+borrows that mapping without another serialization. The same managed selection
+(`36997f01e6f34e7a874d94a1b2d9d5a0`) exercised those effective layouts, mutable-buffer detachment,
+exact round trips and real spawned-process transfer. Production dispatch and
+invocation byte-credit ownership remain part of this package's migration.
 
 ## Target
 

@@ -13,7 +13,7 @@ The [post-SBX-01 amendment](../set-based-execution_2026-11-21.md#post-sbx-01-rev
 integrates review [I01–I04](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I01).
 The [columnar redesign amendment](../set-based-execution_2026-11-21.md#columnar-redesign-amendment)
 reopens the physical portions of SBX-01/02 while preserving the dated scope of their earlier
-native evidence. The revised contracts below are Proposed and await the recorded rule decisions.
+native evidence. The operator accepted the revised columnar rules on 2026-11-23. Native implementation and qualification remain open.
 
 ## Baseline
 
@@ -161,12 +161,26 @@ interrupted COPY exposes no publishable partial product. No purpose role gains u
 insertion into retained product storage. Direct COPY into retained rows is conditional on a
 complete attempt-scoped permission design.
 
-Review the retained parent key before declaring the item relation. It must exist before the
-visible product and remain stable when publication makes the rows visible. Keep immutable
+**Retained parent · Accepted target · 2026-11-23.** Review F01 gives the retained population
+an owner that exists before the visible product. Key it by completion intent, output role
+and position, collection and partition key. The final product's partition association binds
+that retained parent to the recorded logical product ID. Keep immutable
 logical item keys and commitments independent of lifecycle state. Preserve recognition of an
 exact already-committed replay after the producing claim expires, subject to replay authority.
 A new effect still requires a current fence. Check both cases with an independent lost-acknowledgement
 control. Verify that returning a typed refusal leaves the refused item's effects rolled back.
+[Target review](../../design_review/reviews/design_review_sbx-columnar-target_2026-11-23.md) ·
+[ADR-0154](../../adr/0154-sbx-columnar-populations.md)
+
+**Foundation · Tested by selected identity · 2026-11-23.** The physical model now declares
+the intent-owned retained population and items plus the published association. The compiled
+upload profile accepts output role and position, collection, partition, item ordinal and exact
+canonical item text. The protected caller will supply attempt and intent ownership and derive
+address and rule facts. Partition header commitments can now be built from metadata and
+item counts without opening a body. The focused managed selection
+(`36997f01e6f34e7a874d94a1b2d9d5a0`) checked relation foreign keys, canonical commitment parity
+and exact pgpq bytes. The native prepare/adopt routines and production publication wiring
+remain open.
 
 Member collections carry shared context once per product and keep heterogeneous canonical bodies.
 Extract typed role, occurrence, collection, partition and address rows once during admission.

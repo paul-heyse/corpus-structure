@@ -7,7 +7,7 @@ from typing import Any, Literal, NotRequired, TypedDict
 from pydantic import ConfigDict, TypeAdapter, with_config
 
 from ._data_operation_wire import WireProductPartition
-from .data_operation_identity import canonical_identity
+from .data_operation_identity import _frame_canonical_value, canonical_identity
 from .data_operation_json import native_json_loads
 from .data_operation_values import semantic_value
 
@@ -138,45 +138,64 @@ def partition_packet(
         or not 0 <= start <= end
     ):
         raise ValueError("invalid partition key, order or placement")
-    values = list(items)
+    body = semantic_value(list(items))
     return {
         "collection": collection,
         "partition_key": key,
         "ordinal": ordinal,
         "placement": {"start": start, "end": end},
-        "partition_digest": canonical_identity("partition", values).key,
-        "body": semantic_value(values),
+        "partition_digest": _frame_canonical_value("partition", body).key,
+        "body": body,
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class PartitionCommitment:
+    """The facts authenticated by the collection header."""
+
+    collection: str
+    key: str
+    ordinal: int
+    start: int
+    end: int
+    digest: str
+    item_count: int
+
+
+def partition_commitment_header(partitions: Iterable[PartitionCommitment]):
+    ordered = sorted(partitions, key=lambda partition: partition.key)
+    if len({p.key for p in ordered}) != len(ordered):
+        raise ValueError("duplicate partition key")
+    if sorted(p.ordinal for p in ordered) != list(range(len(ordered))):
+        raise ValueError("partition ordinals must be dense")
+    if len({p.collection for p in ordered}) > 1:
+        raise ValueError("partition header requires one collection")
+    return {
+        "root": canonical_identity("partition-root", [[p.key, p.digest] for p in ordered]).key,
+        "placement_root": canonical_identity(
+            "partition-placement", [[p.key, p.ordinal, p.start, p.end] for p in ordered]
+        ).key,
+        "partition_count": len(ordered),
+        "item_count": sum(p.item_count for p in ordered),
     }
 
 
 def partition_header(packets: Iterable[WireProductPartition]):
-    ordered = sorted(packets, key=lambda packet: packet["partition_key"])
-    if len({p["partition_key"] for p in ordered}) != len(ordered):
-        raise ValueError("duplicate partition key")
-    if sorted(p["ordinal"] for p in ordered) != list(range(len(ordered))):
-        raise ValueError("partition ordinals must be dense")
-    if len({p["collection"] for p in ordered}) > 1:
-        raise ValueError("partition header requires one collection")
-    item_count = 0
-    for packet in ordered:
+    def commitment(packet: WireProductPartition) -> PartitionCommitment:
         body = packet["body"]
         if len(body) != 2 or body[0] != "sequence" or not isinstance(items := body[1], list):
             raise ValueError("partition body requires an item sequence")
-        item_count += len(items)
-    return {
-        "root": canonical_identity(
-            "partition-root", [[p["partition_key"], p["partition_digest"]] for p in ordered]
-        ).key,
-        "placement_root": canonical_identity(
-            "partition-placement",
-            [
-                [p["partition_key"], p["ordinal"], p["placement"]["start"], p["placement"]["end"]]
-                for p in ordered
-            ],
-        ).key,
-        "partition_count": len(ordered),
-        "item_count": item_count,
-    }
+        return PartitionCommitment(
+            packet["collection"],
+            packet["partition_key"],
+            packet["ordinal"],
+            packet["placement"]["start"],
+            packet["placement"]["end"],
+            packet["partition_digest"],
+            len(items),
+        )
+
+    return partition_commitment_header(commitment(packet) for packet in packets)
 
 
 @dataclass(frozen=True)

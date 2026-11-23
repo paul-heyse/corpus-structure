@@ -88,7 +88,7 @@ selects a guarded keyed and bulk read slice before SBX-09 qualification. It cons
 [stored item relation](populations-rules-and-proofs.md#typed-item-admission) and the
 [typed reference/binding contract](references-and-projection-keys.md#columnar-reference-and-binding).
 The general answer programs, freshness/cursor work and complete archive retirement remain with
-SBX-11/12. Rule confirmation precedes adoption of the revised population-bearing wire boundary.
+SBX-11/12. The operator accepted the revised population-bearing wire boundary on 2026-11-23.
 
 **One source for two access shapes.** A point access authenticates the actual producing role,
 selected use and parent, then reaches the declared item key through the native index. Fetch only

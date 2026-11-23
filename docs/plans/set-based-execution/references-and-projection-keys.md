@@ -125,8 +125,7 @@ agreement of source and selectors between two products, are attested.
 **Selected planning target · Proposed · 2026-11-22.** The
 [columnar redesign amendment](../set-based-execution_2026-11-21.md#columnar-redesign-amendment)
 selects columnar-basis I04/I08/I09 and analytical-redesign I01/I03/I04/I07 for these
-consumers. Rule confirmation and the focused target review precede dependent production
-adoption. The shared [typed population contract](common-analytical-basis.md#columnar-population-target)
+consumers. The operator accepted the relevant rule changes on 2026-11-23. Dependent production adoption follows the focused target review. The shared [typed population contract](common-analytical-basis.md#columnar-population-target)
 and [item admission](populations-rules-and-proofs.md#typed-item-admission) supply the
 canonical item, its declared address and authenticated input relation.
 

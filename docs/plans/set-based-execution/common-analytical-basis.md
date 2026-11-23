@@ -3,8 +3,7 @@
 **Proposed revision · 2026-11-22.** Companion of the [SBX
 coordinator](../set-based-execution_2026-11-21.md#columnar-redesign-amendment). It owns the
 typed population contract, engine placement, canonical item production and PostgreSQL transfer.
-The reconciled target below awaits the coordinator's explicit rule decisions before dependent
-implementation. The completed SBX-03/08 pilot remains dated evidence. Package
+The operator accepted the target's rule changes on 2026-11-23. Implementation and verification have their own evidence. The completed SBX-03/08 pilot remains dated evidence. Package
 disposition stays in the coordinator. The full scoped-relations trial and the frozen replay reader
 have their own owners. [Source review
 I01–I04](../../plan_improvement_reviews/set-based-execution-common-analytics_2026-11-22.md)

@@ -61,7 +61,12 @@ class CanonicalIdentity:
 
 def canonical_identity(domain: str, value: Any) -> CanonicalIdentity:
     _identifier(domain, "identity domain")
-    encoded = canonical_bytes(["ddo", domain, ENCODING_VERSION, semantic_value(value)])
+    return _frame_canonical_value(domain, semantic_value(value))
+
+
+def _frame_canonical_value(domain: str, tagged: Any) -> CanonicalIdentity:
+    """Frame a value just produced by the canonical semantic encoder."""
+    encoded = canonical_bytes(["ddo", domain, ENCODING_VERSION, tagged])
     return CanonicalIdentity(domain, encoded)
 
 

@@ -5,7 +5,7 @@ the concurrent test runs to release memory. The refreshed sole root and its cont
 source-search and fresh-admission corrections are on `main`. The qualification target has
 the preceding registration. The latest registration also contains the bounded proof tokenizer.
 The [reconciled redesign proposal](#columnar-redesign-amendment) selects a replacement before
-the next SBX-09 cold root, subject to rule confirmation. Integrated acceptance and the
+the next SBX-09 cold root. The operator accepted the rule changes on 2026-11-23. Integrated acceptance and the
 development reset are open.
 [Qualification checkpoint](set-based-execution/cutover-and-qualification.md#sbx-09-qualification-pause)
 
@@ -109,23 +109,29 @@ before dependent work. Apply the existing design-review cadence where the chosen
 changes a binding decision or substantial ownership or dependency boundary.
 
 <a id="columnar-rule-confirmation"></a>
-### Proposed columnar rule changes
+### Columnar rule decisions
 
-These are the specific changes selected for the proposed redesign. Operator confirmation is
-pending for each. Record the disposition and decision date here, then use the existing focused
-design/target review and ADR route before dependent implementation. Keep the accepted rule in
-force for any declined change and revisit the dependent physical scope explicitly.
+The operator accepted all five rule changes on 2026-11-23. Complete the focused design/target
+review and record the decision in the governing ADR and design sections before dependent
+production adoption. Approval establishes scope. Implementation and qualification have
+their own evidence.
 
-| Rule | Proposed consequence and owning route |
-|---|---|
-| [ADR-0128](../adr/0128-wire-contract-boundary-validation.md) | Give the affected population calls one model-derived set wire contract with typed input and result/refusal rows. Keep small JSON controls. Preserve installed request validation, client result validation before commit and exact release correspondence. Route through DESIGN §B4/B5 and D3. |
-| [ADR-0144](../adr/0144-sbx-partitioned-products.md) | Replace the tagged partition body with generic logged item rows. Retain partition commitments, field groups, placement and role-relative addresses. Route through DESIGN §B1/B4/B5 and D3. |
-| [ADR-0145](../adr/0145-sbx-custody-boundary.md) | Replace the frozen decoded population carrier with an admitted typed value and sealed IPC across applicable process boundaries. Keep the validating construction and loaded-code verification obligations in the custody owner. |
-| [ADR-0021](../adr/0021-instance-and-structure-authorities.md) | Permit model-derived canonical item framing and ordered aggregate commitments in the engine for the affected SBX populations, once exact parity is established. Keep the Python definition and independent reference and preserve canonical identity and exact scalar spelling. Route through the identity and analytical owners. |
-| [ADR-0148](../adr/0148-sbx-kernel-trial.md) | Bring forward the relevant SBX-18 analytical prerequisites and authorize the bounded annotation-family adoption ahead of the scoped-relations trial. Keep SBX-19's adoption decision for scoped relations. Route through the analytical owner and DESIGN §B2/B5. |
+| Rule | Disposition | Consequence and owning route |
+|---|---|---|
+| [ADR-0128](../adr/0128-wire-contract-boundary-validation.md) | Accepted | Give the affected population calls one model-derived set wire contract with typed input and result/refusal rows. Keep small JSON controls. Preserve installed request validation, client result validation before commit and exact release correspondence. Route through DESIGN §B4/B5 and D3. |
+| [ADR-0144](../adr/0144-sbx-partitioned-products.md) | Accepted | Replace the tagged partition body with generic logged item rows. Retain partition commitments, field groups, placement and role-relative addresses. Route through DESIGN §B1/B4/B5 and D3. |
+| [ADR-0145](../adr/0145-sbx-custody-boundary.md) | Accepted | Replace the frozen decoded population carrier with an admitted typed value and sealed IPC across applicable process boundaries. Keep the validating construction and loaded-code verification obligations in the custody owner. |
+| [ADR-0021](../adr/0021-instance-and-structure-authorities.md) | Accepted | Permit model-derived canonical item framing and ordered aggregate commitments in the engine for the affected SBX populations, once exact parity is established. Keep the Python definition and independent reference and preserve canonical identity and exact scalar spelling. Route through the identity and analytical owners. |
+| [ADR-0148](../adr/0148-sbx-kernel-trial.md) | Accepted | Bring forward the relevant SBX-18 analytical prerequisites and authorize the bounded annotation-family adoption ahead of the scoped-relations trial. Keep SBX-19's adoption decision for scoped relations. Route through the analytical owner and DESIGN §B2/B5. |
 
 The proposal uses the existing [typed authoring rule](../adr/0135-declared-facts-and-typed-database-programs.md)
 and the [empty development cutover](../adr/0150-sbx-empty-development-cutover.md).
+
+[ADR-0154](../adr/0154-sbx-columnar-populations.md) records the accepted target.
+The [focused target review](../design_review/reviews/design_review_sbx-columnar-target_2026-11-23.md)
+cleared it for implementation. Its F01 retained-parent choice and the underlying DA-087
+diagnosis are scheduled through [typed item admission](set-based-execution/populations-rules-and-proofs.md#typed-item-admission)
+and the [consumer migration](set-based-execution/cutover-and-qualification.md#columnar-cutover-sequence).
 
 ## Shared contracts
 
@@ -239,7 +245,7 @@ SBX-20 to SBX-22 close the series.
 ### Remaining execution through SBX-09
 
 **Proposed execution sequence · 2026-11-22.** The prior registered root and pilot retain
-their evidence. Implement the following order after [rule confirmation](#columnar-rule-confirmation).
+their evidence. Follow the [accepted rule decisions](#columnar-rule-confirmation) and focused target review for the replacement.
 
 1. Settle the coupled carrier, identity and storage design, then bring forward the model schema,
    custody, engine and resource prerequisites from SBX-18. Preserve the installed control
@@ -517,7 +523,8 @@ receipts and judge applicability to the particular source, root, harness and pro
 | [Redesign I07](../plan_improvement_reviews/set-based-execution-efficiency-and-analytical-redesign_2026-11-22.md#I07) | Select exact committed-cut ADBC bulk reads and same-session Psycopg/pgpq writes. Defer ADBC ingestion and direct federation unless a whole owned operation warrants them. [Transfer](set-based-execution/common-analytical-basis.md#postgresql-placement-and-transfer) |
 | [Redesign I08](../plan_improvement_reviews/set-based-execution-efficiency-and-analytical-redesign_2026-11-22.md#I08) | Select stable-source receipt reconciliation and one managed bounded qualification owner. [Cutover](set-based-execution/cutover-and-qualification.md#columnar-cutover-sequence) |
 
-The [rule changes](#columnar-rule-confirmation) and qualified replacement remain open.
+The [rule changes](#columnar-rule-confirmation) were accepted on 2026-11-23. Replacement
+implementation and qualification remain open.
 Historical findings and receipts retain their dates and exact scope.
 
 ## Completion
