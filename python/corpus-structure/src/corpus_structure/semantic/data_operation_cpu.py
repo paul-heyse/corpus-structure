@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from functools import cached_property, lru_cache
 from hashlib import sha256
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin, overload
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     import pyarrow as pa
 
     from .data_operation_population import AcquiredPopulation
+    from .population_ipc import PopulationIpcSeal, PopulationIpcTargetOffer
 
 
 class _Source(BaseModel):
@@ -108,28 +109,9 @@ def _adapter_signature(signature, controls):
 
 @dataclass(frozen=True)
 class CPUArrowResult:
-    """An Arrow result carried by the ordinary, request-owned immutable CPU reply."""
+    """A prepared kernel's typed output for its invocation-owned reply file."""
 
     table: pa.Table
-
-    def serialize(self, limit: int) -> bytes:
-        import pyarrow as pa
-
-        from .cpu_execution import CapacityExceeded
-
-        if self.table.nbytes > limit:
-            raise CapacityExceeded("CPU Arrow result exceeds admitted reply byte capacity")
-        with pa.BufferOutputStream() as sink:
-            with pa.ipc.new_file(sink, self.table.schema) as writer:
-                for batch in self.table.to_batches(max_chunksize=4096):
-                    writer.write_batch(batch)
-                    if sink.tell() > limit:
-                        raise CapacityExceeded(
-                            "CPU Arrow result exceeds admitted reply byte capacity"
-                        )
-            if sink.tell() > limit:
-                raise CapacityExceeded("CPU Arrow result exceeds admitted reply byte capacity")
-            return sink.getvalue().to_pybytes()
 
 
 def _population_parameters(signature) -> dict[str, Literal["one", "tuple"]]:
@@ -154,6 +136,7 @@ class _Call(BaseModel):
     prepared_parameter: str | None = None
     prepared_release_id: str | None = None
     invocation_form: Literal["scalar", "batch", "stream", "coroutine"] = "scalar"
+    reply_schema_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 @dataclass(frozen=True)
@@ -213,7 +196,7 @@ class PythonCPUDescriptor:
             self.adapter_sets[key] = (signature, PortAdapters(selected))
         return self.adapter_sets[key][1]
 
-    def packet(self, arguments, signature, *, populations=None) -> bytes:
+    def packet(self, arguments, signature, *, populations=None, reply_schema_digest=None) -> bytes:
         adapters = self.adapters(signature)
         population_manifest = (
             {
@@ -249,6 +232,7 @@ class PythonCPUDescriptor:
                     and name not in (populations or {})
                 },
                 **population_manifest,
+                **({"reply_schema_digest": reply_schema_digest} if reply_schema_digest else {}),
             }
         )
 
@@ -278,6 +262,8 @@ def cpu_population_packet(
     signature,
     population_inputs: Mapping[str, PopulationCPUInput | tuple[PopulationCPUInput, ...]]
     | None = None,
+    *,
+    reply_schema_digest=None,
 ):
     """Frame compact control and ordered IPC attachments for one physical request."""
     if not isinstance(descriptor, PythonCPUDescriptor):
@@ -319,7 +305,15 @@ def cpu_population_packet(
             (inp.population, entry.binding(name, position))
             for position, (inp, entry) in enumerate(zip(owned, entries, strict=True))
         )
-    return descriptor.packet(bound.arguments, signature, populations=populations), transfers
+    return (
+        descriptor.packet(
+            bound.arguments,
+            signature,
+            populations=populations,
+            reply_schema_digest=reply_schema_digest,
+        ),
+        transfers,
+    )
 
 
 def plan_cpu_call(
@@ -332,12 +326,29 @@ def plan_cpu_call(
     check_active,
     population_inputs: Mapping[str, PopulationCPUInput | tuple[PopulationCPUInput, ...]]
     | None = None,
+    arrow_reply_schema: pa.Schema | None = None,
 ):
     """One validated original call, one shared admission, one physically owned reply."""
     from corpus_structure.core.method import PreparedWork
 
+    from .population_ipc import population_schema_digest
+
     check_active()
-    packet, transfers = cpu_population_packet(descriptor, bound, signature, population_inputs)
+    population_reply = arrow_reply_schema is not None
+    if population_reply != (signature.return_annotation is CPUArrowResult) or (
+        population_reply
+        and (descriptor.verification != "prepared-kernel" or descriptor.invocation_form != "scalar")
+    ):
+        raise ValueError("CPU population reply differs from its admitted kernel result")
+    packet, transfers = cpu_population_packet(
+        descriptor,
+        bound,
+        signature,
+        population_inputs,
+        reply_schema_digest=population_schema_digest(arrow_reply_schema)
+        if arrow_reply_schema is not None
+        else None,
+    )
     cpu = execution_owner.cpu
 
     def submit():
@@ -352,6 +363,10 @@ def plan_cpu_call(
         try:
             verify()
             check_active()
+            if population_reply:
+                return cpu.submit_closed_python(
+                    admission, packet, check_active, populations=transfers, population_reply=True
+                )
             if transfers:
                 return cpu.submit_closed_python(
                     admission, packet, check_active, populations=transfers
@@ -369,7 +384,9 @@ def plan_cpu_call(
 
 
 def _load(call):
-    prepared = _load_descriptor(call.model_dump_json(exclude={"arguments", "populations"}))
+    prepared = _load_descriptor(
+        call.model_dump_json(exclude={"arguments", "populations", "reply_schema_digest"})
+    )
     prepared.verify()
     return prepared
 
@@ -713,17 +730,60 @@ def _open_populations(
 
 
 def _requested_populations(
-    call, content, signature, populations, prepared_releases,
-    request_digest, population_bytes, owner, check_active,
+    call,
+    content,
+    signature,
+    populations,
+    prepared_releases,
+    request_digest,
+    population_bytes,
+    owner,
+    check_active,
 ):
     if not call.populations and not populations:
         return {}
     if request_digest != sha256(content).hexdigest():
         raise ValueError("CPU population request differs from its transfer identity")
     return _open_populations(
-        call, signature, populations, prepared_releases,
-        request_digest, population_bytes, owner, check_active,
+        call,
+        signature,
+        populations,
+        prepared_releases,
+        request_digest,
+        population_bytes,
+        owner,
+        check_active,
     )
+
+
+@overload
+def execute_python_call(
+    content: bytes,
+    check_active,
+    prepare_runtime=...,
+    prepared_releases=None,
+    *,
+    populations=(),
+    request_digest: str | None = None,
+    population_bytes: int = 0,
+    max_reply_bytes: int | None = None,
+    reply_target: None = None,
+) -> bytes: ...
+
+
+@overload
+def execute_python_call(
+    content: bytes,
+    check_active,
+    prepare_runtime=...,
+    prepared_releases=None,
+    *,
+    populations=(),
+    request_digest: str | None = None,
+    population_bytes: int = 0,
+    max_reply_bytes: int | None = None,
+    reply_target: PopulationIpcTargetOffer | None,
+) -> bytes | PopulationIpcSeal: ...
 
 
 def execute_python_call(
@@ -736,14 +796,27 @@ def execute_python_call(
     request_digest: str | None = None,
     population_bytes: int = 0,
     max_reply_bytes: int | None = None,
-) -> bytes:
+    reply_target: PopulationIpcTargetOffer | None = None,
+) -> bytes | PopulationIpcSeal:
     """Child-only: typed original ingress and egress; no native/database access."""
     call = _Call.model_validate_json(content, strict=True)
     prepared = _load(call)
+    population_reply = prepared.signature.return_annotation is CPUArrowResult
+    if population_reply != (reply_target is not None) or population_reply != (
+        call.reply_schema_digest is not None
+    ):
+        raise ValueError("CPU reply differs from its admitted result transport")
     with ExitStack() as owner:
         arguments = _requested_populations(
-            call, content, prepared.signature, populations, prepared_releases,
-            request_digest, population_bytes, owner, check_active,
+            call,
+            content,
+            prepared.signature,
+            populations,
+            prepared_releases,
+            request_digest,
+            population_bytes,
+            owner,
+            check_active,
         )
         bound = _bound_arguments(
             call,
@@ -758,13 +831,34 @@ def execute_python_call(
         result = prepared.function(*bound.args, **bound.kwargs)
         prepare_runtime()
         check_active()
-        if prepared.signature.return_annotation is CPUArrowResult:
-            if type(result) is not CPUArrowResult or max_reply_bytes is None:
-                raise ValueError("CPU Arrow result lacks its admitted return form or byte capacity")
-            encoded = result.serialize(max_reply_bytes)
+        if reply_target is not None:
+            from .cpu_execution import CapacityExceeded
+            from .population_ipc import PopulationIpcCapacityExceeded, population_schema_digest
+
+            if (
+                type(result) is not CPUArrowResult
+                or max_reply_bytes is None
+                or request_digest != sha256(content).hexdigest()
+                or call.reply_schema_digest != population_schema_digest(result.table.schema)
+            ):
+                raise ValueError("CPU Arrow result differs from its admitted request or schema")
+            with reply_target.receive() as target:
+                try:
+                    seal = target.write(
+                        result.table,
+                        schema=result.table.schema,
+                        request_digest=request_digest,
+                        projection_digest=call.reply_schema_digest,
+                        max_bytes=max_reply_bytes,
+                        check_active=check_active,
+                    )
+                except PopulationIpcCapacityExceeded as error:
+                    raise CapacityExceeded(
+                        "CPU Arrow result exceeds admitted reply byte capacity"
+                    ) from error
             check_active()
             prepared.verify()
-            return encoded
+            return seal
         prepared.verify()
         adapter = prepared.adapters.get(prepared.signature.return_annotation)
         return adapter.dump_json(adapter.validate_python(result, strict=True))

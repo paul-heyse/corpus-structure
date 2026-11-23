@@ -669,12 +669,13 @@ def test_flat_original_formula_parent_preserves_protected_inline_atom(profile):
     assert source.value["items"][2]["parent"] == "#/groups/inline"
 
 
-def test_canonical_prepared_kernel_runs_in_actual_shared_cpu_scope(profile):
+def test_canonical_prepared_kernel_runs_in_actual_shared_cpu_scope(profile, monkeypatch):
     import os
+    from contextlib import contextmanager
 
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
     from corpus_structure.core.work import drive_prepared_work
-    from corpus_structure.semantic.cpu_execution import CPUExecutionScope
+    from corpus_structure.semantic.cpu_execution import CPUExecutionScope, CPUReply
     from corpus_structure.semantic.data_operation_partitions import PartitionedInput
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue
 
@@ -698,6 +699,19 @@ def test_canonical_prepared_kernel_runs_in_actual_shared_cpu_scope(profile):
         CharacterizationExecutionPolicy(workers=1, max_submissions=1),
         retain_schema=False,
     )
+    opening = CPUReply.open_population
+    observed = []
+
+    @contextmanager
+    def observe(reply, schema):
+        assert reply.content == b"" and reply.population_seal is not None
+        assert cpu.budget.used_bytes > cpu.policy.max_reply_bytes
+        with opening(reply, schema) as table:
+            assert table.num_rows == 0
+            observed.append(reply.population_seal.digest)
+            yield table
+
+    monkeypatch.setattr(CPUReply, "open_population", observe)
     try:
         result = drive_prepared_work(
             port.plan_python(
@@ -708,6 +722,8 @@ def test_canonical_prepared_kernel_runs_in_actual_shared_cpu_scope(profile):
         )
         evidence = json.loads(result.cpu_execution_evidence)
         assert evidence["pid"] != os.getpid() and evidence["main_thread"] is True
+        assert observed == [evidence["result_digest"]]
+        assert cpu.budget.used_bytes == 0
         assert cpu._capsule_bytes == 0
         (manifest,) = json.loads(result.outputs[0].content)["members"]
         assert manifest["body"]["record_type"] == "manifest"

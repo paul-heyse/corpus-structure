@@ -11,7 +11,7 @@ from collections.abc import Callable, Generator
 from concurrent.futures import Future, ProcessPoolExecutor, TimeoutError
 from concurrent.futures.process import BrokenProcessPool
 from contextlib import contextmanager, suppress
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import partial
 from hashlib import sha256
 from time import monotonic
@@ -27,7 +27,13 @@ from .identity import canonical_bytes
 from .types import PreparationProfile, PreparedArtifact, PreparedRelease, SourceBundle
 
 if TYPE_CHECKING:
-    from .population_ipc import PopulationIpcTransfer, SealedPopulationIpc
+    from .population_ipc import (
+        PopulationIpcSeal,
+        PopulationIpcTarget,
+        PopulationIpcTargetOffer,
+        PopulationIpcTransfer,
+        SealedPopulationIpc,
+    )
 
 
 @dataclass(frozen=True)
@@ -35,6 +41,7 @@ class _SealedPacket:
     content: bytes
     digest: str
     populations: tuple[PopulationIpcTransfer, ...] = ()
+    reply_target: PopulationIpcTargetOffer | None = None
 
     @classmethod
     def seal(cls, content: bytes):
@@ -216,6 +223,8 @@ class CPUReply:
     error_message: str | None = None
     native_thread_limit: int | None = None
     native_pools: tuple[dict[str, Any], ...] = ()
+    population_seal: PopulationIpcSeal | None = None
+    population_target: PopulationIpcTarget | None = field(default=None, repr=False, compare=False)
 
     @property
     def execution_receipt(self) -> CPUExecutionReceipt:
@@ -225,8 +234,28 @@ class CPUReply:
             self.main_thread,
             self.native_thread_limit,
             canonical_bytes(self.native_pools),
-            sha256(self.content).hexdigest(),
+            self.population_seal.digest
+            if self.population_seal
+            else sha256(self.content).hexdigest(),
         )
+
+    @contextmanager
+    def open_population(self, schema):
+        from .population_ipc import population_schema_digest
+
+        seal, target = self.population_seal, self.population_target
+        if self.content or seal is None or target is None:
+            raise ValueError("CPU reply lacks its admitted Arrow population")
+        with (
+            target.sealed(seal) as source,
+            source.open(
+                schema=schema,
+                request_digest=self.request_digest,
+                projection_digest=population_schema_digest(schema),
+                max_bytes=seal.byte_length,
+            ) as table,
+        ):
+            yield table
 
 
 _WORKER_RELEASES: dict[str, PreparedRelease] = {}
@@ -420,16 +449,21 @@ def _dispatch(
                     request_digest=request_digest,
                     population_bytes=sum(offer.byte_length for offer in packet.populations),
                     max_reply_bytes=max_reply_bytes,
+                    reply_target=packet.reply_target,
                 )
-            if len(result) > max_reply_bytes:
+            from .population_ipc import PopulationIpcSeal
+
+            seal, content = (result, b"") if isinstance(result, PopulationIpcSeal) else (None, result)
+            if len(content) > max_reply_bytes:
                 raise CapacityExceeded("CPU Python result exceeds admitted reply byte capacity")
             return CPUReply(
                 request_digest,
-                result,
+                content,
                 os.getpid(),
                 threading.current_thread() is threading.main_thread(),
                 native_thread_limit=_WORKER_NATIVE_THREADS,
                 native_pools=_WORKER_NATIVE_RUNTIME.pools,
+                population_seal=seal,
             )
         raise ValueError("CPU dispatch has no admitted source-native profile")
     except Exception as error:
@@ -458,6 +492,11 @@ class _InputAdmission:
     population_files: list[tuple[SealedPopulationIpc, PopulationIpcTransfer]] = field(
         default_factory=list
     )
+    reply_file: tuple[PopulationIpcTarget, PopulationIpcTargetOffer] | None = None
+
+    @property
+    def has_population_files(self) -> bool:
+        return bool(self.population_files) or self.reply_file is not None
 
 
 class CPUHandle:
@@ -498,7 +537,7 @@ class CPUHandle:
             raise RuntimeError("CPU request has not completed")
         if not self._collected:
             if (
-                self.admission.population_files
+                self.admission.has_population_files
                 and not self.future.cancelled()
                 and isinstance(self.future.exception(), BrokenProcessPool)
             ):
@@ -521,6 +560,18 @@ class CPUHandle:
                     raise kind(reply.error_message)
                 if len(reply.content) > self.owner.policy.max_reply_bytes:
                     raise CapacityExceeded("CPU reply exceeds admitted capacity")
+                seal, reply_file = reply.population_seal, self.admission.reply_file
+                if reply.population_target is not None or (seal is None) != (reply_file is None):
+                    raise ValueError("CPU reply differs from its admitted result transport")
+                if seal is not None and reply_file is not None:
+                    if (
+                        type(seal.byte_length) is not int
+                        or not 0 < seal.byte_length <= self.owner.policy.max_reply_bytes
+                    ):
+                        raise CapacityExceeded("CPU population reply exceeds admitted capacity")
+                    if reply.content:
+                        raise ValueError("CPU population reply has an unexpected inline body")
+                    reply = replace(reply, population_target=reply_file[0])
                 self.owner.native_thread_reports[reply.pid] = dict(
                     threads=reply.native_thread_limit, pools=reply.native_pools
                 )
@@ -549,7 +600,7 @@ class CPUHandle:
             with suppress(BaseException):
                 self.collect()
         if (
-            self.admission.population_files
+            self.admission.has_population_files
             and self.owner._submission_uncertain
             and not self.owner._physical_retired
         ):
@@ -709,7 +760,9 @@ class _ReleaseCPUView:
     def __getattr__(self, name):
         return getattr(self.scope, name)
 
-    def submit_closed_python(self, admission, content, check_active, *, populations=()):
+    def submit_closed_python(
+        self, admission, content, check_active, *, populations=(), population_reply=False
+    ):
         return self.scope._submit(
             admission,
             content,
@@ -717,6 +770,7 @@ class _ReleaseCPUView:
             "closed-python",
             capsule=self.capsule,
             populations=populations,
+            population_reply=population_reply,
         )
 
     def submit_closed_python_stream(self, admission, content, connection, check_active, *, populations=()):
@@ -937,9 +991,9 @@ class CPUExecutionScope:
         with self._lock:
             if not permit.active or (self._closed and not self._physical_retired):
                 return
-            if permit.population_files and self._submission_uncertain:
+            if permit.has_population_files and self._submission_uncertain:
                 return
-            if permit.reservation is None and not permit.population_files:
+            if permit.reservation is None and not permit.has_population_files:
                 self.budget.release(permit.reserved - retained)
                 permit.reserved = retained
             permit.active = False
@@ -957,6 +1011,11 @@ class CPUExecutionScope:
                 offer.retire()
                 owned.close()
             permit.population_files.clear()
+            if permit.reply_file is not None:
+                target, offer = permit.reply_file
+                offer.retire()
+                target.close()
+                permit.reply_file = None
             if permit.active:
                 permit.active = False
                 self._free.append(permit.slot)
@@ -980,9 +1039,15 @@ class CPUExecutionScope:
         check_active: Callable[[], None] = lambda: None,
         *,
         populations=(),
+        population_reply=False,
     ) -> CPUHandle:
         return self._submit(
-            admission, content, check_active, "closed-python", populations=populations
+            admission,
+            content,
+            check_active,
+            "closed-python",
+            populations=populations,
+            population_reply=population_reply,
         )
 
     def submit_closed_python_stream(self, admission, content, connection, check_active, *, populations=()):
@@ -1001,6 +1066,7 @@ class CPUExecutionScope:
         *,
         capsule=None,
         populations=(),
+        population_reply=False,
     ) -> CPUHandle:
         check_active()
         if admission.owner is not self or not admission.active or admission.submitted:
@@ -1052,6 +1118,18 @@ class CPUExecutionScope:
                 packet = _SealedPacket(
                     content, packet.digest, tuple(offer for _, offer in admission.population_files)
                 )
+                check_active()
+            if population_reply:
+                from .population_ipc import PopulationIpcTarget
+
+                target = PopulationIpcTarget.create()
+                try:
+                    offer = target.offer()
+                except BaseException:
+                    target.close()
+                    raise
+                admission.reply_file = (target, offer)
+                packet = replace(packet, reply_target=offer)
                 check_active()
             # The native executor lock may be held by broken-pool cleanup. Never
             # keep the invocation lock while entering that potentially wedged API.

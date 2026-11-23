@@ -24,8 +24,12 @@ def _binding(schema: pa.Schema, request_digest: str, projection_digest: str) -> 
     return {
         b"corpus.request": request_digest.encode(),
         b"corpus.projection": projection_digest.encode(),
-        b"corpus.schema": sha256(schema.serialize()).hexdigest().encode(),
+        b"corpus.schema": population_schema_digest(schema).encode(),
     }
+
+
+def population_schema_digest(schema: pa.Schema) -> str:
+    return sha256(schema.serialize()).hexdigest()
 
 
 def _receive(duplicate, byte_length: int, digest: str) -> SealedPopulationIpc:
@@ -46,20 +50,13 @@ class _BoundedOutput:
 
     def write(self, content) -> int:
         if len(content) > self.max_bytes - self.tell():
-            raise ValueError("population IPC exceeds its byte bound")
+            raise PopulationIpcCapacityExceeded("population IPC exceeds its byte bound")
         return self.stream.write(content)
 
 
 @dataclass(frozen=True)
-class PopulationIpcTransfer:
-    """An explicitly revocable descriptor offer to the owned process pool."""
-
+class _PopulationIpcOffer:
     duplicate: Any
-    byte_length: int
-    digest: str
-
-    def receive(self) -> SealedPopulationIpc:
-        return _receive(self.duplicate, self.byte_length, self.digest)
 
     def retire(self) -> None:
         """Close the CPython share if a cancelled task never received its descriptor."""
@@ -75,6 +72,108 @@ class PopulationIpcTransfer:
         if pending is not None:
             _, close = pending
             close()
+
+
+@dataclass(frozen=True)
+class PopulationIpcTransfer(_PopulationIpcOffer):
+    """An explicitly revocable sealed input offer to the owned process pool."""
+
+    byte_length: int
+    digest: str
+
+    def receive(self) -> SealedPopulationIpc:
+        return _receive(self.duplicate, self.byte_length, self.digest)
+
+
+@dataclass(frozen=True)
+class PopulationIpcTargetOffer(_PopulationIpcOffer):
+    """The worker borrows the invocation's output descriptor."""
+
+    def receive(self) -> PopulationIpcTarget:
+        return PopulationIpcTarget(self.duplicate.detach())
+
+
+@dataclass(frozen=True)
+class PopulationIpcSeal:
+    byte_length: int
+    digest: str
+
+
+class PopulationIpcCapacityExceeded(ValueError):
+    """A complete encoded file cannot fit the owned byte bound."""
+
+
+class PopulationIpcTarget:
+    """The invocation owns the output file before submission and through reduction."""
+
+    def __init__(self, descriptor: int):
+        self._descriptor: int | None = descriptor
+
+    @classmethod
+    def create(cls) -> PopulationIpcTarget:
+        return cls(os.memfd_create("corpus-population-ipc", os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING))
+
+    def _fd(self) -> int:
+        if self._descriptor is None:
+            raise ValueError("population IPC target is closed")
+        return self._descriptor
+
+    def offer(self) -> PopulationIpcTargetOffer:
+        from multiprocessing.reduction import DupFd
+
+        return PopulationIpcTargetOffer(DupFd(self._fd()))
+
+    def close(self) -> None:
+        if self._descriptor is not None:
+            os.close(self._descriptor)
+            self._descriptor = None
+
+    def __enter__(self) -> PopulationIpcTarget:
+        self._fd()
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self.close()
+
+    def write(self, table, *, schema, request_digest, projection_digest, max_bytes, check_active):
+        """Fill the borrowed file once and report its immutable encoded extent."""
+        return _write_population(
+            self._fd(), table, schema, request_digest, projection_digest, max_bytes, check_active
+        )
+
+    def sealed(self, seal: PopulationIpcSeal) -> SealedPopulationIpc:
+        return SealedPopulationIpc(os.dup(self._fd()), seal.byte_length, seal.digest)
+
+
+def _write_population(
+    descriptor, table, schema, request_digest, projection_digest, max_bytes, check_active
+):
+    if type(max_bytes) is not int or max_bytes <= 0:
+        raise ValueError("population IPC requires a positive byte bound")
+    if not table.schema.equals(schema, check_metadata=True):
+        raise ValueError("population IPC schema differs from the admitted schema")
+    metadata = _binding(schema, request_digest, projection_digest)
+    if table.nbytes > max_bytes:
+        raise PopulationIpcCapacityExceeded("population IPC exceeds its byte bound")
+    check_active()
+    if os.fstat(descriptor).st_size or fcntl.fcntl(descriptor, _F_GET_SEALS):
+        raise ValueError("population IPC target was already written or sealed")
+    with (
+        os.fdopen(os.dup(descriptor), "wb") as target,
+        pa.ipc.new_file(
+            pa.PythonFile(_BoundedOutput(target, max_bytes), mode="w"), schema, metadata=metadata
+        ) as writer,
+    ):
+        for batch in table.to_reader(max_chunksize=65536):
+            check_active()
+            writer.write_batch(batch)
+    byte_length = os.fstat(descriptor).st_size
+    if byte_length > max_bytes:
+        raise PopulationIpcCapacityExceeded("population IPC exceeds its byte bound")
+    fcntl.fcntl(descriptor, _F_ADD_SEALS, _SEALS)
+    with pa.memory_map(f"/proc/self/fd/{descriptor}", "r") as source:
+        digest = sha256(source.read_buffer()).hexdigest()
+    return PopulationIpcSeal(byte_length, digest)
 
 
 class SealedPopulationIpc:
@@ -102,37 +201,16 @@ class SealedPopulationIpc:
         check_active: Callable[[], None] = lambda: None,
     ) -> SealedPopulationIpc:
         """Encode the owned table and seal its file before publishing its descriptor."""
-        if type(max_bytes) is not int or max_bytes <= 0:
-            raise ValueError("population IPC requires a positive byte bound")
-        if not table.schema.equals(schema, check_metadata=True):
-            raise ValueError("population IPC schema differs from the admitted schema")
-        metadata = _binding(schema, request_digest, projection_digest)
-        if table.nbytes > max_bytes:
-            raise ValueError("population IPC exceeds its byte bound")
-        check_active()
-        descriptor = os.memfd_create("corpus-population-ipc", os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
-        try:
-            with (
-                os.fdopen(os.dup(descriptor), "wb") as target,
-                pa.ipc.new_file(
-                    pa.PythonFile(_BoundedOutput(target, max_bytes), mode="w"),
-                    schema,
-                    metadata=metadata,
-                ) as writer,
-            ):
-                for batch in table.to_reader(max_chunksize=65536):
-                    check_active()
-                    writer.write_batch(batch)
-            byte_length = os.fstat(descriptor).st_size
-            if byte_length > max_bytes:
-                raise ValueError("population IPC exceeds its byte bound")
-            fcntl.fcntl(descriptor, _F_ADD_SEALS, _SEALS)
-            with pa.memory_map(f"/proc/self/fd/{descriptor}", "r") as source:
-                digest = sha256(source.read_buffer()).hexdigest()
-            return cls(descriptor, byte_length, digest)
-        except BaseException:
-            os.close(descriptor)
-            raise
+        with PopulationIpcTarget.create() as target:
+            seal = target.write(
+                table,
+                schema=schema,
+                request_digest=request_digest,
+                projection_digest=projection_digest,
+                max_bytes=max_bytes,
+                check_active=check_active,
+            )
+            return target.sealed(seal)
 
     def __reduce__(self):
         transfer = self.offer()

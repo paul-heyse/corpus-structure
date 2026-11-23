@@ -50,14 +50,15 @@ def test_arrow_projection_keeps_canonical_bytes_placement_and_missing_rows(profi
 
 
 def test_canonical_arrow_reply_reuses_local_rows_and_binds_current_placement(profile):
-    import pyarrow as pa
-
     from corpus_structure.semantic.canonical_sentences import (
         _canonical_population_table,
         _memoized_canonical_materialization,
     )
-    from corpus_structure.semantic.cpu_execution import CapacityExceeded
     from corpus_structure.semantic.data_operation_population import population_layout
+    from corpus_structure.semantic.population_ipc import (
+        PopulationIpcCapacityExceeded,
+        SealedPopulationIpc,
+    )
 
     prepared = canonical_port(profile).profile
     header = {
@@ -93,17 +94,25 @@ def test_canonical_arrow_reply_reuses_local_rows_and_binds_current_placement(pro
     ]
     assert addresses == ["renamed", "renamed", "split", "split"]
 
-    encoded = moved_reply.serialize(64 * 1024)
-    with pa.ipc.open_file(pa.BufferReader(encoded)) as reader:
-        decoded = reader.read_all()
+    contract = {
+        "schema": moved_reply.table.schema,
+        "request_digest": "moved-request",
+        "projection_digest": "canonical-rows",
+    }
+    with (
+        SealedPopulationIpc.write(moved_reply.table, **contract, max_bytes=64 * 1024) as ipc,
+        ipc.open(**contract, max_bytes=64 * 1024) as decoded,
+    ):
         assert decoded.equals(moved_reply.table, check_metadata=True)
         assert json.loads(decoded.schema.metadata[b"corpus.canonical_reply"])["placements"] == [
             ["renamed", 0, 12, 16, 2],
             ["split", 1, 16, 20, 2],
         ]
-    assert moved_reply.serialize(len(encoded)) == encoded
-    with pytest.raises(CapacityExceeded, match="admitted reply byte capacity"):
-        moved_reply.serialize(len(encoded) - 1)
+        byte_length, digest = ipc.byte_length, ipc.digest
+    with SealedPopulationIpc.write(moved_reply.table, **contract, max_bytes=byte_length) as ipc:
+        assert ipc.digest == digest
+    with pytest.raises(PopulationIpcCapacityExceeded, match="IPC exceeds its byte bound"):
+        SealedPopulationIpc.write(moved_reply.table, **contract, max_bytes=byte_length - 1)
 
 
 def test_arrow_projection_rejects_undeclared_scalar_coercion(profile):

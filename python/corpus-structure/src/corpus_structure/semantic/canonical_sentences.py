@@ -338,6 +338,41 @@ class PreparedCanonicalProfile:
     input_projection: InputReadProjection
     input_layouts: bytes
 
+    def _expected_placements(self, inventory, inputs):
+        from .sentence_partitions import COLLECTION
+
+        selected = inventory["collections"][COLLECTION]
+        expected: list[tuple[str, int, int, int, int]] = [
+            (
+                part["partition_key"],
+                part["ordinal"],
+                part["placement"]["start"],
+                part["placement"]["end"],
+                inputs[index].table.num_rows if inputs else len(part["body"][1]),
+            )
+            for index, part in enumerate(selected)
+        ]
+        return expected
+
+    def _reply_schema(self, inventory, inputs):
+        import pyarrow as pa
+
+        from .data_operation_population import population_layout
+        from .sentence_partitions import COLLECTION
+
+        expected = self._expected_placements(inventory, inputs)
+        schema = pa.schema([])
+        if expected:
+            kind = next(kind for kind in self.model.kinds if kind.semantic_id == self.output_kind)
+            schema = population_layout(self.prepared, kind, COLLECTION).schema
+        control = {
+            "header": _canonical_header(inventory, json.loads(self.projection)),
+            "placements": expected,
+        }
+        return schema.with_metadata(
+            dict(schema.metadata or {}) | {_CANONICAL_REPLY: canonical_bytes(control)}
+        )
+
     def output(self, table, inventory, inputs):
         from corpus_structure.analytics import connection
 
@@ -355,17 +390,7 @@ class PreparedCanonicalProfile:
             or control["header"] != thaw_native(_canonical_header(inventory, projection))
         ):
             raise ValueError("canonical reply differs from its selected header")
-        selected = inventory["collections"][COLLECTION]
-        expected: list[tuple[str, int, int, int, int]] = [
-            (
-                part["partition_key"],
-                part["ordinal"],
-                part["placement"]["start"],
-                part["placement"]["end"],
-                inputs[index].table.num_rows if inputs else len(part["body"][1]),
-            )
-            for index, part in enumerate(selected)
-        ]
+        expected = self._expected_placements(inventory, inputs)
         if (
             control["placements"] != [list(row) for row in expected]
             or sum(row[4] for row in expected) != table.num_rows
@@ -518,12 +543,14 @@ def _canonical_execution_files():
         root / "sentence_partitions.py",
         root / "data_operation_population.py",
         root / "population_canonical.py",
+        root / "population_ipc.py",
         root / "population_transfer.py",
         root / "source_products.py",
         root / "data_operation_projection_values.py",
         root / "data_operation_prepared_products.py",
         root / "data_operation_ports.py",
         root / "data_operation_cpu.py",
+        root / "cpu_execution.py",
     )
 
 
@@ -851,8 +878,6 @@ class PreparedCanonicalPort:
         return self._complete(result, binding)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
-        import pyarrow as pa
-
         from .data_operation_cpu import plan_cpu_call
         from .native_source_view import thaw_native
 
@@ -888,6 +913,7 @@ class PreparedCanonicalPort:
             populations=populations,
             prepared=self.profile.prepared if populated else None,
         )
+        reply_schema = self.profile._reply_schema(inventory, populations)
         reply = yield from plan_cpu_call(
             descriptor,
             bound,
@@ -896,9 +922,10 @@ class PreparedCanonicalPort:
             execution_owner=execution_owner,
             check_active=check_active,
             population_inputs={"populations": tuple(inputs)},
+            arrow_reply_schema=reply_schema,
         )
-        with pa.ipc.open_file(pa.BufferReader(reply.content)) as reader:
-            result = self.profile.output(reader.read_all(), inventory, populations)
+        with reply.open_population(reply_schema) as table:
+            result = self.profile.output(table, inventory, populations)
         check_active()
         self._verify()
         return replace(
