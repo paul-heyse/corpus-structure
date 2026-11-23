@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Set-based execution after the columnar cutover](set-based-execution-after-sbx09_2026-11-23.md).
+  Recommends address-first native paging and reference batches, shared live and detached
+  structural reads, verified Parquet rereads, and focused typed PDF and scoped-relations work.
+  Reconciles the deployment and qualification sequence with the installed read revisions.
 - [A typed, set-shaped basis through SBX-09](set-based-execution-columnar-basis_2026-11-22.md).
   Independent of the review below. Proposes typed relations in process, generic item rows and a
   COPY boundary in PostgreSQL, the existing identity produced once as canonical item text, and
