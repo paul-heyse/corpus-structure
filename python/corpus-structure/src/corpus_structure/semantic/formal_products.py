@@ -795,6 +795,7 @@ def formal_execution_custody() -> SourceArtifact:
         "formal_products.py",
         "characterization_evidence.py",
         "source_products.py",
+        "positioned_rows.py",
         "established_validity.py",
         "cpu_execution.py",
         "cpu_receipts.py",

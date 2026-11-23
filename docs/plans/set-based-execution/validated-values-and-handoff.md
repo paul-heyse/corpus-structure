@@ -503,4 +503,6 @@ derived builds. Serial `uv run ci test --workers 1` passed all 38 selected decla
 math-context custody, span and scoped-relations checks (`0ddf1c5f450249648f968fe48c0dc910`).
 The earlier attestation and container-shape failures remain recorded under
 `0722da4f5d4e41cf8d54afb7729b2c35`, `aeb829afe1dd4f7aa53d3f0e3986f0e7` and
-`0cd3058365094184bba9efa060331357`. Installed producer integration remains open.
+`0cd3058365094184bba9efa060331357`. After keeping the span class in producer execution
+custody, the selected math, formal, span and role-reference run passed all 46 tests
+(`b42be75ac48a415ebc8970da5509c67f`). Installed producer integration remains open.

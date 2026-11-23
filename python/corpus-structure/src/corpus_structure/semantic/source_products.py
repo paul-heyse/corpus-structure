@@ -15,7 +15,7 @@ import yaml
 from pydantic import BaseModel
 
 from corpus_structure.caches import declare, retained_size
-from corpus_structure.semantic.positioned_rows import merge_touching_spans
+from corpus_structure.semantic.native_source_view import merge_touching_spans
 
 from .identity import canonical_bytes
 from .original_documents import original_document_subject

@@ -159,7 +159,6 @@ def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
             ),
             ("semantic.data_operation_json", path.with_name("data_operation_json.py")),
             ("semantic.source_products", path.with_name("source_products.py")),
-            ("semantic.positioned_rows", path.with_name("positioned_rows.py")),
             ("semantic.native_source_view", path.with_name("native_source_view.py")),
             ("semantic.observations", path.with_name("observations.py")),
         )

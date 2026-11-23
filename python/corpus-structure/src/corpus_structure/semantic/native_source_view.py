@@ -10,6 +10,19 @@ from types import MappingProxyType
 from typing import Any, overload
 
 
+def merge_touching_spans(spans) -> tuple[tuple[int, int], ...]:
+    """Coalesce overlapping or touching coordinates in source order."""
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted(spans):
+        if start > end:
+            raise ValueError("span start exceeds its end")
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return tuple(merged)
+
+
 class FrozenJsonArray(tuple):
     """An immutable JSON array, distinguishable from a caller's Python tuple."""
 
