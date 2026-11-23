@@ -24,6 +24,7 @@ nothing and authorizes no change.
 | Scoped refresh, 2026-11-18 | `d78c98765b2543a0a86515134257259debe75dfd`, committed `main`, read in a frozen export of that commit. DA-068 to DA-081, DA-033 and DA-058 were re-read, and the typed-program and generator layer was audited as new scope. The 27 earlier identities not re-examined are unchanged. Static reading only. See [the refresh](#refresh-2026-11-18) |
 | Update, 2026-11-18 | `5139eaba3097e457574feb9daef58c1c49dcc150`, committed `main`, read in a frozen export of that commit, 127 commits after the scoped refresh. Every production finding, DA-001 to DA-086, was re-read, and the reference inventories were rebuilt. Static reading only. This is the current baseline of every topic page. See [the update](#update-2026-11-18-5139eaba3) |
 | Scoped refresh, 2026-11-21 | `d918a09ea`, committed `main`. Re-read request and activation custody, readiness and adjacent native readers for the SBX-06 target review. The [DA-078](execution-fit.md#da-078) and [DA-071](semantic-model-and-authority.md#da-071) updates record the refreshed findings. Other findings retain their prior scope. |
+| Scoped refresh, 2026-11-23 | `cc05ce725`, committed `main`. Inspected SBX population storage and native item evaluation, shared hydration and callable arguments, CPU transport, point resolution and selected export/replay. [DA-087](execution-fit.md#da-087) records representation-driven amplification across these boundaries. The earlier findings retain their own source dates and scope. |
 
 The refresh of 2026-11-17 replaced the stacked scoped entries of the earlier README with one
 current account. It was needed because the declared-data-operations work replaced most of the code
@@ -35,6 +36,35 @@ Observations on the topic pages are **Interface-checked by source inspection, 20
 `5139eaba3`, unless a sentence says it was read earlier, in which case it keeps the date it
 gives. Nothing here is labelled Tested or Measured. Counts state their method, and statements
 of cost are structural: counts of repeated work read from code paths, never timings.
+
+<a id="refresh-2026-11-23-sbx-populations"></a>
+
+## Scoped refresh of SBX population execution, 2026-11-23
+
+**Interface-checked by source inspection**, source `cc05ce725`. This refresh supplies the
+population-boundary diagnosis for the focused SBX typed carrier target review. It covers the
+physical collection declaration, partition construction and group commitments, native partition
+admission and declared-rule input expansion, consumer hydration, prepared callable argument
+binding, CPU argument transfer, selected item resolution and demand archive/replay. It follows
+the same population through these boundaries and considers sparse access, several rules over
+one population, worker transfer and independent replay. The selected standard is core 3.3,
+efficient-architecture heuristics 1.0 and the repository binding. Profile constraints concerning
+unknown/absent values, multiplicity and pinned evidence apply at the affected read boundaries.
+
+[DA-087](execution-fit.md#da-087) is a distinct finding about the physical carrier and resulting
+work. The older DA-068 source-digest and DA-033 release-revalidation diagnoses describe related
+assurance costs with different causes. Their historical footprint and conclusions were read for
+context, without claiming a current refresh of all their sites. The scoped reading credits the
+current completion-owned premise preparation, exact per-use authorization, keyed partition
+selection and transaction-owned Arrow COPY as existing strengths.
+
+No production changes were present when inspection began. Concurrent plan edits recording
+operator approval were outside the inspected production baseline. No test, database query,
+provider invocation, probe or timing was run. Native lock attribution, relative cost, retained
+memory size, every generated routine and the broad test architecture remain outside this
+refresh. Earlier account entries retain their original standing. The next unused finding ID is
+DA-088. The publishing commit is distinct from the inspected source. The [SBX coordinator](../../plans/set-based-execution_2026-11-21.md#columnar-redesign-amendment)
+owns selected work and closure evidence.
 
 <a id="update-2026-11-18-5139eaba3"></a>
 
@@ -664,7 +694,7 @@ longer applicable" claim. Its effect on the published account is recorded here.
 | [The domain model and execution](model-and-execution.md) | Integrated analysis with the test account; cache inventory; identity inventory; analytical and set-wise computation; state of the production-efficiency mechanisms |
 | [Domain model map](domain-model-map.md) | Declaration owners, composition, compiler paths, what generators receive, what is generated from what, LinkML features used, fact ownership and data-model library roles, and where the model is open and the kernel closes it, at `5139eaba3` |
 | [Semantic model and authority](semantic-model-and-authority.md) | Model facts restated by hand (DA-070 to 073, DA-086); no typed registry of programs (DA-081); per-consumer LinkML composition (DA-085); earlier identities with current sites (DA-028, DA-001, DA-004, DA-065) |
-| [Execution fit](execution-fit.md) | Coarse and hand-kept identities, the query cache, re-proved assurance, the unheld native capture (DA-068, 069, 075, 078, 033, 058, 082, 083) |
+| [Execution fit](execution-fit.md) | Coarse and hand-kept identities, the query cache, re-proved assurance, the unheld native capture (DA-068, 069, 075, 078, 033, 058, 082, 083); population carrier amplification across native, worker and read boundaries (DA-087) |
 | [Native integrity](native-integrity.md) | Guard, role and grant lists (DA-074); native strengths |
 | [Served claims](served-claims.md) | Implementation and policy identity of served results (DA-076, 077) |
 | [Boundaries and composition](boundaries-and-composition.md) | Host concurrency (DA-079); superseded machinery (DA-080); the residue of the SQL conversion (DA-084); unread settings (DA-020) |

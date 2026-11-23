@@ -21,6 +21,85 @@ Native programs are produced by generator modules named `semantic/*_native.py`. 
 `semantic/sql/`, which text before 2026-11-18 cited, no longer exists
 ([DA-084](boundaries-and-composition.md#da-084)).
 
+<a id="da-087"></a>
+
+## DA-087 — A population's tagged document controls native, worker and point-read work
+
+**Interface-checked by source inspection, 2026-11-23**, source `cc05ce725`.
+[Scoped baseline and limits](README.md#refresh-2026-11-23-sbx-populations).
+**FP-03, FP-05, FP-07/A4; DP-08, DP-10, DP-19; H5, H7, H8, H10, H15, H16, H19.**
+
+The model already gives populations collection, partition, field-group and address semantics.
+The physical and interchange unit is nevertheless one tagged document per partition. A caller
+or consumer that needs item fields generally expands that document and constructs a local
+representation. The representation is meaningful for exact heterogeneous values, but its
+boundaries force repeated preparation across the supported producer-to-consumer path.
+
+**Current mechanism.** The physical declaration stores `body` on
+`kb.data_product_partition`, indexed by product, collection and partition order
+(`model/semantic/data-operation-physical.yaml:295–313`). Construction computes a canonical
+partition digest and separately tags its items. Field-group construction projects each declared
+group and canonicalizes the projected collection (`semantic/data_operation_partitions.py:116–148`).
+Decoding the tagged value reconstructs the Python value and re-encodes it to reject
+noncanonical representations (`semantic/data_operation_value_codec.py:17–24`).
+
+- Native partition admission normalizes the submitted partition, verifies its digest and
+  schema-checks its items. Field-group evaluation expands the body into rows and resolves each
+  declared path through the tagged mapping (`semantic/data_operation_partition_native.py:115–211`).
+  Declared rule evaluation independently expands stored `body[1]` for its source rows
+  (`semantic/data_operation_rule_native.py:476–506`). A single native transaction gives
+  atomicity, while these forms still repeat representation preparation for their queries.
+- Hydration fetches and serializes JSON and meaning bodies before constructing the consumer
+  value, then acquires selected partition packets, recomputes the headers and serializes those
+  packets for `PartitionedInput` (`semantic/data_operation_consumers.py:313–436`). The callable
+  adapter can reconstruct the complete population value again in either its JSON or Python
+  route (`semantic/data_operation_ports.py:829–857`).
+- Prepared CPU submission serializes each argument through its adapter into a JSON string
+  embedded in the outer packet. Worker acceptance parses or validates those strings again
+  (`semantic/data_operation_cpu.py:117–142,421–451`). The CPU ownership and request/reply
+  seals protect real process-boundary failures. This carrier still reconstructs a document
+  even when the following transformation requires only columns or selected fields.
+- A selected item reference authorizes the exact parent on every access. The first lookup
+  acquires the whole selected partition, decodes every item and builds its address index,
+  then returns a deep copy of the selected item (`semantic/reference_resolution.py:177–203`;
+  `semantic/live_reference_resolution.py:130–155`). Whole-population work therefore occurs
+  on a point lookup even when the parent, partition and exact item key are known.
+- Selected export writes JSON records through a scratch index and a closure JSONL file.
+  Parquet output reloads those records into Python dictionaries before constructing Arrow
+  batches (`serve/demand_export.py:352–419`). The detached verifier reconstructs the selected
+  index from closure JSONL (`:552–561`). Existing typed relations do not carry those consumers
+  through the complete path.
+
+**Consequence.** Preparation scales with all items in the acquired partition, the declared
+field groups and later consumers even where the answer is one item or a compact set fact.
+The same population can coexist as tagged bytes, parsed tagged trees, decoded mappings and
+per-consumer indexes. `_sentence_partition_body` retains both frozen tagged values and decoded
+row mappings while its weight counts encoded lengths (`semantic/sentence_partitions.py:79–97`).
+The code establishes the different live representations and the accounting basis. It does
+not establish the actual retained footprint. Protective byte bounds still serve their declared
+failure boundary, but they do not remove the preceding expansion or repeated representation
+work. This cause differs from the broad invalidation determinant in [DA-068](#da-068) and
+immutable release revalidation in [DA-033](#da-033).
+
+**Contrary evidence and required semantics.** The generic tagged carrier supports dynamic
+collection declarations, exact values and canonical identities. Independent native admission
+protects against forged producer values. Per-use authorization, missing-versus-withheld standing,
+proof establishments, item order and multiplicity remain necessary. The implementation already
+has useful narrower mechanisms: selected partition keys, an invocation-owned acquired carrier,
+completion-local rule-premise preparation, and a same-transaction Arrow COPY path
+(`semantic/established_validity.py:71–136`, `semantic/sentence_products.py:1458–1484`,
+`semantic/arrow_transfer.py:134–171`). Those improvements remove some repetitions while the
+cross-boundary population carrier remains in use.
+
+**Footprint and uncertainty.** Established by current source reading for partition creation,
+admission and rule expansion, shared hydration and arguments, prepared CPU transport, selected
+item resolution and selected export/replay. No test, database query or probe was run. This
+finding attributes structural work. The dominant native cost, lock waits, measured speedup,
+memory retained across runs and every provider-specific conversion remain unestablished.
+The [SBX coordinator](../../plans/set-based-execution_2026-11-21.md#columnar-redesign-amendment)
+owns scheduled correction and closure. A selected replacement must carry the real validation,
+identity and custody obligations across all affected consumers.
+
 <a id="da-068"></a>
 
 ## DA-068 — One digest over every captured native source keys admission, read acquisition and carried assurance
