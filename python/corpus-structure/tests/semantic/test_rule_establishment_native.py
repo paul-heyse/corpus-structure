@@ -113,7 +113,6 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
     conn = product_connection
     model = get_metadata()
     for name in (
-        "ops.data_request",
         "ops.data_derivation_output",
         "ops.data_derivation_input",
         "ops.data_demand_read",

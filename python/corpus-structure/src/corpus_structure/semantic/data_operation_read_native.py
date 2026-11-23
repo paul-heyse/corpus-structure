@@ -1017,7 +1017,7 @@ def _binding_programs(model):
         returns=set_record,
         table_columns=columns,
     )
-    if "kb.data_product_partition" not in model.tables:
+    if "kb.data_product_population" not in model.tables:
         return internal, public
 
     # Use the same authenticated binding projection, with the complete selected
@@ -1033,92 +1033,6 @@ def _binding_programs(model):
         .distinct()
         .cte("selected_partition_parents")
         .prefix_with("MATERIALIZED", dialect="postgresql")
-    )
-    partition = model.tables["kb.data_product_partition"]
-    packet = _object(
-        "collection",
-        partition.c.collection,
-        "partition_key",
-        partition.c.partition_key,
-        "ordinal",
-        partition.c.ordinal,
-        "partition_digest",
-        partition.c.partition_digest,
-        "placement",
-        partition.c.placement,
-        "body",
-        partition.c.body,
-    )
-    selected_packets = (
-        select(
-            partition.c.product_id,
-            partition.c.collection,
-            partition.c.ordinal,
-            packet.label("packet"),
-        )
-        .select_from(parents.join(partition, partition.c.product_id == parents.c.product))
-        .where(
-            or_(
-                collection_key.is_(None),
-                and_(
-                    partition.c.collection == collection_key,
-                    partition.c.partition_key == partition_key,
-                ),
-            )
-        )
-        .cte("selected_partition_packets")
-        .prefix_with("MATERIALIZED", dialect="postgresql")
-    )
-    total_bytes = select(
-        func.coalesce(func.sum(func.octet_length(cast(selected_packets.c.packet, Text()))), 0)
-    ).scalar_subquery()
-    # Return the size refusal as a single row so the same authorized selection
-    # controls both sizing and acquisition in one statement.
-    admitted_packets = (
-        select(selected_packets.c.product_id, selected_packets.c.packet)
-        .where(total_bytes <= bound)
-        .order_by(
-            selected_packets.c.product_id, selected_packets.c.collection, selected_packets.c.ordinal
-        )
-        .subquery("admitted_partition_packets")
-    )
-    packets = select(admitted_packets.c.product_id, admitted_packets.c.packet).union_all(
-        select(cast(null(), Text()), cast(null(), JSONB())).where(total_bytes > bound)
-    )
-    partition_read = _program(
-        "data_binding_partitions",
-        (
-            *parameters,
-            Parameter("p_selected", pg_type("jsonb"), pg_literal(None)),
-            Parameter("p_max_bytes", pg_type("bigint"), pg_literal(0)),
-            Parameter("p_collection", pg_type("text"), pg_literal(None)),
-            Parameter("p_partition_key", pg_type("text"), pg_literal(None)),
-        ),
-        (
-            _refuse(
-                or_(
-                    func.jsonb_typeof(selected).is_distinct_from("array"),
-                    func.jsonb_array_length(selected) == 0,
-                    bound.is_(None),
-                    bound <= 0,
-                ),
-                "partition hydration requires exact pins and positive capacity",
-                "23514",
-            ),
-            _refuse(
-                or_(
-                    collection_key.is_(None).is_distinct_from(partition_key.is_(None)),
-                    collection_key == "",
-                    partition_key == "",
-                    and_(collection_key.is_not(None), func.jsonb_array_length(selected) != 1),
-                ),
-                "partition lookup requires one exact pin and a complete collection address",
-                "23514",
-            ),
-            ReturnQuery(packets),
-        ),
-        returns=set_record,
-        table_columns=(("product_id", pg_type("text")), ("packet", pg_type("jsonb"))),
     )
     member_key = core_variable("p_member", Text())
     members = model.tables["kb.data_product_member"]
@@ -1297,7 +1211,6 @@ def _binding_programs(model):
     return (
         internal,
         public,
-        partition_read,
         reference_member,
         reference_item,
         population_read,
@@ -1321,7 +1234,6 @@ def read_native_programs(model):
             if routine.name
             in {
                 "data_binding_rows",
-                "data_binding_partitions",
                 "data_binding_reference_member",
                 "data_binding_reference_item",
                 "data_binding_population_items",

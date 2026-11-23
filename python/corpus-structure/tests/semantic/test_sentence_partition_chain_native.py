@@ -47,6 +47,7 @@ from semantic.data_operation_kernel_support import (
     execute_captured_kernel_demand,
     split_captured_operations,
 )
+from semantic.selected_population_native_support import selected_population_packets
 from semantic.structural_admission_native_support import execute
 from semantic.structural_production_native_support import (
     produce_source_reports,
@@ -205,6 +206,7 @@ def test_actual_population_readback_binds_moved_renamed_and_split_occurrences(
                 connection, retained["demand_id"], project_id=PROJECT, limit=1000
             )
             support = tuple(stream_selected_support(connection, page, whole_read=True))
+            populations = selected_population_packets(connection, page.cut)
         (producing_input,) = [
             row["record"]
             for row in support
@@ -218,10 +220,7 @@ def test_actual_population_readback_binds_moved_renamed_and_split_occurrences(
         def partitions(product):
             return sorted(
                 (
-                    entry["record"]
-                    for entry in support
-                    if entry["relation"] == "kb.data_product_partition"
-                    and entry["record"]["product_id"] == product.row["product_id"]
+                    row for row in populations if row["product_id"] == product.row["product_id"]
                 ),
                 key=lambda row: row["ordinal"],
             )
@@ -344,9 +343,8 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
             page = read_demand_result(connection, demand_id, project_id=PROJECT, limit=1000)
             packets = {
                 (row["product_id"], row["partition_key"]): row
-                for entry in stream_selected_support(connection, page, whole_read=True)
-                if entry["relation"] == "kb.data_product_partition"
-                and (row := entry["record"])["product_id"]
+                for row in selected_population_packets(connection, page.cut)
+                if row["product_id"]
                 in {canonical.row["product_id"], annotation.row["product_id"]}
             }
         assert len(packets) == 2
@@ -567,9 +565,8 @@ def test_actual_canonical_adopts_equal_projection_from_another_annotation_captur
             page = read_demand_result(connection, demand_id, project_id=PROJECT, limit=1000)
             (partition,) = [
                 row
-                for entry in stream_selected_support(connection, page, whole_read=True)
-                if entry["relation"] == "kb.data_product_partition"
-                and (row := entry["record"])["product_id"] == annotation.row["product_id"]
+                for row in selected_population_packets(connection, page.cut)
+                if row["product_id"] == annotation.row["product_id"]
             ]
         (inventory,) = [
             role for role in kernel.model.operation(operation).roles if role.direction == "input"
@@ -761,9 +758,8 @@ def test_actual_construction_names_admitted_annotation_rows(
             )
             rows = [
                 decode_semantic_value(packet["body"])
-                for entry in stream_selected_support(connection, page, whole_read=True)
-                if entry["relation"] == "kb.data_product_partition"
-                and (packet := entry["record"])["partition_key"]
+                for packet in selected_population_packets(connection, page.cut)
+                if packet["partition_key"]
                 == native_support[0]["target"]["partition_key"]
             ]
         (selected,) = rows
@@ -824,6 +820,7 @@ def test_actual_annotation_fork_shares_admitted_source_and_formal_input(
         with kernel.purpose("read").begin() as connection:
             page = read_demand_result(connection, demand_id, project_id=PROJECT, limit=1000)
             support = tuple(stream_selected_support(connection, page, whole_read=True))
+            populations = selected_population_packets(connection, page.cut)
 
         def rows_for(relation):
             return tuple(row["record"] for row in support if row["relation"] == relation)
@@ -867,7 +864,7 @@ def test_actual_annotation_fork_shares_admitted_source_and_formal_input(
         require_input(syntax, "canonical", canonical)
         require_input(syntax, "hanlp", hanlp)
 
-        partitions = rows_for("kb.data_product_partition")
+        partitions = populations
         admitted = {
             row["partition_key"]: row
             for row in partitions

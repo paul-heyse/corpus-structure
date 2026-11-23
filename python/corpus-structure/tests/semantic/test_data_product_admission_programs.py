@@ -2,14 +2,16 @@
 
 import json
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import pytest
 from pglast import ast
-from sqlalchemy import insert, text, update
+from sqlalchemy import bindparam, insert, text, update
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateTable
 
-from corpus_structure.semantic.data_operation_values import semantic_value
+from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_product_admission_native import product_admission_native_sql
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
@@ -29,7 +31,8 @@ def product_connection(infrastructure_rollback):
         "kb.data_validity",
         "kb.data_product",
         "kb.data_product_member",
-        "kb.data_product_partition",
+        "ops.data_request",
+        "ops.data_completion_intent",
         "ops.data_retained_population",
         "ops.data_retained_population_item",
         "kb.data_product_population",
@@ -97,8 +100,12 @@ def product_connection(infrastructure_rollback):
             and node.funcname[-1].sval in required_helpers
         ):
             execute_native_sql(connection, parsed.excerpt(i))
-    # This isolated database intentionally omits request/source tables. The
-    # directly tested product program uses real codecs, policy and schemas.
+    # The publisher programs use their real codecs, rules and schemas.
+    # The fixture supplies only the original request and source-subject facts.
+    connection.exec_driver_sql(
+        "CREATE FUNCTION ops.ddo_operation_subject(text,text) RETURNS text LANGUAGE sql "
+        "AS $$ SELECT 'project-subject'::text $$"
+    )
     from corpus_structure.semantic.data_operation_rule_native import rule_native_programs
 
     generated_rules = native_sql_script(
@@ -126,8 +133,9 @@ def product_connection(infrastructure_rollback):
             and node.funcname[-1].sval
             in {
                 "ddo_partition_field",
-                "ddo_install_product_partitions",
-                "ddo_acquired_product_partition",
+                "ddo_require_empty_product_populations",
+                "ddo_retain_population_rows",
+                "ddo_promote_population_rows",
                 "ddo_rule_premise",
                 "ddo_rule_expression",
                 "ddo_rule_target_partition",
@@ -191,12 +199,77 @@ def product_packet(member_ids=("one",)):
     }
 
 
+def _compact_fixture_population(connection, packet):
+    from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_partitions import partition_group_digests
+
+    specification = connection.scalar(
+        text("SELECT collections FROM sem.data_kind_contract WHERE kind_contract=:kind"),
+        {"kind": packet["kind_contract"]},
+    )
+    manifests, upload = [], []
+    for partition in packet["partitions"]:
+        body = decode_semantic_value(partition["body"])
+        groups = specification["declarations"].get(partition["collection"], {}).get("field_groups", {})
+        manifests.append(
+            {
+                **{key: value for key, value in partition.items() if key != "body"},
+                "item_count": len(body),
+                "group_digests": partition_group_digests(body, groups),
+            }
+        )
+        upload.extend(
+            {
+                "output_role": "result",
+                "output_position": 0,
+                "collection": partition["collection"],
+                "partition_key": partition["partition_key"],
+                "item_ordinal": ordinal,
+                "canonical_text": json_bytes(semantic_value(item)).decode(),
+            }
+            for ordinal, item in enumerate(body)
+        )
+    return {**packet, "partitions": manifests}, upload
+
+
 def realize(connection, context, packet):
+    from corpus_structure.semantic.data_operation_partition_native import population_scratch_specs
+
+    intent = None
+    if packet.get("partitions"):
+        packet, upload = _compact_fixture_population(connection, packet)
+        model = get_metadata()
+        scratch, _ = population_scratch_specs(model)
+        if connection.scalar(text("SELECT to_regclass(:scratch)"), {"scratch": scratch.qualified_name}) is None:
+            connection.execute(scratch.create_statement())
+        connection.exec_driver_sql("TRUNCATE TABLE pg_temp.ddo_population_upload")
+        if upload:
+            connection.execute(insert(scratch.row_table()), upload)
+        intent = "fixture-intent:" + uuid4().hex
+        connection.execute(
+            insert(model.tables["ops.data_completion_intent"]).values(
+                id=intent, request_id=intent, generation=1, producer_task_id=1, producer_attempt=1,
+                producer_holder="fixture", runtime_id="fixture", payload={}, payload_digest="fixture",
+                created_at=datetime.now(UTC),
+            )
+        )
+        connection.execute(
+            text(
+                "SELECT ops.ddo_retain_population_rows("
+                "jsonb_populate_record(NULL::ops.data_request,:context), :intent, :completion)"
+            ).bindparams(bindparam("context", type_=JSONB()), bindparam("completion", type_=JSONB())),
+            {
+                "context": json.loads(json.dumps(context)),
+                "intent": intent,
+                "completion": {"outputs": [{"role": "result", "position": 0, "product": packet}]},
+            },
+        )
     return connection.scalar(
         text(
-            'SELECT ops.ddo_install_product_context(CAST(:context AS jsonb),CAST(:packet AS jsonb),\'{"project-subject":"project"}\')'
-        ),
-        {"context": json.dumps(context), "packet": json.dumps(packet)},
+            """SELECT ops.ddo_install_product_context(
+                :context, :packet, '{"project-subject":"project"}', :intent, 'result', 0::bigint)"""
+        ).bindparams(bindparam("context", type_=JSONB()), bindparam("packet", type_=JSONB())),
+        {"context": context, "packet": packet, "intent": intent},
     )
 
 
@@ -316,8 +389,7 @@ def test_product_programs_have_typed_inputs():
     programs = product_admission_native_programs(model)
     assert [(program.name, program.argument_types) for program in programs] == [
         ("ddo_partition_field", ("jsonb", "text")),
-        ("ddo_install_product_partitions", ("text", "jsonb", "jsonb", "jsonb", "boolean")),
-        ("ddo_acquired_product_partition", ("text", "text", "text", "text")),
+        ("ddo_require_empty_product_populations", ("jsonb", "jsonb")),
         ("ddo_require_population_scratch", ("text", "regclass", "text[]")),
         ("prepare_data_population_upload", ("text", "bigint", "bigint", "bigint", "text", "text")),
         ("ddo_require_population_upload", ("jsonb",)),
@@ -326,7 +398,7 @@ def test_product_programs_have_typed_inputs():
             "ddo_consume_population_upload",
             ("ops.data_request", "text", "jsonb", "jsonb", "boolean"),
         ),
-        ("ddo_promote_population_rows", ("text", "text", "bigint", "text")),
+        ("ddo_promote_population_rows", ("text", "text", "bigint", "text", "bigint")),
         ("ddo_install_product_context", ("jsonb", "jsonb", "jsonb", "text", "text", "bigint")),
         ("ddo_admit_original_source", ("jsonb",)),
         ("admit_authored_data", ("jsonb",)),
@@ -397,9 +469,6 @@ def partition_fixture(connection):
 
 def test_typed_population_copy_admits_once_and_promotes_exact_items(product_connection):
     import pyarrow as pa
-    from sqlalchemy import bindparam
-    from sqlalchemy.dialects.postgresql import JSONB
-
     from corpus_structure.schema.integrity import role_name
     from corpus_structure.semantic.arrow_transfer import copy_arrow_stream
     from corpus_structure.semantic.data_operation_json import json_bytes
@@ -415,8 +484,7 @@ def test_typed_population_copy_admits_once_and_promotes_exact_items(product_conn
     model = get_metadata()
     request = model.tables["ops.data_request"]
     task = model.tables["ops.task"]
-    for relation in (request, task, model.tables["ops.data_completion_intent"]):
-        conn.execute(CreateTable(relation, include_foreign_key_constraints=[]))
+    conn.execute(CreateTable(task, include_foreign_key_constraints=[]))
     for program in product_admission_native_programs(model):
         if program.name in {
             "ddo_require_population_scratch",
@@ -431,10 +499,6 @@ def test_typed_population_copy_admits_once_and_promotes_exact_items(product_conn
         "CREATE FUNCTION ops.ddo_authorize_request(r ops.data_request) RETURNS void "
         "LANGUAGE plpgsql AS $$ BEGIN IF r.project_id <> 'project' THEN "
         "RAISE EXCEPTION 'out of scope'; END IF; END $$"
-    )
-    conn.exec_driver_sql(
-        "CREATE FUNCTION ops.ddo_operation_subject(text,text) RETURNS text LANGUAGE sql "
-        "AS $$ SELECT 'project-subject'::text $$"
     )
     conn.execute(
         insert(request).values(
@@ -570,7 +634,7 @@ def test_typed_population_copy_admits_once_and_promotes_exact_items(product_conn
         ).bindparams(bindparam("context", type_=JSONB()), bindparam("packet", type_=JSONB())),
         {"context": context, "packet": packet},
     )
-    assert conn.scalar(text("SELECT count(*) FROM kb.data_product_partition")) == 0
+    assert conn.scalar(text("SELECT to_regclass('kb.data_product_partition')")) is None
     assert conn.scalar(text("SELECT count(*) FROM kb.data_product_population")) == 3
     conn.exec_driver_sql(
         """CREATE FUNCTION ops.ddo_binding_rows(
@@ -586,21 +650,25 @@ def test_typed_population_copy_admits_once_and_promotes_exact_items(product_conn
         if program.routine.name == "data_binding_reference_item"
     )
     execute_native_sql(conn, read.render())
-    rows = conn.execute(
-        text(
-            "SELECT * FROM ops.data_binding_reference_item("
-            "'demand','operation','{}'::jsonb,'read',:product,NULL,NULL,:pins,65536,"
-            "'tokens','b',CAST('[0,2]' AS jsonb))"
-        ).bindparams(bindparam("pins", type_=JSONB())),
-        {"product": product, "pins": [{"product_id": product, "member_id": None}]},
-    ).all()
-    assert [tuple(row) for row in rows] == [(product, upload[0]["canonical_text"])]
+    query = text(
+        "SELECT * FROM ops.data_binding_reference_item("
+        "'demand','operation','{}'::jsonb,:read,:product,NULL,NULL,:pins,:capacity,"
+        "'tokens','b',:address)"
+    ).bindparams(bindparam("pins", type_=JSONB()), bindparam("address", type_=JSONB()))
+    params = {
+        "read": "read",
+        "product": product,
+        "pins": [{"product_id": product, "member_id": None}],
+        "capacity": 65536,
+        "address": [0, 2],
+    }
+    assert conn.execute(query, params).all() == [(product, upload[0]["canonical_text"])]
+    assert conn.execute(query, params | {"address": [0, 3]}).all() == []
+    assert conn.execute(query, params | {"read": "other"}).all() == []
+    assert conn.execute(query, params | {"capacity": 1}).all() == [(product, None)]
 
 
-def test_binding_partition_read_is_limited_to_admitted_whole_products(product_connection):
-    from sqlalchemy import bindparam
-    from sqlalchemy.dialects.postgresql import JSONB
-
+def test_binding_population_read_is_limited_to_admitted_whole_products(product_connection):
     from corpus_structure.semantic.data_operation_read_native import read_native_programs
 
     conn = product_connection
@@ -617,32 +685,24 @@ def test_binding_partition_read_is_limited_to_admitted_whole_products(product_co
     program = next(
         item.routine
         for item in read_native_programs(get_metadata())
-        if item.routine.name == "data_binding_partitions"
+        if item.routine.name == "data_binding_population_items"
     )
     execute_native_sql(conn, program.render())
     query = text(
-        "SELECT product_id, packet FROM ops.data_binding_partitions("
-        "'demand','operation','{}'::jsonb,:read,:admitted,NULL,NULL,:pins,:capacity,"
-        ":collection,:partition)"
+        "SELECT product_id, partition_key, item_ordinal, canonical_text "
+        "FROM ops.data_binding_population_items("
+        "'demand','operation','{}'::jsonb,:read,:admitted,NULL,NULL,:pins,:capacity)"
     ).bindparams(bindparam("pins", type_=JSONB()))
 
-    def read(*, capacity=65536, pin_member=None, read_id="read", collection=None, partition=None):
+    def read(*, capacity=65536, pin_member=None, read_id="read"):
         return conn.execute(
             query,
             dict(
                 admitted=admitted,
                 read=read_id,
                 capacity=capacity,
-                collection=collection,
-                partition=partition,
                 pins=[
-                    *(
-                        []
-                        if collection is not None
-                        else [
-                            {"product_id": "unselected", "member_id": None},
-                        ]
-                    ),
+                    {"product_id": "unselected", "member_id": None},
                     {"product_id": admitted, "member_id": pin_member},
                 ],
             ),
@@ -650,17 +710,15 @@ def test_binding_partition_read_is_limited_to_admitted_whole_products(product_co
 
     returned = read()
     assert {row.product_id for row in returned} == {admitted}
-    assert (
-        sorted((row.packet for row in returned), key=lambda row: row["ordinal"])
-        == product["partitions"]
-    )
+    assert [
+        (row.partition_key, row.item_ordinal, json.loads(row.canonical_text)) for row in returned
+    ] == [
+        (packet["partition_key"], position, item)
+        for packet in product["partitions"]
+        for position, item in enumerate(packet["body"][1])
+    ]
     assert read(pin_member="manifest") == read(read_id="other") == []
-    assert read(capacity=1) == [(None, None)]
-    assert read(collection="tokens", partition="b") == [(admitted, product["partitions"][0])]
-    assert read(collection="tokens", partition="unknown") == []
-    assert read(collection="tokens", partition="b", read_id="other") == []
-    with pytest.raises(DBAPIError, match="complete collection address"), conn.begin_nested():
-        read(collection="tokens")
+    assert read(capacity=1) == [(None, None, None, None)]
 
 
 def test_partition_admission_recomputes_content_groups_and_roots(product_connection):
@@ -671,7 +729,11 @@ def test_partition_admission_recomputes_content_groups_and_roots(product_connect
     assert realize(product_connection, context, packet) == key
     rows = product_connection.execute(
         text(
-            "SELECT ordinal,partition_digest,item_count,group_digests,body FROM kb.data_product_partition WHERE product_id=:key ORDER BY ordinal"
+            "SELECT p.ordinal,p.partition_digest,p.item_count,p.group_digests,i.canonical_text "
+            "FROM ops.data_retained_population p JOIN ops.data_retained_population_item i "
+            "USING (intent_id,output_role,output_position,collection,partition_key) "
+            "JOIN kb.data_product_population v USING (intent_id,output_role,output_position,collection,partition_key) "
+            "WHERE v.product_id=:key ORDER BY p.ordinal"
         ),
         {"key": key},
     ).all()
@@ -679,7 +741,7 @@ def test_partition_admission_recomputes_content_groups_and_roots(product_connect
     for n, row in enumerate(rows):
         assert row.ordinal == n and row.item_count == 1
         assert row.partition_digest == packet["partitions"][n]["partition_digest"]
-        assert row.body == packet["partitions"][n]["body"]
+        assert json.loads(row.canonical_text) == packet["partitions"][n]["body"][1][0]
         assert row.group_digests == partition_group_digests(bodies[n], declaration["field_groups"])
 
     from copy import deepcopy
@@ -709,7 +771,7 @@ def test_partition_admission_recomputes_content_groups_and_roots(product_connect
     assert edited_key != key
     edited_groups = product_connection.scalar(
         text(
-            "SELECT group_digests FROM kb.data_product_partition WHERE product_id=:key AND ordinal=0"
+            "SELECT group_digests FROM ops.data_retained_population WHERE product_id=:key AND ordinal=0"
         ),
         {"key": edited_key},
     )
@@ -724,7 +786,7 @@ def test_partition_admission_recomputes_content_groups_and_roots(product_connect
     assert (
         product_connection.scalar(
             text(
-                "SELECT partition_digest FROM kb.data_product_partition WHERE product_id=:key AND ordinal=0"
+                "SELECT partition_digest FROM ops.data_retained_population WHERE product_id=:key AND ordinal=0"
             ),
             {"key": moved_key},
         )
@@ -743,7 +805,7 @@ def test_partition_admission_recomputes_content_groups_and_roots(product_connect
 
 @pytest.mark.parametrize(
     "alteration",
-    ["digest", "duplicate", "ordinal", "root", "list", "missing", "extra", "placement"],
+    ["digest", "duplicate", "ordinal", "root", "list", "missing", "omitted", "extra", "placement"],
 )
 def test_partition_admission_refuses_inconsistent_population_atomically(
     product_connection, alteration
@@ -762,13 +824,15 @@ def test_partition_admission_refuses_inconsistent_population_atomically(
         packet["body"] = semantic_value({"tokens": []})
     elif alteration == "missing":
         partitions.pop()
+    elif alteration == "omitted":
+        del packet["partitions"]
     elif alteration == "extra":
         partitions[0]["collection"] = "undeclared"
     elif alteration == "placement":
         partitions[0]["placement"]["start"] += 1
     with pytest.raises(DBAPIError), product_connection.begin_nested():
         realize(product_connection, context, packet)
-    assert product_connection.scalar(text("SELECT count(*) FROM kb.data_product_partition")) == 0
+    assert product_connection.scalar(text("SELECT count(*) FROM kb.data_product_population")) == 0
     assert product_connection.scalar(text("SELECT count(*) FROM kb.data_product")) == 0
 
 
@@ -776,35 +840,11 @@ def test_partition_replay_refuses_missing_stored_row(product_connection):
     context, packet, _, _ = partition_fixture(product_connection)
     key = realize(product_connection, context, packet)
     product_connection.execute(
-        text("DELETE FROM kb.data_product_partition WHERE product_id=:key AND ordinal=0"),
+        text("DELETE FROM ops.data_retained_population WHERE product_id=:key AND ordinal=0"),
         {"key": key},
     )
-    with pytest.raises(DBAPIError, match="replay differs"), product_connection.begin_nested():
+    with pytest.raises(DBAPIError, match="visible population differs"), product_connection.begin_nested():
         realize(product_connection, context, packet)
-
-
-def test_acquired_partition_lookup_keeps_parent_kind_and_project_authority(product_connection):
-    context, packet, _, _ = partition_fixture(product_connection)
-    key = realize(product_connection, context, packet)
-    query = text("SELECT ops.ddo_acquired_product_partition(:key,:project,:collection,:partition)")
-    parameters = {"key": key, "project": "project", "collection": "tokens", "partition": "a"}
-    result = product_connection.scalar(query, parameters)
-    assert result["partition_key"] == "a" and result["body"] == packet["partitions"][1]["body"]
-    for replacement in ({"project": "foreign"}, {"partition": "missing"}):
-        with pytest.raises(DBAPIError), product_connection.begin_nested():
-            product_connection.scalar(query, parameters | replacement)
-    product_connection.execute(
-        text(
-            "UPDATE sem.data_kind_contract SET universe='evaluator' WHERE kind_contract='partitioned'"
-        )
-    )
-    product_connection.exec_driver_sql("GRANT USAGE ON SCHEMA data,ops,sem,kb TO corpus_sem_writer")
-    with (
-        pytest.raises(DBAPIError),
-        product_connection.begin_nested(),
-        native_owner(product_connection, "corpus_sem_writer"),
-    ):
-        product_connection.scalar(query, parameters)
 
 
 @pytest.mark.parametrize(
@@ -914,7 +954,7 @@ def test_declared_rules_establish_or_reject_admission_atomically(
             realize(connection, context, product)
         assert connection.scalar(count) == 0
         assert connection.scalar(text("SELECT count(*) FROM kb.data_product")) == 0
-        assert connection.scalar(text("SELECT count(*) FROM kb.data_product_partition")) == 0
+        assert connection.scalar(text("SELECT count(*) FROM kb.data_product_population")) == 0
         return
     key = realize(connection, context, product)
     assert connection.scalar(count) == 1

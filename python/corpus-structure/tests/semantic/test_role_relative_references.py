@@ -5,10 +5,9 @@ from dataclasses import replace
 from typing import cast
 
 import pytest
-from sqlalchemy import bindparam, select, text
+from sqlalchemy import bindparam, insert, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DBAPIError
-from sqlalchemy.schema import CreateTable
 
 from corpus_structure.semantic._data_operation_wire import WireOutputMember
 from corpus_structure.semantic.data_completion_settlement_native import (
@@ -16,6 +15,7 @@ from corpus_structure.semantic.data_completion_settlement_native import (
 )
 from corpus_structure.semantic.data_operation_partitions import partition_packet
 from corpus_structure.semantic.data_operation_read_native import read_native_programs
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.data_operation_reference_native import reference_native_programs
 from corpus_structure.semantic.data_product_reference import (
     SemanticReference,
@@ -143,9 +143,6 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
     metadata = get_metadata()
     context, product, _, _ = partition_fixture(conn)
     admitted = realize(conn, context, product)
-    conn.execute(
-        CreateTable(metadata.tables["ops.data_request"], include_foreign_key_constraints=[])
-    )
     conn.exec_driver_sql(
         "CREATE TABLE sem.data_operation_definition "
         "(release_id text, operation_id text, support_contract jsonb, input_roles jsonb)"
@@ -200,52 +197,63 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
     }
 
     def check(*references, original=request):
-        rows = [
-            {"annotation": ref.values() if isinstance(ref, SemanticReference) else ref}
-            for ref in references
-        ]
-        packet = partition_packet("rows", "output", 0, 0, 5, rows)
+        from uuid import uuid4
+
+        from corpus_structure.semantic.data_operation_json import json_bytes
+
+        output_intent = "reference:" + uuid4().hex
+        owner = dict(
+            intent_id=output_intent,
+            output_role="result",
+            output_position=0,
+            collection="rows",
+            partition_key="output",
+        )
+        conn.execute(
+            insert(metadata.tables["ops.data_retained_population"]).values(
+                **owner,
+                product_id="pending-reference-output",
+                ordinal=0,
+                partition_digest="fixture-partition",
+                item_count=len(references),
+                group_digests={},
+                placement={"start": 0, "end": 5},
+            )
+        )
+        conn.execute(
+            insert(metadata.tables["ops.data_retained_population_item"]),
+            [
+                {
+                    **owner,
+                    "item_ordinal": position,
+                    "address_key": str(position),
+                    "canonical_text": json_bytes(semantic_value({
+                        "annotation": ref.values() if isinstance(ref, SemanticReference) else ref
+                    })).decode(),
+                    "declared_projection": {},
+                }
+                for position, ref in enumerate(references)
+            ],
+        )
         conn.execute(
             text(
                 "SELECT ops.ddo_assert_output_references("
-                "jsonb_populate_record(NULL::ops.data_request,:request),:completion)"
+                "jsonb_populate_record(NULL::ops.data_request,:request),:completion,:intent)"
             ).bindparams(
                 bindparam("request", type_=JSONB()), bindparam("completion", type_=JSONB())
             ),
             {
                 "request": original,
-                "completion": {
-                    "outputs": [{"role": "result", "product": {"partitions": [packet]}}]
-                },
+                "completion": {"outputs": [{"role": "result", "position": 0, "product": {}}]},
+                "intent": output_intent,
             },
         )
 
     ref = SemanticReference.item("inventory", "tokens", "b", (0, 2))
     check(ref)
-    # Construction references follow output occurrence order, so another block can
-    # interrupt two visits to the same partition.
+    # Independent selected addresses may recur in non-consecutive output rows.
     other = SemanticReference.item("inventory", "tokens", "a", (0, 1))
-    conn.exec_driver_sql("CREATE TEMP SEQUENCE reference_partition_reads")
-    conn.exec_driver_sql(
-        "ALTER FUNCTION ops.ddo_acquired_product_partition(text,text,text,text) "
-        "RENAME TO fixture_acquired_product_partition"
-    )
-    conn.exec_driver_sql(
-        """
-        CREATE FUNCTION ops.ddo_acquired_product_partition(text,text,text,text)
-        RETURNS jsonb LANGUAGE plpgsql AS $body$
-        BEGIN
-            PERFORM nextval('pg_temp.reference_partition_reads');
-            RETURN ops.fixture_acquired_product_partition($1,$2,$3,$4);
-        END
-        $body$
-        """
-    )
-    reads = text("SELECT last_value FROM pg_temp.reference_partition_reads")
     check(ref, other, ref)
-    assert conn.scalar(reads) == 2
-    check(ref, other, ref)
-    assert conn.scalar(reads) == 4
     with (
         pytest.raises(DBAPIError, match='"integer": 777'),
         conn.begin_nested(),
@@ -372,6 +380,8 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
     )
 
     def row_map(relation, *columns):
+        if relation not in metadata.tables:
+            return {}
         return {
             (
                 row[columns[0]] if len(columns) == 1 else tuple(row[column] for column in columns)

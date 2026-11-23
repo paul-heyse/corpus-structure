@@ -271,7 +271,6 @@ def test_native_condition_target_requires_the_actual_bound_report_member(product
     from sqlalchemy import bindparam, text
     from sqlalchemy.dialects.postgresql import JSONB
     from sqlalchemy.exc import DBAPIError
-    from sqlalchemy.schema import CreateTable
 
     from corpus_structure.semantic.binding_support_native import binding_support_native_programs
     from corpus_structure.semantic.data_completion_settlement_native import (
@@ -297,9 +296,6 @@ def test_native_condition_target_requires_the_actual_bound_report_member(product
     member_id = "contribution:source-contribution:" + "1" * 64
     context, product = product_packet((member_id,))
     parent = realize(conn, context, product)
-    conn.execute(
-        CreateTable(metadata.tables["ops.data_request"], include_foreign_key_constraints=[])
-    )
     conn.exec_driver_sql(
         "CREATE TABLE sem.data_operation_definition "
         "(release_id text, operation_id text, support_contract jsonb, input_roles jsonb)"

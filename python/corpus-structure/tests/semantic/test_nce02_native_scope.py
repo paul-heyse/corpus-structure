@@ -24,6 +24,7 @@ from corpus_structure.semantic.source_contexts import (
     source_slice,
 )
 from corpus_structure.semantic.structural_products import StructuralPassage
+from semantic.selected_population_native_support import selected_population_packets
 from semantic.current_pdf_source_support import (
     current_pdf_source_factory as current_pdf_source_factory,
 )
@@ -120,15 +121,12 @@ def actual_basis(kernel, original, products):
             read_id=read.read_id,
             expected_cut=read.cut_id,
             scope=cut.record["scope"],
-        ) as (_, index),
+        ) as (selected, _),
     ):
         partitions = tuple(
             canonical_bytes(row)
-            for row in index.rows_for(
-                "kb.data_product_partition",
-                product_id=sentences.row["product_id"],
-                collection="rows",
-            )
+            for row in selected_population_packets(connection, selected)
+            if row["product_id"] == sentences.row["product_id"] and row["collection"] == "rows"
         )
     native = validate_source_annotations(
         kernel.prepared,

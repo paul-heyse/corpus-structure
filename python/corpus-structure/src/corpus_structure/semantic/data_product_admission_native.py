@@ -108,12 +108,12 @@ def product_admission_native_programs(model: MetaData) -> tuple[NativeRoutine, .
     """Retain product realization bodies for the shared typed program registry."""
     output = []
     from .data_operation_partition_native import (
-        partition_admission_programs,
+        partition_projection_programs,
         population_upload_programs,
         retained_population_programs,
     )
 
-    partition_admission_programs(model, output, _routine)
+    partition_projection_programs(output, _routine)
     if "ops.data_retained_population_item" in model.tables:
         population_upload_programs(model, output, _routine)
         retained_population_programs(model, output, _routine)
@@ -262,45 +262,24 @@ def _install_product(model, output):
             "invalid member contract",
         ),
     )
+    partition_count = func.coalesce(func.jsonb_array_length(packet_in["partitions"]), 0)
+    empty_populations = Perform(
+        func.ops.ddo_require_empty_product_populations(k("collections"), body)
+    )
     install_partitions = If(
-        or_(k("collections") != cast(literal("{}"), JSONB()), packet_in.has_key("partitions")),
+        partition_count > 0,
         (
+            _reject(population_intent.is_(None), "population product lacks its retained intent"),
             Perform(
-                func.ops.ddo_install_product_partitions(
-                    key,
-                    k("collections"),
-                    body,
-                    func.coalesce(packet_in["partitions"], empty),
-                    inserted > 0,
+                func.ops.ddo_promote_population_rows(
+                    population_intent, population_role, population_position, key, partition_count
                 )
             ),
-        ),
-    )
-    if typed_populations:
-        visible_population = model.tables["kb.data_product_population"]
-        install_partitions = If(
-            packet_in["partitions"][0].has_key("item_count"),
-            (
-                _reject(
-                    population_intent.is_(None), "typed product lacks a retained population intent"
-                ),
-                Perform(
-                    func.ops.ddo_promote_population_rows(
-                        population_intent, population_role, population_position, key
-                    )
-                ),
-            ),
-            (
-                _reject(
-                    select(1)
-                    .select_from(visible_population)
-                    .where(visible_population.c.product_id == key)
-                    .exists(),
-                    "product already has item-backed partitions",
-                ),
-                install_partitions,
-            ),
         )
+        if typed_populations
+        else (_reject(literal(True), "population product lacks retained storage"),),
+        (empty_populations,),
+    )
     statements = [
         _fields(context, ("project_id", "release_id", *context_fields)),
         Perform(

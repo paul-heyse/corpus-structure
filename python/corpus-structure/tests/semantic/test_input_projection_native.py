@@ -83,7 +83,7 @@ def test_selected_whole_projection_digest_never_reads_partition_bodies(product_c
 
     # Product and group commitments were admitted before removing the unneeded
     # column. The fixture's transaction rolls back the DDL and all test writes.
-    connection.exec_driver_sql("ALTER TABLE kb.data_product_partition DROP COLUMN body")
+    connection.exec_driver_sql("ALTER TABLE ops.data_retained_population_item DROP COLUMN canonical_text")
     read = text(
         "SELECT ops.ddo_binding_input_projection_digest("
         "'demand','operation','{}'::jsonb,:read,'subject',NULL,NULL,:pins,:role)"

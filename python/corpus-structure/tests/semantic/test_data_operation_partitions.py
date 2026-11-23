@@ -194,7 +194,7 @@ def test_compiled_collection_admits_header_and_checks_native_item_schema(product
         )
     assert (
         product_connection.scalar(
-            text("SELECT count(*) FROM kb.data_product_partition WHERE product_id=:key"),
+            text("SELECT count(*) FROM kb.data_product_population WHERE product_id=:key"),
             {"key": key},
         )
         == 3

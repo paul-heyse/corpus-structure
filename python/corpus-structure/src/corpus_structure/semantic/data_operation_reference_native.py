@@ -10,7 +10,6 @@ from sqlalchemy import (
     column,
     func,
     literal,
-    not_,
     or_,
     select,
 )
@@ -54,17 +53,14 @@ def reference_native_programs(model):
     population = model.tables["kb.data_product_population"]
     items = model.tables["ops.data_retained_population_item"]
     intent = core_variable("p_intent", Text())
-    completion, target, output, ref, part = (
+    completion, target, output, ref = (
         core_variable(name, JSONB())
-        for name in ("completion", "target", "output", "ref", "partition_body")
+        for name in ("completion", "target", "output", "ref")
     )
     role, product, bound_member = (
         core_variable(name, Text()) for name in ("target_role", "target_product", "bound_member")
     )
     count = core_variable("target_count", Integer())
-    partition_indexes, address_index = (
-        core_variable(name, JSONB()) for name in ("partition_indexes", "address_index")
-    )
     request = model.tables["ops.data_request"]
 
     def request_field(name):
@@ -74,7 +70,6 @@ def reference_native_programs(model):
         return func.data.ddo_json(func.data.ddo_normalize(value), type_=JSONB())
 
     empty = cast(literal("[]"), JSONB())
-    empty_index = cast(literal("{}"), JSONB())
     targets = _rows(
         func.coalesce(definitions.c.support_contract["reference_targets"], empty),
         "reference_targets",
@@ -183,36 +178,6 @@ def reference_native_programs(model):
         .where(members.c.product_id == product, members.c.member_id == member_id)
         .exists()
     )
-    paths = _rows(
-        kinds.c.collections["declarations"][collection]["address"], "reference_address_paths"
-    )
-    legacy_items = _rows(part[1], "addressed_items")
-    field = func.ops.ddo_partition_field(
-        legacy_items.c.value, paths.c.value[()].astext, type_=JSONB()
-    )
-    key = (
-        select(func.jsonb_agg(aggregate_order_by(func.data.ddo_json(field), paths.c.ordinality)))
-        .select_from(
-            products.join(kinds, kinds.c.kind_contract == products.c.kind_contract).join(
-                paths, literal(True)
-            )
-        )
-        .where(products.c.id == product)
-        .correlate(legacy_items)
-        .scalar_subquery()
-    )
-    addressed = select(cast(key, Text()).label("address")).select_from(legacy_items).subquery()
-    multiplicities = (
-        select(addressed.c.address, func.count().label("multiplicity"))
-        .group_by(addressed.c.address)
-        .subquery()
-    )
-    partition_index = select(
-        func.jsonb_object_agg(multiplicities.c.address, multiplicities.c.multiplicity)
-    ).scalar_subquery()
-    partition_address = cast(
-        func.jsonb_build_array(product, collection, ref["partition_key"].astext), Text()
-    )
     keys = _rows(ref["item_key"], "submitted_address_fields")
     key_part = keys.c.value
     part_kind = key_part["kind"].astext
@@ -253,7 +218,6 @@ def reference_native_programs(model):
         population.c.collection == collection,
         population.c.partition_key == ref["partition_key"].astext,
     )
-    typed_parent = select(1).select_from(population).where(*parent_scope).exists()
     typed_item = (
         select(1)
         .select_from(
@@ -330,43 +294,7 @@ def reference_native_programs(model):
                     detail,
                 ),
                 _reject(or_(func.jsonb_array_length(ref["item_key"]) == 0, bad_key_field), detail),
-                # The request's authorization and exact input occurrence are checked
-                # above even when this invocation already indexed the immutable body.
-                If(
-                    typed_parent,
-                    (_reject(not_(typed_item), detail),),
-                    (
-                        Assign("address_index", partition_indexes[partition_address]),
-                        If(
-                            address_index.is_(None),
-                            (
-                                Assign(
-                                    "partition_body",
-                                    func.ops.ddo_acquired_product_partition(
-                                        product,
-                                        request_field("project_id"),
-                                        collection,
-                                        ref["partition_key"].astext,
-                                        type_=JSONB(),
-                                    )["body"],
-                                ),
-                                Assign(
-                                    "address_index", func.coalesce(partition_index, empty_index)
-                                ),
-                                Assign(
-                                    "partition_indexes",
-                                    partition_indexes.op("||")(
-                                        func.jsonb_build_object(partition_address, address_index)
-                                    ),
-                                ),
-                            ),
-                        ),
-                        _reject(
-                            address_index[cast(submitted_key, Text())].astext.is_distinct_from("1"),
-                            detail,
-                        ),
-                    ),
-                ),
+                _reject(~typed_item, detail),
             ),
         ),
     )
@@ -380,11 +308,6 @@ def reference_native_programs(model):
         ),
         else_=output["product"]["body"],
     )
-    output_partitions = _rows(output["product"]["partitions"], "output_partition_packets")
-    partition_items = _rows(
-        decoded(output_partitions.c.value["body"]), "output_partition_items"
-    ).lateral()
-
     def at_path(body, name):
         return (
             func.data.ddo_witness_records(body, target["path"].astext)
@@ -393,7 +316,6 @@ def reference_native_programs(model):
         )
 
     header_refs = at_path(decoded(output_body), "header_refs")
-    item_refs = at_path(partition_items.c.value, "item_refs").lateral()
     retained = model.tables["ops.data_retained_population"]
     retained_refs = at_path(
         func.data.ddo_json(cast(items.c.canonical_text, JSONB())), "retained_refs"
@@ -425,22 +347,6 @@ def reference_native_programs(model):
         )
         .order_by(retained.c.ordinal, items.c.item_ordinal, retained_refs.c.ordinality)
     )
-    packet_refs = (
-        select(item_refs.c.value)
-        .select_from(
-            output_partitions.join(partition_items, literal(True)).join(item_refs, literal(True))
-        )
-        .where(output_partitions.c.value["collection"].astext == target["output_collection"].astext)
-        .order_by(
-            output_partitions.c.ordinality, partition_items.c.ordinality, item_refs.c.ordinality
-        )
-    )
-    compact_output = (
-        select(1)
-        .select_from(output_partitions)
-        .where(output_partitions.c.value.has_key("item_count"))
-        .exists()
-    )
     check_output = If(
         target["output_collection"].astext.is_(None),
         (
@@ -451,11 +357,11 @@ def reference_native_programs(model):
             ),
         ),
         (
-            If(
-                and_(intent.is_not(None), compact_output),
-                (ForQuery(("ref",), retained_items, check_reference),),
-                (ForQuery(("ref",), packet_refs, check_reference),),
+            _reject(
+                intent.is_(None),
+                "partitioned output reference validation requires its retained intent",
             ),
+            ForQuery(("ref",), retained_items, check_reference),
         ),
     )
     return (
@@ -512,11 +418,8 @@ def reference_native_programs(model):
                             "selected_bindings",
                             "output",
                             "ref",
-                            "partition_body",
-                            "address_index",
                         )
                     ),
-                    Local("partition_indexes", pg_type("jsonb"), empty_index),
                     *(
                         Local(name, pg_type("text"))
                         for name in ("target_role", "target_product", "bound_member")

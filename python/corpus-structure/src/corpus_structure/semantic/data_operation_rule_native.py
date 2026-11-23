@@ -125,9 +125,6 @@ def _typed_partition_sources(model):
 
 
 def _rule_partition_headers(model, name):
-    legacy = model.tables["kb.data_product_partition"]
-    if "kb.data_product_population" not in model.tables:
-        return legacy
     parents, _, joined, _ = _typed_partition_sources(model)
     keys = (
         "product_id",
@@ -139,32 +136,12 @@ def _rule_partition_headers(model, name):
         "group_digests",
         "placement",
     )
-    return (
-        select(*(legacy.c[field] for field in keys))
-        .union_all(select(*(parents.c[field] for field in keys)).select_from(joined))
-        .subquery(name)
-    )
+    return select(*(parents.c[field] for field in keys)).select_from(joined).subquery(name)
 
 
 def _rule_partition_items(model, product_id, collection, partition_key, name, *, correlate=()):
-    legacy = model.tables["kb.data_product_partition"].alias(name + "_legacy_partition")
-    body = _rows(legacy.c.body[1], name + "_legacy_items").lateral()
-    result = (
-        select(
-            body.c.value.label("body"),
-            body.c.ordinality.label("item"),
-            legacy.c.ordinal.label("part_order"),
-            legacy.c.partition_key.label("key"),
-            legacy.c.placement,
-        )
-        .select_from(legacy.join(body, true()))
-        .where(_collection_scope(legacy, product_id, collection, partition_key))
-        .correlate(*correlate)
-    )
-    if "kb.data_product_population" not in model.tables:
-        return result
     parents, items, _, joined = _typed_partition_sources(model)
-    return result.union_all(
+    return (
         select(
             cast(items.c.canonical_text, JSONB()).label("body"),
             (items.c.item_ordinal + 1).label("item"),

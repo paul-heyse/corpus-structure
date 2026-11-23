@@ -7,7 +7,7 @@ from decimal import Decimal
 import pyarrow as pa
 import pytest
 from adbc_driver_manager import DatabaseError
-from sqlalchemy import DateTime, Numeric, Text, cast, column, func, literal, select, text
+from sqlalchemy import BigInteger, DateTime, Numeric, Text, cast, column, func, literal, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql.elements import BindParameter
 
@@ -53,7 +53,7 @@ def _borrow_snapshot(settings, snapshot):
 
 
 def snapshot_annotation_rows(settings, snapshot, binding_arguments):
-    """Project typed members after the native exact-parent and packet-budget guard."""
+    """Project typed members after the native exact-parent and byte-budget guard."""
     arguments = tuple(
         cast(
             literal(None if argument.value is None else json_bytes(argument.value).decode()), JSONB
@@ -62,26 +62,24 @@ def snapshot_annotation_rows(settings, snapshot, binding_arguments):
         else argument
         for argument in binding_arguments
     )
-    packets = func.ops.data_binding_partitions(
-        *arguments, 8_388_608, cast(literal(None), Text), cast(literal(None), Text)
-    ).table_valued(column("product_id", Text), column("packet", JSONB))
-    selected = _literal_statement(select(*packets.c))
-    # The guarded TVF still constructs each complete tagged packet internally.
-    # Only the requested fields cross the ADBC boundary in this comparison.
+    items = func.ops.data_binding_population_items(*arguments, 8_388_608).table_valued(
+        column("partition_key", Text),
+        column("ordinal", BigInteger),
+        column("item_ordinal", BigInteger),
+        column("canonical_text", Text),
+    )
+    selected = _literal_statement(select(*items.c))
     query = f"""
-        SELECT packet->>'partition_key' AS partition_key,
-               fields->'record_type'->>1 AS record_type,
+        SELECT partition_key, fields->'record_type'->>1 AS record_type,
                (fields->'ordinal'->>1)::bigint AS ordinal,
                (fields->'start'->>1)::bigint AS start,
                (fields->'end'->>1)::bigint AS "end"
         FROM ({selected}) AS guarded
-        CROSS JOIN LATERAL jsonb_array_elements(packet->'body'->1)
-            WITH ORDINALITY AS item(value, submitted)
         CROSS JOIN LATERAL (
             SELECT jsonb_object_agg(field->>0, field->1) AS fields
-            FROM jsonb_array_elements(value->1) AS field
+            FROM jsonb_array_elements((canonical_text::jsonb)->1) AS field
         ) AS projected
-        ORDER BY (packet->>'ordinal')::bigint, submitted
+        ORDER BY guarded.ordinal, item_ordinal
     """
     with _borrow_snapshot(settings, snapshot) as cursor:
         cursor.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "true"})

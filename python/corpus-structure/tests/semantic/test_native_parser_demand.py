@@ -22,11 +22,12 @@ from corpus_structure.methods.native_profiles import (
 from corpus_structure.semantic.data_operation_service import execute_data_demand, read_data_demand
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.declared_candidate_products import candidate_member_values
-from corpus_structure.semantic.demand_results import read_demand_result, stream_selected_support
+from corpus_structure.semantic.demand_results import read_demand_result
 from corpus_structure.semantic.hanlp_products import prepare_hanlp_selection
 from corpus_structure.semantic.primary_operations import primary_operation_inputs
 from corpus_structure.semantic.regeneration import DOMAINS, acquire_pack
 from corpus_structure.serve.demand_export import export_demand_result, verified_demand_export
+from semantic.selected_population_native_support import selected_population_packets
 from semantic.current_pdf_source_support import (
     PROJECT,
     admit_current_target,
@@ -170,10 +171,9 @@ def test_actual_parser_demand_preserves_three_families_and_exact_resume(
             page = read_demand_result(connection, result.demand_id, project_id=PROJECT, limit=1000)
             assert any(
                 unit["record_type"] == "constituent"
-                for entry in stream_selected_support(connection, page, whole_read=True)
-                if entry["relation"] == "kb.data_product_partition"
-                and entry["record"]["product_id"] == hanlp_inventory
-                for unit in decode_semantic_value(entry["record"]["body"])
+                for packet in selected_population_packets(connection, page.cut)
+                if packet["product_id"] == hanlp_inventory
+                for unit in decode_semantic_value(packet["body"])
             )
             (selected,) = [
                 row
@@ -338,10 +338,9 @@ def test_actual_candidate_conditioned_d1_exports_exact_contextual_support(
             )
             assert any(
                 unit["record_type"] == "constituent"
-                for entry in stream_selected_support(connection, hanlp_page, whole_read=True)
-                if entry["relation"] == "kb.data_product_partition"
-                and entry["record"]["product_id"] == hanlp_product["product_id"]
-                for unit in decode_semantic_value(entry["record"]["body"])
+                for packet in selected_population_packets(connection, hanlp_page.cut)
+                if packet["product_id"] == hanlp_product["product_id"]
+                for unit in decode_semantic_value(packet["body"])
             )
             maverick_page = read_demand_result(
                 connection,

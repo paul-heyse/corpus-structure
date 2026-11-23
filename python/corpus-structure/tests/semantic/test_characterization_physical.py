@@ -14,21 +14,18 @@ def test_imported_physical_projection_owns_indexed_characterization_relations():
     assert {
         "kb.data_product",
         "kb.data_product_member",
-        "kb.data_product_partition",
+        "kb.data_product_population",
         "sem.data_rule",
         "kb.data_validity",
     } <= set(model.tables)
     assert "kb.CharacterizationExtent" not in model.tables
     assert "kb.characterization_membership" not in model.tables
-    assert tuple(model.tables["kb.data_product_partition"].primary_key.columns.keys()) == (
+    assert tuple(model.tables["kb.data_product_population"].primary_key.columns.keys()) == (
         "product_id",
         "collection",
         "partition_key",
     )
-    assert any(
-        tuple(index.columns.keys()) == ("product_id", "collection", "ordinal")
-        for index in model.tables["kb.data_product_partition"].indexes
-    )
+    assert "kb.data_product_partition" not in model.tables
 
 
 def test_retained_population_has_a_prepublication_parent_and_private_visibility_edge():
