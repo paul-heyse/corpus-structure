@@ -3,18 +3,18 @@
 from dataclasses import replace
 from typing import Literal, overload
 
-from sqlalchemy import Text, column, func, select
+from sqlalchemy import Text, bindparam, column, func, select
 from sqlalchemy.dialects.postgresql import JSONB
 
 from .data_operation_consumers import BoundConsumerSelection
-from .data_operation_json import json_loads
+from .data_operation_json import json_loads, native_json_loads
 from .data_operation_jsonb import json_context_equal, json_context_value
 from .data_operation_model import BoundRoleMember, EffectiveDataOperationModel
 from .data_operation_storage import AdmittedDataRead, admitted_data_read
 from .data_operation_support import support_reference_records
 from .data_operation_values import decode_semantic_value
+from .data_product_reference import ReferenceKey
 from .reference_resolution import (
-    AcquiredReferencePartition,
     ProducingReferenceBindings,
     ProducingReferenceInput,
     ReferenceResolver,
@@ -37,7 +37,7 @@ class LiveReferenceAccess:
         max_partition_bytes: int,
     ):
         if type(max_partition_bytes) is not int or max_partition_bytes <= 0:
-            raise ValueError("reference reads require positive partition packet capacity")
+            raise ValueError("reference reads require positive item capacity")
         self.connection = connection
         self.model = model
         self.selection = selection
@@ -127,42 +127,28 @@ class LiveReferenceAccess:
             raise KeyError(member_id)
         return decode_semantic_value(selected)
 
-    def partition(
-        self, product_id: str, collection: str, partition_key: str
-    ) -> AcquiredReferencePartition:
+    def item(
+        self, product_id: str, collection: str, partition_key: str, item_key: ReferenceKey
+    ) -> object:
         pin, read, _ = self._authorized(product_id)
         if pin.member is not None:
             raise PermissionError("selected member does not authorize its parent's partitions")
-        names = {
-            identity.owner
-            for identity in self.model.identities
-            if identity.domain == "kind" and identity.key == pin.kind_contract
-        }
-        declarations = tuple(
-            json_loads(kind.facts).get("collections", {}).get(collection)
-            for kind in self.model.kinds
-            if kind.semantic_id in names and kind.category == "class"
-        )
-        if (
-            len(declarations) != 1
-            or not declarations[0]
-            or declarations[0]["unit"] != "partitioned"
-        ):
-            raise ValueError("reference requires a declared partitioned collection")
-        packets = func.ops.data_binding_partitions(
-            *read.binding_arguments, self.max_partition_bytes, collection, partition_key
-        ).table_valued(column("product_id", Text()), column("packet", JSONB()))
-        returned = self.connection.execute(select(*packets.c).limit(2)).fetchall()
-        if len(returned) != 1:
-            raise KeyError((collection, partition_key))
-        returned_product, packet = returned[0]
-        if returned_product is None and packet is None:
-            raise ValueError("reference partition exceeds owned packet capacity")
+        items = func.ops.data_binding_reference_item(
+            *read.binding_arguments,
+            self.max_partition_bytes,
+            collection,
+            partition_key,
+            bindparam("reference_item_key", list(item_key), type_=JSONB()),
+        ).table_valued(column("product_id", Text()), column("canonical_text", Text()))
+        returned = self.connection.execute(select(*items.c)).one_or_none()
+        if returned is None:
+            raise KeyError((collection, partition_key, item_key))
+        returned_product, canonical_text = returned
         if returned_product != product_id:
-            raise PermissionError("reference partition belongs to another parent")
-        return AcquiredReferencePartition(
-            packet["partition_digest"], packet["body"], tuple(declarations[0]["address"])
-        )
+            raise PermissionError("reference item belongs to another parent")
+        if canonical_text is None:
+            raise ValueError("reference item exceeds owned capacity")
+        return decode_semantic_value(native_json_loads(canonical_text))
 
 
 def reference_input_address(pin, *, occurrence_binding=False, occurrence_position=False):
@@ -210,7 +196,11 @@ class PreparedSelectedOutputReferences:
         self.project_id = cut["project_id"]
         self.selection = selection
         self.definition = definition
-        self.access = IndexedReferenceAccess(row_map, cut["project_id"])
+        self.access = IndexedReferenceAccess(
+            row_map,
+            cut["project_id"],
+            population_archive=getattr(scope.index, "population_archive", None),
+        )
         self.targets = {}
 
     @staticmethod

@@ -1293,6 +1293,35 @@ def _selected_support_relations(
         fields["partitions"] = records(
             partitions, visible_partition_parent, *partitions.primary_key.columns
         )
+    if (
+        not archive
+        and keys is None
+        and (published := metadata.tables.get("kb.data_product_population")) is not None
+    ):
+        from .selected_population_archive import HEADER_FIELDS, KEY_FIELDS, POPULATION_HEADERS
+
+        retained = metadata.tables["ops.data_retained_population"]
+        retained_key = (
+            "intent_id",
+            "output_role",
+            "output_position",
+            "collection",
+            "partition_key",
+        )
+        parents = (
+            products.join(product_ids, product_ids.c.product_id == products.c.id)
+            .join(published, products.c.id == published.c.product_id)
+            .join(retained, and_(*(published.c[key] == retained.c[key] for key in retained_key)))
+        )
+        fields["typed_population_headers"] = virtual(
+            POPULATION_HEADERS,
+            tuple(published.c[name] for name in KEY_FIELDS),
+            parents,
+            _disclosed_body_access(metadata, products.c.kind_contract, products.c.canonical_body),
+            lambda *_: func.jsonb_build_object(
+                *[expr for name in HEADER_FIELDS for expr in (literal(name), retained.c[name])]
+            ),
+        )
     # This is an explicit bounded provenance form, not a second storage table.
     # In particular no issuer use/binding, request, intent, protected input, other
     # output or transitive protected support is exported as a normal episode.

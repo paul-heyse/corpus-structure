@@ -2,6 +2,7 @@
 
 import multiprocessing
 import os
+from typing import TypedDict, cast
 
 import pyarrow as pa
 import pytest
@@ -9,7 +10,16 @@ import pytest
 from corpus_structure.semantic.population_ipc import SealedPopulationIpc
 
 _SCHEMA = pa.schema([pa.field("ordinal", pa.int32()), pa.field("label", pa.string())])
-_BINDING = {
+
+
+class _IpcBinding(TypedDict):
+    schema: pa.Schema
+    request_digest: str
+    projection_digest: str
+    max_bytes: int
+
+
+_BINDING: _IpcBinding = {
     "schema": _SCHEMA,
     "request_digest": "request-a",
     "projection_digest": "projection-a",
@@ -42,6 +52,7 @@ def _consume(transferred, queue):
 def test_sealed_population_crosses_spawn_and_rejects_write_alias():
     with SealedPopulationIpc.write(population(), **_BINDING) as owned:
         descriptor = owned._descriptor
+        assert descriptor is not None
         with pytest.raises(OSError):
             os.pwrite(descriptor, b"changed", 0)
         with pytest.raises(OSError):
@@ -84,7 +95,7 @@ def test_ingress_rejects_wrong_binding_or_byte_bound(field):
     with (
         SealedPopulationIpc.write(population(), **_BINDING) as owned,
         pytest.raises(ValueError),
-        owned.open(**(_BINDING | {field: value})),
+        owned.open(**cast(_IpcBinding, _BINDING | {field: value})),
     ):
         pytest.fail("wrong binding accepted")
 
@@ -102,4 +113,4 @@ def test_ingress_authenticates_seal_and_refuses_unsealed_input():
     ):
         pytest.fail("unsealed input accepted")
     with pytest.raises(ValueError, match="byte bound"):
-        SealedPopulationIpc.write(population(), **(_BINDING | {"max_bytes": 1}))
+        SealedPopulationIpc.write(population(), **cast(_IpcBinding, _BINDING | {"max_bytes": 1}))

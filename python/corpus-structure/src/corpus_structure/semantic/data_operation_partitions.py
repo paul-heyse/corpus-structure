@@ -2,7 +2,7 @@
 
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal, NotRequired, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
 
 from pydantic import ConfigDict, TypeAdapter, with_config
 
@@ -10,6 +10,9 @@ from ._data_operation_wire import WireProductPartition
 from .data_operation_identity import _frame_canonical_value, canonical_identity
 from .data_operation_json import native_json_loads
 from .data_operation_values import semantic_value
+
+if TYPE_CHECKING:
+    from .data_operation_population import AcquiredPopulation
 
 
 @with_config(ConfigDict(extra="forbid"))
@@ -199,23 +202,35 @@ def partition_header(packets: Iterable[WireProductPartition]):
 
 
 @dataclass(frozen=True)
+class AcquiredPopulationPartition:
+    commitment: PartitionCommitment
+    group_digests: Mapping[str, str]
+    population: AcquiredPopulation
+
+
+@dataclass(frozen=True)
 class PartitionedInput:
     """Detached admitted header and partition packets, without read authority."""
 
     header: bytes
     packets: tuple[bytes, ...]
+    populations: tuple[AcquiredPopulationPartition, ...] = ()
 
     def __post_init__(self) -> None:
         if (
             type(self.header) is not bytes
             or type(self.packets) is not tuple
             or any(type(packet) is not bytes for packet in self.packets)
+            or type(self.populations) is not tuple
+            or (self.packets and self.populations)
         ):
             raise TypeError("partitioned input requires owned immutable header and packet bytes")
 
     def value(self) -> dict:
         from .data_operation_json import json_loads
 
+        if self.populations:
+            raise TypeError("acquired populations require a typed consumer")
         return {
             "header": json_loads(self.header),
             "partitions": [json_loads(packet) for packet in self.packets],

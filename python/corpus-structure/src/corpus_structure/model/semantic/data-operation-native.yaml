@@ -668,6 +668,20 @@ definitions:
       body: {$ref: '#/definitions/semantic_value'}
     required: [collection, partition_key, ordinal, placement, partition_digest, body]
     additionalProperties: false
+  product_population_manifest:
+    type: object
+    properties:
+      collection: {$ref: '#/definitions/identifier'}
+      partition_key: {$ref: '#/definitions/identifier'}
+      ordinal: {$ref: '#/definitions/nonnegative_integer'}
+      placement: {$ref: '#/definitions/product_partition_placement'}
+      partition_digest: {$ref: '#/definitions/identifier'}
+      item_count: {$ref: '#/definitions/nonnegative_integer'}
+      group_digests:
+        type: object
+        additionalProperties: {$ref: '#/definitions/identifier'}
+    required: [collection, partition_key, ordinal, placement, partition_digest, item_count, group_digests]
+    additionalProperties: false
   product:
     type: object
     properties:
@@ -686,7 +700,10 @@ definitions:
         - type: 'null'
       partitions:
         type: array
-        items: {$ref: '#/definitions/product_partition'}
+        items:
+          anyOf:
+          - {$ref: '#/definitions/product_partition'}
+          - {$ref: '#/definitions/product_population_manifest'}
     required:
     - kind_contract
     - body

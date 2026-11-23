@@ -40,6 +40,7 @@ class CompletionDraft:
     operation: str
     basis: bytes
     request: bytes
+    population_upload: bytes | None = None
 
     def native_request(self) -> WireRetainDataCompletionIntentRequest:
         """Return the exact original native intake request under its captured fence."""
@@ -182,6 +183,7 @@ class CompletionDraftStore:
         basis: bytes,
         check_active: Callable[[], None],
         writer_schema: bytes,
+        population_upload: bytes | None = None,
     ) -> CompletionDraft:
         """Persist the original complete request before acknowledging it to its caller."""
         if not release_id or operation not in SUPPORTED_OPERATIONS:
@@ -190,22 +192,30 @@ class CompletionDraftStore:
             )
         validate_wire_schema(writer_schema, request)
         content = json_bytes(dict(request))
-        if len(content) > self.max_bytes or len(basis) > self.max_bytes:
+        if (
+            len(content) + len(population_upload or b"") > self.max_bytes
+            or len(basis) > self.max_bytes
+        ):
             raise ValueError("completion draft exceeds its byte bound")
         # Canonical bytes retain every supplied producing determinant without narrowing it.
         basis = json_bytes(native_json_loads(basis))
-        envelope = json_bytes(
-            dict(
-                format="ddo-completion-draft-v2",
-                writer_schema=writer_schema.hex(),
-                writer_schema_sha256=sha256(writer_schema).hexdigest(),
-                release_id=release_id,
-                operation=operation,
-                basis=native_json_loads(basis),
-                request_sha256=sha256(content).hexdigest(),
-                request_bytes=len(content),
-            )
+        metadata = dict(
+            format="ddo-completion-draft-v2",
+            writer_schema=writer_schema.hex(),
+            writer_schema_sha256=sha256(writer_schema).hexdigest(),
+            release_id=release_id,
+            operation=operation,
+            basis=native_json_loads(basis),
+            request_sha256=sha256(content).hexdigest(),
+            request_bytes=len(content),
         )
+        if population_upload is not None:
+            metadata.update(
+                format="ddo-completion-draft-v3",
+                upload_bytes=len(population_upload),
+                upload_sha256=sha256(population_upload).hexdigest(),
+            )
+        envelope = json_bytes(metadata)
         if len(envelope) > self.max_bytes:
             raise ValueError("completion draft envelope exceeds its byte bound")
         identity = sha256(envelope).hexdigest()
@@ -216,6 +226,8 @@ class CompletionDraftStore:
             if (self.root / (identity + ".ack")).exists():
                 return self._open(identity)
             self._atomic(identity + ".body", content)
+            if population_upload is not None:
+                self._atomic(identity + ".arrow", population_upload)
             lookup = _candidate_key(request["request_id"], request["generation"])
             self._atomic(lookup + "." + identity + ".candidate", b"")
             check_active()
@@ -229,10 +241,12 @@ class CompletionDraftStore:
             raise ValueError("completion acknowledgment differs from its content identity")
         value = native_json_loads(envelope)
         common = {"format", "release_id", "operation", "basis", "request_sha256", "request_bytes"}
-        if value.get("format") == "ddo-completion-draft-v2" and set(value) == common | {
-            "writer_schema",
-            "writer_schema_sha256",
-        }:
+        format_ = value.get("format")
+        writer = common | {"writer_schema", "writer_schema_sha256"}
+        has_population = format_ == "ddo-completion-draft-v3"
+        if (format_ == "ddo-completion-draft-v2" and set(value) == writer) or (
+            has_population and set(value) == writer | {"upload_bytes", "upload_sha256"}
+        ):
             writer_schema = bytes.fromhex(value["writer_schema"])
             if sha256(writer_schema).hexdigest() != value["writer_schema_sha256"]:
                 raise ValueError(
@@ -265,8 +279,22 @@ class CompletionDraftStore:
         if sha256(request).hexdigest() != value["request_sha256"]:
             raise ValueError("completion draft differs from its acknowledged body")
         validate_wire_schema(writer_schema, native_json_loads(request))
+        upload = None
+        if has_population:
+            upload = _read(
+                self.root / (identity + ".arrow"),
+                max_bytes=self.max_bytes - len(request),
+                expected_bytes=value["upload_bytes"],
+            )
+            if sha256(upload).hexdigest() != value["upload_sha256"]:
+                raise ValueError("completion draft differs from its acknowledged population upload")
         return CompletionDraft(
-            identity, value["release_id"], value["operation"], json_bytes(value["basis"]), request
+            identity,
+            value["release_id"],
+            value["operation"],
+            json_bytes(value["basis"]),
+            request,
+            upload,
         )
 
     def open(self, identity: str) -> CompletionDraft:
@@ -405,6 +433,7 @@ class CompletionDraftStore:
                 lookup + "." + identity + ".candidate",
                 identity + ".ack",
                 identity + ".body",
+                identity + ".arrow",
             )
         )
         for path in paths:

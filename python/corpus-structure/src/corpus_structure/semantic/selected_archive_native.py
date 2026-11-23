@@ -18,13 +18,17 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     and_,
+    case,
     cast,
     delete,
     exists,
     func,
     insert,
+    literal,
+    null,
     or_,
     select,
+    tuple_,
     update,
 )
 from sqlalchemy.dialects.postgresql import JSONB, OID
@@ -34,6 +38,7 @@ from sqlalchemy.types import NullType
 from corpus_structure.schema.integrity import role_name
 
 from .data_operation_projections import (
+    _disclosed_body_access,
     cut_selection_projection,
     selected_archive_keys,
     selected_archive_records,
@@ -50,6 +55,7 @@ from .native_program import (
     NativeRoutine,
     Parameter,
     Return,
+    ReturnQuery,
     SelectInto,
     Sql,
     core_relation_row,
@@ -556,6 +562,12 @@ def selected_archive_programs(model):
         ),
         (Local("archive_handle", pg_type("text")),),
     )
+    typed = ()
+    if "kb.data_product_population" in model.tables:
+        typed = (
+            _population_reader(model, sessions, keys, issuer, common_locals),
+            _population_item_reader(model, sessions, keys, issuer, common_locals),
+        )
     return tuple(
         ProgramDeclaration(
             declaration,
@@ -563,5 +575,240 @@ def selected_archive_programs(model):
             owner=role_name("publisher"),
             access=NativeProgramAccess(purposes=("read", "write", "evaluate")),
         )
-        for declaration in (begin, fetch, close)
+        for declaration in (begin, fetch, close, *typed)
+    )
+
+
+def _read_population_cut(model, sessions, keys, issuer, handle):
+    return (
+        *_scratch_guard(sessions),
+        *_scratch_guard(keys),
+        Assign("archive_handle", core_variable("p_handle", Text())),
+        SelectInto(
+            select(sessions.c.cut, sessions.c.max_rows, sessions.c.max_bytes).where(
+                sessions.c.handle == handle, sessions.c.issuer == issuer
+            ),
+            ("p", "archive_rows", "archive_bytes"),
+            strict=True,
+        ),
+        *_authenticated_cut(model),
+    )
+
+
+def _population_reader(model, sessions, keys, issuer, locals_):
+    """Typed ordered pages over the same authenticated, transaction-private closure."""
+    from .selected_population_archive import KEY_FIELDS, population_fields
+
+    handle = core_variable("archive_handle", Text())
+    rows = core_variable("archive_rows", Integer())
+    budget = core_variable("archive_bytes", BigInteger())
+    items_requested = core_variable("p_items", Boolean())
+    after_product = core_variable("p_after_product", Text())
+    after_collection = core_variable("p_after_collection", Text())
+    after_partition = core_variable("p_after_partition", Text())
+    after_ordinal = core_variable("p_after_ordinal", BigInteger())
+    products = model.tables["kb.data_product"]
+    visible = model.tables["kb.data_product_population"]
+    parents = model.tables["ops.data_retained_population"]
+    items = model.tables["ops.data_retained_population_item"]
+    retained_key = ("intent_id", "output_role", "output_position", "collection", "partition_key")
+    selected = (
+        select(products.c.id)
+        .select_from(keys.join(products, products.c.id == keys.c.locator[0].astext))
+        .where(
+            keys.c.handle == handle,
+            keys.c.relation == "kb.data_product",
+            _disclosed_body_access(model, products.c.kind_contract, products.c.canonical_body),
+        )
+        .cte("authorized_population_products")
+        .prefix_with("MATERIALIZED")
+    )
+    source = selected.join(visible, visible.c.product_id == selected.c.id).join(
+        parents, and_(*(parents.c[field] == visible.c[field] for field in retained_key))
+    )
+    text_null, number_null = cast(null(), Text()), cast(null(), BigInteger())
+    identity = tuple(visible.c[name] for name in KEY_FIELDS)
+    headers = (
+        select(
+            *identity,
+            cast(parents.c.ordinal, BigInteger()).label("ordinal"),
+            parents.c.partition_digest.label("partition_digest"),
+            cast(parents.c.item_count, BigInteger()).label("item_count"),
+            func.data.canonical_json(parents.c.group_digests, type_=Text()).label("group_digests"),
+            func.data.canonical_json(parents.c.placement, type_=Text()).label("placement"),
+            text_null.label("address_key"),
+            text_null.label("canonical_text"),
+        )
+        .select_from(source)
+        .where(~items_requested)
+    )
+    members = (
+        select(
+            *identity,
+            cast(items.c.item_ordinal, BigInteger()),
+            text_null,
+            number_null,
+            text_null,
+            text_null,
+            func.data.canonical_json(cast(items.c.address_key, JSONB()), type_=Text()),
+            items.c.canonical_text,
+        )
+        .select_from(
+            source.join(
+                items, and_(*(items.c[field] == visible.c[field] for field in retained_key))
+            )
+        )
+        .where(items_requested)
+    )
+    typed = headers.union_all(members).subquery("selected_typed_population")
+    keys_ordered = (
+        typed.c.product_id.collate("C"),
+        typed.c.collection.collate("C"),
+        typed.c.partition_key.collate("C"),
+        typed.c.ordinal,
+    )
+    after = tuple_(after_product, after_collection, after_partition, after_ordinal)
+    payload_fields = population_fields()[len(KEY_FIELDS) + 1 :]
+    text_fields = (
+        "product_id",
+        "collection",
+        "partition_key",
+        *(n for n in payload_fields if n != "item_count"),
+    )
+    extent = cast(
+        16 + sum(func.coalesce(func.octet_length(typed.c[name]), 0) for name in text_fields),
+        BigInteger(),
+    )
+    candidate = (
+        select(*typed.c, extent.label("row_bytes"))
+        .where(or_(after_product.is_(None), tuple_(*keys_ordered) > after))
+        .order_by(*keys_ordered)
+        .limit(rows)
+        .cte("typed_population_prefix")
+        .prefix_with("MATERIALIZED")
+    )
+    order = (
+        candidate.c.product_id.collate("C"),
+        candidate.c.collection.collate("C"),
+        candidate.c.partition_key.collate("C"),
+        candidate.c.ordinal,
+    )
+    prefix = select(
+        *candidate.c,
+        func.sum(candidate.c.row_bytes).over(order_by=order).label("prefix_bytes"),
+        func.row_number().over(order_by=order).label("position"),
+    ).cte("typed_population_sizes")
+    fits = prefix.c.prefix_bytes <= budget
+    returns = pg_type("record")
+    returns.setof = True
+    return NativeRoutine(
+        "ops",
+        "read_selected_archive_population",
+        parameters=(
+            Parameter("p_handle", pg_type("text")),
+            Parameter("p_items", pg_type("boolean")),
+            Parameter("p_after_product", pg_type("text")),
+            Parameter("p_after_collection", pg_type("text")),
+            Parameter("p_after_partition", pg_type("text")),
+            Parameter("p_after_ordinal", pg_type("bigint")),
+        ),
+        returns=returns,
+        table_columns=(
+            *(
+                (name, pg_type("bigint" if name in {"ordinal", "item_count"} else "text"))
+                for name in population_fields()
+            ),
+            ("fits", pg_type("boolean")),
+        ),
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            (
+                *_read_population_cut(model, sessions, keys, issuer, handle),
+                ReturnQuery(
+                    select(
+                        *(case((fits, prefix.c[name])) for name in population_fields()),
+                        fits,
+                    )
+                    .where(or_(fits, prefix.c.position == literal(1)))
+                    .order_by(
+                        prefix.c.product_id.collate("C"),
+                        prefix.c.collection.collate("C"),
+                        prefix.c.partition_key.collate("C"),
+                        prefix.c.ordinal,
+                    )
+                ),
+            ),
+            locals_,
+        ),
+    )
+
+
+def _population_item_reader(model, sessions, keys, issuer, locals_):
+    handle = core_variable("archive_handle", Text())
+    capacity = core_variable("archive_bytes", BigInteger())
+    parent = core_variable("p_product", Text())
+    collection = core_variable("p_collection", Text())
+    partition = core_variable("p_partition", Text())
+    address = core_variable("p_address", JSONB())
+    products = model.tables["kb.data_product"]
+    visible = model.tables["kb.data_product_population"]
+    headers = model.tables["ops.data_retained_population"]
+    items = model.tables["ops.data_retained_population_item"]
+    retained_key = ("intent_id", "output_role", "output_position", "collection", "partition_key")
+    selected = exists(
+        select(1)
+        .select_from(keys)
+        .where(
+            keys.c.handle == handle,
+            keys.c.key
+            == literal("kb.data_product:") + cast(func.jsonb_build_array(parent), Text()),
+            keys.c.relation == "kb.data_product",
+        )
+    )
+    fits = func.octet_length(items.c.canonical_text) <= capacity
+    result = (
+        select(
+            visible.c.product_id,
+            headers.c.partition_digest,
+            case((fits, items.c.canonical_text)),
+        )
+        .select_from(
+            products.join(visible, visible.c.product_id == products.c.id)
+            .join(headers, and_(*(headers.c[key] == visible.c[key] for key in retained_key)))
+            .join(items, and_(*(items.c[key] == visible.c[key] for key in retained_key)))
+        )
+        .where(
+            visible.c.product_id == parent,
+            visible.c.collection == collection,
+            visible.c.partition_key == partition,
+            items.c.address_key == cast(address, Text()),
+            selected,
+            _disclosed_body_access(model, products.c.kind_contract, products.c.canonical_body),
+        )
+    )
+    returns = pg_type("record")
+    returns.setof = True
+    return NativeRoutine(
+        "ops",
+        "read_selected_archive_item",
+        parameters=(
+            Parameter("p_handle", pg_type("text")),
+            Parameter("p_product", pg_type("text")),
+            Parameter("p_collection", pg_type("text")),
+            Parameter("p_partition", pg_type("text")),
+            Parameter("p_address", pg_type("jsonb")),
+        ),
+        returns=returns,
+        table_columns=(
+            ("product_id", pg_type("text")),
+            ("partition_digest", pg_type("text")),
+            ("canonical_text", pg_type("text")),
+        ),
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            (*_read_population_cut(model, sessions, keys, issuer, handle), ReturnQuery(result)),
+            locals_,
+        ),
     )

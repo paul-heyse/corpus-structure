@@ -55,6 +55,48 @@ def test_known_rollback_and_lost_acknowledgment_preserve_exact_draft(tmp_path):
     assert sha256((tmp_path / (first.identity + ".ack")).read_bytes()).hexdigest() == first.identity
 
 
+def test_population_upload_is_owned_by_the_durable_acknowledgment(tmp_path):
+    import pyarrow as pa
+
+    from corpus_structure.semantic.data_operation_partitions import PartitionCommitment
+    from corpus_structure.semantic.population_transfer import (
+        PopulationUploadPartition,
+        population_item_write_profile,
+        population_upload_batches,
+        write_population_upload,
+    )
+
+    profile = population_item_write_profile(release_id="release:original")
+    partition = PopulationUploadPartition(
+        PartitionCommitment("rows", "one", 0, 1, 4, "digest:one", 1),
+        {},
+        pa.table({"item_ordinal": [0], "canonical_text": ['["mapping",[]]']}),
+    )
+    upload = write_population_upload(
+        profile, population_upload_batches(profile, [("result", 0, partition)]), max_bytes=65536
+    )
+    store = CompletionDraftStore(tmp_path, max_bytes=65536)
+    draft = acknowledge(store, population_upload=upload)
+    assert draft.identity != acknowledge(store).identity
+    reopened = store.open(draft.identity)
+    assert reopened.population_upload is not None
+    with pa.ipc.open_stream(reopened.population_upload) as reader:
+        assert reader.schema.equals(profile.schema, check_metadata=True)
+        assert reader.read_all().to_pylist() == [
+            {
+                "output_role": "result",
+                "output_position": 0,
+                "collection": "rows",
+                "partition_key": "one",
+                "item_ordinal": 0,
+                "canonical_text": '["mapping",[]]',
+            }
+        ]
+    (tmp_path / (draft.identity + ".arrow")).write_bytes(upload[:-1] + b"0")
+    with pytest.raises(ValueError, match="acknowledged population upload"):
+        store.open(draft.identity)
+
+
 def test_concurrent_acknowledgment_converges_on_one_exact_body(tmp_path):
     store = CompletionDraftStore(tmp_path, max_bytes=65536)
     with ThreadPoolExecutor(max_workers=3) as workers:

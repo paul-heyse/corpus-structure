@@ -5,19 +5,25 @@ from __future__ import annotations
 import inspect
 import json
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, ClassVar
 
 from .construction_products import (
-    CharacterizationSnapshot,
     InterpretedProduct,
+    PopulationCharacterizationSnapshot,
     construction_product_inputs,
     interpreted_member_contracts,
     interpreted_product_value,
     validate_interpreted_product,
 )
 from .data_operation_model import ResolvedRoleBinding, SubjectContext
+from .data_operation_partitions import (
+    AcquiredPopulationPartition,
+    PartitionCommitment,
+    PartitionedInput,
+)
+from .data_operation_population import AcquiredPopulation
 from .identity import canonical_bytes
 from .native_source_view import thaw_native
 from .python_module_projection import admitted_operation_module_meaning
@@ -39,6 +45,7 @@ _PATHS = (
     "semantic/characterization_manifests.py",
     "semantic/reference_resolution.py",
     "semantic/sentence_partitions.py",
+    "semantic/data_operation_population.py",
     "semantic/enriched_document_products.py",
     "model/semantic/data-operation-constructions.yaml",
 )
@@ -171,16 +178,19 @@ class PreparedDeclarationInputs:
             for item in model.identities
             if item.owner == self.prepared.index.definitions[kind].iri and item.domain == "kind"
         )
-        header = value["header"]
+        from .data_operation_json import native_json_loads
+
+        header = native_json_loads(value.header)
         product = contextual_product_identity(
             kind=contract, context=context, body=body_identity(header).key
         ).key
         if member.kind_contract != contract or product != member.product:
             raise ValueError("declaration body differs from its exact bound product")
-        return CharacterizationSnapshot(
+        return PopulationCharacterizationSnapshot(
             product,
-            canonical_bytes(header),
-            tuple(canonical_bytes(packet) for packet in value["partitions"]),
+            value.header,
+            value.packets,
+            populations=value.populations,
         )
 
     def run(self, source, canonical, hanlp):
@@ -239,14 +249,34 @@ def declaration_kernel(
     roles: tuple[ResolvedRoleBinding, ...],
     context: SubjectContext,
     *,
+    canonical_items: tuple[AcquiredPopulation, ...],
+    hanlp_items: tuple[AcquiredPopulation, ...],
     prepared: PreparedRelease,
     check_active: Callable[[], None],
 ) -> dict:
     from corpus_structure.methods.declaration_syntax import DeclarationSyntaxOperation
 
+    canonical = _partition_argument(arguments["canonical"], canonical_items)
+    hanlp = _partition_argument(arguments["hanlp"], hanlp_items)
     return DeclarationSyntaxOperation(
         PreparedDeclarationInputs(prepared, roles, context, check_active)
-    ).run(**arguments)
+    ).run(arguments["source"], canonical, hanlp)
+
+
+def _partition_argument(control: dict, items: tuple[AcquiredPopulation, ...]) -> PartitionedInput:
+    populations = tuple(
+        AcquiredPopulationPartition(
+            PartitionCommitment(**metadata["commitment"]),
+            metadata["group_digests"],
+            item,
+        )
+        for metadata, item in zip(control["populations"], items, strict=True)
+    )
+    return PartitionedInput(
+        control["header"].encode(),
+        tuple(packet.encode() for packet in control["packets"]),
+        populations,
+    )
 
 
 @dataclass
@@ -259,14 +289,42 @@ class DeclarationCallPlan:
             raise ValueError("declaration original semantic assets changed")
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
+        from .data_operation_cpu import PopulationCPUInput
 
         if binding is None or binding.subject_context is None:
             raise ValueError("declaration syntax lacks its qualified native binding")
+        control = dict(arguments.arguments)
+        population_inputs = {}
+        for role in ("canonical", "hanlp"):
+            selected = control[role]
+            if not isinstance(selected, PartitionedInput):
+                raise ValueError("declaration syntax lacks its acquired partitioned input")
+            control[role] = {
+                "header": selected.header.decode(),
+                "packets": [packet.decode() for packet in selected.packets],
+                "populations": [
+                    {
+                        "commitment": asdict(item.commitment),
+                        "group_digests": dict(item.group_digests),
+                    }
+                    for item in selected.populations
+                ],
+            }
+            population_inputs[f"{role}_items"] = tuple(
+                PopulationCPUInput(
+                    item.population, self.port.identity.recipe, item.commitment.digest
+                )
+                for item in selected.populations
+            )
         signature = inspect.signature(declaration_kernel, eval_str=True)
         bound = signature.bind(
-            arguments=arguments.arguments,
+            arguments=control,
             roles=binding.roles,
             context=binding.subject_context,
+            **{
+                name: tuple(item.population for item in transfers)
+                for name, transfers in population_inputs.items()
+            },
             prepared=self.prepared,
             check_active=check_active,
         )
@@ -280,6 +338,7 @@ class DeclarationCallPlan:
                 verify=self.verify,
                 execution_owner=execution_owner,
                 check_active=check_active,
+                population_inputs=population_inputs,
             )
         )
 

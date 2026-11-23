@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-23. SBX-09 qualification is paused. The operator approved all five columnar rule changes. ADR-0154 and the focused target review establish the replacement target before the next cold root. `main` registers `semantic_sbx_current_root` with the bounded proof tokenizer. The empty qualification target has the preceding registration. All interrupted test workers and their private PostgreSQL clusters exited. Development still runs N29 and its data is disposable._ [Qualification checkpoint](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-09-qualification-pause) · [ADR-0154](docs/adr/0154-sbx-columnar-populations.md) · [ADR-0150](docs/adr/0150-sbx-empty-development-cutover.md)
+_Updated 2026-11-23. The typed population runtime is on `main`. Validation resumed in serialized cohorts. Rollback-only cold authoring passed. Replacement registration, fresh-install qualification, and the development reset are open. Development still runs N29._ [Typed implementation checkpoint](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation) · [ADR-0154](docs/adr/0154-sbx-columnar-populations.md) · [ADR-0150](docs/adr/0150-sbx-empty-development-cutover.md)
 
 ## Current owners
 
@@ -12,9 +12,10 @@ _Updated 2026-11-23. SBX-09 qualification is paused. The operator approved all f
 
 ## Last verified
 
+- **Passed · 2026-11-23.** `uv run ci schema check --correction-detail --retain-diagnostics --json` passed (`9a6503f1641446ba99242101e966811e`). The private one-worker native control exercised authenticated COPY, durable retention, exact replay, publication and indexed readback (`38104b6beaef4266a2a05dd997c531d3`). [Typed implementation checkpoint](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation)
 - **Passed · 2026-11-23.** The single-worker foundation selection passed 20 ordinary identities (`36997f01e6f34e7a874d94a1b2d9d5a0`). It covers retained relation constraints, existing identity parity, effective Arrow layouts, sealed IPC and exact pgpq upload bytes. The registered root still uses the earlier runtime routes.
 
-- **Passed.** The final `uv run ci test --workers 1` focused selection passed all 23 ordinary identities (`2fc6263dc9824604b36d51e0b7e18706`). It covers premise preparation, prepared completions, PDF omission, analytics settings and CPU worker custody. Integrated native and provider qualification remains paused.
+- **Passed.** The earlier `uv run ci test --workers 1` focused selection passed all 23 ordinary identities (`2fc6263dc9824604b36d51e0b7e18706`). It covers premise preparation, prepared completions, PDF omission, analytics settings and CPU worker custody. Integrated native and provider qualification remains open.
 - **Passed.** `uv run ci docs check` verified publication of the revised SBX series. Functional and provider qualification were `not_run` for this documentation change.
 - **Passed.** The [bounded library probe](docs/design_review/evidence/2026-11-22_sbx-analytical-redesign/README.md) confirmed grouped Acero/DuckDB results and the single-use Arrow reader boundary. `uv run --no-sync ci docs check` passed. `uv run --no-sync ci evidence check` failed on five existing DDO evidence errors involving changed outputs or unresolved references. The new probe record finalized successfully.
 - **Passed.** `uv run ci model change preview`, `candidate`, `register` and `inspect-candidate` established the new sole root with the bounded proof tokenizer. The preceding registration installed on `corpus_structure_sbx09_policy_qualification` with the exact descriptor, purpose grants and empty product relations. [Root evidence](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-09-qualification-pause)
@@ -26,6 +27,6 @@ _Updated 2026-11-23. SBX-09 qualification is paused. The operator approved all f
 
 ## Remaining acceptance
 
-- Integrate typed admission and retained-row promotion, then deliver annotation through canonical publication, construction and selected replay. Extend that route to the affected families before integrated root authoring. [Cutover sequence](docs/plans/set-based-execution/cutover-and-qualification.md#columnar-cutover-sequence)
+- Verify the integrated typed producer, worker, admission, and selected-replay routes on a registered replacement root. Retire remaining replaced paths as their consumers move. [Cutover sequence](docs/plans/set-based-execution/cutover-and-qualification.md#columnar-cutover-sequence)
 - Reconcile retained ordinary and provider receipts by exact source, root and context. Cold installation and functional qualification of the latest registration were `not_run`. Witness replay, remaining provider checks and other diagnoses are open. [Qualification checkpoint](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-09-qualification-pause)
 - The development reset remains gated on integrated acceptance. The cutover targets the dedicated development database and discards its prior data. [Development reset](docs/plans/set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09)

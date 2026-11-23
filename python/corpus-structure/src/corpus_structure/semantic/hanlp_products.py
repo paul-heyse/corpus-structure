@@ -55,7 +55,7 @@ def hanlp_product_inputs(bundle):
 
 def canonical_hanlp_rows(source, canonical):
     """Acquire closed block-local membership and recover original pretokenized words."""
-    return canonical_hanlp_rows_from_blocks(source, canonical.value, canonical._payload.blocks)
+    return canonical_hanlp_rows_from_blocks(source, canonical.value, canonical.partition_blocks)
 
 
 def canonical_hanlp_rows_from_blocks(source, header, blocks):
@@ -680,6 +680,9 @@ def _hanlp_execution_paths():
         root / "data_operation_prepared_products.py",
         root / "data_operation_ports.py",
         root / "sentence_partitions.py",
+        root / "data_operation_population.py",
+        root / "population_canonical.py",
+        root / "population_transfer.py",
         root.parent / "methods/native_profiles.py",
         root.parent / "methods/native_host.py",
         root.parent / "core/process_lifetime.py",
@@ -1045,6 +1048,7 @@ class PreparedHanlpPort:
             self.profile.prepared.index.definitions["DdoCanonicalSentences"].iri,
             context,
             partitions=packets,
+            populations=supplied.partitioned.populations,
         )
         if member is not None and canonical.reference.product_id != member.product:
             raise PortRefusal("HanLP canonical body differs from selected native product")
@@ -1063,7 +1067,7 @@ class PreparedHanlpPort:
         from ._data_operation_wire import WireKindContract, WireOutputMember
         from .data_operation_ports import PortCompletion
         from .established_validity import RuleObservedInput, successful_rule_attestation
-        from .sentence_partitions import partitioned_role
+        from .sentence_partitions import typed_sentence_role
 
         output = next(role for role in self.operation.roles if role.direction == "output")
         model = self.profile.model
@@ -1072,16 +1076,18 @@ class PreparedHanlpPort:
             for item in model.identities
             if item.owner == output.kind and item.domain == "kind"
         )
-        result = partitioned_role(
+        kind = next(kind for kind in model.kinds if kind.semantic_id == output.kind)
+        result = typed_sentence_role(
             output.name,
             kind_contract,
             product._payload,
+            self.profile.prepared,
+            kind,
         )
         attestations = ()
         if binding is not None and binding.subject_context is not None:
             from .native_source_view import thaw_native
 
-            kind = next(kind for kind in model.kinds if kind.semantic_id == output.kind)
             assert result.meaning is not None
             packet: WireOutputMember = {
                 "role": output.name,

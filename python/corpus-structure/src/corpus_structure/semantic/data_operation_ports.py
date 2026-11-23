@@ -40,6 +40,7 @@ from .established_validity import RuleAttestation
 from .identity import canonical_bytes
 from .input_values import _untrusted_value as _snapshot_value
 from .operation_value_types import decode_json_text, native_result_scope
+from .population_transfer import PopulationUploadPartition
 from .python_operation_sources import PythonSourceCollection
 from .types import SourceArtifact, SourceBundle
 
@@ -145,6 +146,7 @@ class RoleValue:
     meaning: bytes | None = None
     members: tuple[bytes, ...] = ()
     partitions: tuple[bytes, ...] = ()
+    populations: tuple[PopulationUploadPartition, ...] = field(default=(), kw_only=True)
 
     def __post_init__(self) -> None:
         if (
@@ -156,6 +158,11 @@ class RoleValue:
             or any(type(member) is not bytes for member in self.members)
             or type(self.partitions) is not tuple
             or any(type(partition) is not bytes for partition in self.partitions)
+            or type(self.populations) is not tuple
+            or any(
+                type(partition) is not PopulationUploadPartition for partition in self.populations
+            )
+            or (self.partitions and self.populations)
         ):
             raise TypeError("role values require nominal role/kind and owned immutable bytes")
 
@@ -550,7 +557,9 @@ class PortAdapters:
         for signature in signatures:
             if signature is not None:
                 for parameter in signature.parameters.values():
-                    self.get(_input_annotation(parameter))
+                    annotation = _input_annotation(parameter)
+                    if annotation is not PartitionedInput:
+                        self.get(annotation)
                 annotation = signature.return_annotation
                 if get_origin(annotation) not in (Generator, Iterator):
                     self.get(annotation)
@@ -815,7 +824,7 @@ class ResolvedPythonPort:
             if value.kind_contract != contracts[roles[value.role].kind]:
                 raise PortRefusal("nominal kind contract differs for role: " + value.role)
             supplied[value.role] = value
-        arguments = {}
+        arguments: dict[str, Any] = {}
         for name, role in roles.items():
             if role.parameter is None:
                 raise PortRefusal("input role has no authoritative callable parameter: " + name)
@@ -823,6 +832,17 @@ class ResolvedPythonPort:
             annotation = _input_annotation(parameter)
             if name in supplied:
                 value = supplied[name]
+                if annotation is PartitionedInput:
+                    if (
+                        role.collection != "scalar"
+                        or not isinstance(value, PythonRoleValue)
+                        or value.partitioned is None
+                    ):
+                        raise PortRefusal("partitioned ingress requires an acquired scalar carrier")
+                    if isinstance(value, HydratedRoleValue) and value.selected is not None:
+                        HydratedRoleValue._require_selected(value, binding)
+                    arguments[role.parameter] = value.partitioned
+                    continue
                 typed_dict_fields = (
                     annotation.__annotations__ if typing.is_typeddict(annotation) else None
                 )

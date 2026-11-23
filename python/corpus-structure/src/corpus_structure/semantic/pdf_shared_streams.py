@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
+import pyarrow as pa
 from pglast import ast, enums
 from pglast.stream import RawStream
 from pyarrow import compute as pc
@@ -439,9 +440,12 @@ class PdfSharedStreamTransfer:
         for batch in relations["artifact_part"]:
             for name in ("product_id", "revision_id"):
                 column = batch.column(name)
-                if column.null_count or pc.any(pc.not_equal(column, build.build_id)).as_py():
+                if column.null_count:
                     raise ValueError("shared part replay changes its owned build")
-            ids.update(pc.unique(batch.column("stream_id")).to_pylist())
+                differs = pc.call_function("not_equal", [column, pa.scalar(build.build_id)])
+                if pc.call_function("any", [differs]).as_py():
+                    raise ValueError("shared part replay changes its owned build")
+            ids.update(pc.call_function("unique", [batch.column("stream_id")]).to_pylist())
         if not ids or not ids <= self.descriptors.keys():
             return False
         return ids <= verified_shared_stream_ids(

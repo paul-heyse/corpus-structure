@@ -1298,6 +1298,7 @@ class PreparedLearnedPrimaryPort:
                 partitioned.header,
                 partitioned.packets,
                 source,
+                populations=partitioned.populations,
                 member=member,
                 project=binding.subject_context.project_id,
             )

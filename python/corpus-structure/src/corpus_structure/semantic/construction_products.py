@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 from typing import Any, ClassVar, Self, overload
@@ -23,6 +23,7 @@ from corpus_structure.semantic.characterization import (
     admitted_characterization_graph,
     validate_inventory_topology,
 )
+from corpus_structure.semantic.data_operation_partitions import AcquiredPopulationPartition
 from corpus_structure.semantic.native_source_view import (
     freeze_native,
     matches_positioned_source_extent,
@@ -376,6 +377,13 @@ class CharacterizationSnapshot:
             elif tag not in {"choice_member", "manifest"}:
                 result["source_facts"].append(packet)
         return {**result, "coverage": body["coverage"]}
+
+
+@dataclass(frozen=True)
+class PopulationCharacterizationSnapshot(CharacterizationSnapshot):
+    """Child-owned view with its already authenticated populations."""
+
+    populations: tuple[AcquiredPopulationPartition, ...] = field(default=(), kw_only=True)
 
 
 def _requested_regions(source: FrozenNativeSource):

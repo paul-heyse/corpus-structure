@@ -2,6 +2,7 @@
 
 from typing import ClassVar
 
+from corpus_structure.semantic.data_operation_partitions import PartitionedInput
 from corpus_structure.semantic.declaration_products import execute_declaration_profile
 
 
@@ -213,5 +214,5 @@ class DeclarationSyntaxOperation:
     def __init__(self, inputs):
         self.inputs = inputs
 
-    def run(self, source: dict, canonical: dict, hanlp: dict) -> dict:
+    def run(self, source: dict, canonical: PartitionedInput, hanlp: PartitionedInput) -> dict:
         return execute_declaration_profile(self, source, canonical, hanlp)

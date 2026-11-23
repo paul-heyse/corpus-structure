@@ -17,7 +17,8 @@ from corpus_structure.caches import declare
 from .characterization_manifests import append_manifest
 from .data_operation_model import SubjectContext
 from .data_operation_outcomes import successful_return_outcome
-from .data_operation_projection_values import materialize_whole_input_projection
+from .data_operation_population import AcquiredPopulation
+from .data_operation_projection_values import _whole_input, materialize_whole_input_projection
 from .identity import canonical_bytes
 from .types import SourceArtifact
 
@@ -41,13 +42,18 @@ class CanonicalProduct:
     kind: str
     subject_context: SubjectContext | None = None
     partitions: tuple[bytes, ...] = field(kw_only=True)
+    populations: tuple = field(default=(), kw_only=True)
     _payload: ClassVar[Any]
 
     def __post_init__(self):
         from .sentence_partitions import sentence_product_payload
 
         payload = sentence_product_payload(
-            self.content, self.partitions, self.prepared, self.prepared.index.by_iri[self.kind].name
+            self.content,
+            self.partitions,
+            self.prepared,
+            self.prepared.index.by_iri[self.kind].name,
+            populations=self.populations,
         )
         object.__setattr__(self, "content", payload.content)
         object.__setattr__(self, "partitions", payload.partitions)
@@ -56,16 +62,36 @@ class CanonicalProduct:
     def with_context(self, context):
         _ = self.value
         result = object.__new__(CanonicalProduct)
-        for name in ("content", "prepared", "model", "kind", "partitions", "_payload"):
+        for name in (
+            "content",
+            "prepared",
+            "model",
+            "kind",
+            "partitions",
+            "populations",
+            "_payload",
+        ):
             object.__setattr__(result, name, getattr(self, name))
         object.__setattr__(result, "subject_context", context)
         return result
 
     @property
     def value(self) -> Mapping[str, Any]:
-        if "_payload" not in vars(self) or self.content is not self._payload.content or self.partitions is not self._payload.partitions:
+        if (
+            "_payload" not in vars(self)
+            or self.content is not self._payload.content
+            or self.partitions is not self._payload.partitions
+            or self.populations is not self._payload.populations
+        ):
             raise TypeError("canonical product lacks its validating acquisition")
         return self._payload.value
+
+    @cached_property
+    def partition_blocks(self):
+        from .sentence_partitions import selected_sentence_blocks
+
+        _ = self.value
+        return selected_sentence_blocks(self._payload)
 
     def _publication_context(self):
         if self.subject_context is None:
@@ -127,10 +153,16 @@ _OFFSET_BYTES = 8
 
 
 def _canonical_local_rows(body: bytes) -> bytes:
+    from .data_operation_values import decode_semantic_value
+
+    return _canonical_rows_template(decode_semantic_value(json.loads(body)))
+
+
+def _canonical_rows_template(geometry) -> bytes:
     """Prepare local rows and the exact address offsets in their canonical frame."""
     from .data_operation_identity import canonical_identity
     from .data_operation_value_codec import tagged_mapping_field
-    from .data_operation_values import decode_semantic_value, semantic_value
+    from .data_operation_values import semantic_value
     from .data_product_reference import SemanticReference
     from .sentence_partitions import COLLECTION
 
@@ -145,7 +177,7 @@ def _canonical_local_rows(body: bytes) -> bytes:
                 occurrence=None,
             ).values()
         }
-        for row in decode_semantic_value(json.loads(body))
+        for row in geometry
     )
     frame = json.loads(canonical_identity("partition", None).canonical_input)
     body_value = semantic_value(rows)
@@ -174,10 +206,17 @@ def _canonical_local_rows(body: bytes) -> bytes:
 @declare(
     "canonical-partition-rows",
     "runtime_bytes",
-    key=lambda basis, body: (*basis, sha256(body).digest()),
+    key=lambda basis, body, group_digest=None: (
+        *basis,
+        group_digest if group_digest is not None else sha256(body).digest(),
+    ),
     weight=lambda result: len(result),
 )
-def _memoized_canonical_local_rows(basis: tuple[str, ...], body: bytes) -> bytes:
+def _memoized_canonical_local_rows(
+    basis: tuple[str, ...], body: bytes | AcquiredPopulation, group_digest: str | None = None
+) -> bytes:
+    if isinstance(body, AcquiredPopulation):
+        return _canonical_rows_template(body.rows())
     return _canonical_local_rows(body)
 
 
@@ -207,6 +246,7 @@ def canonical_partition_values(
     memo_basis: tuple[str, ...] | None = None,
     decimal_digits: int | None = None,
     *,
+    populations: tuple[AcquiredPopulation, ...] = (),
     check_active=lambda: None,
 ) -> dict:
     from .data_operation_identity import CanonicalIdentity
@@ -226,15 +266,26 @@ def canonical_partition_values(
         else "partial",
     }
     packets = []
-    for part in inventory["collections"][COLLECTION]:
+    partitions = inventory["collections"][COLLECTION]
+    if populations and len(populations) != len(partitions):
+        raise ValueError("canonical population transfer differs from its selected metadata")
+    for index, part in enumerate(partitions):
         check_active()
         key = part["partition_key"]
-        meaning = canonical_bytes(part["body"])
-        template = (
-            _canonical_local_rows(meaning)
-            if memo_basis is None
-            else _memoized_canonical_local_rows(memo_basis, meaning)
-        )
+        if populations:
+            geometry = populations[index]
+            template = (
+                _canonical_rows_template(geometry.rows())
+                if memo_basis is None
+                else _memoized_canonical_local_rows(memo_basis, geometry, part["geometry_digest"])
+            )
+        else:
+            meaning = canonical_bytes(part["body"])
+            template = (
+                _canonical_local_rows(meaning)
+                if memo_basis is None
+                else _memoized_canonical_local_rows(memo_basis, meaning)
+            )
         frame = _address_canonical_local_rows(template, key)
         packets.append(
             {
@@ -262,8 +313,12 @@ class PreparedCanonicalProfile:
     def output(self, value):
         return CanonicalProduct.from_projection(value, self.prepared, self.model, self.output_kind)
 
-    def project(self, inventory):
-        return self.output(canonical_partition_values(inventory, json.loads(self.projection)))
+    def project(self, inventory, *, populations=()):
+        return self.output(
+            canonical_partition_values(
+                inventory, json.loads(self.projection), populations=populations
+            )
+        )
 
 
 def execute_canonical_projection(receiver, inventory):
@@ -294,6 +349,7 @@ def _canonical_codec_runtime():
 _RESULT_HELPERS = {
     "canonical_sentences": (
         "_canonical_local_rows",
+        "_canonical_rows_template",
         "_address_canonical_local_rows",
         "CanonicalProduct.from_projection",
     ),
@@ -317,7 +373,7 @@ _RESULT_HELPERS = {
         "_write_reference_key_part",
     ),
     "identity": ("canonical_bytes",),
-    "sentence_partitions": ("partitioned_role",),
+    "sentence_partitions": ("typed_sentence_role",),
     "source_products": ("source_subject",),
     "value_codec": ("decimal_digit_limit", "decimal_text"),
     "value_codec_core": ("value_meaning", "decimal_text"),
@@ -363,6 +419,11 @@ def _canonical_execution_files():
         root / "characterization_manifests.py",
         root / "sentence_products.py",
         root / "sentence_partitions.py",
+        root / "data_operation_population.py",
+        root / "population_canonical.py",
+        root / "population_transfer.py",
+        root / "population_canonical.py",
+        root / "population_transfer.py",
         root / "source_products.py",
         root / "data_operation_projection_values.py",
         root / "data_operation_prepared_products.py",
@@ -442,6 +503,7 @@ class PreparedCanonicalPort:
     _signature: inspect.Signature = field(init=False, repr=False, compare=False)
     _decimal_digits: int = field(init=False, repr=False)
     _codec_runtime: tuple = field(init=False, repr=False, compare=False)
+    requires_prepared_schema: ClassVar[bool] = True
 
     @property
     def operation(self):
@@ -568,10 +630,11 @@ class PreparedCanonicalPort:
             raise PortRefusal("canonical value codec differs from the acquired computation recipe")
         self.authorize(self.identity)
 
-    def _input(self, values, binding):
-        from .data_operation_ports import PortRefusal, PythonRoleValue
+    def _input(self, values, binding, *, typed_inputs=None):
+        from .data_operation_cpu import PopulationCPUInput
+        from .data_operation_ports import HydratedRoleValue, PortRefusal, PythonRoleValue
         from .data_operation_values import decode_semantic_value
-        from .sentence_partitions import sentence_product_payload
+        from .sentence_partitions import COLLECTION, sentence_product_payload
         from .source_products import source_subject
 
         inputs = [role for role in self.operation.roles if role.direction == "input"]
@@ -588,9 +651,17 @@ class PreparedCanonicalPort:
             or values[0].partitioned is None
         ):
             raise PortRefusal("canonical projection requires its actual nominal inventory role")
+        partitioned = values[0].partitioned
+        if binding is not None and partitioned.populations:
+            if not isinstance(values[0], HydratedRoleValue):
+                raise PortRefusal("canonical geometry requires its authenticated selected role")
+            HydratedRoleValue._require_selected(values[0], binding)
         retained = sentence_product_payload(
-            values[0].partitioned.header, values[0].partitioned.packets, self.profile.prepared,
+            partitioned.header,
+            partitioned.packets,
+            self.profile.prepared,
             self.profile.prepared.index.by_iri[inputs[0].kind].name,
+            populations=partitioned.populations,
         )
         if binding is not None and (
             not binding.sufficient
@@ -601,6 +672,37 @@ class PreparedCanonicalPort:
             or decode_semantic_value(json.loads(binding.parameters)) != {}
         ):
             raise PortRefusal("canonical inventory differs from frozen selected binding")
+        if retained.populations:
+            projection = self.profile.input_projection
+            selection = next(item for item in projection.collections if item.name == COLLECTION)
+            if typed_inputs is None or selection.groups != ("geometry",):
+                raise PortRefusal("canonical geometry differs from its compiled projection")
+            facts = []
+            for item in sorted(retained.populations, key=lambda value: value.commitment.ordinal):
+                partition = item.commitment
+                digest = item.group_digests["geometry"]
+                facts.append(
+                    dict(
+                        collection=COLLECTION,
+                        partition_key=partition.key,
+                        ordinal=partition.ordinal,
+                        placement={"start": partition.start, "end": partition.end},
+                        geometry_digest=digest,
+                    )
+                )
+                typed_inputs.append(
+                    PopulationCPUInput(
+                        item.population.project_groups(selection.groups),
+                        projection.fingerprint,
+                        digest,
+                    )
+                )
+            return _whole_input(
+                projection,
+                retained.value,
+                facts,
+                lambda packet, _: {"geometry_digest": packet["geometry_digest"]},
+            )
         return materialize_whole_input_projection(
             self.profile.input_projection,
             json.loads(self.profile.input_layouts),
@@ -612,7 +714,7 @@ class PreparedCanonicalPort:
         if binding is not None:
             value = value.with_context(binding.subject_context)
         from .data_operation_ports import PortCompletion
-        from .sentence_partitions import partitioned_role
+        from .sentence_partitions import typed_sentence_role
 
         output = next(role for role in self.operation.roles if role.direction == "output")
         kind = next(
@@ -620,13 +722,18 @@ class PreparedCanonicalPort:
             for item in self.profile.model.identities
             if item.owner == output.kind and item.domain == "kind"
         )
+        definition = next(
+            kind for kind in self.profile.model.kinds if kind.semantic_id == output.kind
+        )
         return PortCompletion(
             self.operation.semantic_id,
             (
-                partitioned_role(
+                typed_sentence_role(
                     output.name,
                     kind,
                     value._payload,
+                    self.profile.prepared,
+                    definition,
                 ),
             ),
             outcome=successful_return_outcome(self.operation),
@@ -636,9 +743,15 @@ class PreparedCanonicalPort:
         from corpus_structure.methods.canonical_sentences import CanonicalSentenceProjection
 
         self._verify()
-        inventory = self._input(values, binding)
+        inputs = []
+        inventory = self._input(values, binding, typed_inputs=inputs)
         check_active()
-        result = CanonicalSentenceProjection(self.profile).run(inventory)
+        if inputs:
+            result = self.profile.project(
+                inventory, populations=tuple(item.population for item in inputs)
+            )
+        else:
+            result = CanonicalSentenceProjection(self.profile).run(inventory)
         self._verify()
         return self._complete(result, binding)
 
@@ -646,7 +759,8 @@ class PreparedCanonicalPort:
         from .data_operation_cpu import plan_cpu_call
         from .native_source_view import thaw_native
 
-        inventory = self._input(values, binding)
+        inputs = []
+        inventory = self._input(values, binding, typed_inputs=inputs)
         memo_basis = None
         if (
             binding is not None
@@ -664,6 +778,7 @@ class PreparedCanonicalPort:
             projection=json.loads(self.profile.projection),
             memo_basis=memo_basis,
             decimal_digits=self._decimal_digits,
+            populations=tuple(item.population for item in inputs),
         )
         reply = yield from plan_cpu_call(
             self._descriptor,
@@ -672,6 +787,7 @@ class PreparedCanonicalPort:
             verify=self._verify,
             execution_owner=execution_owner,
             check_active=check_active,
+            population_inputs={"populations": tuple(inputs)},
         )
         result = self.profile.output(json.loads(reply.content))
         return replace(

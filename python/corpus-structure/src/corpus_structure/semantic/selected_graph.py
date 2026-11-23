@@ -250,7 +250,17 @@ def snapshot_from_index(prepared, cut, index, projection):
                 "member",
                 witness={"member_id": row["member_id"]},
             )
-        for row in index.rows("kb.data_product_partition"):
+        from itertools import chain
+
+        from .selected_population_archive import POPULATION_HEADERS
+
+        population_archive = getattr(index, "population_archive", None)
+        typed = (
+            index.rows(POPULATION_HEADERS)
+            if population_archive is None
+            else population_archive.rows(POPULATION_HEADERS)
+        )
+        for row in chain(index.rows("kb.data_product_partition"), typed):
             fact = {key: value for key, value in row.items() if key != "body"}
             partition = node(
                 "kb.data_product_partition",

@@ -986,6 +986,17 @@ def stage_lifecycle_sql(model) -> str:
 
 def stage_scratch_authorization_program() -> ProgramDeclaration:
     """Authorize actual scratch custody and compare declared native column/check shapes."""
+    return ProgramDeclaration(
+        private_scratch_authorization_routine("require_pdf_stage_scratch"),
+        "authoring/pdf-staging.sql",
+        role_name("publisher"),
+        INTERNAL_PROGRAM,
+    )
+
+
+def private_scratch_authorization_routine(name: str, *, projected: bool = False):
+    """Compare the actual scratch with a complete template or an ordered column subset."""
+    from pglast import ast
     from sqlalchemy import (
         Boolean,
         Integer,
@@ -999,7 +1010,7 @@ def stage_scratch_authorization_program() -> ProgramDeclaration:
         select,
         tuple_,
     )
-    from sqlalchemy.dialects.postgresql import OID, REGCLASS, array
+    from sqlalchemy.dialects.postgresql import ARRAY, OID, REGCLASS, array
 
     from .native_catalog import _catalog
     from .native_program import (
@@ -1045,6 +1056,9 @@ def stage_scratch_authorization_program() -> ProgramDeclaration:
     roles = _catalog("pg_roles", oid=OID, rolname=Text)
     scratch = core_variable("scratch", OID())
     expected = core_variable("p_relation", REGCLASS())
+    projected_names = core_variable("p_fields", ARRAY(Text()))
+    text_array = pg_type("text")
+    text_array.arrayBounds = (ast.Integer(ival=-1),)
     owned_role = (
         select(roles.c.oid).where(roles.c.rolname == role_name("publisher")).scalar_subquery()
     )
@@ -1083,9 +1097,9 @@ def stage_scratch_authorization_program() -> ProgramDeclaration:
     )
     empty = array([], type_=Text())
 
-    def column_shape(identity):
+    def column_shape(identity, *, template=False):
         fields = tuple_(
-            attribute.c.attnum,
+            *(() if projected else (attribute.c.attnum,)),
             attribute.c.attname,
             attribute.c.atttypid,
             attribute.c.atttypmod,
@@ -1093,20 +1107,25 @@ def stage_scratch_authorization_program() -> ProgramDeclaration:
             attribute.c.attgenerated,
             attribute.c.attidentity,
         )
-        return (
-            select(
-                func.coalesce(
-                    func.array_agg(cast(fields, Text())).aggregate_order_by(attribute.c.attnum),
-                    empty,
-                )
+        selected = select(
+            func.coalesce(
+                func.array_agg(cast(fields, Text())).aggregate_order_by(
+                    func.array_position(projected_names, attribute.c.attname)
+                    if projected and template
+                    else attribute.c.attnum
+                ),
+                empty,
             )
-            .where(
-                attribute.c.attrelid == identity,
-                attribute.c.attnum > 0,
-                not_(attribute.c.attisdropped),
-            )
-            .scalar_subquery()
+        ).where(
+            attribute.c.attrelid == identity,
+            attribute.c.attnum > 0,
+            not_(attribute.c.attisdropped),
         )
+        if projected and template:
+            selected = selected.where(
+                func.array_position(projected_names, attribute.c.attname).is_not(None)
+            )
+        return selected.scalar_subquery()
 
     def check_shape(identity):
         definition = func.pg_get_constraintdef(constraint.c.oid, True)
@@ -1116,24 +1135,46 @@ def stage_scratch_authorization_program() -> ProgramDeclaration:
             .scalar_subquery()
         )
 
-    routine = NativeRoutine(
+    return NativeRoutine(
         "ops",
-        "require_pdf_stage_scratch",
+        name,
         parameters=(
             Parameter("p_name", pg_type("text")),
             Parameter("p_relation", pg_type("regclass")),
+            *((Parameter("p_fields", text_array),) if projected else ()),
         ),
         returns=pg_type("void"),
         search_path=("pg_catalog", "pg_temp"),
         body=Block(
             (
-                If(hostile, (Raise("untrusted private PDF scratch", "23514"),)),
+                If(
+                    hostile,
+                    (
+                        Raise(
+                            "untrusted private scratch"
+                            if projected
+                            else "untrusted private PDF scratch",
+                            "23514",
+                        ),
+                    ),
+                ),
                 If(
                     or_(
-                        column_shape(scratch).is_distinct_from(column_shape(expected)),
-                        check_shape(scratch).is_distinct_from(check_shape(expected)),
+                        column_shape(scratch).is_distinct_from(
+                            column_shape(expected, template=True)
+                        ),
+                        check_shape(scratch).is_distinct_from(
+                            empty if projected else check_shape(expected)
+                        ),
                     ),
-                    (Raise("private PDF scratch schema differs", "23514"),),
+                    (
+                        Raise(
+                            "private scratch schema differs"
+                            if projected
+                            else "private PDF scratch schema differs",
+                            "23514",
+                        ),
+                    ),
                 ),
             ),
             (
@@ -1144,9 +1185,6 @@ def stage_scratch_authorization_program() -> ProgramDeclaration:
                 ),
             ),
         ),
-    )
-    return ProgramDeclaration(
-        routine, "authoring/pdf-staging.sql", role_name("publisher"), INTERNAL_PROGRAM
     )
 
 

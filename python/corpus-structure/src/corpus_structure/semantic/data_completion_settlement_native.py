@@ -19,6 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, array, insert
 
+from .data_operation_partition_native import population_upload_fence, population_upload_requested
 from .data_operation_value_native import canonical_text_digest
 from .native_objects import native_sql_script
 from .native_program import (
@@ -26,6 +27,7 @@ from .native_program import (
     Block,
     Exit,
     ForQuery,
+    GetRowCount,
     If,
     Local,
     NativeRoutine,
@@ -573,6 +575,8 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
             else getattr(func.ops, name)(r, completion)
         )
         checks.append(invocation)
+    typed_populations = "ops.data_retained_population" in model.tables
+    population_intent = core_variable("p_population_intent", Text())
     checks.append(
         If(
             select(1)
@@ -583,7 +587,13 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
                 definition.c.support_contract.has_key("reference_targets"),
             )
             .exists(),
-            (Perform(func.ops.ddo_assert_output_references(r, completion)),),
+            (
+                Perform(
+                    func.ops.ddo_assert_output_references(
+                        r, completion, *((population_intent,) if typed_populations else ())
+                    )
+                ),
+            ),
         )
     )
     if "sem.data_rule" in model.tables:
@@ -594,6 +604,7 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
         ("producer_task", "bigint"),
         ("producer_attempt", "bigint"),
         ("producer_holder", "text"),
+        *((("p_population_intent", "text"),) if typed_populations else ()),
     )
     routine(
         "ops",
@@ -624,7 +635,12 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
         (
             Perform(
                 func.ops.ddo_require_completion_invariants(
-                    r, completion, producer_task, producer_attempt, producer_holder
+                    r,
+                    completion,
+                    producer_task,
+                    producer_attempt,
+                    producer_holder,
+                    *((population_intent,) if typed_populations else ()),
                 )
             ),
             Perform(
@@ -709,6 +725,7 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
                     original("producer_task_id"),
                     original("producer_attempt"),
                     original("producer_holder"),
+                    *((original("id"),) if typed_populations else ()),
                 )
             ),
             Return(r),
@@ -1010,6 +1027,9 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
     consumptions = model.tables["ops.data_draft_consumption"]
     p = core_variable("p", JSONB())
     completion = p["completion"]
+    typed_populations = "ops.data_retained_population" in model.tables
+    typed_upload = core_variable("typed_population_upload", Boolean())
+    inserted = core_variable("inserted_intent", BigInteger())
     snapshot, key = core_variable("snapshot", JSONB()), core_variable("key", Text())
     payload_digest = core_variable("payload_digest_", Text())
     evidence = completion["execution_evidence"]
@@ -1135,11 +1155,6 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
                 "completion differs from admitted request/implementation",
             ),
             Perform(func.ops.ddo_assert_support(rf(), completion["support"])),
-            Perform(
-                func.ops.ddo_require_completion_correspondence(
-                    rf(), completion, tf("id"), tf("attempt"), tf("claimed_by")
-                )
-            ),
             Perform(func.ops.ddo_require_completion_live(rf(), completion)),
             Assign("canonical_completion", func.data.canonical_json(completion)),
             # Append the already canonical final element to the canonical frame.
@@ -1188,6 +1203,7 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
                 )
                 .on_conflict_do_nothing()
             ),
+            *((GetRowCount("inserted_intent"),) if typed_populations else ()),
             lookup(
                 "old",
                 intent,
@@ -1197,6 +1213,37 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
             reject(
                 old("id") != key,
                 "immutable retained intent must be adopted; a generation cannot replace its answer",
+            ),
+            *(
+                (
+                    Assign("typed_population_upload", population_upload_requested(completion)),
+                    If(
+                        typed_upload,
+                        (
+                            Perform(
+                                func.ops.ddo_consume_population_upload(
+                                    rf(),
+                                    key,
+                                    completion,
+                                    population_upload_fence(p, rf("release_id")),
+                                    inserted == 1,
+                                )
+                            ),
+                        ),
+                    ),
+                )
+                if typed_populations
+                else ()
+            ),
+            Perform(
+                func.ops.ddo_require_completion_correspondence(
+                    rf(),
+                    completion,
+                    tf("id"),
+                    tf("attempt"),
+                    tf("claimed_by"),
+                    *((key,) if typed_populations else ()),
+                )
             ),
             Return(obj(payload=obj(intent_id=key, payload_digest=old("payload_digest")))),
         ),
@@ -1209,6 +1256,14 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
             Local("canonical_completion", pg_type("text")),
             Local("payload_digest_", pg_type("text")),
             Local("old", intent),
+            *(
+                (
+                    Local("inserted_intent", pg_type("bigint")),
+                    Local("typed_population_upload", pg_type("boolean")),
+                )
+                if typed_populations
+                else ()
+            ),
         ),
         returns="jsonb",
     )

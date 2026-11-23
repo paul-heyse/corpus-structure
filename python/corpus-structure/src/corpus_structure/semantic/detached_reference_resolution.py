@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from contextlib import closing
 from functools import partial
 
 from ._data_operation_wire import WireOutputMember
@@ -11,6 +12,7 @@ from .data_operation_values import decode_semantic_value
 from .data_product_reference import read_semantic_reference
 from .reference_resolution import (
     AcquiredReferencePartition,
+    CapturedPartitionItems,
     ProducingReferenceBindings,
     ProducingReferenceInput,
     ReferenceResolver,
@@ -21,7 +23,7 @@ from .reference_resolution import (
 class IndexedReferenceAccess:
     """Keyed body packets from a support index already acquired by its caller."""
 
-    def __init__(self, row_map, project_id: str, *, product_headers=None):
+    def __init__(self, row_map, project_id: str, *, product_headers=None, population_archive=None):
         self.project_id = project_id
         self.products = row_map("kb.data_product", "id")
         self.members = row_map("kb.data_product_member", "product_id", "member_id")
@@ -31,6 +33,8 @@ class IndexedReferenceAccess:
         self.kinds = row_map("sem.data_kind_contract", "kind_contract")
         self._product_headers = {} if product_headers is None else product_headers
         self._complete_product_headers = product_headers is not None
+        self._population_archive = population_archive
+        self._partition_items = CapturedPartitionItems()
 
     def product_header(self, product_id: str) -> dict[str, str] | None:
         if product_id not in self._product_headers and not self._complete_product_headers:
@@ -53,7 +57,19 @@ class IndexedReferenceAccess:
     def member(self, product_id: str, member_id: str):
         return decode_semantic_value(self.members[product_id, member_id]["body"])
 
-    def partition(self, product_id: str, collection: str, partition_key: str):
+    def item(self, product_id, collection, partition_key, item_key):
+        if self._population_archive is not None:
+            try:
+                return self._population_archive.item(
+                    product_id, collection, partition_key, item_key
+                )
+            except KeyError:
+                pass
+        return self._partition_items.item(
+            (product_id, collection, partition_key), item_key, self._partition
+        )
+
+    def _partition(self, product_id: str, collection: str, partition_key: str):
         partition = self.partitions[product_id, collection, partition_key]
         parent = self.product_header(product_id)
         if parent is None:
@@ -112,9 +128,20 @@ def _reference_values(body, pointer):
     yield from values
 
 
-def _output_bodies(output, collection):
+def _output_bodies(output, collection, *, population_archive=None, product_id=None):
     product = output["product"]
     if collection is not None:
+        if population_archive is not None and product_id is not None:
+            from .data_operation_json import native_json_loads
+            from .selected_population_archive import POPULATION_HEADERS, POPULATION_ITEMS
+
+            fields = dict(product_id=product_id, collection=collection)
+            with closing(population_archive.rows(POPULATION_HEADERS, **fields)) as headers:
+                present = next(headers, None) is not None
+            if present:
+                for row in population_archive.rows(POPULATION_ITEMS, **fields):
+                    yield decode_semantic_value(native_json_loads(row["canonical_text"]))
+                return
         for packet in product.get("partitions", ()):
             if packet["collection"] == collection:
                 yield from decode_semantic_value(packet["body"])
@@ -135,9 +162,13 @@ def require_detached_output_references(
     input_roles: Sequence[dict],
     outputs: Sequence[WireOutputMember],
     product_headers=None,
+    population_archive=None,
+    output_products=None,
 ) -> None:
     """Check output references after authenticating their producing derivation and manifest."""
-    access = IndexedReferenceAccess(row_map, project_id, product_headers=product_headers)
+    access = IndexedReferenceAccess(
+        row_map, project_id, product_headers=product_headers, population_archive=population_archive
+    )
     captured = tuple(rows_for("ops.data_derivation_input", derivation_id=derivation_id))
     decoded_outputs = {}
     checked_contribution_outputs = set()
@@ -188,7 +219,16 @@ def require_detached_output_references(
                 continue
             location = id(output), target.get("output_collection")
             if location not in decoded_outputs:
-                decoded_outputs[location] = tuple(_output_bodies(output, location[1]))
+                decoded_outputs[location] = tuple(
+                    _output_bodies(
+                        output,
+                        location[1],
+                        population_archive=population_archive,
+                        product_id=(output_products or {}).get(
+                            (output["role"], output["position"])
+                        ),
+                    )
+                )
             for body in decoded_outputs[location]:
                 choice_references = set()
                 if isinstance(body, dict) and "formal_member_support" in body:

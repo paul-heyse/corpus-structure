@@ -6,6 +6,7 @@ from dataclasses import replace
 import pytest
 
 from corpus_structure.semantic import established_validity
+from corpus_structure.semantic._data_operation_wire import WireKindContract
 from corpus_structure.semantic.data_operation_identity import canonical_identity
 from corpus_structure.semantic.data_operation_json import scope_identity
 from corpus_structure.semantic.data_operation_model import (
@@ -51,7 +52,7 @@ def preparation(kind=None):
             "position": 0,
             "multiplicity": 1,
             "product": {
-                "kind_contract": "kind-contract",
+                "kind_contract": WireKindContract("kind-contract"),
                 "body": semantic_value({"value": 3}),
                 "members": [],
             },

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import fcntl
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from hashlib import sha256
+from typing import Any, BinaryIO
 
 import pyarrow as pa
 
@@ -28,6 +30,51 @@ def _binding(schema: pa.Schema, request_digest: str, projection_digest: str) -> 
 
 def _receive(duplicate, byte_length: int, digest: str) -> SealedPopulationIpc:
     return SealedPopulationIpc(duplicate.detach(), byte_length, digest)
+
+
+class _BoundedOutput:
+    def __init__(self, stream: BinaryIO, max_bytes: int):
+        self.stream = stream
+        self.max_bytes = max_bytes
+
+    @property
+    def closed(self) -> bool:
+        return self.stream.closed
+
+    def tell(self) -> int:
+        return self.stream.tell()
+
+    def write(self, content) -> int:
+        if len(content) > self.max_bytes - self.tell():
+            raise ValueError("population IPC exceeds its byte bound")
+        return self.stream.write(content)
+
+
+@dataclass(frozen=True)
+class PopulationIpcTransfer:
+    """An explicitly revocable descriptor offer to the owned process pool."""
+
+    duplicate: Any
+    byte_length: int
+    digest: str
+
+    def receive(self) -> SealedPopulationIpc:
+        return _receive(self.duplicate, self.byte_length, self.digest)
+
+    def retire(self) -> None:
+        """Close the CPython share if a cancelled task never received its descriptor."""
+        from multiprocessing import resource_sharer
+
+        # The pinned CPython sharer removes a received offer before sending its
+        # descriptor. Once the task/transport is settled, only an unused offer
+        # can remain, and removing it does not touch other users of the sharer.
+        _, key = self.duplicate._id
+        resource = vars(resource_sharer)["_resource_sharer"]
+        with resource._lock:
+            pending = resource._cache.pop(key, None)
+        if pending is not None:
+            _, close = pending
+            close()
 
 
 class SealedPopulationIpc:
@@ -52,6 +99,7 @@ class SealedPopulationIpc:
         request_digest: str,
         projection_digest: str,
         max_bytes: int,
+        check_active: Callable[[], None] = lambda: None,
     ) -> SealedPopulationIpc:
         """Encode the owned table and seal its file before publishing its descriptor."""
         if type(max_bytes) is not int or max_bytes <= 0:
@@ -61,16 +109,20 @@ class SealedPopulationIpc:
         metadata = _binding(schema, request_digest, projection_digest)
         if table.nbytes > max_bytes:
             raise ValueError("population IPC exceeds its byte bound")
+        check_active()
         descriptor = os.memfd_create("corpus-population-ipc", os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
         try:
             with (
                 os.fdopen(os.dup(descriptor), "wb") as target,
-                pa.ipc.new_file(target, schema, metadata=metadata) as writer,
+                pa.ipc.new_file(
+                    pa.PythonFile(_BoundedOutput(target, max_bytes), mode="w"),
+                    schema,
+                    metadata=metadata,
+                ) as writer,
             ):
-                for batch in table.to_batches(max_chunksize=65536):
+                for batch in table.to_reader(max_chunksize=65536):
+                    check_active()
                     writer.write_batch(batch)
-                    if target.tell() > max_bytes:
-                        raise ValueError("population IPC exceeds its byte bound")
             byte_length = os.fstat(descriptor).st_size
             if byte_length > max_bytes:
                 raise ValueError("population IPC exceeds its byte bound")
@@ -83,11 +135,15 @@ class SealedPopulationIpc:
             raise
 
     def __reduce__(self):
+        transfer = self.offer()
+        return _receive, (transfer.duplicate, transfer.byte_length, transfer.digest)
+
+    def offer(self) -> PopulationIpcTransfer:
         from multiprocessing.reduction import DupFd
 
         if self._descriptor is None:
             raise ValueError("population IPC owner is closed")
-        return _receive, (DupFd(self._descriptor), self.byte_length, self.digest)
+        return PopulationIpcTransfer(DupFd(self._descriptor), self.byte_length, self.digest)
 
     @contextmanager
     def open(
@@ -97,7 +153,7 @@ class SealedPopulationIpc:
         request_digest: str,
         projection_digest: str,
         max_bytes: int,
-    ) -> Iterator[pa.Table]:
+    ) -> Generator[pa.Table]:
         """Authenticate and consume one read-only mapping of the same sealed file."""
         expected = _binding(schema, request_digest, projection_digest)
         if self._descriptor is None:

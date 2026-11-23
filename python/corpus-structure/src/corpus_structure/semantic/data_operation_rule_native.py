@@ -109,6 +109,75 @@ def _collection_scope(table, product_id, collection, partition_key):
     )
 
 
+def _typed_partition_sources(model):
+    from sqlalchemy import tuple_
+
+    visible = model.tables["kb.data_product_population"]
+    parents = model.tables["ops.data_retained_population"]
+    items = model.tables["ops.data_retained_population_item"]
+    key = ("intent_id", "output_role", "output_position", "collection", "partition_key")
+
+    def coordinate(relation):
+        return tuple_(*(relation.c[field] for field in key))
+
+    join = visible.join(parents, coordinate(visible) == coordinate(parents))
+    return parents, items, join, join.join(items, coordinate(parents) == coordinate(items))
+
+
+def _rule_partition_headers(model, name):
+    legacy = model.tables["kb.data_product_partition"]
+    if "kb.data_product_population" not in model.tables:
+        return legacy
+    parents, _, joined, _ = _typed_partition_sources(model)
+    keys = (
+        "product_id",
+        "collection",
+        "partition_key",
+        "ordinal",
+        "partition_digest",
+        "item_count",
+        "group_digests",
+        "placement",
+    )
+    return (
+        select(*(legacy.c[field] for field in keys))
+        .union_all(select(*(parents.c[field] for field in keys)).select_from(joined))
+        .subquery(name)
+    )
+
+
+def _rule_partition_items(model, product_id, collection, partition_key, name, *, correlate=()):
+    legacy = model.tables["kb.data_product_partition"].alias(name + "_legacy_partition")
+    body = _rows(legacy.c.body[1], name + "_legacy_items").lateral()
+    result = (
+        select(
+            body.c.value.label("body"),
+            body.c.ordinality.label("item"),
+            legacy.c.ordinal.label("part_order"),
+            legacy.c.partition_key.label("key"),
+            legacy.c.placement,
+        )
+        .select_from(legacy.join(body, true()))
+        .where(_collection_scope(legacy, product_id, collection, partition_key))
+        .correlate(*correlate)
+    )
+    if "kb.data_product_population" not in model.tables:
+        return result
+    parents, items, _, joined = _typed_partition_sources(model)
+    return result.union_all(
+        select(
+            cast(items.c.canonical_text, JSONB()).label("body"),
+            (items.c.item_ordinal + 1).label("item"),
+            parents.c.ordinal.label("part_order"),
+            parents.c.partition_key.label("key"),
+            parents.c.placement,
+        )
+        .select_from(joined)
+        .where(_collection_scope(parents, product_id, collection, partition_key))
+        .correlate(*correlate)
+    )
+
+
 def _inline_rule_items(product, product_id, collection, name):
     tagged = func.ops.ddo_partition_field(product.c.canonical_body, collection, type_=JSONB())
     items = _rows(tagged[1], name).lateral()
@@ -127,7 +196,7 @@ def _inline_rule_items(product, product_id, collection, name):
 
 def _premise(model, output):
     product = model.tables["kb.data_product"]
-    partitions = model.tables["kb.data_product_partition"]
+    partitions = _rule_partition_headers(model, "rule_premise_headers")
     supplied_spec, product_id, partition_key, target_id, target_key = _variables()
     spec = core_variable("v_projection", JSONB())
     scope = spec["scope"].astext
@@ -149,12 +218,19 @@ def _premise(model, output):
             ~path.startswith("$"),
             func.jsonb_array_length(reads.c.value["groups"]) == 0,
         )
-        tagged_items = _rows(partitions.c.body[1], "premise_items")
-        path_value = func.ops.ddo_partition_field(tagged_items.c.value, path, type_=JSONB())
+        tagged_items = _rule_partition_items(
+            model,
+            pid,
+            collection,
+            partitions.c.partition_key,
+            "premise_items",
+            correlate=(partitions,),
+        ).lateral()
+        path_value = func.ops.ddo_partition_field(tagged_items.c.body, path, type_=JSONB())
         observed_values = (
             select(
                 func.coalesce(
-                    func.jsonb_agg(aggregate_order_by(path_value, tagged_items.c.ordinality)),
+                    func.jsonb_agg(aggregate_order_by(path_value, tagged_items.c.item)),
                     _empty(),
                 )
             )
@@ -467,26 +543,14 @@ def _predicate(output):
 
 
 def _evaluator(model, output):
-    partitions = model.tables["kb.data_product_partition"]
     products = model.tables["kb.data_product"]
     spec, product_id, partition_key, target_id, target_key = _variables()
     params = spec["parameters"]
     label = spec["form"].astext
 
     def items(pid, collection, key, name):
-        table = partitions.alias(name + "_partition")
-        elements = _rows(table.c.body[1], name + "_items").lateral()
-        return (
-            select(
-                elements.c.value.label("body"),
-                elements.c.ordinality.label("item"),
-                table.c.ordinal.label("part_order"),
-                table.c.partition_key.label("key"),
-                table.c.placement,
-            )
-            .select_from(table.join(elements, true()))
-            .where(_collection_scope(table, pid, collection, key))
-        )
+        selected = _rule_partition_items(model, pid, collection, key, name).subquery(name)
+        return select(selected)
 
     inline = (params["inline_collection"] == cast(literal("true"), JSONB())).is_(True)
     collection = spec["collection"].astext
@@ -702,15 +766,15 @@ def _establish(model, output):
 
 
 def _target_partition(model, output):
-    partitions = model.tables["kb.data_product_partition"]
     spec, product_id, key, _, _ = _variables()
     target_path = spec["parameters"]["target_key"].astext
-    items = _rows(partitions.c.body[1], "source_pair_keys").lateral()
-    values = func.ops.ddo_partition_field(items.c.value, target_path, type_=JSONB())
+    items = _rule_partition_items(
+        model, product_id, spec["collection"].astext, key, "source_pair_keys"
+    ).subquery("source_pair_keys")
+    values = func.ops.ddo_partition_field(items.c.body, target_path, type_=JSONB())
     mapped = (
         select(case((values[0].astext == "string", values[1].astext)).label("target_key"))
-        .select_from(partitions.join(items, true()))
-        .where(_collection_scope(partitions, product_id, spec["collection"].astext, key))
+        .select_from(items)
         .distinct()
         .subquery("pair_targets")
     )
@@ -737,7 +801,7 @@ def _target_partition(model, output):
 
 def _admission(model, output):
     rules = model.tables["sem.data_rule"]
-    partitions = model.tables["kb.data_product_partition"]
+    partitions = _rule_partition_headers(model, "rule_admission_headers")
     release_id, product_id, kind_contract = (
         core_variable(name, Text()) for name in ("p_release", "p_product", "p_kind")
     )

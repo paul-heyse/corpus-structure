@@ -1,8 +1,8 @@
 # Cutover and qualification
 
-**Status:** The early producer chain passed in a private target. The cold-root rehearsal
-registered and installed the previous physical design on an empty database. Qualification is paused.
-The proposed columnar replacement below precedes the next cold-root authoring and acceptance.
+**Status · 2026-11-23.** The typed population replacement is undergoing focused checks in
+serialized cohorts. The dedicated authoring target is empty. Final-root qualification and the
+development reset are open.
 Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
@@ -79,6 +79,34 @@ merged block scenarios, both independent construction reports, current and revok
 post-encoding worker tamper checks and authentic finite and rich publication-to-detached replay.
 Regenerate affected source/root evidence. The fixture parity probes establish their named
 library behavior, and production performance remains unmeasured.
+
+<a id="sbx-columnar-implementation"></a>
+### Typed population implementation
+
+**Tested by selected scope · 2026-11-23.** The replacement wires DuckDB canonical framing,
+model-derived Arrow layouts and sealed CPU input into annotation, canonical sentences,
+construction, HanLP, and declaration. Protected pgpq COPY retains items under the completion
+intent. Publication associates those rows with the product. Selected point access uses the
+published item index, and detached replay captures typed Parquet population relations under
+the same native cut as its other support.
+
+Private `uv run ci test --native-host private --workers 1` passed the exact COPY, refusal,
+retention, replay, promotion, and indexed-read control (`38104b6beaef4266a2a05dd997c531d3`).
+`uv run ci schema check --correction-detail --retain-diagnostics --json` passed
+(`9a6503f1641446ba99242101e966811e`). The broader focused test run
+(`b39c8ec2ee5947909fd053d2ad27062a`) passed 85 identities and failed 17. The failures covered
+construction capsule binding, declaration snapshot access, and original draft recovery
+against the preceding registered kernel. The corrective selections passed all 15
+declaration identities by selected scope (`874bac106f654fbe999e68fa9e87f002`) and the
+spawned construction identity (`c060de811e9d4fb7ba669e9ee4cf89bc`). A separate selection
+passed all 16 Arrow, canonical identity and IPC identities (`3c3150e9daf54ff8aa1227063e1327db`).
+The draft control requires the replacement installation.
+
+The dedicated `corpus_structure_sbx09_typed_author` database passed rollback-only
+`uv run ci model change candidate` (`7513fd70e5c54c2abe8df888c9683911`) after authoring
+and runtime preparation were wired to the same temporary upload and fence schemas. The
+candidate predates final type corrections. Required exact-root provider and replay
+evidence, remaining retirement, and the development reset follow the sequence below.
 
 ### Development reset through SBX-09
 

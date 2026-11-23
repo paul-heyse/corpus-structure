@@ -218,7 +218,7 @@ def _attestation_shape():
 
 
 def _settle_attestations(model):
-    from .data_operation_rule_native import rule_premise_specification
+    from .data_operation_rule_native import _rule_partition_headers, rule_premise_specification
 
     rules = model.tables["sem.data_rule"]
     conclusions = model.tables["kb.data_validity"]
@@ -226,7 +226,7 @@ def _settle_attestations(model):
     request = model.tables["ops.data_request"]
     outputs = model.tables["ops.data_derivation_output"]
     product = model.tables["kb.data_product"]
-    partition = model.tables["kb.data_product_partition"]
+    partition = _rule_partition_headers(model, "attested_partitions")
     episode = core_variable("episode", Text())
     release = _request_field(request, "release_id")
     operation = _request_field(request, "operation_id")
@@ -497,13 +497,15 @@ def _settle_attestations(model):
 
 
 def _bound_rules(model):
+    from .data_operation_rule_native import _rule_partition_headers
+
     rule = model.tables["sem.data_rule"]
     conclusion = model.tables["kb.data_validity"]
     establishment = model.tables["kb.data_validity_establishment"]
     request = model.tables["ops.data_request"]
     outputs = model.tables["ops.data_derivation_output"]
     product = model.tables["kb.data_product"]
-    partition = model.tables["kb.data_product_partition"]
+    partition = _rule_partition_headers(model, "bound_rule_partitions")
     target = product.alias("pair_target")
     target_kind = model.tables["sem.data_kind_contract"].alias("pair_target_kind")
     boundary = core_variable("boundary", NullType())

@@ -1,10 +1,11 @@
 """Generated nominal product admission retains custody and exact replay."""
 
 import json
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from pglast import ast
-from sqlalchemy import insert, text
+from sqlalchemy import insert, text, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateTable
 
@@ -29,6 +30,9 @@ def product_connection(infrastructure_rollback):
         "kb.data_product",
         "kb.data_product_member",
         "kb.data_product_partition",
+        "ops.data_retained_population",
+        "ops.data_retained_population_item",
+        "kb.data_product_population",
     ):
         connection.execute(
             CreateTable(get_metadata().tables[name], include_foreign_key_constraints=[])
@@ -275,7 +279,7 @@ def test_generated_product_admission_binds_in_actual_native_model(native_rollbac
                 "ops.ddo_apply_product_rules(text,text,text)",
                 "ops.ddo_apply_bound_product_rules(text,text,text,text)",
                 "ops.establish_data_rule_proof(jsonb)",
-                "ops.ddo_install_product_context(jsonb,jsonb,jsonb)",
+                "ops.ddo_install_product_context(jsonb,jsonb,jsonb,text,text,bigint)",
                 "ops.ddo_admit_original_source(jsonb)",
                 "ops.admit_authored_data(jsonb)",
                 "ops.admit_original_document_asset(jsonb)",
@@ -314,7 +318,16 @@ def test_product_programs_have_typed_inputs():
         ("ddo_partition_field", ("jsonb", "text")),
         ("ddo_install_product_partitions", ("text", "jsonb", "jsonb", "jsonb", "boolean")),
         ("ddo_acquired_product_partition", ("text", "text", "text", "text")),
-        ("ddo_install_product_context", ("jsonb", "jsonb", "jsonb")),
+        ("ddo_require_population_scratch", ("text", "regclass", "text[]")),
+        ("prepare_data_population_upload", ("text", "bigint", "bigint", "bigint", "text", "text")),
+        ("ddo_require_population_upload", ("jsonb",)),
+        ("ddo_retain_population_rows", ("ops.data_request", "text", "jsonb")),
+        (
+            "ddo_consume_population_upload",
+            ("ops.data_request", "text", "jsonb", "jsonb", "boolean"),
+        ),
+        ("ddo_promote_population_rows", ("text", "text", "bigint", "text")),
+        ("ddo_install_product_context", ("jsonb", "jsonb", "jsonb", "text", "text", "bigint")),
         ("ddo_admit_original_source", ("jsonb",)),
         ("admit_authored_data", ("jsonb",)),
         ("admit_original_document_asset", ("jsonb",)),
@@ -380,6 +393,208 @@ def partition_fixture(connection):
         bodies,
         declaration,
     )
+
+
+def test_typed_population_copy_admits_once_and_promotes_exact_items(product_connection):
+    import pyarrow as pa
+    from sqlalchemy import bindparam
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    from corpus_structure.schema.integrity import role_name
+    from corpus_structure.semantic.arrow_transfer import copy_arrow_stream
+    from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_partitions import partition_group_digests
+    from corpus_structure.semantic.data_operation_read_native import read_native_programs
+    from corpus_structure.semantic.data_product_admission_native import (
+        product_admission_native_programs,
+    )
+    from corpus_structure.semantic.population_transfer import population_item_write_profile
+
+    conn = product_connection
+    context, packet, bodies, declaration = partition_fixture(conn)
+    model = get_metadata()
+    request = model.tables["ops.data_request"]
+    task = model.tables["ops.task"]
+    for relation in (request, task, model.tables["ops.data_completion_intent"]):
+        conn.execute(CreateTable(relation, include_foreign_key_constraints=[]))
+    for program in product_admission_native_programs(model):
+        if program.name in {
+            "ddo_require_population_scratch",
+            "prepare_data_population_upload",
+            "ddo_require_population_upload",
+            "ddo_retain_population_rows",
+            "ddo_consume_population_upload",
+            "ddo_promote_population_rows",
+        }:
+            execute_native_sql(conn, program.render())
+    conn.exec_driver_sql(
+        "CREATE FUNCTION ops.ddo_authorize_request(r ops.data_request) RETURNS void "
+        "LANGUAGE plpgsql AS $$ BEGIN IF r.project_id <> 'project' THEN "
+        "RAISE EXCEPTION 'out of scope'; END IF; END $$"
+    )
+    conn.exec_driver_sql(
+        "CREATE FUNCTION ops.ddo_operation_subject(text,text) RETURNS text LANGUAGE sql "
+        "AS $$ SELECT 'project-subject'::text $$"
+    )
+    conn.execute(
+        insert(request).values(
+            id="request",
+            request_key="request-key",
+            project_id="project",
+            release_id="release",
+            runtime_id="runtime",
+            operation_id="operation",
+            recipe="recipe",
+            subject="root",
+            analyzed_scope=None,
+            binding={},
+            generation=1,
+            original_source="source",
+        )
+    )
+    now = datetime.now(UTC)
+    task_id = conn.scalar(
+        insert(task)
+        .values(
+            release_id="release",
+            data_request_id="request",
+            data_generation=1,
+            status="running",
+            attempt=1,
+            claimed_by="worker",
+            lease_until=now + timedelta(minutes=5),
+            cost={},
+            priority=0,
+            created_at=now,
+        )
+        .returning(task.c.id)
+    )
+    fence = dict(
+        request_id="request",
+        generation=1,
+        task_id=task_id,
+        attempt=1,
+        holder="worker",
+        release_id="release",
+    )
+    conn.execute(update(request).values(live_task_id=task_id))
+    conn.execute(
+        insert(model.tables["ops.data_completion_intent"]).values(
+            id="intent",
+            request_id="request",
+            generation=1,
+            producer_task_id=task_id,
+            producer_attempt=1,
+            producer_holder="worker",
+            runtime_id="runtime",
+            payload={},
+            payload_digest="test",
+            created_at=now,
+        )
+    )
+    publisher, writer = role_name("publisher"), role_name("writer")
+    conn.exec_driver_sql(f"GRANT USAGE ON SCHEMA ops TO {publisher}, {writer}")
+    conn.exec_driver_sql(f"GRANT SELECT ON ops.data_request, ops.task TO {publisher}")
+    conn.exec_driver_sql(
+        "ALTER FUNCTION ops.prepare_data_population_upload(text,bigint,bigint,bigint,text,text) "
+        f"OWNER TO {publisher}"
+    )
+    profile = population_item_write_profile(release_id="release", model=model)
+    compact, upload = [], []
+    for partition, body in zip(packet["partitions"], bodies, strict=True):
+        compact.append(
+            {
+                **{key: value for key, value in partition.items() if key != "body"},
+                "item_count": len(body),
+                "group_digests": partition_group_digests(body, declaration["field_groups"]),
+            }
+        )
+        tagged_items = partition["body"][1]
+        assert isinstance(tagged_items, list)
+        for ordinal, item in enumerate(tagged_items):
+            upload.append(
+                {
+                    "output_role": "result",
+                    "output_position": 0,
+                    "collection": partition["collection"],
+                    "partition_key": partition["partition_key"],
+                    "item_ordinal": ordinal,
+                    "canonical_text": json_bytes(item).decode(),
+                }
+            )
+    packet["partitions"] = compact
+    completion = {"outputs": [{"role": "result", "position": 0, "product": packet}]}
+    start = text(
+        "SELECT ops.prepare_data_population_upload(:request_id,:generation,:task_id,:attempt,"
+        ":holder,:release_id)"
+    )
+    retain = text(
+        "SELECT ops.ddo_consume_population_upload(r,'intent',:completion,:fence,:fresh) "
+        "FROM ops.data_request r WHERE r.id='request'"
+    ).bindparams(bindparam("completion", type_=JSONB()), bindparam("fence", type_=JSONB()))
+
+    def stage(rows):
+        with native_owner(conn, writer):
+            conn.execute(start, fence)
+            assert conn.scalar(
+                text(
+                    "SELECT NOT has_table_privilege(current_user, 'pg_temp.ddo_population_upload', 'SELECT')"
+                )
+            )
+            assert copy_arrow_stream(
+                conn,
+                profile,
+                target=("pg_temp", "ddo_population_upload"),
+                batches=(pa.RecordBatch.from_pylist(rows, schema=profile.schema),),
+            ) == len(rows)
+
+    def consume(*, fresh=True, claiming=fence):
+        conn.execute(retain, {"completion": completion, "fence": claiming, "fresh": fresh})
+
+    stage(upload)
+    with pytest.raises(DBAPIError, match="another attempt or release"), conn.begin_nested():
+        consume(claiming=dict(fence, attempt=2))
+    consume()
+    assert conn.scalar(text("SELECT count(*) FROM ops.data_retained_population_item")) == 3
+    assert conn.scalar(text("SELECT count(*) FROM kb.data_product_population")) == 0
+    stage(upload)
+    consume(fresh=False)
+    stage([dict(row, canonical_text=row["canonical_text"] + " ") for row in upload])
+    with pytest.raises(DBAPIError, match="replay differs"), conn.begin_nested():
+        consume(fresh=False)
+
+    product = conn.scalar(
+        text(
+            'SELECT ops.ddo_install_product_context(:context,:packet,\'{"project-subject":"project"}\','
+            "'intent','result',0::bigint)"
+        ).bindparams(bindparam("context", type_=JSONB()), bindparam("packet", type_=JSONB())),
+        {"context": context, "packet": packet},
+    )
+    assert conn.scalar(text("SELECT count(*) FROM kb.data_product_partition")) == 0
+    assert conn.scalar(text("SELECT count(*) FROM kb.data_product_population")) == 3
+    conn.exec_driver_sql(
+        """CREATE FUNCTION ops.ddo_binding_rows(
+          text, text, jsonb, text, text, jsonb, jsonb, bool, jsonb
+        ) RETURNS TABLE(product text, member text) LANGUAGE sql AS $$
+          SELECT pin->>'product_id', pin->>'member_id' FROM jsonb_array_elements($9) AS pin
+          WHERE $1 = 'demand' AND $2 = 'operation' AND $4 = 'read' AND pin->>'product_id' = $5
+        $$"""
+    )
+    read = next(
+        program.routine
+        for program in read_native_programs(model)
+        if program.routine.name == "data_binding_reference_item"
+    )
+    execute_native_sql(conn, read.render())
+    rows = conn.execute(
+        text(
+            "SELECT * FROM ops.data_binding_reference_item("
+            "'demand','operation','{}'::jsonb,'read',:product,NULL,NULL,:pins,65536,"
+            "'tokens','b',CAST('[0,2]' AS jsonb))"
+        ).bindparams(bindparam("pins", type_=JSONB())),
+        {"product": product, "pins": [{"product_id": product, "member_id": None}]},
+    ).all()
+    assert [tuple(row) for row in rows] == [(product, upload[0]["canonical_text"])]
 
 
 def test_binding_partition_read_is_limited_to_admitted_whole_products(product_connection):

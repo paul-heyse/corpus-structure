@@ -1,10 +1,21 @@
 """Native original execution custody and authorized private draft intake."""
 
-from sqlalchemy import Text, and_, func, literal, or_, select
+from sqlalchemy import BigInteger, Text, and_, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array, insert
 from sqlalchemy.types import NullType
 
-from .native_program import Assign, If, Local, Perform, Return, Sql, core_variable, pg_type
+from .data_operation_partition_native import population_upload_fence, population_upload_requested
+from .native_program import (
+    Assign,
+    GetRowCount,
+    If,
+    Local,
+    Perform,
+    Return,
+    Sql,
+    core_variable,
+    pg_type,
+)
 
 
 def completion_material_matches(
@@ -64,6 +75,8 @@ def execution_origin_programs(model, routine, row, rf, obj, reject, lookup):
     original = core_variable("original_request_", NullType())
     completion = p["completion"]
     snapshot = core_variable("snapshot_", JSONB())
+    typed_populations = "ops.data_retained_population" in model.tables
+    inserted_intent = core_variable("inserted_intent_", BigInteger())
 
     def origin(field):
         return row("origin_", origins, field)
@@ -318,11 +331,6 @@ def execution_origin_programs(model, routine, row, rf, obj, reject, lookup):
                 "private completion implementation differs from original custody",
             ),
             Perform(func.ops.ddo_assert_support(rf(), completion["support"])),
-            Perform(
-                func.ops.ddo_require_completion_correspondence(
-                    original, completion, origin("task_id"), origin("attempt"), origin("holder")
-                )
-            ),
             *current_family_guards,
             Perform(func.ops.ddo_require_completion_live(rf(), completion)),
             Assign("key_", origin_key),
@@ -345,6 +353,7 @@ def execution_origin_programs(model, routine, row, rf, obj, reject, lookup):
                 )
                 .on_conflict_do_nothing()
             ),
+            *((GetRowCount("inserted_intent_"),) if typed_populations else ()),
             lookup(
                 "intent_",
                 intents,
@@ -354,6 +363,36 @@ def execution_origin_programs(model, routine, row, rf, obj, reject, lookup):
             reject(
                 row("intent_", intents, "id").is_distinct_from(key),
                 "private completion differs from original retained answer",
+            ),
+            *(
+                (
+                    If(
+                        population_upload_requested(completion),
+                        (
+                            Perform(
+                                func.ops.ddo_consume_population_upload(
+                                    original,
+                                    key,
+                                    completion,
+                                    population_upload_fence(p, rf("release_id")),
+                                    inserted_intent == 1,
+                                )
+                            ),
+                        ),
+                    ),
+                )
+                if typed_populations
+                else ()
+            ),
+            Perform(
+                func.ops.ddo_require_completion_correspondence(
+                    original,
+                    completion,
+                    origin("task_id"),
+                    origin("attempt"),
+                    origin("holder"),
+                    *((key,) if typed_populations else ()),
+                )
             ),
             Sql(
                 insert(consumed)
@@ -400,6 +439,7 @@ def execution_origin_programs(model, routine, row, rf, obj, reject, lookup):
             Local("consumed_", consumed),
             Local("original_request_", request),
             Local("snapshot_", pg_type("jsonb")),
+            *((Local("inserted_intent_", pg_type("bigint")),) if typed_populations else ()),
         ),
         returns="jsonb",
     )

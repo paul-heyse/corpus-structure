@@ -9,7 +9,12 @@ from typing import Any
 from corpus_structure.caches import declare
 
 from ._data_operation_wire import WireProductPartition
-from .data_operation_partitions import partition_header, partition_packet
+from .data_operation_partitions import (
+    PartitionCommitment,
+    partition_commitment_header,
+    partition_header,
+    partition_packet,
+)
 from .data_operation_values import decode_semantic_value, semantic_value
 from .data_product_reference import SemanticReference
 from .identity import canonical_bytes
@@ -66,6 +71,7 @@ class SentenceProductPayload(_SentenceProductHeader):
     partitions: tuple[bytes, ...]
     packets: tuple[Mapping[str, Any], ...]
     blocks: tuple[SentenceBlock, ...]
+    populations: tuple = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,7 +103,7 @@ def _sentence_partition_body(meaning, tagged: bytes, decoder) -> _SentencePartit
     )
 
 
-def sentence_product_payload(content, partitions, prepared, nominal_type):
+def sentence_product_payload(content, partitions, prepared, nominal_type, *, populations=()):
     from .data_operation_version import MODEL_VERSION
     from .value_codec import decimal_digit_limit
 
@@ -105,11 +111,18 @@ def sentence_product_payload(content, partitions, prepared, nominal_type):
         type(content) is not bytes
         or type(partitions) is not tuple
         or any(type(packet) is not bytes for packet in partitions)
+        or type(populations) is not tuple
+        or (partitions and populations)
     ):
         raise TypeError("sentence products require owned immutable header and partition bytes")
     decoder = (MODEL_VERSION, decimal_digit_limit())
     header = _sentence_product_header(content, prepared, nominal_type, decoder)
-    packets, blocks = acquire_sentence_partitions(partitions, header.value[COLLECTION])
+    if populations:
+        _verify_population_header(populations, header.value[COLLECTION])
+        packets = ()
+        blocks = ()
+    else:
+        packets, blocks = acquire_sentence_partitions(partitions, header.value[COLLECTION])
     return SentenceProductPayload(
         header.content,
         header.value,
@@ -121,7 +134,55 @@ def sentence_product_payload(content, partitions, prepared, nominal_type):
         partitions,
         packets,
         blocks,
+        populations,
     )
+
+
+def selected_sentence_blocks(payload: SentenceProductPayload) -> tuple[SentenceBlock, ...]:
+    """Enter the row API only for a consumer that actually needs working sentence records."""
+    if not payload.populations:
+        return payload.blocks
+    return _blocks_from_populations(payload.populations)
+
+
+def _verify_population_header(populations, header):
+    if (
+        any(
+            item.commitment.collection != COLLECTION
+            or item.commitment.item_count != item.population.table.num_rows
+            for item in populations
+        )
+        or partition_commitment_header(item.commitment for item in populations) != header
+    ):
+        raise ValueError("sentence rows differ from their selected collection commitment")
+
+
+def _blocks_from_populations(populations) -> tuple[SentenceBlock, ...]:
+    from .data_operation_consumers import _freeze_consumer
+
+    result = []
+    for item in sorted(populations, key=lambda selected: selected.commitment.ordinal):
+        partition = item.commitment
+        result.append(
+            SentenceBlock(
+                partition.key,
+                partition.ordinal,
+                partition.start,
+                partition.end,
+                tuple(_freeze_consumer(row) for row in item.population.rows()),
+            )
+        )
+    return tuple(result)
+
+
+def acquire_sentence_blocks(partitions, commitment, *, populations=()) -> tuple[SentenceBlock, ...]:
+    if populations:
+        if partitions:
+            raise ValueError("sentence rows have two admitted representations")
+        _verify_population_header(populations, commitment)
+        return _blocks_from_populations(populations)
+    _, blocks = acquire_sentence_partitions(partitions, commitment)
+    return blocks
 
 
 def acquire_sentence_partitions(partitions, commitment):
@@ -212,6 +273,52 @@ def partitioned_role(role, kind_contract, payload: SentenceProductPayload):
 
     return RoleValue(
         role, kind_contract, payload.content, payload.meaning, payload.members, payload.partitions
+    )
+
+
+def typed_sentence_role(role, kind_contract, payload: SentenceProductPayload, prepared, kind):
+    """Publish compact sentence metadata with exact canonical upload items."""
+    from corpus_structure.analytics import connection
+
+    from .data_operation_population import population_layout
+    from .data_operation_ports import RoleValue
+    from .population_canonical import canonical_population
+    from .population_transfer import PopulationUploadPartition
+
+    layout = population_layout(prepared, kind, COLLECTION)
+    blocks = selected_sentence_blocks(payload)
+    populations = []
+    if blocks:
+        with connection() as engine:
+            for block in blocks:
+                items = canonical_population(layout.from_rows(block.rows), engine=engine)
+                populations.append(
+                    PopulationUploadPartition(
+                        PartitionCommitment(
+                            COLLECTION,
+                            block.key,
+                            block.ordinal,
+                            block.start,
+                            block.end,
+                            items.partition_digest,
+                            items.items.num_rows,
+                        ),
+                        items.group_digests,
+                        items.items,
+                    )
+                )
+    if (
+        partition_commitment_header(item.commitment for item in populations)
+        != payload.value[COLLECTION]
+    ):
+        raise ValueError("typed sentence rows differ from their admitted collection")
+    return RoleValue(
+        role,
+        kind_contract,
+        payload.content,
+        payload.meaning,
+        payload.members,
+        populations=tuple(populations),
     )
 
 

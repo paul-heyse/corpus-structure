@@ -147,6 +147,7 @@ def _publish_derivation(model: MetaData) -> NativeRoutine:
     count, position = (core_variable(name, BigInteger()) for name in ("cnt", "n"))
     generation = cast(payload["generation"].astext, requests.c.generation.type)
     content = intent("payload")
+    typed_populations = "ops.data_retained_population" in model.tables
     same_request = intent("request_id") == request("id")
     active_attempt = (task("id"), task("attempt"), task("claimed_by"))
     actual_producer = (
@@ -436,7 +437,10 @@ def _publish_derivation(model: MetaData) -> NativeRoutine:
                 (
                     Perform(
                         func.ops.ddo_require_completion_correspondence(
-                            composite, content, *actual_producer
+                            composite,
+                            content,
+                            *actual_producer,
+                            *((intent("id"),) if typed_populations else ()),
                         )
                     ),
                 ),
@@ -596,7 +600,18 @@ def _publish_derivation(model: MetaData) -> NativeRoutine:
                     Assign(
                         "product",
                         func.ops.ddo_install_product_context(
-                            output_context, output["product"], subject_scopes
+                            output_context,
+                            output["product"],
+                            subject_scopes,
+                            *(
+                                (
+                                    intent("id"),
+                                    out_role,
+                                    cast(output["position"].astext, BigInteger()),
+                                )
+                                if typed_populations
+                                else ()
+                            ),
                         ),
                     ),
                     _reject(

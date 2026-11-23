@@ -1,12 +1,10 @@
 # Set-based execution
 
-**Status · 2026-11-22.** Qualification through SBX-09 is paused after the operator stopped
-the concurrent test runs to release memory. The refreshed sole root and its contextual,
-source-search and fresh-admission corrections are on `main`. The qualification target has
-the preceding registration. The latest registration also contains the bounded proof tokenizer.
-The [reconciled redesign proposal](#columnar-redesign-amendment) selects a replacement before
-the next SBX-09 cold root. The operator accepted the rule changes on 2026-11-23. Integrated acceptance and the
-development reset are open.
+**Status · 2026-11-23.** The typed population implementation is in progress against the
+[accepted redesign](#columnar-redesign-amendment). Native typed admission and indexed readback
+have focused PostgreSQL evidence. Tests resumed in one-worker cohorts. Cold authoring, integrated
+qualification and the development reset are open.
+[Typed implementation checkpoint](set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation) ·
 [Qualification checkpoint](set-based-execution/cutover-and-qualification.md#sbx-09-qualification-pause)
 
 SBX-00 through SBX-02 have package evidence. SBX-03 through SBX-09 have scoped verification.

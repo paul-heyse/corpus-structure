@@ -371,9 +371,13 @@ def program_closures(definitions: tuple[NativeDefinition, ...], wire_names) -> P
                     "resume_data_demand",
                     "read_demand_settlement",
                     "data_binding_rows",
+                    "data_binding_population_items",
+                    "data_binding_reference_item",
                     "begin_selected_archive",
                     "fetch_selected_archive",
                     "close_selected_archive",
+                    "read_selected_archive_population",
+                    "read_selected_archive_item",
                 }
             ),
         ),

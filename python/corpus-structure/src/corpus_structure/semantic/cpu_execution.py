@@ -9,12 +9,13 @@ import sys
 import threading
 from collections.abc import Callable, Generator
 from concurrent.futures import Future, ProcessPoolExecutor, TimeoutError
+from concurrent.futures.process import BrokenProcessPool
 from contextlib import contextmanager, suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 from hashlib import sha256
 from time import monotonic
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.settings import AnalyticsSettings
@@ -25,11 +26,15 @@ from .cpu_receipts import CPUExecutionReceipt
 from .identity import canonical_bytes
 from .types import PreparationProfile, PreparedArtifact, PreparedRelease, SourceBundle
 
+if TYPE_CHECKING:
+    from .population_ipc import PopulationIpcTransfer, SealedPopulationIpc
+
 
 @dataclass(frozen=True)
 class _SealedPacket:
     content: bytes
     digest: str
+    populations: tuple[PopulationIpcTransfer, ...] = ()
 
     @classmethod
     def seal(cls, content: bytes):
@@ -409,6 +414,9 @@ def _dispatch(
                     check_active,
                     _apply_native_thread_limits,
                     prepared_releases=releases,
+                    populations=packet.populations,
+                    request_digest=request_digest,
+                    population_bytes=sum(offer.byte_length for offer in packet.populations),
                 )
             if len(result) > max_reply_bytes:
                 raise CapacityExceeded("CPU Python result exceeds admitted reply byte capacity")
@@ -444,6 +452,9 @@ class _InputAdmission:
     retired: bool = False
     submitted: bool = False
     reservation: OwnedByteReservation | None = None
+    population_files: list[tuple[SealedPopulationIpc, PopulationIpcTransfer]] = field(
+        default_factory=list
+    )
 
 
 class CPUHandle:
@@ -483,6 +494,12 @@ class CPUHandle:
         if not self.future.done():
             raise RuntimeError("CPU request has not completed")
         if not self._collected:
+            if (
+                self.admission.population_files
+                and not self.future.cancelled()
+                and isinstance(self.future.exception(), BrokenProcessPool)
+            ):
+                self.owner._submission_uncertain = True
             try:
                 self.check_active()
                 if self._cancelled or self.owner._closed:
@@ -528,6 +545,12 @@ class CPUHandle:
         if not self._collected:
             with suppress(BaseException):
                 self.collect()
+        if (
+            self.admission.population_files
+            and self.owner._submission_uncertain
+            and not self.owner._physical_retired
+        ):
+            return False
         self.owner.release_admission(self.admission)
         self.owner._handles.discard(self)
         return True
@@ -683,9 +706,14 @@ class _ReleaseCPUView:
     def __getattr__(self, name):
         return getattr(self.scope, name)
 
-    def submit_closed_python(self, admission, content, check_active):
+    def submit_closed_python(self, admission, content, check_active, *, populations=()):
         return self.scope._submit(
-            admission, content, check_active, "closed-python", capsule=self.capsule
+            admission,
+            content,
+            check_active,
+            "closed-python",
+            capsule=self.capsule,
+            populations=populations,
         )
 
     def submit_closed_python_stream(self, admission, content, connection, check_active):
@@ -905,7 +933,9 @@ class CPUExecutionScope:
         with self._lock:
             if not permit.active or (self._closed and not self._physical_retired):
                 return
-            if permit.reservation is None:
+            if permit.population_files and self._submission_uncertain:
+                return
+            if permit.reservation is None and not permit.population_files:
                 self.budget.release(permit.reserved - retained)
                 permit.reserved = retained
             permit.active = False
@@ -919,6 +949,10 @@ class CPUExecutionScope:
                 return
             if permit.submitted and permit.active:
                 raise RuntimeError("CPU request must drain before retiring admission")
+            for owned, offer in permit.population_files:
+                offer.retire()
+                owned.close()
+            permit.population_files.clear()
             if permit.active:
                 permit.active = False
                 self._free.append(permit.slot)
@@ -936,15 +970,30 @@ class CPUExecutionScope:
         return self._submit(admission, content, check_active, "formal-source-native")
 
     def submit_closed_python(
-        self, admission, content: bytes, check_active: Callable[[], None] = lambda: None
+        self,
+        admission,
+        content: bytes,
+        check_active: Callable[[], None] = lambda: None,
+        *,
+        populations=(),
     ) -> CPUHandle:
-        return self._submit(admission, content, check_active, "closed-python")
+        return self._submit(
+            admission, content, check_active, "closed-python", populations=populations
+        )
 
     def submit_closed_python_stream(self, admission, content, connection, check_active):
         return self._submit(admission, content, check_active, "closed-python-stream", connection)
 
     def _submit(
-        self, admission, content, check_active, profile, stream_connection=None, *, capsule=None
+        self,
+        admission,
+        content,
+        check_active,
+        profile,
+        stream_connection=None,
+        *,
+        capsule=None,
+        populations=(),
     ) -> CPUHandle:
         check_active()
         if admission.owner is not self or not admission.active or admission.submitted:
@@ -965,9 +1014,41 @@ class CPUExecutionScope:
             admission.submitted = True
         # Native submit can fail after enqueuing its packet but before returning
         # a future. Its admission stays owned until physical teardown is proven.
+        entering_executor = False
         try:
+            if populations:
+                from .population_ipc import SealedPopulationIpc
+
+                remaining = min(
+                    self.policy.max_packet_bytes,
+                    admission.reserved - self.policy.max_reply_bytes,
+                ) - len(content)
+                for population, projection_digest in populations:
+                    check_active()
+                    if remaining <= 0:
+                        raise CapacityExceeded("CPU populations exceed admitted packet capacity")
+                    owned = SealedPopulationIpc.write(
+                        population.table,
+                        schema=population.layout.schema,
+                        request_digest=packet.digest,
+                        projection_digest=projection_digest,
+                        max_bytes=remaining,
+                        check_active=check_active,
+                    )
+                    try:
+                        offer = owned.offer()
+                    except BaseException:
+                        owned.close()
+                        raise
+                    admission.population_files.append((owned, offer))
+                    remaining -= owned.byte_length
+                packet = _SealedPacket(
+                    content, packet.digest, tuple(offer for _, offer in admission.population_files)
+                )
+                check_active()
             # The native executor lock may be held by broken-pool cleanup. Never
             # keep the invocation lock while entering that potentially wedged API.
+            entering_executor = True
             future = pool.submit(
                 _dispatch,
                 packet,
@@ -988,7 +1069,12 @@ class CPUExecutionScope:
                 raise CPURequestCancelled("CPU invocation closed during submission")
             return handle
         except BaseException:
-            self._submission_uncertain = True
+            if entering_executor:
+                self._submission_uncertain = True
+            else:
+                with self._lock:
+                    admission.submitted = False
+                    self.release_admission(admission)
             raise
         finally:
             with self._lock:

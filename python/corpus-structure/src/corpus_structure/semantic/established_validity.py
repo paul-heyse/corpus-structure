@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -19,7 +19,11 @@ from .data_operation_partitions import partition_group_digests
 from .data_operation_values import decode_semantic_value, semantic_value
 
 if TYPE_CHECKING:
-    from ._data_operation_wire import WireOutputMember, WireProductPartition
+    from ._data_operation_wire import (
+        WireOutputMember,
+        WireProductPartition,
+        WireProductPopulationManifest,
+    )
     from .data_operation_model import EffectiveDataRule, EffectiveKind, SubjectContext
 
 
@@ -59,7 +63,7 @@ def successful_rule_attestation(
     output: WireOutputMember,
     context: SubjectContext,
     *,
-    partition: WireProductPartition | None = None,
+    partition: WireProductPartition | WireProductPopulationManifest | None = None,
     selected_inputs: Mapping[str, Sequence[RuleObservedInput]] | None = None,
 ) -> RuleAttestation:
     """Project the output or exact partition the declared checker just validated."""
@@ -139,7 +143,7 @@ class RuleAttestationPreparation:
         self,
         rule: EffectiveDataRule,
         *,
-        partition: WireProductPartition | None = None,
+        partition: WireProductPartition | WireProductPopulationManifest | None = None,
         selected_inputs: Mapping[str, Sequence[RuleObservedInput]] | None = None,
     ) -> RuleAttestation:
         kind, operation, output, context = self.kind, self.operation, self.output, self.context
@@ -192,7 +196,15 @@ class RuleAttestationPreparation:
                 facts = []
                 for packet in partitions:
                     placement = packet["placement"]
-                    items = self._decoded(packet["body"]) if groups or exact else ()
+                    if "item_count" in packet:
+                        if exact:
+                            raise ValueError("exact rule fields require the acquired population")
+                        compact = cast("WireProductPopulationManifest", packet)
+                        group_values = {name: compact["group_digests"][name] for name in groups}
+                        items = ()
+                    else:
+                        items = self._decoded(packet["body"]) if groups or exact else ()
+                        group_values = self._groups(items, groups)
                     facts.append(
                         [
                             packet["partition_key"] if partition is None else None,
@@ -200,7 +212,7 @@ class RuleAttestationPreparation:
                             placement["start"] if whole or "$placement.start" in paths else None,
                             placement["end"] if whole or "$placement.end" in paths else None,
                             packet["partition_digest"] if whole else None,
-                            self._groups(items, groups) or None,
+                            group_values or None,
                             {path: self._fields(items, path) for path in exact} or None,
                         ]
                     )

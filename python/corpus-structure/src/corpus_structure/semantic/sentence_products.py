@@ -84,6 +84,7 @@ class SourceAnnotations:
     partitions: tuple[bytes, ...]
     execution_receipts: tuple[bytes, ...] = ()
     subject_context: SubjectContext | None = None
+    populations: tuple = field(default=(), kw_only=True)
     _payload: ClassVar[Any]
 
     def __post_init__(self):
@@ -94,7 +95,11 @@ class SourceAnnotations:
         ):
             raise TypeError("annotation execution custody requires immutable receipt bytes")
         payload = sentence_product_payload(
-            self.content, self.partitions, self.prepared, "DdoSourceAnnotations"
+            self.content,
+            self.partitions,
+            self.prepared,
+            "DdoSourceAnnotations",
+            populations=self.populations,
         )
         object.__setattr__(self, "content", payload.content)
         object.__setattr__(self, "partitions", payload.partitions)
@@ -108,6 +113,7 @@ class SourceAnnotations:
             "prepared",
             "model",
             "partitions",
+            "populations",
             "execution_receipts",
             "_payload",
         ):
@@ -115,6 +121,8 @@ class SourceAnnotations:
         object.__setattr__(result, "subject_context", context)
         if "_blocks" in vars(self):
             object.__setattr__(result, "_blocks", self._blocks)
+        if "partition_blocks" in vars(self):
+            object.__setattr__(result, "partition_blocks", self.partition_blocks)
         if "configuration" in vars(self):
             object.__setattr__(result, "configuration", self.configuration)
         return result
@@ -150,16 +158,19 @@ class SourceAnnotations:
     def value(self) -> Mapping[str, Any]:
         return self._acquired_payload().value
 
-    @property
+    @cached_property
     def partition_blocks(self):
         """Return the immutable row blocks already admitted with this header."""
-        return self._acquired_payload().blocks
+        from .sentence_partitions import selected_sentence_blocks
+
+        return selected_sentence_blocks(self._acquired_payload())
 
     def _acquired_payload(self):
         if (
             "_payload" not in vars(self)
             or self.content is not self._payload.content
             or self.partitions is not self._payload.partitions
+            or self.populations is not self._payload.populations
         ):
             raise TypeError("source annotations lack their validating acquisition")
         return self._payload
@@ -225,22 +236,20 @@ def source_annotation_blocks(
     value: Mapping[str, Any] | AnnotationView, partitions: tuple[bytes, ...] | None = None
 ) -> tuple[Mapping[str, Any], ...]:
     """Recover working block coordinates and columns from authenticated rows and layout."""
-    from .data_operation_partitions import partition_header
-    from .sentence_partitions import COLLECTION, blocks_from_packets
+    from .sentence_partitions import COLLECTION, acquire_sentence_blocks
 
     if type(value) is SourceAnnotations:
         return value._blocks
     if isinstance(value, Mapping):
         body = value
+        populations = ()
     else:
         partitions = value.partitions
         body = json.loads(value.content)
+        populations = getattr(value, "populations", ())
     if partitions is None:
         raise ValueError("annotation reads require their admitted row partitions")
-    packets = tuple(json.loads(packet) for packet in partitions)
-    if partition_header(packets) != body[COLLECTION]:
-        raise ValueError("annotation rows differ from their selected collection commitment")
-    rows = blocks_from_packets(packets)
+    rows = acquire_sentence_blocks(partitions, body[COLLECTION], populations=populations)
     return tuple(
         _annotation_block(layout, block)
         for layout, block in zip(body["block_layouts"], rows, strict=True)
@@ -472,6 +481,7 @@ def verify_source_annotation_carrier(prepared, model, annotations: SourceAnnotat
             annotations.partitions,
             annotations.execution_receipts,
             annotations.subject_context,
+            populations=annotations.populations,
         )
     return _verify_annotation_carrier(annotations, source, configuration)
 
@@ -504,7 +514,9 @@ def _verify_annotation_carrier(result, source, configuration):
     return result
 
 
-def acquired_source_annotations(prepared, model, header, packets, source, *, member, project):
+def acquired_source_annotations(
+    prepared, model, header, packets, source, *, member, project, populations=()
+):
     """Carry an annotation input selected by native rule binding into its working row view."""
     from corpus_structure.methods.sentence_evidence import verify_annotation_source
 
@@ -516,7 +528,9 @@ def acquired_source_annotations(prepared, model, header, packets, source, *, mem
         member.analyzed_scope,
         subject_definition=member.subject_definition,
     )
-    native = SourceAnnotations(header, prepared, model, packets, subject_context=context)
+    native = SourceAnnotations(
+        header, prepared, model, packets, subject_context=context, populations=populations
+    )
     verify_annotation_source(
         native.value["source"], native.value["selectors"], selected["source"], selected["selectors"]
     )
@@ -996,6 +1010,9 @@ def sentence_execution_custody(
     paths = (
         Path(__file__),
         root / "sentence_partitions.py",
+        root / "data_operation_population.py",
+        root / "population_canonical.py",
+        root / "population_transfer.py",
         root.parent / "methods/native_profiles.py",
         root.parent / "ingest/hosted_spacy.py",
     )
@@ -1422,13 +1439,20 @@ class PreparedSentencePort:
         from ._data_operation_wire import WireKindContract, WireOutputMember
         from .data_operation_ports import PortCompletion
         from .established_validity import RuleAttestationPreparation, RuleObservedInput
-        from .sentence_partitions import partitioned_role
+        from .sentence_partitions import typed_sentence_role
 
         # Product meaning uses the exact typed record's fields; display JSON and native
         # member packets are deliberate projections of that same validated product.
         output = next(role for role in self.operation.roles if role.direction == "output")
         contracts = {(item.owner, item.domain): item.key for item in self.profile.model.identities}
-        result = partitioned_role(output.name, contracts[output.kind, "kind"], product._payload)
+        kind = next(kind for kind in self.profile.model.kinds if kind.semantic_id == output.kind)
+        result = typed_sentence_role(
+            output.name,
+            contracts[output.kind, "kind"],
+            product._payload,
+            self.profile.prepared,
+            kind,
+        )
         attestations = ()
         if binding is not None and binding.subject_context is not None:
             from .native_source_view import thaw_native
@@ -1440,9 +1464,6 @@ class PreparedSentencePort:
                 "segment.sentences/token-sentence-membership": None,
                 "segment.sentences/coverage-manifest": selected_source,
             }
-            kind = next(
-                kind for kind in self.profile.model.kinds if kind.semantic_id == output.kind
-            )
             assert result.meaning is not None
             packet: WireOutputMember = {
                 "role": result.role,

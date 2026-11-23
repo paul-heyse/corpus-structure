@@ -144,10 +144,15 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
     import re
 
     from corpus_structure.semantic.data_operation_partitions import (
+        AcquiredPopulationPartition,
+        PartitionCommitment,
         PartitionedInput,
+        partition_group_digests,
         partition_header,
     )
+    from corpus_structure.semantic.data_operation_population import population_layout
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.semantic.data_product_reference import read_semantic_reference
     from corpus_structure.semantic.sentence_partitions import SentenceBlock, blocks_from_packets
 
@@ -175,9 +180,47 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
     assert manifest["record_type"] == "manifest"
     assert {row["family"] for row in manifest["coverage"]} == {"spacy.tokens", "spacy.sentences"}
     native_blocks = blocks_from_packets(tuple(json.loads(packet) for packet in complete.packets))
-    canonical_blocks = blocks_from_packets(
-        tuple(json.loads(packet) for packet in published.partitions)
+    input_definition = next(
+        kind
+        for kind in port.profile.model.kinds
+        if kind.semantic_id == port.operation.roles[0].kind
     )
+    layout = population_layout(port.profile.prepared, input_definition, "rows")
+    typed_blocks = []
+    for block in native_blocks:
+        typed_blocks.append(
+            AcquiredPopulationPartition(
+                PartitionCommitment(
+                    "rows",
+                    block.key,
+                    block.ordinal,
+                    block.start,
+                    block.end,
+                    block.packet()["partition_digest"],
+                    len(block.rows),
+                ),
+                partition_group_digests(block.rows, dict(layout._field_groups)),
+                layout.from_rows(block.rows),
+            )
+        )
+    assert project(PartitionedInput(product.content, (), tuple(typed_blocks))) == published
+    assert published.partitions == ()
+    canonical_blocks = []
+    for item in published.populations:
+        commitment = item.commitment
+        assert item.items.column("item_ordinal").to_pylist() == list(range(commitment.item_count))
+        block = SentenceBlock(
+            commitment.key,
+            commitment.ordinal,
+            commitment.start,
+            commitment.end,
+            tuple(
+                decode_semantic_value(json.loads(value))
+                for value in item.items.column("canonical_text").to_pylist()
+            ),
+        )
+        assert block.packet()["partition_digest"] == commitment.digest
+        canonical_blocks.append(block)
     expected_tokens = [(match.start(), match.end()) for match in re.finditer(r"\w+|[^\w\s]", text)]
     actual_tokens = []
     for block in canonical_blocks:
@@ -373,6 +416,7 @@ def test_admitted_prepared_sentence_port_emits_typed_empty_inventory_and_refuses
     assert len(json.loads(completion.outputs[0].content)["members"]) == 1
     assert json.loads(completion.outputs[0].content)["rows"]["partition_count"] == 0
     assert completion.outputs[0].partitions == ()
+    assert completion.outputs[0].populations == ()
     with pytest.raises(PortRefusal, match="nominal"):
         port.invoke_python((PythonRoleValue("source", "another-kind", source),))
     monkeypatch.setattr(SentenceEvidenceOperation, "run", lambda *_: None)
@@ -495,6 +539,7 @@ def test_declared_canonical_projection_has_actual_independent_member_contracts(p
     assert len(result.outputs[0].members) == 1
     assert {row["family"] for row in value["coverage"]} == {"spacy.tokens", "spacy.sentences"}
     assert value["rows"]["item_count"] == 0 and result.outputs[0].partitions == ()
+    assert result.outputs[0].populations == ()
 
 
 def test_prepared_sentence_plan_uses_invocation_work_and_host_owner(profile, monkeypatch):
@@ -539,7 +584,8 @@ def test_sentence_source_uses_owned_carrier_checks_and_preserves_direct_subclass
     port = admitted_port(profile)
     source = selected(profile, "")
     kind = next(
-        item.key for item in profile.model.identities
+        item.key
+        for item in profile.model.identities
         if item.owner == port.operation.roles[0].kind and item.domain == "kind"
     )
 
@@ -552,7 +598,9 @@ def test_sentence_source_uses_owned_carrier_checks_and_preserves_direct_subclass
     assert port._source((direct,), None).content == source.content
     hydrated = hydrated_source(source, kind)
     object.__setattr__(hydrated, "value", {})
-    object.__setattr__(hydrated, "_require_selected", lambda *_: pytest.fail("caller check override"))
+    object.__setattr__(
+        hydrated, "_require_selected", lambda *_: pytest.fail("caller check override")
+    )
     with pytest.raises(PortRefusal, match="selected nominal member"):
         port._source((hydrated,), None)
 
@@ -734,4 +782,6 @@ def test_unprojected_requested_native_text_is_unknown_instead_of_empty_language(
         subject_context=publication_context(FrozenNativeSource.acquire(profile.prepared, value)),
     )
     assert result.value["outcome"] == "partial" and result.inventory("token") == ()
-    assert all(row["outcome"] == "unsupported" and row["unexamined"] for row in result.value["coverage"])
+    assert all(
+        row["outcome"] == "unsupported" and row["unexamined"] for row in result.value["coverage"]
+    )

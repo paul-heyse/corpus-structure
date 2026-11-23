@@ -104,6 +104,7 @@ class SelectedRecordIndex:
         self.retained_records = 0
         self.cut = None
         self.has_frontier = False
+        self.population_archive = None
         try:
             _METADATA.create_all(self.connection)
         except BaseException:

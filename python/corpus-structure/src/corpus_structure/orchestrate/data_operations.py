@@ -79,6 +79,11 @@ from corpus_structure.semantic.data_operation_values import decode_semantic_valu
 from corpus_structure.semantic.data_operation_wire import interpret_wire_record
 from corpus_structure.semantic.identifiers import RuntimeId
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.population_transfer import (
+    population_item_write_profile,
+    population_upload_batches,
+    write_population_upload,
+)
 from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
 from corpus_structure.semantic.types import PreparedRelease, SourceArtifact, SourceBundle
 from corpus_structure.settings import AnalyticsSettings
@@ -1063,6 +1068,7 @@ class NativeDemandExecutor:
                 BoundConsumerSelection.from_binding(
                     ready.binding_result, operation=ready.operation
                 ),
+                prepared=context.basis.prepared,
                 demand_id=pins.get("demand_id", self.demand),
                 read_id=pins["read_id"],
                 trust_snapshot=pins["trust"],
@@ -1116,6 +1122,7 @@ class NativeDemandExecutor:
             + len(value.meaning or b"")
             + sum(map(len, value.members))
             + sum(map(len, value.partitions))
+            + sum(partition.items.nbytes for partition in value.populations)
             for value in answer.outputs
         )
         if output_bytes > self.policy.max_reply_bytes:
@@ -1126,12 +1133,17 @@ class NativeDemandExecutor:
         if answer.outcome not in operation.outcomes:
             raise PortRefusal("completion outcome is outside the declared operation")
         outputs: list[WireOutputMember] = []
+        populations = []
         positions = {}
         for value in answer.outputs:
             position = positions.get(value.role, 0)
             positions[value.role] = position + 1
             if value.meaning is None:
                 raise PortRefusal("native output requires canonical typed meaning")
+            populations.extend((value.role, position, partition) for partition in value.populations)
+            partitions = [partition.manifest() for partition in value.populations] or [
+                native_json_loads(partition) for partition in value.partitions
+            ]
             outputs.append(
                 {
                     "role": value.role,
@@ -1144,15 +1156,7 @@ class NativeDemandExecutor:
                             interpret_wire_record("product_member", native_json_loads(member))
                             for member in value.members
                         ],
-                        **(
-                            {
-                                "partitions": [
-                                    native_json_loads(partition) for partition in value.partitions
-                                ]
-                            }
-                            if value.partitions
-                            else {}
-                        ),
+                        **({"partitions": partitions} if partitions else {}),
                     },
                 }
             )
@@ -1227,6 +1231,9 @@ class NativeDemandExecutor:
             "runtime_id": RuntimeId(claim.runtime_id),
             "completion": cast(WireCompletion, completion),
         }
+        profile = (
+            population_item_write_profile(release_id=claim.release_id) if populations else None
+        )
         draft = None
         if self.completion_drafts is not None and ready.operation in SUPPORTED_OPERATIONS:
             from dataclasses import asdict
@@ -1258,10 +1265,28 @@ class NativeDemandExecutor:
                     )
                 ),
                 check_active=lambda: _check_claim_active(owner, claim),
+                population_upload=(
+                    write_population_upload(
+                        profile,
+                        population_upload_batches(profile, populations),
+                        max_bytes=self.policy.max_reply_bytes - draft_bytes,
+                    )
+                    if profile is not None
+                    else None
+                ),
             )
             request = draft.native_request()
 
         def retain(calls):
+            if draft is not None and draft.population_upload is not None:
+                self._upload_draft(calls, claim, draft)
+            elif profile is not None:
+                calls.prepare_population_upload(
+                    claim.fence,
+                    profile,
+                    population_upload_batches(profile, populations),
+                    release_id=claim.release_id,
+                )
             return calls.retain_data_completion_intent(request)
 
         return _RetainedAnswer(owner.retain(claim, retain)["intent_id"], draft)
@@ -1335,6 +1360,8 @@ class NativeDemandExecutor:
                 original = draft.native_request()
 
                 def consume(calls, *, candidate=candidate, draft=draft, original=original):
+                    if draft.population_upload is not None:
+                        self._upload_draft(calls, claim, draft)
                     return calls.consume_data_completion_draft(
                         {
                             **claim.fence,
@@ -1361,6 +1388,18 @@ class NativeDemandExecutor:
                     if owner.retain(claim, current)["state"] != "renewed":
                         raise
         return None
+
+    @staticmethod
+    def _upload_draft(calls, claim, draft):
+        import pyarrow as pa
+
+        profile = population_item_write_profile(release_id=draft.release_id)
+        with pa.ipc.open_stream(draft.population_upload) as reader:
+            if not reader.schema.equals(profile.schema, check_metadata=True):
+                raise PortRefusal("durable draft population differs from its captured upload shape")
+            calls.prepare_population_upload(
+                claim.fence, profile, reader, release_id=claim.release_id
+            )
 
     @staticmethod
     def _drop_hydration(physical, ready):

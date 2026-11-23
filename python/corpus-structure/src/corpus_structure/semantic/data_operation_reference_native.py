@@ -1,6 +1,19 @@
 """Generate publication-time closure for declared semantic reference slots."""
 
-from sqlalchemy import Integer, Text, and_, case, cast, column, func, literal, or_, select
+from sqlalchemy import (
+    BigInteger,
+    Integer,
+    Text,
+    and_,
+    case,
+    cast,
+    column,
+    func,
+    literal,
+    not_,
+    or_,
+    select,
+)
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array
 
 from .native_program import (
@@ -17,6 +30,7 @@ from .native_program import (
     core_variable,
     pg_type,
 )
+from .native_program import literal as pg_literal
 
 
 def _rows(value, name):
@@ -37,6 +51,9 @@ def reference_native_programs(model):
     products = model.tables["kb.data_product"]
     members = model.tables["kb.data_product_member"]
     kinds = model.tables["sem.data_kind_contract"]
+    population = model.tables["kb.data_product_population"]
+    items = model.tables["ops.data_retained_population_item"]
+    intent = core_variable("p_intent", Text())
     completion, target, output, ref, part = (
         core_variable(name, JSONB())
         for name in ("completion", "target", "output", "ref", "partition_body")
@@ -169,8 +186,10 @@ def reference_native_programs(model):
     paths = _rows(
         kinds.c.collections["declarations"][collection]["address"], "reference_address_paths"
     )
-    items = _rows(part[1], "addressed_items")
-    field = func.ops.ddo_partition_field(items.c.value, paths.c.value[()].astext, type_=JSONB())
+    legacy_items = _rows(part[1], "addressed_items")
+    field = func.ops.ddo_partition_field(
+        legacy_items.c.value, paths.c.value[()].astext, type_=JSONB()
+    )
     key = (
         select(func.jsonb_agg(aggregate_order_by(func.data.ddo_json(field), paths.c.ordinality)))
         .select_from(
@@ -179,10 +198,10 @@ def reference_native_programs(model):
             )
         )
         .where(products.c.id == product)
-        .correlate(items)
+        .correlate(legacy_items)
         .scalar_subquery()
     )
-    addressed = select(cast(key, Text()).label("address")).select_from(items).subquery()
+    addressed = select(cast(key, Text()).label("address")).select_from(legacy_items).subquery()
     multiplicities = (
         select(addressed.c.address, func.count().label("multiplicity"))
         .group_by(addressed.c.address)
@@ -228,6 +247,34 @@ def reference_native_programs(model):
         target["output_role"].astext,
         target["path"].astext,
         ref,
+    )
+    parent_scope = (
+        population.c.product_id == product,
+        population.c.collection == collection,
+        population.c.partition_key == ref["partition_key"].astext,
+    )
+    typed_parent = select(1).select_from(population).where(*parent_scope).exists()
+    typed_item = (
+        select(1)
+        .select_from(
+            population.join(
+                items,
+                and_(
+                    *(
+                        items.c[key] == population.c[key]
+                        for key in (
+                            "intent_id",
+                            "output_role",
+                            "output_position",
+                            "collection",
+                            "partition_key",
+                        )
+                    )
+                ),
+            )
+        )
+        .where(*parent_scope, items.c.address_key == cast(submitted_key, Text()))
+        .exists()
     )
     check_reference = (
         Perform(func.ops.ddo_fields(ref, fields)),
@@ -285,32 +332,40 @@ def reference_native_programs(model):
                 _reject(or_(func.jsonb_array_length(ref["item_key"]) == 0, bad_key_field), detail),
                 # The request's authorization and exact input occurrence are checked
                 # above even when this invocation already indexed the immutable body.
-                Assign("address_index", partition_indexes[partition_address]),
                 If(
-                    address_index.is_(None),
+                    typed_parent,
+                    (_reject(not_(typed_item), detail),),
                     (
-                        Assign(
-                            "partition_body",
-                            func.ops.ddo_acquired_product_partition(
-                                product,
-                                request_field("project_id"),
-                                collection,
-                                ref["partition_key"].astext,
-                                type_=JSONB(),
-                            )["body"],
-                        ),
-                        Assign("address_index", func.coalesce(partition_index, empty_index)),
-                        Assign(
-                            "partition_indexes",
-                            partition_indexes.op("||")(
-                                func.jsonb_build_object(partition_address, address_index)
+                        Assign("address_index", partition_indexes[partition_address]),
+                        If(
+                            address_index.is_(None),
+                            (
+                                Assign(
+                                    "partition_body",
+                                    func.ops.ddo_acquired_product_partition(
+                                        product,
+                                        request_field("project_id"),
+                                        collection,
+                                        ref["partition_key"].astext,
+                                        type_=JSONB(),
+                                    )["body"],
+                                ),
+                                Assign(
+                                    "address_index", func.coalesce(partition_index, empty_index)
+                                ),
+                                Assign(
+                                    "partition_indexes",
+                                    partition_indexes.op("||")(
+                                        func.jsonb_build_object(partition_address, address_index)
+                                    ),
+                                ),
                             ),
                         ),
+                        _reject(
+                            address_index[cast(submitted_key, Text())].astext.is_distinct_from("1"),
+                            detail,
+                        ),
                     ),
-                ),
-                _reject(
-                    address_index[cast(submitted_key, Text())].astext.is_distinct_from("1"),
-                    detail,
                 ),
             ),
         ),
@@ -339,6 +394,53 @@ def reference_native_programs(model):
 
     header_refs = at_path(decoded(output_body), "header_refs")
     item_refs = at_path(partition_items.c.value, "item_refs").lateral()
+    retained = model.tables["ops.data_retained_population"]
+    retained_refs = at_path(
+        func.data.ddo_json(cast(items.c.canonical_text, JSONB())), "retained_refs"
+    ).lateral()
+    retained_items = (
+        select(retained_refs.c.value)
+        .select_from(
+            retained.join(
+                items,
+                and_(
+                    *(
+                        items.c[key] == retained.c[key]
+                        for key in (
+                            "intent_id",
+                            "output_role",
+                            "output_position",
+                            "collection",
+                            "partition_key",
+                        )
+                    )
+                ),
+            ).join(retained_refs, literal(True))
+        )
+        .where(
+            retained.c.intent_id == intent,
+            retained.c.output_role == output["role"].astext,
+            retained.c.output_position == cast(output["position"].astext, BigInteger()),
+            retained.c.collection == target["output_collection"].astext,
+        )
+        .order_by(retained.c.ordinal, items.c.item_ordinal, retained_refs.c.ordinality)
+    )
+    packet_refs = (
+        select(item_refs.c.value)
+        .select_from(
+            output_partitions.join(partition_items, literal(True)).join(item_refs, literal(True))
+        )
+        .where(output_partitions.c.value["collection"].astext == target["output_collection"].astext)
+        .order_by(
+            output_partitions.c.ordinality, partition_items.c.ordinality, item_refs.c.ordinality
+        )
+    )
+    compact_output = (
+        select(1)
+        .select_from(output_partitions)
+        .where(output_partitions.c.value.has_key("item_count"))
+        .exists()
+    )
     check_output = If(
         target["output_collection"].astext.is_(None),
         (
@@ -349,24 +451,10 @@ def reference_native_programs(model):
             ),
         ),
         (
-            ForQuery(
-                ("ref",),
-                select(item_refs.c.value)
-                .select_from(
-                    output_partitions.join(partition_items, literal(True)).join(
-                        item_refs, literal(True)
-                    )
-                )
-                .where(
-                    output_partitions.c.value["collection"].astext
-                    == target["output_collection"].astext
-                )
-                .order_by(
-                    output_partitions.c.ordinality,
-                    partition_items.c.ordinality,
-                    item_refs.c.ordinality,
-                ),
-                check_reference,
+            If(
+                and_(intent.is_not(None), compact_output),
+                (ForQuery(("ref",), retained_items, check_reference),),
+                (ForQuery(("ref",), packet_refs, check_reference),),
             ),
         ),
     )
@@ -377,6 +465,7 @@ def reference_native_programs(model):
             (
                 Parameter("r", pg_type("ops", "data_request")),
                 Parameter("completion", pg_type("jsonb")),
+                Parameter("p_intent", pg_type("text"), pg_literal(None)),
             ),
             pg_type("void"),
             Block(

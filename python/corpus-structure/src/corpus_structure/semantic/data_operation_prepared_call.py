@@ -211,6 +211,7 @@ class PreparedOriginalCallPort:
         *,
         prepared_release_id: str | None = None,
         asset_custody: tuple = (),
+        population_inputs=None,
         verify=None,
         check_active,
         execution_owner,
@@ -242,6 +243,7 @@ class PreparedOriginalCallPort:
                 verify=verify_call,
                 execution_owner=execution_owner,
                 check_active=check_active,
+                population_inputs=population_inputs,
             )
         )
 

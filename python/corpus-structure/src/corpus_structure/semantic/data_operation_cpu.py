@@ -9,18 +9,22 @@ from __future__ import annotations
 import importlib
 import inspect
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from contextlib import ExitStack
 from dataclasses import dataclass
 from functools import cached_property, lru_cache
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.caches import declare
 
 from .identity import canonical_bytes
+
+if TYPE_CHECKING:
+    from .data_operation_population import AcquiredPopulation
 
 
 class _Source(BaseModel):
@@ -38,6 +42,73 @@ class _AssetCustody(BaseModel):
     racily_clean: bool
 
 
+class _PopulationArgument(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    release_id: str
+    kind: str
+    collection: str
+    groups: tuple[str, ...]
+    projection_digest: str
+    logical_digest: str
+
+    def binding(self, parameter: str, position: int) -> str:
+        return sha256(canonical_bytes([parameter, position, self.model_dump()])).hexdigest()
+
+
+@dataclass(frozen=True)
+class PopulationCPUInput:
+    """Admitted population and the authority's projection and content commitments."""
+
+    population: AcquiredPopulation
+    projection_digest: str
+    logical_digest: str
+
+    def _argument(self) -> _PopulationArgument:
+        from .data_operation_population import AcquiredPopulation
+
+        if not isinstance(self.population, AcquiredPopulation):
+            raise ValueError("CPU population requires an acquired carrier")
+        if not self.projection_digest or not self.logical_digest:
+            raise ValueError("CPU population requires logical and projection identities")
+        metadata = self.population.layout.schema.metadata or {}
+        return _PopulationArgument(
+            release_id=metadata[b"release_id"].decode(),
+            kind=metadata[b"kind"].decode(),
+            collection=metadata[b"collection"].decode(),
+            groups=self.population.layout.groups,
+            projection_digest=self.projection_digest,
+            logical_digest=self.logical_digest,
+        )
+
+
+def _population_form(annotation) -> Literal["one", "tuple"] | None:
+    from .data_operation_population import AcquiredPopulation
+
+    if annotation is AcquiredPopulation:
+        return "one"
+    if get_origin(annotation) is tuple and get_args(annotation) == (AcquiredPopulation, Ellipsis):
+        return "tuple"
+    return None
+
+
+def _adapter_signature(signature, controls):
+    return signature.replace(
+        parameters=[
+            parameter
+            for name, parameter in signature.parameters.items()
+            if name not in controls and _population_form(parameter.annotation) is None
+        ]
+    )
+
+
+def _population_parameters(signature) -> dict[str, Literal["one", "tuple"]]:
+    return {
+        name: form
+        for name, parameter in signature.parameters.items()
+        if (form := _population_form(parameter.annotation)) is not None
+    }
+
+
 class _Call(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     sources: tuple[_Source, ...]
@@ -47,6 +118,7 @@ class _Call(BaseModel):
     receiver: bool
     verification: Literal["closed-slice", "prepared-kernel"]
     arguments: dict[str, str]
+    populations: dict[str, tuple[_PopulationArgument, ...]] = Field(default_factory=dict)
     control_parameter: str | None
     prepared_parameter: str | None = None
     prepared_release_id: str | None = None
@@ -104,18 +176,24 @@ class PythonCPUDescriptor:
             id(signature.return_annotation),
         )
         if key not in self.adapter_sets:
-            selected = signature.replace(
-                parameters=[
-                    parameter
-                    for name, parameter in signature.parameters.items()
-                    if name not in {self.control_parameter, self.prepared_parameter}
-                ]
+            selected = _adapter_signature(
+                signature, {self.control_parameter, self.prepared_parameter}
             )
             self.adapter_sets[key] = (signature, PortAdapters(selected))
         return self.adapter_sets[key][1]
 
-    def packet(self, arguments, signature) -> bytes:
+    def packet(self, arguments, signature, *, populations=None) -> bytes:
         adapters = self.adapters(signature)
+        population_manifest = (
+            {
+                "populations": {
+                    name: [entry.model_dump() for entry in entries]
+                    for name, entries in populations.items()
+                }
+            }
+            if populations
+            else {}
+        )
         return canonical_bytes(
             {
                 "sources": self.source_records,
@@ -137,7 +215,9 @@ class PythonCPUDescriptor:
                     .decode()
                     for name, value in arguments.items()
                     if name not in {self.control_parameter, self.prepared_parameter}
+                    and name not in (populations or {})
                 },
+                **population_manifest,
             }
         )
 
@@ -161,26 +241,79 @@ def prepared_cpu_descriptor(sources, entrypoint, prepared_release_id, asset_cust
     )
 
 
-def plan_cpu_call(descriptor, bound, signature, *, verify, execution_owner, check_active):
+def plan_cpu_call(
+    descriptor,
+    bound,
+    signature,
+    *,
+    verify,
+    execution_owner,
+    check_active,
+    population_inputs: Mapping[str, PopulationCPUInput | tuple[PopulationCPUInput, ...]]
+    | None = None,
+):
     """One validated original call, one shared admission, one physically owned reply."""
     from corpus_structure.core.method import PreparedWork
 
     if not isinstance(descriptor, PythonCPUDescriptor):
         raise ValueError("CPU call requires its acquired source descriptor")
     check_active()
-    packet = descriptor.packet(bound.arguments, signature)
+    populations, transfers = {}, []
+    inputs = population_inputs or {}
+    declared = _population_parameters(signature)
+    if set(inputs) != set(declared) or (
+        inputs
+        and (
+            descriptor.verification != "prepared-kernel"
+            or descriptor.invocation_form not in {"scalar", "batch"}
+        )
+    ):
+        raise ValueError("CPU population inputs differ from their admitted kernel parameters")
+    for name in sorted(inputs):
+        selected = inputs[name]
+        if declared[name] == "one" and isinstance(selected, PopulationCPUInput):
+            owned = (selected,)
+            argument_matches = bound.arguments[name] is selected.population
+        elif declared[name] == "tuple" and isinstance(selected, tuple):
+            owned = selected
+            actual = bound.arguments[name]
+            argument_matches = (
+                type(actual) is tuple
+                and len(actual) == len(owned)
+                and all(
+                    isinstance(inp, PopulationCPUInput) and value is inp.population
+                    for value, inp in zip(actual, owned, strict=True)
+                )
+            )
+        else:
+            raise ValueError("CPU population input cardinality differs from its parameter")
+        if not argument_matches:
+            raise ValueError("CPU population differs from its admitted argument")
+        entries = tuple(item._argument() for item in owned)
+        populations[name] = entries
+        transfers.extend(
+            (inp.population, entry.binding(name, position))
+            for position, (inp, entry) in enumerate(zip(owned, entries, strict=True))
+        )
+    packet = descriptor.packet(bound.arguments, signature, populations=populations)
     cpu = execution_owner.cpu
 
     def submit():
         check_active()
         admission = cpu.try_admit(
-            check_active, reservation=execution_owner.reservation, packet_bytes=len(packet)
+            check_active,
+            reservation=execution_owner.reservation,
+            packet_bytes=None if transfers else len(packet),
         )
         if admission is None:
             return None
         try:
             verify()
             check_active()
+            if transfers:
+                return cpu.submit_closed_python(
+                    admission, packet, check_active, populations=transfers
+                )
             return cpu.submit_closed_python(admission, packet, check_active)
         except BaseException:
             if not admission.submitted:
@@ -194,7 +327,7 @@ def plan_cpu_call(descriptor, bound, signature, *, verify, execution_owner, chec
 
 
 def _load(call):
-    prepared = _load_descriptor(call.model_dump_json(exclude={"arguments"}))
+    prepared = _load_descriptor(call.model_dump_json(exclude={"arguments", "populations"}))
     prepared.verify()
     return prepared
 
@@ -339,11 +472,7 @@ def _load_original(call):
     signature = inspect.signature(function, eval_str=True)
     verify()
     controls = {call.control_parameter, call.prepared_parameter}
-    adapters = PortAdapters(
-        signature.replace(
-            parameters=[p for p in signature.parameters.values() if p.name not in controls]
-        )
-    )
+    adapters = PortAdapters(_adapter_signature(signature, controls))
     from .data_operation_ports import (
         _authenticated_closed_slice,
         _code_globals,
@@ -418,7 +547,9 @@ def _load_original(call):
     return function, check, signature, adapters
 
 
-def _bound_arguments(call, signature, check_active, prepared_releases, *, adapters=None):
+def _bound_arguments(
+    call, signature, check_active, prepared_releases, *, adapters=None, populations=None
+):
     controls = {
         name for name in (call.control_parameter, call.prepared_parameter) if name is not None
     }
@@ -426,7 +557,12 @@ def _bound_arguments(call, signature, check_active, prepared_releases, *, adapte
         call.verification != "prepared-kernel" or not controls <= set(signature.parameters)
     ):
         raise ValueError("CPU controls differ from admitted prepared-kernel parameters")
-    if set(call.arguments) != set(signature.parameters) - controls:
+    population_arguments = populations or {}
+    if (
+        set(population_arguments) != set(_population_parameters(signature))
+        or set(call.arguments) & set(population_arguments)
+        or set(call.arguments) | set(population_arguments) != set(signature.parameters) - controls
+    ):
         raise ValueError("CPU call arguments differ from acquired original signature")
     if adapters is None:
         from .data_operation_ports import PortAdapters
@@ -449,6 +585,7 @@ def _bound_arguments(call, signature, check_active, prepared_releases, *, adapte
         return adapters.get(signature.parameters[name].annotation).validate_json(value, strict=True)
 
     arguments = {name: accepted_argument(name, value) for name, value in call.arguments.items()}
+    arguments.update(population_arguments)
     if call.control_parameter is not None:
         arguments[call.control_parameter] = check_active
     if call.prepared_parameter is not None:
@@ -473,23 +610,110 @@ def _bound_arguments(call, signature, check_active, prepared_releases, *, adapte
     return signature.bind(*positional, **keywords)
 
 
+def _open_populations(
+    call, signature, offers, prepared_releases, request_digest, byte_limit, owner, check_active
+):
+    from .data_operation_admission import bound_data_operation_model
+    from .data_operation_population import AcquiredPopulation, population_layout
+
+    declared = _population_parameters(signature)
+    if (
+        set(call.populations) != set(declared)
+        or len(offers) != sum(len(entries) for entries in call.populations.values())
+        or call.verification != "prepared-kernel"
+        or call.invocation_form not in {"scalar", "batch"}
+    ):
+        raise ValueError("CPU population transfer differs from its authorized kernel parameters")
+    arguments, layouts, models = {}, {}, {}
+    pending = iter(offers)
+    for name, entries in sorted(call.populations.items()):
+        if declared[name] == "one" and len(entries) != 1:
+            raise ValueError("CPU population transfer changes input cardinality")
+        opened = []
+        for position, entry in enumerate(entries):
+            check_active()
+            prepared = (prepared_releases or {}).get(entry.release_id)
+            if prepared is None or prepared.release_id != entry.release_id:
+                raise ValueError("CPU population lacks its exact admitted release capsule")
+            key = (entry.release_id, entry.kind, entry.collection, entry.groups)
+            if key not in layouts:
+                if entry.release_id not in models:
+                    models[entry.release_id] = bound_data_operation_model(prepared)
+                kind = next(
+                    (
+                        kind
+                        for kind in models[entry.release_id].kinds
+                        if kind.semantic_id == entry.kind
+                    ),
+                    None,
+                )
+                if kind is None:
+                    raise ValueError("CPU population kind differs from its admitted release")
+                layout = population_layout(prepared, kind, entry.collection)
+                layouts[key] = layout.for_groups(entry.groups) if entry.groups else layout
+            layout = layouts[key]
+            payload = owner.enter_context(next(pending).receive())
+            table = owner.enter_context(
+                payload.open(
+                    schema=layout.schema,
+                    request_digest=request_digest,
+                    projection_digest=entry.binding(name, position),
+                    max_bytes=byte_limit,
+                )
+            )
+            byte_limit -= payload.byte_length
+            # The invocation sealed an acquired value. The authenticated mapping
+            # needs physical validation, without re-decoding all semantic rows.
+            table.validate(full=True)
+            opened.append(AcquiredPopulation._from_table(layout, table))
+        arguments[name] = opened[0] if declared[name] == "one" else tuple(opened)
+    return arguments
+
+
 def execute_python_call(
-    content: bytes, check_active, prepare_runtime=lambda: None, prepared_releases=None
+    content: bytes,
+    check_active,
+    prepare_runtime=lambda: None,
+    prepared_releases=None,
+    *,
+    populations=(),
+    request_digest: str | None = None,
+    population_bytes: int = 0,
 ) -> bytes:
     """Child-only: typed original ingress and egress; no native/database access."""
     call = _Call.model_validate_json(content, strict=True)
     prepared = _load(call)
-    bound = _bound_arguments(
-        call, prepared.signature, check_active, prepared_releases, adapters=prepared.adapters
-    )
-    prepare_runtime()
-    check_active()
-    result = prepared.function(*bound.args, **bound.kwargs)
-    prepare_runtime()
-    check_active()
-    prepared.verify()
-    adapter = prepared.adapters.get(prepared.signature.return_annotation)
-    return adapter.dump_json(adapter.validate_python(result, strict=True))
+    with ExitStack() as owner:
+        arguments = {}
+        if call.populations or populations:
+            if request_digest != sha256(content).hexdigest():
+                raise ValueError("CPU population request differs from its transfer identity")
+            arguments = _open_populations(
+                call,
+                prepared.signature,
+                populations,
+                prepared_releases,
+                request_digest,
+                population_bytes,
+                owner,
+                check_active,
+            )
+        bound = _bound_arguments(
+            call,
+            prepared.signature,
+            check_active,
+            prepared_releases,
+            adapters=prepared.adapters,
+            populations=arguments,
+        )
+        prepare_runtime()
+        check_active()
+        result = prepared.function(*bound.args, **bound.kwargs)
+        prepare_runtime()
+        check_active()
+        prepared.verify()
+        adapter = prepared.adapters.get(prepared.signature.return_annotation)
+        return adapter.dump_json(adapter.validate_python(result, strict=True))
 
 
 def execute_python_stream(

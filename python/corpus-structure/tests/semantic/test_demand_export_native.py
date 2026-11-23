@@ -49,7 +49,12 @@ def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
             format=encoding,
             page_rows=1,
         )
-    assert support_calls == [{"max_bytes": 8388608}]
+    (support_call,) = support_calls
+    assert support_call["max_bytes"] == 8388608
+    assert callable(support_call["consume_populations"])
+    for relation in ("kb.data_product_population", "kb.data_product_population_item"):
+        fragment = manifest.manifest.relations[relation]
+        assert fragment.rows == 0 and (destination / fragment.file).is_file()
     expected = sha256((destination / "manifest.json").read_bytes()).hexdigest()
     assert expected == manifest.manifest_digest
     # This authored external recipe has no Python declarations to document.

@@ -1185,7 +1185,7 @@ def data_operation_native_programs(*, target_metadata=None, sources=None, pdf_do
     from .demand_result_native import demand_result_programs
     from .execution_evidence_leaf import execution_evidence_leaf_native_programs
     from .external_execution_native import external_execution_native_programs
-    from .native_objects import INTERNAL_PROGRAM
+    from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess
     from .native_program_registry import (
         PROGRAM_MANIFEST_SOURCE,
         ProgramDeclaration,
@@ -1247,7 +1247,14 @@ def data_operation_native_programs(*, target_metadata=None, sources=None, pdf_do
 
     def declarations(source, routines):
         return tuple(
-            ProgramDeclaration(routine, source, role_name("publisher"), INTERNAL_PROGRAM)
+            ProgramDeclaration(
+                routine,
+                source,
+                role_name("publisher"),
+                NativeProgramAccess(purposes=("write",))
+                if routine.name == "prepare_data_population_upload"
+                else INTERNAL_PROGRAM,
+            )
             for routine in routines
         )
 

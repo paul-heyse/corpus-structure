@@ -178,6 +178,7 @@ def export_demand_result(
     """
     from corpus_structure.semantic.data_operation_wire import wire_contextual_fields, wire_contracts
     from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_release
+    from corpus_structure.semantic.selected_population_archive import write_population_fragments
 
     if format not in {"jsonl", "parquet"}:
         raise ValueError("selected export encoding must be jsonl or parquet")
@@ -191,7 +192,7 @@ def export_demand_result(
         root = Path(scratch) / "export"
         root.mkdir()
         _SPOOL.create_all(spool)
-        files, pages, releases, runtimes = {}, [], set(), set()
+        files, relations, pages, releases, runtimes = {}, {}, [], set(), set()
         source_digests = set()
         cut = None
 
@@ -222,7 +223,18 @@ def export_demand_result(
             pages.append(name)
         if cut is None:
             raise ValueError("native result did not produce its empty frontier page")
-        for record in stream_selected_archive(connection, cut, max_bytes=page_bytes):
+
+        def capture_populations(handle):
+            for relation, name, count in write_population_fragments(
+                connection, handle, root, cut.identity
+            ):
+                path = root / name
+                files[name] = dict(sha256=_checksum(path), bytes=path.stat().st_size)
+                relations[relation] = dict(file=name, rows=count)
+
+        for record in stream_selected_archive(
+            connection, cut, max_bytes=page_bytes, consume_populations=capture_populations
+        ):
             payload = json_bytes(record)
             spool.execute(
                 _RECORDS.insert().values(
@@ -356,7 +368,6 @@ def export_demand_result(
         files[closure_path.name] = dict(
             sha256=_checksum(closure_path), bytes=closure_path.stat().st_size
         )
-        relations = {}
         if format == "parquet":
             from datetime import datetime
             from itertools import batched
@@ -483,6 +494,7 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
         validate_data_operation_runtime,
     )
     from corpus_structure.semantic.demand_results import verify_detached_result
+    from corpus_structure.semantic.selected_population_archive import open_population_fragments
 
     manifest_bytes = (root / "manifest.json").read_bytes()
     if sha256(manifest_bytes).hexdigest() != manifest_digest:
@@ -553,8 +565,12 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
     )
     authority_schema = finite_json_loads((root / manifest.authority_contract).read_bytes())
     execution_schema = finite_json_loads((root / manifest.execution_evidence_contract).read_bytes())
-    with TemporaryDirectory(prefix="demand-verify-") as scratch:
+    with (
+        TemporaryDirectory(prefix="demand-verify-") as scratch,
+        open_population_fragments(root, manifest) as populations,
+    ):
         index = SelectedRecordIndex(Path(scratch) / "closure.sqlite", reader=support_reader)
+        index.population_archive = populations
         try:
             with (root / manifest.closure).open("rb") as stream:
                 for line in stream:

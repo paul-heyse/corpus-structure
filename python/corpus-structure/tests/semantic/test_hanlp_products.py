@@ -185,7 +185,9 @@ def inputs(profile, *, text="The mean is 2.", words=None, pieces=None, items=Non
     return source, canonical, sentence, tokens
 
 
-def test_detached_head_failures_preserve_valid_siblings_and_native_tree_groups(profile, monkeypatch):
+def test_detached_head_failures_preserve_valid_siblings_and_native_tree_groups(
+    profile, monkeypatch
+):
     source, canonical, sentence, tokens = inputs(profile)
     words = [word for _, word in tokens]
     preparation = dict(
@@ -239,7 +241,11 @@ def test_detached_head_failures_preserve_valid_siblings_and_native_tree_groups(p
     from corpus_structure.semantic.hanlp_products import partition_hanlp_product
 
     product = partition_hanlp_product(
-        source, ((sentence, tokens),), units, (alignment,), coverage,
+        source,
+        ((sentence, tokens),),
+        units,
+        (alignment,),
+        coverage,
         kind_contract=manifest_contract(profile.prepared, profile.model, "DdoHanlpManifest"),
         prepared=profile.prepared,
     )
@@ -360,7 +366,6 @@ def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profi
     from corpus_structure.semantic.data_operation_partitions import PartitionedInput
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue
     from corpus_structure.semantic.data_product_reference import SemanticReference
-    from corpus_structure.semantic.sentence_partitions import blocks_from_packets
 
     header = json.loads(canonical.content)
     partitioned = PartitionedInput(canonical.content, canonical.partitions)
@@ -442,13 +447,18 @@ def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profi
         "hanlp.constituency",
         "hanlp.srl",
     }
-    (block,) = blocks_from_packets(
-        tuple(json.loads(packet) for packet in completion.outputs[0].partitions)
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
+
+    (block,) = completion.outputs[0].populations
+    rows = tuple(
+        decode_semantic_value(json.loads(text))
+        for text in block.items["canonical_text"].to_pylist()
     )
-    (alignment,) = (row for row in block.rows if row["record_type"] == "alignment")
+    assert block.commitment.item_count == len(rows)
+    (alignment,) = (row for row in rows if row["record_type"] == "alignment")
     assert alignment["prepared_words"] == [" The", " mean", " is", " 2", "."]
     assert alignment["token_id_standing"] == "authenticated-vocabulary"
-    tokens = [row for row in block.rows if row["record_type"] == "token"]
+    tokens = [row for row in rows if row["record_type"] == "token"]
     assert len(tokens) == 5 and all(
         "lemma" in token and "pos" in token and "dependency_head" in token for token in tokens
     )
@@ -456,7 +466,7 @@ def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profi
     assert all(
         row["sentence"]
         == SemanticReference.item("canonical", "rows", "#/texts/0", ("sentence", 0)).values()
-        for row in block.rows
+        for row in rows
     )
     assert completion.execution_evidence
     assert all(

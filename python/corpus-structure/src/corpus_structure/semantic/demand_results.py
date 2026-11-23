@@ -15,11 +15,16 @@ from functools import cached_property
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-from ._data_operation_wire import WireCutSelection, WireProductPartition
+from ._data_operation_wire import WireCutSelection
 from .data_operation_identity import body_identity, contextual_product_identity
 from .data_operation_json import json_bytes, native_json_loads, wire_json_loads
 from .data_operation_model import SubjectContext, validate_replicate_selection
-from .data_operation_partitions import partition_group_digests, partition_header, partition_packet
+from .data_operation_partitions import (
+    PartitionCommitment,
+    partition_commitment_header,
+    partition_group_digests,
+    partition_packet,
+)
 from .data_operation_values import decode_semantic_value
 from .owned_json import FrozenObject, freeze_json, thaw_json
 from .selected_graph_budget import SelectedGraphBudgetExceeded
@@ -354,6 +359,7 @@ def stream_selected_archive(
     *,
     max_bytes: int = 8 * 1024 * 1024,
     batch_rows: int = 64,
+    consume_populations=None,
 ) -> Generator[dict[str, Any]]:
     """Stream one transaction-owned native archive selection in bounded batches.
 
@@ -361,6 +367,41 @@ def stream_selected_archive(
     Successful exhaustion closes it explicitly. An interrupted transaction owns
     cleanup through rollback or its ON COMMIT DROP temporary relations.
     """
+    from sqlalchemy import Text, bindparam, cast, func, select
+
+    handle = _open_selected_archive(connection, cut, max_bytes=max_bytes, batch_rows=batch_rows)
+    fetch = select(
+        cast(func.ops.fetch_selected_archive(bindparam("archive_handle", type_=Text)), Text)
+    )
+    previous = None
+    while True:
+        content = connection.scalar(fetch, {"archive_handle": handle})
+        if not isinstance(content, str):
+            raise ValueError("native archive batch returned malformed JSON")
+        batch = native_json_loads(content)
+        if (
+            not isinstance(batch, dict)
+            or not isinstance(batch.get("records"), list)
+            or type(batch.get("complete")) is not bool
+            or (not batch["records"] and not batch["complete"])
+        ):
+            raise ValueError("native archive batch has no complete bounded shape")
+        for record in batch["records"]:
+            key = record.get("key") if isinstance(record, dict) else None
+            if not isinstance(key, str) or (previous is not None and key <= previous):
+                raise ValueError("native archive record keys did not advance")
+            previous = key
+            yield dict(record)
+        if batch["complete"]:
+            break
+    if consume_populations is not None:
+        consume_populations(handle)
+    _close_selected_archive(connection, handle)
+
+
+def _open_selected_archive(
+    connection, cut: CutSelection, *, max_bytes: int, batch_rows: int
+) -> str:
     from sqlalchemy import BigInteger, Integer, Text, bindparam, cast, func, select
     from sqlalchemy.dialects.postgresql import JSONB
 
@@ -387,34 +428,62 @@ def stream_selected_archive(
     handle = acquired.get("handle") if isinstance(acquired, dict) else None
     if not isinstance(handle, str) or not handle:
         raise ValueError("native archive acquisition omitted its handle")
-    fetch = select(
-        cast(func.ops.fetch_selected_archive(bindparam("archive_handle", type_=Text)), Text)
-    )
-    previous = None
-    while True:
-        content = connection.scalar(fetch, {"archive_handle": handle})
-        if not isinstance(content, str):
-            raise ValueError("native archive batch returned malformed JSON")
-        batch = native_json_loads(content)
-        if (
-            not isinstance(batch, dict)
-            or not isinstance(batch.get("records"), list)
-            or type(batch.get("complete")) is not bool
-            or (not batch["records"] and not batch["complete"])
-        ):
-            raise ValueError("native archive batch has no complete bounded shape")
-        for record in batch["records"]:
-            key = record.get("key") if isinstance(record, dict) else None
-            if not isinstance(key, str) or (previous is not None and key <= previous):
-                raise ValueError("native archive record keys did not advance")
-            previous = key
-            yield dict(record)
-        if batch["complete"]:
-            break
+    return handle
+
+
+def _close_selected_archive(connection, handle):
+    from sqlalchemy import Text, bindparam, func, select
+
     connection.scalar(
         select(func.ops.close_selected_archive(bindparam("archive_handle", type_=Text))),
         {"archive_handle": handle},
     )
+
+
+def stream_selected_archive_population(connection, handle, *, items):
+    """Fetch typed rows from the same authenticated scratch handle without JSON assembly."""
+    from sqlalchemy import BigInteger, Boolean, Text, bindparam, func, select
+
+    from .selected_population_archive import KEY_FIELDS, population_fields
+
+    statement = select(
+        func.ops.read_selected_archive_population(
+            bindparam("handle", type_=Text()),
+            bindparam("items", type_=Boolean()),
+            bindparam("product", type_=Text()),
+            bindparam("collection", type_=Text()),
+            bindparam("partition", type_=Text()),
+            bindparam("ordinal", type_=BigInteger()),
+        )
+        .table_valued(*population_fields(), "fits")
+        .alias("selected_population")
+    )
+    after = (None, None, None, None)
+    while True:
+        rows = (
+            connection.execute(
+                statement,
+                dict(
+                    handle=handle,
+                    items=items,
+                    **dict(
+                        zip(("product", "collection", "partition", "ordinal"), after, strict=True)
+                    ),
+                ),
+            )
+            .mappings()
+            .all()
+        )
+        if not rows:
+            break
+        for row in rows:
+            if row["fits"] is not True:
+                raise ValueError("selected archive population row exceeds max_bytes")
+            current = (*(row[name] for name in KEY_FIELDS), row["ordinal"])
+            if after[0] is not None and current <= after:
+                raise ValueError("selected archive population keys did not advance")
+            after = current
+        yield rows
 
 
 def stream_selected_support(
@@ -601,7 +670,12 @@ def selected_record_index(
                     if obligation_id is not None:
                         continuation = {**continuation, "obligation_id": obligation_id}
             assert cut is not None
+            from .selected_population_archive import LivePopulationArchive
+
+            populations = LivePopulationArchive(connection, index, cut, max_bytes)
+            index.population_archive = populations
             yield cut, index
+            populations.close()
         finally:
             index.close()
 
@@ -628,6 +702,11 @@ def verify_detached_result(
     """
     from .data_operation_wire import DRAFT7, validate_native_wire, validate_wire_schema
     from .schema_validation import prepared_schema_validator
+    from .selected_population_archive import (
+        POPULATION_HEADERS,
+        POPULATION_ITEMS,
+        verify_population_partition,
+    )
 
     def captured_kind_validator(schema):
         # Captured native kind fragments use the native Draft7 contract even when
@@ -697,7 +776,9 @@ def verify_detached_result(
     member_relation = "kb.data_product_member"
     members = row_map(member_relation, "product_id", "member_id")
     partition_relation = "kb.data_product_partition"
+    population_archive = None if index is None else getattr(index, "population_archive", None)
     seen_partition_count = 0
+    seen_typed_partition_count = 0
     seen_member_count = 0
     for product in rows("kb.data_product") if validate_closure else ():
         if product["id"] in product_headers:
@@ -762,9 +843,7 @@ def verify_detached_result(
             for name, declaration in collections.get("declarations", {}).items()
             if declaration["unit"] == "partitioned"
         }
-        partition_packets: dict[str, list[WireProductPartition]] = {
-            name: [] for name in declarations
-        }
+        commitments: dict[str, list[PartitionCommitment]] = {name: [] for name in declarations}
         for partition in rows_for(partition_relation, product_id=product["id"]):
             name = partition["collection"]
             if name not in declarations:
@@ -794,9 +873,42 @@ def verify_detached_result(
                 != partition_group_digests(items, declarations[name]["field_groups"])
             ):
                 raise ValueError("detached partition differs from its content identity")
-            partition_packets[name].append(packet)
-        for name, packets in partition_packets.items():
-            if partition_header(packets) != decoded.get(name):
+            commitments[name].append(
+                PartitionCommitment(
+                    name,
+                    packet["partition_key"],
+                    packet["ordinal"],
+                    packet["placement"]["start"],
+                    packet["placement"]["end"],
+                    packet["partition_digest"],
+                    len(items),
+                )
+            )
+        if population_archive is not None:
+            headers = list(population_archive.rows(POPULATION_HEADERS, product_id=product["id"]))
+            for partition in headers:
+                name = partition["collection"]
+                if name not in declarations:
+                    raise ValueError("detached typed population has no declared parent collection")
+                seen_typed_partition_count += 1
+                schemas = collections["schemas"][name]
+                items = population_archive.rows(
+                    POPULATION_ITEMS,
+                    product_id=product["id"],
+                    collection=name,
+                    partition_key=partition["partition_key"],
+                )
+                commitments[name].append(
+                    verify_population_partition(
+                        partition,
+                        items,
+                        declarations[name],
+                        captured_kind_validator(schemas["meaning_schema"]),
+                        captured_kind_validator(schemas["body_schema"]),
+                    )
+                )
+        for name, values in commitments.items():
+            if partition_commitment_header(values) != decoded.get(name):
                 raise ValueError("detached partition collection differs from its parent header")
         body = body_identity(decoded).key
         context = SubjectContext(
@@ -823,6 +935,12 @@ def verify_detached_result(
         row_map(partition_relation, "product_id", "collection", "partition_key")
     ):
         raise ValueError("detached partition has no disclosed parent or repeats an identity")
+    if (
+        validate_closure
+        and population_archive is not None
+        and seen_typed_partition_count != population_archive.header_count
+    ):
+        raise ValueError("detached typed population has no disclosed parent")
     if validate_closure and seen_member_count != len(members):
         raise ValueError("detached member has no disclosed parent")
     actual_definitions = row_map("sem.data_operation_definition", "release_id", "operation_id")
@@ -1072,6 +1190,7 @@ def verify_detached_result(
             ):
                 raise ValueError("detached input roles differ from the sealed completion")
             expected_outputs = set()
+            output_products = {}
             for output in payload["outputs"]:
                 edge_key = (episode["id"], output["role"], output["position"])
                 edge = required(output_edges, edge_key, "producing output edge")
@@ -1100,6 +1219,7 @@ def verify_detached_result(
                     or edge["multiplicity"] != output["multiplicity"]
                 ):
                     raise ValueError("detached output role differs from the sealed completion")
+                output_products[(output["role"], output["position"])] = product_key
             actual_outputs = {
                 (row["derivation_id"], row["role"], row["position"])
                 for row in rows_for("ops.data_derivation_output", derivation_id=episode["id"])
@@ -1119,6 +1239,8 @@ def verify_detached_result(
                     input_roles=definition["input_roles"],
                     outputs=payload["outputs"],
                     product_headers=product_headers,
+                    population_archive=population_archive,
+                    output_products=output_products,
                 )
             for occurrence, reference in enumerate(payload["support"]):
                 kind = support_reference(reference)

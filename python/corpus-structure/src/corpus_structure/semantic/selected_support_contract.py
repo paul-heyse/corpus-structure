@@ -66,6 +66,7 @@ def _column_schema(column) -> dict[str, Any]:
 def ambient_support_contract(relation: str) -> bytes:
     from .data_operation_wire import wire_contextual_fields, wire_record_schema
     from .metadata import table
+    from .selected_population_archive import HEADER_FIELDS, POPULATION_HEADERS
 
     declaration = support_declarations()["relations"].get(relation, {})
     schema: dict[str, Any]
@@ -84,7 +85,11 @@ def ambient_support_contract(relation: str) -> bytes:
         schema = support_declarations()["explanation_schema"]
     else:
         try:
-            columns = table(relation).c
+            columns = (
+                tuple(table("ops.data_retained_population").c[name] for name in HEADER_FIELDS)
+                if relation == POPULATION_HEADERS
+                else table(relation).c
+            )
         except KeyError as error:
             raise ValueError("unsupported selected support relation: " + relation) from error
         properties = {

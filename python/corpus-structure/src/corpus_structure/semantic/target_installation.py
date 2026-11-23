@@ -574,6 +574,7 @@ def target_authoring_scratch(connection, installation: TargetInstallation):
     from sqlalchemy import Text, bindparam, func, select
 
     from .archive_native import archive_scratch_specs
+    from .data_operation_partition_native import population_scratch_specs
     from .native_objects import NativeAuthoringError
     from .pdf_shared_streams import pdf_scratch_specs
     from .selected_archive_native import selected_archive_scratch_specs
@@ -581,6 +582,7 @@ def target_authoring_scratch(connection, installation: TargetInstallation):
     specs = (
         *pdf_scratch_specs(installation.metadata),
         *archive_scratch_specs(installation.metadata),
+        *population_scratch_specs(installation.metadata),
         *selected_archive_scratch_specs(),
     )
     present = select(func.to_regclass(bindparam("name", type_=Text())))

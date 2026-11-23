@@ -744,7 +744,9 @@ def _input_projection_programs(model, parameters, selected_rows):
 
     demands = model.tables["ops.data_demand"]
     definitions = model.tables["sem.data_operation_definition"]
-    partitions = model.tables["kb.data_product_partition"]
+    from .data_operation_rule_native import _rule_partition_headers
+
+    partitions = _rule_partition_headers(model, "input_projection_partitions")
     binding_roles = _rows(definitions.c.input_roles, "binding_projection_role")
     projection = core_variable("projection", JSONB())
     actual_header = core_variable("admitted_header", JSONB())
@@ -1149,11 +1151,156 @@ def _binding_programs(model):
             Return(member_row.scalar_subquery()),
         ),
     )
+    population = model.tables["kb.data_product_population"]
+    retained = model.tables["ops.data_retained_population"]
+    items = model.tables["ops.data_retained_population_item"]
+    retained_key = ("intent_id", "output_role", "output_position", "collection", "partition_key")
+    address = core_variable("p_item_key", JSONB())
+    item = (
+        select(
+            population.c.product_id,
+            case(
+                (func.octet_length(items.c.canonical_text) <= bound, items.c.canonical_text),
+                else_=cast(null(), Text()),
+            ),
+        )
+        .select_from(
+            parents.join(population, population.c.product_id == parents.c.product).join(
+                items,
+                and_(*(items.c[key] == population.c[key] for key in retained_key)),
+            )
+        )
+        .where(
+            population.c.collection == collection_key,
+            population.c.partition_key == partition_key,
+            items.c.address_key == cast(address, Text()),
+        )
+    )
+    reference_item = _program(
+        "data_binding_reference_item",
+        (
+            *parameters,
+            Parameter("p_selected", pg_type("jsonb"), pg_literal(None)),
+            Parameter("p_max_bytes", pg_type("bigint"), pg_literal(0)),
+            Parameter("p_collection", pg_type("text"), pg_literal(None)),
+            Parameter("p_partition_key", pg_type("text"), pg_literal(None)),
+            Parameter("p_item_key", pg_type("jsonb"), pg_literal(None)),
+        ),
+        (
+            _refuse(
+                or_(
+                    func.jsonb_typeof(selected).is_distinct_from("array"),
+                    func.jsonb_typeof(address).is_distinct_from("array"),
+                    func.coalesce(collection_key, "") == "",
+                    func.coalesce(partition_key, "") == "",
+                    func.coalesce(bound, 0) <= 0,
+                ),
+                "reference item lookup requires an exact parent, address and positive capacity",
+                "23514",
+            ),
+            _refuse(
+                or_(func.jsonb_array_length(selected) != 1, func.jsonb_array_length(address) == 0),
+                "reference item lookup requires one exact pin and a complete item address",
+                "23514",
+            ),
+            ReturnQuery(item),
+        ),
+        returns=set_record,
+        table_columns=(("product_id", pg_type("text")), ("canonical_text", pg_type("text"))),
+    )
+    population_fields = (
+        retained.c.product_id,
+        retained.c.collection,
+        retained.c.partition_key,
+        retained.c.ordinal,
+        retained.c.partition_digest,
+        retained.c.item_count,
+        retained.c.group_digests,
+        retained.c.placement,
+        items.c.item_ordinal,
+        items.c.canonical_text,
+    )
+    first_item = func.coalesce(items.c.item_ordinal, 0) == 0
+    rows = (
+        select(
+            *population_fields[:4],
+            *(case((first_item, field)).label(field.name) for field in population_fields[4:8]),
+            *population_fields[8:],
+        )
+        .select_from(
+            parents.join(population, population.c.product_id == parents.c.product)
+            .join(retained, and_(*(population.c[key] == retained.c[key] for key in retained_key)))
+            .outerjoin(items, and_(*(retained.c[key] == items.c[key] for key in retained_key)))
+        )
+        .cte("selected_population_items")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    wire_bytes = select(
+        func.coalesce(
+            func.sum(
+                func.coalesce(func.octet_length(rows.c.canonical_text), 0)
+                + func.octet_length(rows.c.product_id)
+                + func.octet_length(rows.c.partition_key)
+                + func.octet_length(rows.c.collection)
+                + func.coalesce(func.octet_length(rows.c.partition_digest), 0)
+                + func.coalesce(func.octet_length(cast(rows.c.group_digests, Text())), 0)
+                + func.coalesce(func.octet_length(cast(rows.c.placement, Text())), 0)
+                # DataRow framing, ten field lengths and three bigint text values.
+                + (7 + 10 * 4 + 3 * 20)
+            ),
+            0,
+        )
+    ).scalar_subquery()
+    bounded_rows = (
+        select(*rows.c)
+        .where(wire_bytes <= bound)
+        .union_all(
+            select(*(cast(null(), field.type) for field in population_fields)).where(
+                wire_bytes > bound
+            )
+        )
+        .subquery()
+    )
+    population_read = _program(
+        "data_binding_population_items",
+        (
+            *parameters,
+            Parameter("p_selected", pg_type("jsonb"), pg_literal(None)),
+            Parameter("p_max_bytes", pg_type("bigint"), pg_literal(0)),
+        ),
+        (
+            _refuse(
+                or_(
+                    func.jsonb_typeof(selected).is_distinct_from("array"),
+                    func.coalesce(bound, 0) <= 0,
+                ),
+                "population hydration requires exact pins and positive capacity",
+                "23514",
+            ),
+            _refuse(
+                func.jsonb_array_length(selected) == 0,
+                "population hydration requires pins",
+                "23514",
+            ),
+            ReturnQuery(
+                select(*bounded_rows.c).order_by(
+                    bounded_rows.c.product_id,
+                    bounded_rows.c.collection,
+                    bounded_rows.c.ordinal,
+                    bounded_rows.c.item_ordinal,
+                )
+            ),
+        ),
+        returns=set_record,
+        table_columns=tuple((field.name, column_type(field)) for field in population_fields),
+    )
     return (
         internal,
         public,
         partition_read,
         reference_member,
+        reference_item,
+        population_read,
         *_input_projection_programs(model, parameters, selected_rows),
     )
 
@@ -1172,7 +1319,13 @@ def read_native_programs(model):
             owner=role_name("publisher"),
             access=NativeProgramAccess(purposes=("read", "write", "evaluate"))
             if routine.name
-            in {"data_binding_rows", "data_binding_partitions", "data_binding_reference_member"}
+            in {
+                "data_binding_rows",
+                "data_binding_partitions",
+                "data_binding_reference_member",
+                "data_binding_reference_item",
+                "data_binding_population_items",
+            }
             else INTERNAL_PROGRAM,
         )
         for routine in (

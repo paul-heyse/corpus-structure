@@ -127,9 +127,9 @@ class AcquiredReferenceAccess(Protocol):
 
     def member(self, product_id: str, member_id: str) -> object: ...
 
-    def partition(
-        self, product_id: str, collection: str, partition_key: str
-    ) -> AcquiredReferencePartition: ...
+    def item(
+        self, product_id: str, collection: str, partition_key: str, item_key: ReferenceKey
+    ) -> object: ...
 
 
 def _field(row: object, path: str) -> str | int:
@@ -144,16 +144,39 @@ def _field(row: object, path: str) -> str | int:
     raise ValueError("partition item address must be a nonempty string or integer")
 
 
-class ReferenceResolver:
-    """Resolve through keyed access and reuse content with the same address declaration."""
+class CapturedPartitionItems:
+    """Index already acquired partition bodies in the captured closure."""
 
-    def __init__(self, producing: ProducingReferenceBindings, access: AcquiredReferenceAccess):
-        self.producing = producing
-        self.access = access
+    def __init__(self):
         self._locations: dict[tuple[str, str, str], tuple[str, tuple[str, ...]]] = {}
         self._partitions: dict[
             tuple[str, tuple[str, ...]], dict[ReferenceKey, Mapping[str, object]]
         ] = {}
+
+    def item(self, location, item_key, acquire):
+        if location not in self._locations:
+            partition = acquire(*location)
+            if not partition.address:
+                raise ValueError("partition lacks a declared item address")
+            identity = (partition.digest, partition.address)
+            if identity not in self._partitions:
+                rows = decode_semantic_value(partition.meaning)
+                indexed = {
+                    tuple(_field(row, field) for field in partition.address): row for row in rows
+                }
+                if len(indexed) != len(rows):
+                    raise ValueError("partition repeats a declared item address")
+                self._partitions[identity] = indexed
+            self._locations[location] = identity
+        return deepcopy(self._partitions[self._locations[location]][item_key])
+
+
+class ReferenceResolver:
+    """Resolve one declared address through its current or captured authority."""
+
+    def __init__(self, producing: ProducingReferenceBindings, access: AcquiredReferenceAccess):
+        self.producing = producing
+        self.access = access
 
     def resolve(self, reference: SemanticReference, target: ReferenceTarget) -> object:
         if (reference.role, reference.variant, reference.collection) != (
@@ -184,22 +207,11 @@ class ReferenceResolver:
             if reference.item_key is None:
                 return self.access.product(binding.product_id)
             assert reference.collection is not None and reference.partition_key is not None
-            location = (binding.product_id, reference.collection, reference.partition_key)
-            if location not in self._locations:
-                partition = self.access.partition(*location)
-                if not partition.address:
-                    raise ValueError("partition lacks a declared item address")
-                identity = (partition.digest, partition.address)
-                if identity not in self._partitions:
-                    rows = decode_semantic_value(partition.meaning)
-                    indexed = {
-                        tuple(_field(row, field) for field in partition.address): row
-                        for row in rows
-                    }
-                    if len(indexed) != len(rows):
-                        raise ValueError("partition repeats a declared item address")
-                    self._partitions[identity] = indexed
-                self._locations[location] = identity
-            return deepcopy(self._partitions[self._locations[location]][reference.item_key])
+            return self.access.item(
+                binding.product_id,
+                reference.collection,
+                reference.partition_key,
+                reference.item_key,
+            )
         except KeyError as error:
             raise ValueError("reference does not resolve its declared target") from error

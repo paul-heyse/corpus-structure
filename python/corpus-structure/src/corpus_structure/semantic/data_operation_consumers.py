@@ -189,7 +189,7 @@ class HydratedConsumerSelection:
 
 
 def hydrate_consumer_selection(
-    connection, model, selection, *, demand_id, read_id, trust_snapshot, max_bytes
+    connection, model, selection, *, demand_id, read_id, trust_snapshot, max_bytes, prepared=None
 ):
     """Hydrate only retained role pins under the same authenticated native read.
 
@@ -338,7 +338,9 @@ def hydrate_consumer_selection(
                 hydrated[key] = SelectedConsumerValue.acquire(member, content, meaning)
         if found != members.keys():
             raise ValueError("retained consumer member no longer has one admitted body")
-    hydrated, used = _hydrate_partitions(connection, model, read, hydrated, used, max_bytes)
+    hydrated, used = _hydrate_partitions(
+        connection, prepared, model, read, hydrated, used, max_bytes
+    )
     return HydratedConsumerSelection(
         selection,
         tuple(
@@ -356,13 +358,20 @@ def hydrate_consumer_selection(
     )
 
 
-def _hydrate_partitions(connection, model, read, hydrated, used, max_bytes):
-    from sqlalchemy import Text, column, func, select
+def _hydrate_partitions(connection, prepared, model, read, hydrated, used, max_bytes):
+    from itertools import chain, groupby
+
+    from sqlalchemy import BigInteger, Text, column, func, select
     from sqlalchemy.dialects.postgresql import JSONB
 
-    from .data_operation_json import json_loads
-    from .data_operation_partitions import partition_header
-    from .identity import canonical_bytes
+    from .data_operation_json import json_loads, native_json_loads
+    from .data_operation_partitions import (
+        AcquiredPopulationPartition,
+        PartitionCommitment,
+        partition_commitment_header,
+    )
+    from .data_operation_population import population_layout
+    from .data_operation_values import decode_semantic_value
 
     selected_contracts = {
         value.member.kind_contract for value in hydrated.values() if value.member.member is None
@@ -394,43 +403,105 @@ def _hydrate_partitions(connection, model, read, hydrated, used, max_bytes):
     }
     if not selected:
         return hydrated, used
+    if prepared is None:
+        raise ValueError("population hydration requires the acquired release layout")
 
-    products = {hydrated[key].member.product for key in selected}
-    packets: dict[str, dict[str, list]] = {product: {} for product in products}
-    rows = func.ops.data_binding_partitions(
+    kinds = {kind.semantic_id: kind for kind in model.kinds if kind.semantic_id in selected_kinds}
+    products = {
+        hydrated[key].member.product: kinds[contracts[hydrated[key].member.kind_contract]]
+        for key in selected
+    }
+    acquired: dict[str, dict[str, list[AcquiredPopulationPartition]]] = {
+        product: {} for product in products
+    }
+    rows = func.ops.data_binding_population_items(
         *read.binding_arguments, max(1, max_bytes - used)
-    ).table_valued(column("product_id", Text()), column("packet", JSONB()))
-    with connection.execute(select(*rows.c).execution_options(yield_per=1)) as returned:
-        for row in returned:
-            if row.product_id is None and row.packet is None:
-                raise ValueError("complete consumer inputs exceed owned packet capacity")
-            if row.product_id not in packets:
-                raise ValueError("partition hydration returned an unselected product")
-            packets[row.product_id].setdefault(row.packet["collection"], []).append(row.packet)
+    ).table_valued(
+        column("product_id", Text()),
+        column("collection", Text()),
+        column("partition_key", Text()),
+        column("ordinal", BigInteger()),
+        column("partition_digest", Text()),
+        column("item_count", BigInteger()),
+        column("group_digests", JSONB()),
+        column("placement", JSONB()),
+        column("item_ordinal", BigInteger()),
+        column("canonical_text", Text()),
+    )
+    layouts = {}
+    owned_bytes = 0
+    with connection.execute(select(*rows.c).execution_options(yield_per=256)) as returned:
+        grouped_rows = groupby(
+            returned, key=lambda row: (row.product_id, row.collection, row.partition_key)
+        )
+        for (product, collection, partition_key), items in grouped_rows:
+            if product is None:
+                raise ValueError("complete consumer inputs exceed owned population capacity")
+            if (
+                product not in products
+                or collection not in collections[products[product].semantic_id]
+            ):
+                raise ValueError("population hydration returned an unselected collection")
+            kind = products[product]
+            layout_key = kind.semantic_id, collection
+            if layout_key not in layouts:
+                layouts[layout_key] = population_layout(prepared, kind, collection)
+            head = next(items)
+            commitment = PartitionCommitment(
+                collection,
+                partition_key,
+                head.ordinal,
+                head.placement["start"],
+                head.placement["end"],
+                head.partition_digest,
+                head.item_count,
+            )
+            if head.item_ordinal is None:
+                if head.item_count != 0 or next(items, None) is not None:
+                    raise ValueError("population hydration returned invalid empty placement")
+                values = ()
+            else:
+
+                def item_values(source):
+                    for ordinal, row in enumerate(source):
+                        if row.item_ordinal != ordinal or row.canonical_text is None:
+                            raise ValueError("population hydration returned non-dense items")
+                        yield decode_semantic_value(native_json_loads(row.canonical_text))
+
+                values = item_values(chain((head,), items))
+            typed = layouts[layout_key].from_rows(values)
+            if typed.table.num_rows != commitment.item_count:
+                raise ValueError("population hydration returned incomplete items")
+            owned_bytes += typed.table.get_total_buffer_size()
+            if used + owned_bytes > max_bytes:
+                raise ValueError("complete consumer inputs exceed owned population capacity")
+            acquired[product].setdefault(collection, []).append(
+                AcquiredPopulationPartition(commitment, head.group_digests, typed)
+            )
 
     detached = {}
     for key, names in selected.items():
         value = hydrated[key]
         product = value.member.product
         if product not in detached:
-            grouped = packets[product]
+            grouped = acquired[product]
             header = value.value()
             if grouped.keys() - set(names) or any(
-                partition_header(grouped.get(name, ())) != header.get(name) for name in names
+                partition_commitment_header(part.commitment for part in grouped.get(name, ()))
+                != header.get(name)
+                for name in names
             ):
                 raise ValueError("partition hydration differs from the admitted collection header")
             detached[product] = PartitionedInput(
                 value.content,
-                tuple(
-                    canonical_bytes(packet)
-                    for name in sorted(names)
-                    for packet in sorted(
-                        grouped.get(name, ()), key=lambda packet: packet["ordinal"]
-                    )
-                ),
+                (),
+                tuple(part for name in sorted(names) for part in grouped.get(name, ())),
             )
         partitioned = detached[product]
-        used += sum(map(len, partitioned.packets)) * value.member.multiplicity
+        used += (
+            sum(part.population.table.get_total_buffer_size() for part in partitioned.populations)
+            * value.member.multiplicity
+        )
         if used > max_bytes:
             raise ValueError("complete consumer inputs exceed owned packet capacity")
         hydrated[key] = value.with_partition(partitioned)

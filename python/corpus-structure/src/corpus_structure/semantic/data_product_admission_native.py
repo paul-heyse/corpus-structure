@@ -1,5 +1,6 @@
 """Captured product/member realization and exact original-source admission."""
 
+from pglast import ast
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -65,6 +66,29 @@ def _reject(condition, message, state="P0001"):
     return If(condition, (Raise(message, state),))
 
 
+def product_identity(context, kind_contract, body_digest):
+    """Realize the same logical product key at retention and publication."""
+    product_context = _object(
+        project_id=context["project_id"].astext,
+        subject=context["subject"].astext,
+        subject_definition=context["subject_definition"].astext,
+        original_source=context["original_source"].astext,
+        analyzed_scope=context["analyzed_scope"],
+    )
+    meaning = func.jsonb_build_array(
+        "mapping",
+        func.jsonb_build_array(
+            func.jsonb_build_array("body", func.jsonb_build_array("string", body_digest)),
+            func.jsonb_build_array("kind", func.jsonb_build_array("string", kind_contract)),
+            func.jsonb_build_array(
+                "subject", func.jsonb_build_array("string", context["subject"].astext)
+            ),
+            func.jsonb_build_array("subject_context", func.data.ddo_json_meaning(product_context)),
+        ),
+    )
+    return func.data.ddo_identity("product", meaning, type_=Text())
+
+
 def _fields(value, required, optional=()):
     return Perform(
         func.ops.ddo_fields(
@@ -83,20 +107,34 @@ def product_admission_native_sql(model: MetaData) -> str:
 def product_admission_native_programs(model: MetaData) -> tuple[NativeRoutine, ...]:
     """Retain product realization bodies for the shared typed program registry."""
     output = []
-    from .data_operation_partition_native import partition_admission_programs
+    from .data_operation_partition_native import (
+        partition_admission_programs,
+        population_upload_programs,
+        retained_population_programs,
+    )
 
     partition_admission_programs(model, output, _routine)
+    if "ops.data_retained_population_item" in model.tables:
+        population_upload_programs(model, output, _routine)
+        retained_population_programs(model, output, _routine)
     _install_product(model, output)
     _original_admission(model, output)
     return tuple(output)
 
 
-def _routine(output, name, params, statements, locals_=(), *, returns="jsonb"):
+def _routine(output, name, params, statements, locals_=(), *, returns="jsonb", defaults=()):
     output.append(
         NativeRoutine(
             "ops",
             name,
-            parameters=tuple(Parameter(key, pg_type(kind)) for key, kind in params),
+            parameters=tuple(
+                Parameter(
+                    key,
+                    pg_type(*kind.split(".")),
+                    ast.A_Const(isnull=True) if key in defaults else None,
+                )
+                for key, kind in params
+            ),
             returns=pg_type(returns),
             body=Block(tuple(statements), tuple(locals_)),
             security_definer=True,
@@ -133,6 +171,10 @@ def _install_product(model, output):
     )
     inserted = core_variable("inserted_product", BigInteger())
     empty = cast(literal("[]"), JSONB())
+    typed_populations = "ops.data_retained_population" in model.tables
+    population_intent = core_variable("p_population_intent", Text())
+    population_role = core_variable("p_population_role", Text())
+    population_position = core_variable("p_population_position", BigInteger())
 
     def k(field):
         return core_variable("k", kind.c[field].type, field)
@@ -165,24 +207,6 @@ def _install_product(model, output):
         .exists()
     )
     context_fields = ("subject", "subject_definition", "original_source", "analyzed_scope")
-    product_context = _object(
-        project_id=context["project_id"].astext,
-        **{
-            field: context[field] if field == "analyzed_scope" else context[field].astext
-            for field in context_fields
-        },
-    )
-    meaning = func.jsonb_build_array(
-        "mapping",
-        func.jsonb_build_array(
-            func.jsonb_build_array("body", func.jsonb_build_array("string", digest)),
-            func.jsonb_build_array("kind", func.jsonb_build_array("string", k("kind_contract"))),
-            func.jsonb_build_array(
-                "subject", func.jsonb_build_array("string", context["subject"].astext)
-            ),
-            func.jsonb_build_array("subject_context", func.data.ddo_json_meaning(product_context)),
-        ),
-    )
     member_steps = (
         _fields(
             m,
@@ -238,6 +262,45 @@ def _install_product(model, output):
             "invalid member contract",
         ),
     )
+    install_partitions = If(
+        or_(k("collections") != cast(literal("{}"), JSONB()), packet_in.has_key("partitions")),
+        (
+            Perform(
+                func.ops.ddo_install_product_partitions(
+                    key,
+                    k("collections"),
+                    body,
+                    func.coalesce(packet_in["partitions"], empty),
+                    inserted > 0,
+                )
+            ),
+        ),
+    )
+    if typed_populations:
+        visible_population = model.tables["kb.data_product_population"]
+        install_partitions = If(
+            packet_in["partitions"][0].has_key("item_count"),
+            (
+                _reject(
+                    population_intent.is_(None), "typed product lacks a retained population intent"
+                ),
+                Perform(
+                    func.ops.ddo_promote_population_rows(
+                        population_intent, population_role, population_position, key
+                    )
+                ),
+            ),
+            (
+                _reject(
+                    select(1)
+                    .select_from(visible_population)
+                    .where(visible_population.c.product_id == key)
+                    .exists(),
+                    "product already has item-backed partitions",
+                ),
+                install_partitions,
+            ),
+        )
     statements = [
         _fields(context, ("project_id", "release_id", *context_fields)),
         Perform(
@@ -302,7 +365,7 @@ def _install_product(model, output):
             "duplicate member local identity",
         ),
         Assign("bd", func.data.ddo_identity("body", body)),
-        Assign("key", func.data.ddo_identity("product", meaning)),
+        Assign("key", product_identity(context, k("kind_contract"), digest)),
         Sql(
             insert(product)
             .values(
@@ -320,20 +383,7 @@ def _install_product(model, output):
             .on_conflict_do_nothing()
         ),
         GetRowCount("inserted_product"),
-        If(
-            or_(k("collections") != cast(literal("{}"), JSONB()), packet_in.has_key("partitions")),
-            (
-                Perform(
-                    func.ops.ddo_install_product_partitions(
-                        key,
-                        k("collections"),
-                        body,
-                        func.coalesce(packet_in["partitions"], empty),
-                        core_variable("inserted_product", BigInteger()) > 0,
-                    )
-                ),
-            ),
-        ),
+        install_partitions,
         lookup("previous", product, product.c.id == key),
         _reject(
             or_(
@@ -432,7 +482,20 @@ def _install_product(model, output):
     _routine(
         output,
         "ddo_install_product_context",
-        (("context", "jsonb"), ("o", "jsonb"), ("subject_scopes", "jsonb")),
+        (
+            ("context", "jsonb"),
+            ("o", "jsonb"),
+            ("subject_scopes", "jsonb"),
+            *(
+                (
+                    ("p_population_intent", "text"),
+                    ("p_population_role", "text"),
+                    ("p_population_position", "bigint"),
+                )
+                if typed_populations
+                else ()
+            ),
+        ),
         statements,
         (
             Local("k", kind),
@@ -450,6 +513,7 @@ def _install_product(model, output):
             Local("inserted_product", pg_type("bigint")),
         ),
         returns="text",
+        defaults=("p_population_intent", "p_population_role", "p_population_position"),
     )
 
 
@@ -644,6 +708,15 @@ def _original_admission(model, output):
                         kind_contract=kind, body=fact["meaning_body"], members=member_projection
                     ),
                     scopes,
+                    *(
+                        (
+                            cast(literal(None), Text()),
+                            cast(literal(None), Text()),
+                            cast(literal(None), BigInteger()),
+                        )
+                        if "ops.data_retained_population" in model.tables
+                        else ()
+                    ),
                 ),
             ),
             Assign("identity", func.ops.ddo_digest(reference)),

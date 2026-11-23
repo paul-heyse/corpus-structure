@@ -6,7 +6,7 @@ import inspect
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from functools import cached_property, lru_cache
 from hashlib import sha256
 from pathlib import Path
@@ -19,6 +19,7 @@ from .construction_products import (
     ConstructionOptions,
     ConstructionProduct,
     ContextualMeaningProduct,
+    PopulationCharacterizationSnapshot,
     PreparedConstructionProfile,
     PreparedContextualProfile,
     acquired_construction_product,
@@ -29,6 +30,7 @@ from .construction_products import (
 )
 from .data_operation_model import SubjectContext
 from .data_operation_outcomes import successful_return_outcome
+from .data_operation_population import AcquiredPopulation
 from .data_operation_values import decode_semantic_value
 from .data_product_reference import DataProductReference
 from .enriched_document_products import (
@@ -95,6 +97,9 @@ def _execution_custody() -> SourceArtifact:
         "declared_record_sources.py",
         "data_product_reference.py",
         "reference_resolution.py",
+        "data_operation_partitions.py",
+        "data_operation_population.py",
+        "population_ipc.py",
         "data_operation_cpu.py",
         "data_operation_prepared_products.py",
         "cpu_receipts.py",
@@ -272,10 +277,26 @@ def execute_construction_kernel(
     assets: str,
     native: CharacterizationSnapshot | None,
     *,
+    native_items: tuple[AcquiredPopulation, ...],
+    native_placements: tuple[dict, ...],
+    prepared: object,
     check_active: Callable[[], None],
 ) -> dict[str, Any]:
+    from .data_operation_partitions import AcquiredPopulationPartition, PartitionCommitment
+
     if assets != _semantic_assets("construction").digest:
         raise ValueError("construction child lacks acquired semantic assets")
+    if native is not None and native_items:
+        native = PopulationCharacterizationSnapshot(
+            native.product_id,
+            native.content,
+            populations=tuple(
+                AcquiredPopulationPartition(
+                    PartitionCommitment(**metadata["commitment"]), metadata["group_digests"], items
+                )
+                for metadata, items in zip(native_placements, native_items, strict=True)
+            ),
+        )
     return construction_product_values(
         source, formal, options, contracts, native=native, check_active=check_active
     )
@@ -398,6 +419,7 @@ class PreparedCharacterizationPort(ABC):
     _asset_digest: str = field(init=False, repr=False, compare=False)
 
     native_selections: ClassVar[tuple] = ()
+    requires_prepared_schema: ClassVar[bool] = False
     family: ClassVar[str]
     bridge: ClassVar[Callable]
     kernel: ClassVar[Callable]
@@ -572,7 +594,10 @@ class PreparedCharacterizationPort(ABC):
             self,
             "_descriptor",
             prepared_cpu_descriptor(
-                tuple(sources), entry, None, tuple(file.receipt() for file in files)
+                tuple(sources),
+                entry,
+                self.prepared.release_id if self.requires_prepared_schema else None,
+                tuple(file.receipt() for file in files),
             ),
         )
 
@@ -792,6 +817,7 @@ class PreparedCharacterizationPort(ABC):
                     selected.partitioned.header,
                     selected.partitioned.packets,
                     source,
+                    populations=selected.partitioned.populations,
                     member=self._member(binding, "sentences", 0),
                     project=binding.subject_context.project_id,
                 )
@@ -1023,13 +1049,15 @@ class PreparedCharacterizationPort(ABC):
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from .construction_products import validate_interpreted_product
-        from .data_operation_cpu import plan_cpu_call
+        from .data_operation_cpu import PopulationCPUInput, plan_cpu_call
 
         inputs = self._inputs(values, binding)
         if isinstance(inputs, _DocumentInputs) and not inputs.sources:
             self._verify()
             return self._completion(None, binding)
         arguments: dict[str, Any]
+        population_inputs = None
+        descriptor = self._descriptor
         if isinstance(inputs, _DocumentInputs):
             from .characterization import characterization_profiles
 
@@ -1051,6 +1079,7 @@ class PreparedCharacterizationPort(ABC):
                 check_active=check_active,
             )
         elif isinstance(inputs, _ConstructionInputs):
+            populations = inputs.native.populations
             arguments = dict(
                 source=inputs.source,
                 formal=tuple(
@@ -1063,8 +1092,27 @@ class PreparedCharacterizationPort(ABC):
                 native=CharacterizationSnapshot(
                     inputs.native.semantic_id, inputs.native.content, inputs.native.partitions
                 ),
+                native_items=tuple(item.population for item in populations),
+                native_placements=tuple(
+                    {
+                        "commitment": asdict(item.commitment),
+                        "group_digests": dict(item.group_digests),
+                    }
+                    for item in populations
+                ),
+                prepared=self.prepared if populations else None,
                 check_active=check_active,
             )
+            if not populations:
+                descriptor = replace(descriptor, prepared_release_id=None, prepared_parameter=None)
+            population_inputs = {
+                "native_items": tuple(
+                    PopulationCPUInput(
+                        item.population, self.identity.recipe, item.commitment.digest
+                    )
+                    for item in populations
+                )
+            }
         elif isinstance(inputs, _ContextualInputs):
             constructions = inputs.constructions
             products = (*inputs.formal, *inputs.supporting, *constructions)
@@ -1089,12 +1137,13 @@ class PreparedCharacterizationPort(ABC):
         else:
             raise TypeError("unknown prepared characterization input profile")
         reply = yield from plan_cpu_call(
-            self._descriptor,
+            descriptor,
             self._signature.bind(**arguments),
             self._signature,
             verify=self._verify,
             execution_owner=execution_owner,
             check_active=check_active,
+            population_inputs=population_inputs,
         )
         if isinstance(inputs, _DocumentInputs):
             product = EnrichedDocumentProduct.acquire(self.prepared, self.model, reply.content)
@@ -1127,6 +1176,7 @@ class PreparedCharacterizationPort(ABC):
 
 
 class PreparedConstructionPort(PreparedCharacterizationPort):
+    requires_prepared_schema = True
     family = "construction"
     operation_sources = staticmethod(construction_operation_sources)
     bridge = staticmethod(execute_construction_profile)

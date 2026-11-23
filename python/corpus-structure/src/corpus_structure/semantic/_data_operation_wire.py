@@ -295,12 +295,22 @@ class WireProductPartition(TypedDict):
     placement: Required[WireProductPartitionPlacement]
 
 
+class WireProductPopulationManifest(TypedDict):
+    collection: Required[WireIdentifier]
+    group_digests: Required[dict[str, WireIdentifier]]
+    item_count: Required[WireNonnegativeInteger]
+    ordinal: Required[WireNonnegativeInteger]
+    partition_digest: Required[WireIdentifier]
+    partition_key: Required[WireIdentifier]
+    placement: Required[WireProductPartitionPlacement]
+
+
 class WireProduct(TypedDict):
     artifact_digest: NotRequired[WireIdentifier | None]
     body: Required[WireSemanticValue]
     kind_contract: Required[WireKindContract]
     members: Required[list[WireProductMember]]
-    partitions: NotRequired[list[WireProductPartition]]
+    partitions: NotRequired[list[WireProductPartition | WireProductPopulationManifest]]
 
 
 class WireOutputMember(TypedDict):

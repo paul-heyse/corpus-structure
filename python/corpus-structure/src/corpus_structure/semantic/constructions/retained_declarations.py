@@ -327,7 +327,7 @@ def _declared_sentences(source, native_products, canonical, hanlp, *, admitted, 
     from ..data_product_reference import SemanticReference, read_semantic_reference
     from ..declared_record_sources import DeclaredNativeFrameSource
     from ..hanlp_products import canonical_hanlp_rows_from_blocks
-    from ..sentence_partitions import COLLECTION, acquire_sentence_partitions
+    from ..sentence_partitions import COLLECTION, acquire_sentence_blocks
     from ..source_contexts import PreparedNativeSources, source_slice
 
     selected = source.value
@@ -341,8 +341,10 @@ def _declared_sentences(source, native_products, canonical, hanlp, *, admitted, 
     if read_semantic_reference(body["canonical_input"]) != SemanticReference.whole("canonical"):
         raise DeclarationNotQualified("declaration HanLP input has no canonical producing role")
     canonical_header = json.loads(canonical.content)
-    _, canonical_blocks = acquire_sentence_partitions(
-        canonical.partitions, canonical_header[COLLECTION]
+    canonical_blocks = acquire_sentence_blocks(
+        canonical.partitions,
+        canonical_header[COLLECTION],
+        populations=getattr(canonical, "populations", ()),
     )
     candidates = sorted(
         canonical_hanlp_rows_from_blocks(source, canonical_header, canonical_blocks),
@@ -352,7 +354,9 @@ def _declared_sentences(source, native_products, canonical, hanlp, *, admitted, 
     if len({(row["start"], row["end"]) for row, _ in candidates}) != len(candidates):
         raise DeclarationNotQualified("declaration requires unique exact canonical sentences")
     try:
-        _, blocks = acquire_sentence_partitions(hanlp.partitions, body[COLLECTION])
+        blocks = acquire_sentence_blocks(
+            hanlp.partitions, body[COLLECTION], populations=getattr(hanlp, "populations", ())
+        )
     except ValueError as error:
         raise DeclarationNotQualified(
             "declaration HanLP partitions differ from their exact commitment"

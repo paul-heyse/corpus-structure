@@ -133,9 +133,11 @@ def test_main_mcp_private_proposal_tool_preserves_scope_pins_and_server_selectio
                 "knowledge": "unknown",
             },
         )
-        assert result.body["cut"]["analyzed_scope"]["fraction"] == Decimal(
-            "0.123456789012345678901"
-        )
+        cut = result.body["cut"]
+        assert isinstance(cut, dict)
+        analyzed = cut["analyzed_scope"]
+        assert isinstance(analyzed, dict)
+        assert analyzed["fraction"] == Decimal("0.123456789012345678901")
         return result
 
     monkeypatch.setattr(interpretation_tools, "inspect_selected_proposals", inspect)
@@ -166,7 +168,9 @@ def test_main_mcp_private_proposal_tool_preserves_scope_pins_and_server_selectio
                     assert content["body"]["cut"]["read_id"] == "read:exact"
                     # ADR-0142 selects finite displayed numbers while the native
                     # cut and read handles identify the exact scope.
-                    assert content["body"]["cut"]["analyzed_scope"]["fraction"] == 0.12345678901234568
+                    assert (
+                        content["body"]["cut"]["analyzed_scope"]["fraction"] == 0.12345678901234568
+                    )
             assert len(seen) == 1 and "original_source" not in seen[0].model_fields_set
 
     try:

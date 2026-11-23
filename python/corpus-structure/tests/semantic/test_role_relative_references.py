@@ -25,6 +25,7 @@ from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql
 from corpus_structure.semantic.reference_resolution import (
     AcquiredReferencePartition,
+    CapturedPartitionItems,
     ProducingReferenceBindings,
     ProducingReferenceInput,
     ReferenceResolver,
@@ -88,6 +89,7 @@ def test_resolve_exact_producing_occurrence_and_authorize_even_on_cache_hit(monk
     class Access:
         allowed = True
         lookups = 0
+        items = CapturedPartitionItems()
 
         def authorize(self, binding):
             if binding not in (admitted, sibling) or not self.allowed:
@@ -98,6 +100,11 @@ def test_resolve_exact_producing_occurrence_and_authorize_even_on_cache_hit(monk
 
         def member(self, product_id: str, member_id: str) -> object:
             raise AssertionError("unexpected member read")
+
+        def item(self, product_id, collection, partition_key, item_key):
+            return self.items.item(
+                (product_id, collection, partition_key), item_key, self.partition
+            )
 
         def partition(
             self, product_id: str, collection: str, partition_key: str
@@ -417,9 +424,7 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
         {"contract": {"reference_targets": [target]}, "roles": admitted_roles},
     )
     persisted = dict.fromkeys((existing_parent, sibling_parent))
-    expected = {
-        product: position for position, product in enumerate(sorted(persisted))
-    }
+    expected = {product: position for position, product in enumerate(sorted(persisted))}
     pins = [
         dict(role="inventory", product_id=product, position=0, multiplicity=1)
         for product in (sibling_parent, existing_parent)
@@ -471,7 +476,9 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
         ),
         rows_for=lambda _relation, **_keys: captured,
     )
-    scope = SimpleNamespace(index=index, cut=SimpleNamespace(record={"project_id": context["project_id"]}))
+    scope = SimpleNamespace(
+        index=index, cut=SimpleNamespace(record={"project_id": context["project_id"]})
+    )
     unrelated = {**pins[0], "product_id": admitted}
     for input_order in (pins, pins[::-1], [unrelated, *pins]):
         current["selection"] = {"inputs": input_order}

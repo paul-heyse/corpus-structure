@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Generator, Iterable, Mapping
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 import pyarrow as pa
 
@@ -20,7 +20,11 @@ from .types import PreparedRelease, PropertyDefinition
 from .value_codec import decimal_digit_limit
 
 _MISSING = object()
-_STATES = {"known-absent": 3, "unknown": 4, "unavailable": 5}
+_STATES: dict[Literal["known-absent", "unknown", "unavailable"], int] = {
+    "known-absent": 3,
+    "unknown": 4,
+    "unavailable": 5,
+}
 _INTEGER = pa.struct([pa.field("narrow", pa.int64()), pa.field("wide", pa.string())])
 
 
@@ -227,6 +231,57 @@ def _decode_field(prop, shape, value, digits):
     return OptionalValue("present", decoded) if state == 6 else decoded
 
 
+def _project_item_shape(shape: _ValueShape, fields: set[str]) -> _ValueShape:
+    if shape.encoding == "record":
+        selected = tuple((prop, child) for prop, child in shape.fields if prop.name in fields)
+        return replace(
+            shape,
+            arrow=pa.struct([field for field in shape.arrow if field.name in fields]),
+            fields=selected,
+        )
+    if shape.encoding != "variant":
+        raise ValueError("population projection requires a model-derived record layout")
+    # Selecting nominal arms exposes which concrete arm is present. A projected
+    # discriminator must already distinguish those arms under the read contract.
+    constants = [
+        {
+            prop.name: prop.equals_string
+            for prop, _ in member.fields
+            if prop.equals_string is not None
+        }
+        for _, member in shape.members
+    ]
+    if not any(
+        all(field in values for values in constants)
+        and len({values[field] for values in constants}) == len(constants)
+        for field in fields
+    ):
+        raise ValueError("population projection would expose an undeclared nominal variant")
+    members = tuple((name, _project_item_shape(member, fields)) for name, member in shape.members)
+    arrows = [shape.arrow.field("variant")]
+    arrows.extend(shape.arrow.field(name).with_type(member.arrow) for name, member in members)
+    return replace(
+        shape,
+        arrow=pa.struct(arrows),
+        members=members,
+    )
+
+
+def _project_member(values, shape: _ValueShape):
+    """Share only selected child arrays and keep each nominal arm's validity."""
+    return pa.chunked_array(
+        [
+            pa.StructArray.from_arrays(
+                [chunk.field(field.name) for field in shape.arrow],
+                fields=list(shape.arrow),
+                mask=chunk.is_null(),
+            )
+            for chunk in values.chunks
+        ],
+        type=shape.arrow,
+    )
+
+
 @dataclass(frozen=True)
 class PopulationLayout:
     """One release-bound item shape. Admission rules and authority remain with their owners."""
@@ -234,6 +289,33 @@ class PopulationLayout:
     schema: pa.Schema
     _shape: _ValueShape
     _digits: int
+    _field_groups: tuple[tuple[str, tuple[str, ...]], ...]
+    groups: tuple[str, ...] = ()
+
+    def for_groups(self, groups: Iterable[str]) -> PopulationLayout:
+        """Derive the exact selected top-level field groups from the captured declaration."""
+        selected = tuple(sorted(set(groups)))
+        if selected == self.groups and selected:
+            return self
+        declared = dict(self._field_groups)
+        if (
+            not selected
+            or not set(selected) <= declared.keys()
+            or (self.groups and not set(selected) <= set(self.groups))
+        ):
+            raise ValueError("population projection requires admitted field groups")
+        fields = {path for name in selected for path in declared[name]}
+        if any("." in path for path in fields):
+            raise ValueError("nested population field groups require a nested projection layout")
+        shape = _project_item_shape(self._shape, fields)
+        metadata = dict(self.schema.metadata or {})
+        metadata[b"projection_groups"] = canonical_bytes(selected)
+        return replace(
+            self,
+            schema=pa.schema(list(shape.arrow), metadata=metadata),
+            _shape=shape,
+            groups=selected,
+        )
 
     def from_rows(self, rows: Iterable[Mapping[str, Any]]) -> AcquiredPopulation:
         encoded = [self._shape.encode(row, self._digits) for row in rows]
@@ -253,7 +335,7 @@ class PopulationLayout:
         request_digest: str,
         projection_digest: str,
         max_bytes: int,
-    ) -> Iterator[AcquiredPopulation]:
+    ) -> Generator[AcquiredPopulation]:
         """Validate the authenticated mapping and borrow it without another IPC copy."""
         with payload.open(
             schema=self.schema,
@@ -298,6 +380,22 @@ class AcquiredPopulation:
 
     def project(self, names: Iterable[str]) -> pa.Table:
         return self.table.select(list(names))
+
+    def project_groups(self, groups: Iterable[str]) -> AcquiredPopulation:
+        layout = self.layout.for_groups(groups)
+        if layout is self.layout:
+            return self
+        if layout._shape.encoding == "variant":
+            arrays = [self.table["variant"]]
+            arrays.extend(
+                _project_member(self.table[name], member) for name, member in layout._shape.members
+            )
+            table = pa.Table.from_arrays(arrays, schema=layout.schema)
+        else:
+            table = self.table.select(layout.schema.names).replace_schema_metadata(
+                layout.schema.metadata
+            )
+        return AcquiredPopulation._from_table(layout, table)
 
     def rows(self):
         for batch in self.table.to_batches():
@@ -402,5 +500,8 @@ def population_layout(prepared: PreparedRelease, kind, collection: str) -> Popul
         "population_codec": "1",
     }
     return PopulationLayout(
-        pa.schema(list(shape.arrow), metadata=metadata), shape, decimal_digit_limit()
+        pa.schema(list(shape.arrow), metadata=metadata),
+        shape,
+        decimal_digit_limit(),
+        tuple((name, tuple(paths)) for name, paths in sorted(declaration["field_groups"].items())),
     )
