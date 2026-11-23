@@ -175,6 +175,26 @@ complete native observations. `uv run ci test --lane fault` passed all eight sha
 (`fd0cc642472145bd9eb9314c4bc9cfe8`), and `uv run ci check` passed after the reader correction
 (`6b248a6ad235476eb5141f5f4f791cd0`).
 
+**Integrated ordinary checks · 2026-11-23.** Private one-worker result
+`87ff53e7f15a4a14aba1702e1f93a158` passed 14 ordinary identities, including event fitting,
+issuing and scoring, all seven contextual witness cases, original draft recovery, exact
+finite and rich replay, and JSONL and Parquet episode closure. The authored-only toy filing
+reached native publication and was refused because its release fixture omitted the explicit
+rich admission approval. The fixture now requests the same scoped effect approval as the
+other rich publication fixture.
+
+The two PDF reuse cases failed on the integrated root. The policy-only remap invoked
+capture and recognition again. The historical case acquired a different recognition
+request. Generic capture and recognition independently lack the complete acquired producer
+closure required for reuse across demands. The new demand contributes to their request IDs,
+and recognition also observes the exact capture episode. A correction requires a capture
+producer admitted for the Integrated path and independently acquired recognition custody.
+The current PDF lowering identity is shared per release. Composing Standard capture with
+Integrated recognition would require mode-specific custody or a complete generic Integrated
+producer closure. This work needs coordination with [Domain Model Operability](../domain-model-operability/execution-identity-and-recovery.md)
+and [PDF producer and replay scope](pdf-path.md#columnar-pdf-certification). Keep both cases
+and the development reset open while the operator settles whether to bring this design forward.
+
 ### Development reset through SBX-09
 
 1. Complete the [columnar replacement sequence](#columnar-cutover-sequence), including the

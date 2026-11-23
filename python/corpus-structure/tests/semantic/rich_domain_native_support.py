@@ -12,6 +12,7 @@ from evaluate.declared_record_native_support import (
     request,
 )
 
+from corpus_structure.semantic.effect_policy import ApprovedEffect
 from semantic.data_operation_kernel_support import split_captured_operations
 from semantic.record_publication_native_support import RichPublication
 from semantic.rich_domain_preservation_support import NS
@@ -72,6 +73,10 @@ def toy_recipe(directory):
     return replace(
         original,
         name="current-toy-domain-controls",
+        effect_approvals=(
+            *original.effect_approvals,
+            ApprovedEffect("rich.admit", "native-rich-knowledge-admission"),
+        ),
         captured_inputs=CapturedKernelInputs(bundle, deps, captured.profile),
     )
 
