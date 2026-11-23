@@ -154,7 +154,8 @@ def test_native_provider_selected_attachment_and_forgery_refusal(ddo_kernel):
             )
         )["items"][0]
         assert result["state"] == "refused"
-        assert result["sqlstate"] == "P0001" and "provider identity differs" in result["reason"]
+        assert result["sqlstate"] == "23514", result
+        assert result["reason"] == "provider identity differs from authentic producing custody", result
 
 
 @pytest.mark.parametrize("ddo_kernel", [PROFILED], indirect=True, ids=["provider-runtime"])
