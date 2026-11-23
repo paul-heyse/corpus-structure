@@ -355,7 +355,7 @@ def test_native_current_reply_bound_refuses_before_atomic_product_publication(
     assert all(row["obligation"]["fate"] != "fulfilled" for row in page["items"])
 
 
-def test_native_current_new_rule_release_reuses_exact_original_formal_product(
+def test_native_current_new_rule_release_keeps_formal_attempt_and_original_source_custody(
     characterization_source, commit_db_engine, tmp_path
 ):
     from corpus_structure.methods.annotation_rules import AnnotationRule
@@ -384,15 +384,57 @@ def test_native_current_new_rule_release_reuses_exact_original_formal_product(
         source.kernel.identities[CONSTRUCTION, "recipe"]
         != old_kernel.identities[CONSTRUCTION, "recipe"]
     )
-    _, _, current = source.run(CONSTRUCTION)
-    assert operation_use(current, FORMAL)["derivation_id"] == old_formal["derivation_id"]
-    assert (
-        operation_product(current, FORMAL)["product_id"]
-        == operation_product(original, FORMAL)["product_id"]
-    )
-    retained = source.query(old_demand, operation_id=FORMAL, containers_only=True)
-    assert retained["cut"]["release_id"] == old_kernel.prepared.release_id
-    assert retained["items"][0]["product_id"] == operation_product(original, FORMAL)["product_id"]
+
+    current_demand, _, current = source.run(CONSTRUCTION)
+    current_formal = operation_use(current, FORMAL)
+    assert current_demand != old_demand
+    assert current_formal["request_id"] != old_formal["request_id"]
+    assert current_formal["derivation_id"] != old_formal["derivation_id"]
+
+    # The formal parser can publish bounded attempt diagnostics. Each demand
+    # gets its own production episode even for the same exact source member.
+    with commit_db_engine.connect() as connection:
+        basis = text("""
+            SELECT d.release_id, d.runtime_id, d.generation,
+                   r.subject, r.original_source, r.analyzed_scope,
+                   i.product_id, i.member_id, i.occurrence_label,
+                   definition.support_contract -> 'reuse_eligible' AS reuse_eligible
+            FROM ops.data_derivation d
+            JOIN ops.data_request r ON r.id = d.request_id
+            JOIN sem.data_operation_definition definition
+              ON definition.release_id = d.release_id AND definition.operation_id = r.operation_id
+            JOIN ops.data_derivation_input i ON i.derivation_id = d.id
+            WHERE d.id = :derivation AND r.id = :request
+        """)
+        old_basis, current_basis = (
+            connection.execute(
+                basis, {"derivation": use["derivation_id"], "request": use["request_id"]}
+            )
+            .mappings()
+            .one()
+            for use in (old_formal, current_formal)
+        )
+    assert old_basis["member_id"] is not None
+    assert current_basis["product_id"] == old_basis["product_id"]
+    assert current_basis["member_id"] == old_basis["member_id"]
+    assert current_basis["occurrence_label"] == old_basis["occurrence_label"]
+    assert current_basis["subject"] == old_basis["subject"]
+    assert current_basis["original_source"] == old_basis["original_source"]
+    assert current_basis["analyzed_scope"] == old_basis["analyzed_scope"]
+
+    for demand, snapshot, use, kernel, row in (
+        (old_demand, original, old_formal, old_kernel, old_basis),
+        (current_demand, current, current_formal, source.kernel, current_basis),
+    ):
+        assert row["reuse_eligible"] is False
+        assert row["generation"] == 1
+        assert row["release_id"] == kernel.prepared.release_id
+        assert row["runtime_id"] == kernel.runtime
+        retained = source.query(demand, operation_id=FORMAL, containers_only=True)
+        assert retained["cut"]["release_id"] == kernel.prepared.release_id
+        (product,) = retained["items"]
+        assert product["derivation_id"] == use["derivation_id"]
+        assert product["product_id"] == operation_product(snapshot, FORMAL)["product_id"]
 
 
 def test_native_current_reads_do_not_reacquire_an_unrelated_execution_owner(
