@@ -1,10 +1,10 @@
 ---
 id: ADR-0148
 title: Trial set operations on one kernel family
-status: accepted
+status: superseded
 date: 2026-11-21
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0154
 design: [§B2, §B5]
 evidence: Proposed
 revisit: The scoped-relations trial demonstrates a material fidelity mismatch or integration burden that defeats its functional benefit.

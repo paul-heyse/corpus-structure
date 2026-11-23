@@ -247,7 +247,7 @@ reader consumes the exact use's selection, including when several uses share one
 The effective model and identity contract in §B5 govern projection-keyed requests and the single
 reference carrier. [SBX contract](../plans/set-based-execution/references-and-projection-keys.md)
 
-> Decision: [ADR-0144](../adr/0144-sbx-partitioned-products.md)
+> Decision: [ADR-0154](../adr/0154-sbx-columnar-populations.md)
 
 
 **Accepted selected-support target; implementation/qualification Proposed · 2026-11-17.**
@@ -399,13 +399,14 @@ and final qualification.
 
 > Decision: [ADR-0150](../adr/0150-sbx-empty-development-cutover.md)
 
-**Accepted kernel-trial target · implementation and qualification Proposed · 2026-11-21.**
-One scoped-relations family is rebuilt through typed set operations under the analytical owner.
-Explicit ordinals and phase order preserve output meaning. Python retains identity encoding and
-text operations whose library semantics differ. The complete trial ends in a recorded decision
-on further family adoption. [Trial owner](../plans/set-based-execution/kernel-trial.md)
+**Accepted columnar adoption target · implementation and qualification Proposed · 2026-11-23.**
+The shared analytical fidelity, query-custody and resource prerequisites precede the annotation
+population replacement. The scoped-relations family keeps its complete trial under the analytical
+owner, with explicit ordinals, phase order and Python operations outside the approved population
+canonical-text scope. Its trial ends in a recorded adopt, adjust or stop decision.
+[Trial owner](../plans/set-based-execution/kernel-trial.md)
 
-> Decision: [ADR-0148](../adr/0148-sbx-kernel-trial.md)
+> Decision: [ADR-0154](../adr/0154-sbx-columnar-populations.md)
 
 
 **Accepted target; implementation/qualification Proposed · 2026-11-17.** Physical calls use one
@@ -563,15 +564,20 @@ legacy wait barrier rather than implying that every old option is supported.
 
 > Decision: [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md)
 
-**Accepted partition and proof target · implementation and qualification Proposed · 2026-11-21.**
-Generated admission recomputes submitted partition, group and collection commitments and admits
-the header and partition set atomically. Keyed disclosure follows the parent product and acquired
-cut. Declared rule proofs are immutable facts keyed by the rule fingerprint and the complete
+**Accepted partition and proof target · implementation and qualification Proposed · 2026-11-23.**
+Generic logged item rows sit under partition headers and an authenticated completion-intent
+parent, with output role/position and final product identity held distinctly. Native
+admission validates canonical items and derives or verifies typed rule/address fields before
+using them, then recomputes the existing partition, group and collection commitments. Logged
+retained rows become the published rows atomically with products, proofs and uses. Purpose-owned
+Psycopg COPY supplies authenticated session-private intake, with attempt checks before preparation
+and at effects. Exact committed replay retains its recovery authority after claim expiration.
+Keyed disclosure follows the parent product and acquired cut. Declared rule proofs are immutable facts keyed by the rule fingerprint and the complete
 evaluated premise, including groups, membership, order, placement and external facts the rule
 observes. Required proof lookup occurs at binding outside the support-validity fixpoint.
 [Population and proof owner](../plans/set-based-execution/populations-rules-and-proofs.md)
 
-> Decision: [ADR-0144](../adr/0144-sbx-partitioned-products.md), [ADR-0146](../adr/0146-sbx-content-validity.md)
+> Decision: [ADR-0154](../adr/0154-sbx-columnar-populations.md), [ADR-0146](../adr/0146-sbx-content-validity.md)
 
 
 **Accepted target · 2026-11-17.** Maintained native PostgreSQL behavior compiles from model-owned
@@ -922,10 +928,12 @@ pgvector and BM25 text search in the same planner. The structure and meaning of 
 scalars are columns, and other values are typed JSONB under the payload-schema registry. The
 consolidation pool is a set of model-typed Arrow relations whose set-based steps run in an
 in-process DuckDB engine with no persistent state, set-equal with a Python reference
-implementation; identity and canonical forms stay in Python. DuckDB also serves analytics and
-exports; neither it nor files hold authoritative data ([D3](D3-database.md)).
+implementation. The Python canonical definition remains the reference. The accepted SBX
+population target permits model-derived canonical item framing and ordered commitments in the
+engine once exact parity covers its admitted value forms. DuckDB also serves analytics and
+exports, while PostgreSQL retains instance authority ([D3](D3-database.md)).
 
-> Decision: ADR-0021
+> Decision: [ADR-0021](../adr/0021-instance-and-structure-authorities.md), [ADR-0154](../adr/0154-sbx-columnar-populations.md)
 
 **Accepted release-preparation target.** ADR-0138 preserves instance authority and
 consolidation policy ownership while separating pure release preparation, protected publication
@@ -946,7 +954,7 @@ reference carrier resolves role-relative addresses through original derivation i
 explicit product-index and rich-support variants owned by the reference contract. Unknown
 dependencies conservatively widen the premise. [Shared SBX contracts](../plans/set-based-execution_2026-11-21.md#shared-contracts)
 
-> Decision: [ADR-0150](../adr/0150-sbx-empty-development-cutover.md), [ADR-0144](../adr/0144-sbx-partitioned-products.md), [ADR-0146](../adr/0146-sbx-content-validity.md), [ADR-0148](../adr/0148-sbx-kernel-trial.md)
+> Decision: [ADR-0150](../adr/0150-sbx-empty-development-cutover.md), [ADR-0154](../adr/0154-sbx-columnar-populations.md), [ADR-0146](../adr/0146-sbx-content-validity.md)
 
 **Accepted discovered formal input target · implementation Proposed · 2026-11-22.** Construction
 binds independently discovered formal-evidence products as a set. More than one eligible report
@@ -959,13 +967,15 @@ A supplied empty set discloses no eligible formal input.
 
 > Decision: [ADR-0151](../adr/0151-sbx-discovered-formal-inputs.md), [ADR-0153](../adr/0153-sbx-exact-named-formal-inputs.md)
 
-**Accepted validated-carrier target · implementation and qualification Proposed · 2026-11-21.**
-The admitting constructor retains immutable bytes and one frozen interpreted value through the
-process. Workers accept sealed bytes through a named boundary. Derived views are memoized under
-their actual content and context. This closes unchecked construction before consumers rely on
-the carrier's admitted standing. [Carrier owner](../plans/set-based-execution/validated-values-and-handoff.md)
+**Accepted validated-carrier target · implementation and qualification Proposed · 2026-11-23.**
+The admitting constructor owns model-derived Arrow columns and their established facts for
+affected populations. Workers accept sealed IPC through a named boundary bound to request, schema
+and logical commitments. Compatible consumers share buffers and derived views through their
+actual content/context lifetime. Optional-value states and exact lexical scalars remain explicit.
+The owner releases mappings, readers, retained capacity and spill on success or cancellation.
+[Carrier owner](../plans/set-based-execution/validated-values-and-handoff.md)
 
-> Decision: [ADR-0145](../adr/0145-sbx-custody-boundary.md)
+> Decision: [ADR-0154](../adr/0154-sbx-columnar-populations.md)
 
 **Accepted target · 2026-11-17.** One captured LinkML closure supplies physical types, slot and
 value-set facts for SQL, upload layout and caller generation. A single composer owns each
@@ -1034,13 +1044,15 @@ never relabels trimmed bytes as an original reply. D6 owns this contract and its
 
 **Accepted realization; implementation/qualification tracked by DDO (2026-11-14).** Captured native
 schemas and explicit field correspondence derive structural Python wire types and fixed methods.
-Draft7 and exact JSON transport retain runtime enforcement; static types do not confer native
-authorization. Accepted target, implementation/qualification Proposed2026-11-17: SQL request
+Draft7 and exact JSON transport retain runtime enforcement for document calls. Affected SBX
+population calls use model-derived typed intake and result/refusal relations. Native admission
+validates their installed contract before effects, and the client checks result correspondence
+before commit. Static types do not confer native authorization. Accepted target, implementation/qualification Proposed2026-11-17: SQL request
 validation precedes effects; envelopes bind the installed contract digest; client digest equality
 and result validation precede commit. Internally committing calls keep SQL result checks. Current compiler identities describe current generated artifacts, while historical
 declaration logs retain their producing compiler maps unchanged.
 
-> Decision: [ADR-0128](../adr/0128-wire-contract-boundary-validation.md)
+> Decision: [ADR-0128](../adr/0128-wire-contract-boundary-validation.md), [ADR-0154](../adr/0154-sbx-columnar-populations.md)
 
 **Implemented; rollback authoring scoped Tested · 2026-11-14.** Compared frozen table/schema
 policies own complete grants, column ACLs, effective purpose CREATE denial and declared ownership.
@@ -1384,7 +1396,7 @@ reply collection. The second boundary covers modules first imported during compu
 digest correspondence, current native support, claim fences and publication remain with their
 effect owners. [Verification owner](../plans/set-based-execution/validated-values-and-handoff.md#sbx-09)
 
-> Decision: [ADR-0145](../adr/0145-sbx-custody-boundary.md)
+> Decision: [ADR-0154](../adr/0154-sbx-columnar-populations.md)
 
 **Accepted target, Proposed until implemented (2026-11-03).** M1 selects a separate CPU extraction allowlist and run-owned resident admission policy,
 retaining parent task fencing, cancellation and database custody. A qualified NONDEFAULT release

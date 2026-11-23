@@ -1,10 +1,10 @@
 ---
 id: ADR-0145
 title: Carry validation between unchanged custody boundaries
-status: accepted
+status: superseded
 date: 2026-11-21
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0154
 design: [§B5, §B6]
 evidence: Proposed
 revisit: A supported mutation or process boundary cannot preserve the established carrier premises.

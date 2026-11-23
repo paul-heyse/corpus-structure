@@ -96,16 +96,14 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0140](0140-durable-recovery-and-exact-stop.md) | Recover acknowledged work and stop an exact managed invocation | 2026-11-18 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
 | [ADR-0141](0141-serving-continuation-and-reuse.md) | Separate continuation compatibility from cache reuse | 2026-11-20 | [§B3](../design/DESIGN.md#section-b3) | Proposed | [ADR-0137](0137-serving-code-and-model-custody.md) |
 | [ADR-0142](0142-structured-selected-result-delivery.md) | Deliver selected results as bounded structured JSON | 2026-11-20 | [§B3](../design/DESIGN.md#section-b3) | Proposed |  |
-| [ADR-0144](0144-sbx-partitioned-products.md) | Store homogeneous populations as declared partitions | 2026-11-21 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
-| [ADR-0145](0145-sbx-custody-boundary.md) | Carry validation between unchanged custody boundaries | 2026-11-21 | [§B5](../design/DESIGN.md#section-b5), [§B6](../design/DESIGN.md#section-b6) | Proposed |  |
 | [ADR-0146](0146-sbx-content-validity.md) | Key validity by rule and evaluated content | 2026-11-21 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0147](0147-sbx-owner-resolved-reads.md) | Resolve online reads at the native disclosure owner | 2026-11-21 | [§B3](../design/DESIGN.md#section-b3), [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
-| [ADR-0148](0148-sbx-kernel-trial.md) | Trial set operations on one kernel family | 2026-11-21 | [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0149](0149-contextual-requests-and-projected-computation.md) | Keep contextual custody separate from projected computation and delivery | 2026-11-21 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0100](0100-ddo-contextual-identities.md) |
 | [ADR-0150](0150-sbx-empty-development-cutover.md) | Start SBX development from an empty current-model database | 2026-11-21 | [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed | ADR-0143 |
 | [ADR-0151](0151-sbx-discovered-formal-inputs.md) | Bind independent formal-evidence products as a set | 2026-11-22 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0152](0152-selected-archive-support-keys.md) | Stage selected archive support keys within the acquiring transaction | 2026-11-22 |  | Proposed |  |
 | [ADR-0153](0153-sbx-exact-named-formal-inputs.md) | Select independent formal analyses as an exact named input set | 2026-11-22 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0154](0154-sbx-columnar-populations.md) | Carry SBX populations as typed relations through native item admission | 2026-11-23 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5), [§B6](../design/DESIGN.md#section-b6) | Proposed | [ADR-0144](0144-sbx-partitioned-products.md), [ADR-0145](0145-sbx-custody-boundary.md), [ADR-0148](0148-sbx-kernel-trial.md) |
 
 ## Superseded, still in the tree
 
@@ -148,5 +146,8 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0124](0124-serving-code-custody.md) | Serving identity names imported code and refuses detected drift | 2026-11-17 | [§B3](../design/DESIGN.md#section-b3) | Proposed |  |
 | [ADR-0131](0131-model-owned-postgresql-programs.md) | Generate maintained PostgreSQL SQL from LinkML and typed programs | 2026-11-17 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0137](0137-serving-code-and-model-custody.md) | Separate serving code custody from model source identity | 2026-11-18 | [§B3](../design/DESIGN.md#section-b3) | Proposed | [ADR-0124](0124-serving-code-custody.md) |
+| [ADR-0144](0144-sbx-partitioned-products.md) | Store homogeneous populations as declared partitions | 2026-11-21 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0145](0145-sbx-custody-boundary.md) | Carry validation between unchanged custody boundaries | 2026-11-21 | [§B5](../design/DESIGN.md#section-b5), [§B6](../design/DESIGN.md#section-b6) | Proposed |  |
+| [ADR-0148](0148-sbx-kernel-trial.md) | Trial set operations on one kernel family | 2026-11-21 | [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 Unlinked identifiers under *Replaces* are retired records. Their surviving meaning is in the records above; recover the text from Git ([historical recovery](../README.md#historical-recovery)).

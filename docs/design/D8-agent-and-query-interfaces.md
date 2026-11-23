@@ -717,6 +717,18 @@ and the compiler-10 selected-answer/new-activation matrix remain obligations of 
 until their applicable current-source results are recorded in the owning plan.
 
 
+**Accepted SBX selected-read target · implementation and qualification Proposed · 2026-11-23.**
+Selected population reads authorize the actual parent and producing/current binding before indexed
+item disclosure. Finite selected archives expose model-derived item and reference relations to the
+same projection used by detached replay. The owning PostgreSQL session reads temporary archive
+state or uncommitted pins. Eligible committed projections can import the authorizing snapshot in
+an independently owned ADBC session, with the snapshot owner alive through drain or cancellation.
+Sealed Parquet relations carry captured cuts, releases, commitments and authorized empty relations
+for direct relational replay. Manifest publication follows complete file and native settlement.
+[Selected-read owner](../plans/set-based-execution/owner-resolved-reads.md#columnar-selected-read)
+
+> Decision: [ADR-0154](../adr/0154-sbx-columnar-populations.md)
+
 ## Source-product query and explanation boundary
 
 **Accepted relational target (2026-11-01); implementation/qualification remains package-scoped.** Record/membership/artifact reads bind immutable qualified pins and bounded bytes as well as rows. Logical content and exact export/raw byte identities are separate; archived content_digest retains its canonical-envelope SHA-256 meaning. PDF-24 owns public CLI/MCP migration; no provisional document is served as complete.

@@ -1,10 +1,10 @@
 ---
 id: ADR-0144
 title: Store homogeneous populations as declared partitions
-status: accepted
+status: superseded
 date: 2026-11-21
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0154
 design: [§B1, §B4, §B5]
 evidence: Proposed
 revisit: A supported consumer needs token-level database joins or source correspondence cannot establish stable partition keys.

@@ -373,7 +373,20 @@ Historical compiler maps retain producing provenance while current generated art
 compiler identity. Legacy table/interchange compilation retires after its live Arrow helper consumers
 move. Public selected-read/reuse and sealed-history removal remain the DDO packages' actual obligations.
 
-> Decision: [ADR-0128](../adr/0128-wire-contract-boundary-validation.md)
+**Accepted SBX population target · implementation and qualification Proposed · 2026-11-23.**
+The effective model derives typed population intake, result/refusal rows, item addresses and rule
+projections. Authenticated session-private COPY intake is checked by catalog shape and ownership,
+then native admission rechecks the attempt and canonical/projection correspondence. A protected
+routine writes admitted items once under a logged retained parent keyed by completion intent
+and output role/position. Publication adds the visible product/derivation association.
+Publication promotes the same immutable item rows, with current support and fencing checks and
+exact committed replay recovery. Point readers use native item keys, and finite readers acquire
+typed relations. Same-session archive reads preserve temporary/uncommitted state. Eligible
+committed bulk reads use the owned ADBC exported/imported snapshot route.
+[Admission and recovery](../plans/set-based-execution/populations-rules-and-proofs.md#typed-item-admission) ·
+[Selected reads](../plans/set-based-execution/owner-resolved-reads.md#columnar-selected-read)
+
+> Decision: [ADR-0128](../adr/0128-wire-contract-boundary-validation.md), [ADR-0154](../adr/0154-sbx-columnar-populations.md)
 
 **Accepted target, Proposed until implemented (2026-11-02).** SQLAlchemy Core is the primary relational authoring/execution representation. Model-bound expressions and pglast declarations generate eligible native products under versioned custody/catalog/admission profiles and the existing Alembic lifecycle. Restricted PostgreSQL enforcement remains authoritative. Structured SQL bodies require actual profile qualification; retained specialized kernels are explicitly bound. Published-address consumer constraints and read selection share one model-owned binding.
 
@@ -944,7 +957,7 @@ owns native/consumer receipts and support limits; SP-08–SP-10 retain later ado
 | Similarity search | pgvector 0.8.7 (installed), FP32 exact eligible cosine | E5 at384 dimensions is the bounded initial route; Qwen at1024 is retained. ANN/halfvec needs its separate scale and quality trigger. |
 | Lexical search | BM25 through pg_textsearch 1.5.1 (installed: Debian `postgresql-18-pg-textsearch`): a `bm25` partial index over one block level, ranked top-k queries (§5) | Replaces the old Tantivy crate inside the one authority, with no second index to synchronize. Built-in full-text search (`tsvector`, `ts_rank_cd`) has no corpus-level term weighting. Needs preloading and a superuser once (§3; `OPEN-D3-1`) |
 | Graph traversal | Recursive CTEs; NetworkX and pgmpy projections in memory | The knowledge graph is small per project; path-heavy workloads would revisit this |
-| Set-based consolidation steps, analytics and evaluation reports | DuckDB 2.0 in process, with no persistent state, over model-typed Arrow relations of the pool loaded as of the run's cut; beside a Python reference implementation that must be set-equal (ADR-0021). Analytics and run diffs read Parquet exports | Never a second authority. Identity and canonical forms stay in Python. The `postgres` extension maps unconstrained NUMERIC to DOUBLE, so pool loads go through ADBC or psycopg |
+| Set-based consolidation steps, analytics and evaluation reports | DuckDB 2.0 in process, with no persistent state, over model-typed Arrow relations of the pool loaded as of the run's cut; beside a Python reference implementation that must be set-equal (ADR-0021). Analytics and run diffs read Parquet exports | PostgreSQL retains instance authority. Python supplies the identity definition and reference, while approved SBX population expressions can produce exact canonical item text and ordered commitments after parity checks (ADR-0154). The `postgres` extension maps unconstrained NUMERIC to DOUBLE, so pool loads go through ADBC or psycopg |
 | Originals | Content-addressed files under `data/originals/<sha256>`; the corpus stays where it is and is referenced by path and hash | Keeps large binaries out of the database |
 | Access from Python | SQLAlchemy Core 2.1 `MetaData` generated from the model (`core/db/_tables.py`) plus the physical overlay (`core/db/overlay.py`: indexes and partial predicates, BM25 and HNSW, views, the extension assertion; bound by name, failing at import on a missing table or column) + psycopg 3 (COPY for bulk writes) | Same stack as before, without ORM. `gen-sqltables` is not used: native enums, no CHECKs, no JSONB |
 | Migrations | Alembic; 0001 generated once from the generated `MetaData` plus overlay, then frozen (it never imports `core/db`); every revision linked to the model revision it realizes (D2 §8) | `alembic check` compares an index's uniqueness and columns only (no `USING`, `WITH`, operator classes or partial `WHERE`, CHECKs by name), so a test compares the catalog after `upgrade head` with `create_all` ([store note](../design_review/evidence/2026-10-28_library-store/README.md) §1) |
