@@ -81,7 +81,7 @@ def finite_recognition_service():
     requests: list[str] = []
 
     class Handler(BaseHTTPRequestHandler):
-        def log_message(self, _format, *_args):
+        def log_message(self, format, *args):
             pass
 
         def reply(self, value):
@@ -138,9 +138,7 @@ def finite_recognition_service():
             )
 
     with ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
-        thread = Thread(
-            target=server.serve_forever, name="finite-recognition-service", daemon=True
-        )
+        thread = Thread(target=server.serve_forever, name="finite-recognition-service", daemon=True)
         thread.start()
         try:
             yield FiniteRecognitionService(f"http://127.0.0.1:{server.server_port}/v1", requests)

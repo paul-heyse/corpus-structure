@@ -309,6 +309,7 @@ def test_installed_certification_entrypoints_require_exact_writer_fence(
 def test_native_lowering_authenticates_selected_scope_and_keeps_v2_certification(native_rollback):
     import json
     from hashlib import sha256
+    from typing import cast
 
     from corpus_structure.semantic.pdf_certification_native import pdf_certification_native_programs
     from corpus_structure.semantic.pdf_domain import pdf_domain_sources
@@ -429,7 +430,7 @@ def test_native_lowering_authenticates_selected_scope_and_keeps_v2_certification
     )
     spool_programs = {
         program.routine.name: program
-        for program in pdf_spool_native_programs(target_metadata=supplied)
+        for program in pdf_spool_native_programs(target_metadata=cast(MetaData, supplied))
     }
     v2 = lowering_sources("v2", generic)
     legacy_v3 = lowering_sources("v3", selected)
@@ -456,8 +457,8 @@ def test_native_lowering_authenticates_selected_scope_and_keeps_v2_certification
             archived(release, v2, lowering_sources("v3", bad_code, scoped=True))
             task(task_id, release, "source.pdf/capture")
 
-    def lowered(release, *origin):
-        return select(func.ops.pdf_lowering_identity(release, *origin))
+    def lowered(release, origin=None):
+        return select(func.ops.pdf_lowering_identity(release, origin))
 
     assert connection.scalar(lowered("previous")) == v2[1].digest
     assert connection.scalar(lowered("previous", 1)) == v2[1].digest

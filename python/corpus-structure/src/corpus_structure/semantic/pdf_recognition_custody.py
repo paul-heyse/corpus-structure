@@ -183,9 +183,12 @@ def recognition_runtime(python: Path, worker: Path) -> dict:
                 "recognition renderer dependency has no installed file inventory: " + name
             )
         for member in package.files:
-            path = Path(package.locate_file(member)).absolute()
-            if ".." in member.parts or path.suffix in {".pyc", ".pyo"}:
+            if ".." in member.parts or member.suffix in {".pyc", ".pyo"}:
                 continue
+            location = package.locate_file(member)
+            if not isinstance(location, Path):
+                raise ValueError("recognition renderer dependency is outside installed files")
+            path = location.absolute()
             renderer.append((name, str(member), str(path), observed_file(path).digest))
     record["renderer"] = sorted(renderer)
     return record

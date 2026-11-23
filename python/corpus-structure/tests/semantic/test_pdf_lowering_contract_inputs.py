@@ -26,7 +26,10 @@ def test_every_retained_lowering_input_refuses_altered_captured_bytes():
         def source(name, altered_name=altered_name, altered=altered):
             return altered if name == altered_name else domain.source(name)
 
-        captured = SimpleNamespace(domain=SimpleNamespace(source=source))
+        captured = SimpleNamespace(
+            domain=SimpleNamespace(source=source, sources=domain.sources),
+            operation=context.operation,
+        )
         try:
             require_lowering_identity(captured)
         except ValueError as failure:

@@ -612,10 +612,28 @@ def pdf_spool_native_programs(
 
     def material_domain_projection(release, domain_digest, origin_task, name):
         lower, domain = inputs.alias(name + "_lowering"), inputs.alias(name + "_domain")
-        document = json_bytes(lower.c.content)
-        domain_document = json_bytes(domain.c.content)
         selected_contract = literal(PREFIX).op("||")(
             func.ops.pdf_lowering_contract_name(release, origin_task)
+        )
+        # PostgreSQL can evaluate JSON predicates before filtering the mixed archive.
+        document = json_bytes(
+            case(
+                (
+                    and_(
+                        lower.c.input_kind == "dependency",
+                        lower.c.input_name.in_((PREFIX + LOWERING_CONTRACT, scoped_name)),
+                    ),
+                    lower.c.content,
+                )
+            )
+        )
+        domain_document = json_bytes(
+            case(
+                (
+                    and_(domain.c.input_kind == "dependency", domain.c.input_name == CONTRACT),
+                    domain.c.content,
+                )
+            )
         )
         scoped_capture = lower.c.input_name == scoped_name
         selected_code = case(

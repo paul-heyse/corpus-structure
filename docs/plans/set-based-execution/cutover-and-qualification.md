@@ -143,8 +143,8 @@ rich CPU correspondence, native fresh refusal and exact replay, M1 predicate inp
 declared collection admission. The subsequent sealed IPC, reply, byte-credit, and
 request-retirement selection passed all 39 ordinary identities
 (`874e9ae8bce64853b675d2c3ad3d1e35`). Authored-only rich admission now acquires the
-reading resolution recipe at the first actual resolution. The native toy filing still needs
-to exercise that correction.
+reading resolution recipe at the first actual resolution. The native toy filing exercised
+that correction after its fixture acquired the required grant.
 
 **Integrated cold install · Passed · 2026-11-23.** Source `bb92a6bc9` produced preview
 `042b4b1ce4744e13a87214a167d590c9` and rollback-only candidate
@@ -183,6 +183,14 @@ reached native publication and was refused because its release fixture omitted t
 rich admission approval. The fixture now requests the same scoped effect approval as the
 other rich publication fixture.
 
+Private one-worker result `6110578d566747ff8f4e4555f302146d` passed the corrected toy
+filing, authenticated typed upload and retention, selected population read, and bound-item
+reference. Release deployment reached the 15-minute watchdog while an input-fingerprint
+recheck rendered the native SQL again. The recheck now observes the authored generator,
+provider, and resource inputs directly. Existing capsule checks continue to authenticate the
+reviewed compilation outputs. The deployment and three remaining source-custody cases
+require another run.
+
 The two PDF reuse cases failed on the integrated root. The policy-only remap invoked
 capture and recognition again. The historical case acquired a different recognition
 request. Generic capture and recognition independently lack the complete acquired producer
@@ -191,11 +199,11 @@ and recognition also observes the exact capture episode. A correction requires a
 producer admitted for the Integrated path and independently acquired recognition custody.
 The baseline shared one lowering identity per release. The operator brought forward the
 mode-specific capture and recognition prerequisites on 2026-11-23. [ADR-0155](../../adr/0155-pdf-producer-custody.md)
-records the selected scope. Acquire the two producing operations independently, preserve
-their shared schemas and existing native receipt authority, and recapture the root when
-the native changes are integrated. Verify the policy-only remap and the historical
-generation and withdrawal journey on that root. Keep the development reset gated on
-integrated acceptance. [Selected executable owner](../domain-model-operability/execution-identity-and-recovery.md) ·
+records the selected scope. The implementation acquires both operations independently,
+with mode-specific lowering custody and a shared schema, and binds the selected contract
+to the actual producing task. The updated root must qualify the policy-only remap and the
+historical generation and withdrawal journey. The development reset follows integrated
+acceptance. [Selected executable owner](../domain-model-operability/execution-identity-and-recovery.md) ·
 [PDF producer scope](pdf-path.md#pdf-producer-custody)
 
 ### Development reset through SBX-09
