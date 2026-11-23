@@ -64,9 +64,11 @@ remain open. Run qualification one managed cohort at a time.
 5. Author and register one null-predecessor root from the complete replacement and install it
    empty on a qualification target. Reconcile all retained test identities and exact preparation
    premises. Start one managed owner with bounded cohorts, independent commit clones and real
-   provider scopes. Increase activity only after observing headroom and release. Keep the PDF
-   certification replacement with SBX-14–17, and the general read/replay program with SBX-11/12.
-   Their directly consumed early slices retain their own acceptance through SBX-09.
+   provider scopes. Increase activity only after observing headroom and release. Qualify the
+   [PDF producer custody slice](pdf-path.md#pdf-producer-custody) with this root. The broader
+   PDF certification replacement belongs to SBX-14–17 and the general read/replay program
+   belongs to SBX-11/12. Their directly consumed early slices retain their own acceptance
+   through SBX-09.
 6. Qualify the final source and root before the empty development reset below. Stage stays
    with SBX-20. The scoped-relations family still reaches its own SBX-19 adoption decision.
 
@@ -205,6 +207,21 @@ to the actual producing task. The updated root must qualify the policy-only rema
 historical generation and withdrawal journey. The development reset follows integrated
 acceptance. [Selected executable owner](../domain-model-operability/execution-identity-and-recovery.md) ·
 [PDF producer scope](pdf-path.md#pdf-producer-custody)
+
+**PDF custody root · Passed · 2026-11-23.** Four focused one-worker ordinary identities
+passed for the exact scoped lowering, release input observation and reviewed-output boundary
+(`2291981c7a4345f4acf98e759f52ad5a`). Source `c586a7bd9` produced preview
+`0566d7f1b5e943738407511f24052328`, rollback-only candidate `d5a2816710204e9285cf98d01c7166de`,
+and registration `3d460845cdda4a958fce65188ed52ca6`. Inspection confirmed the sole root with
+a null predecessor and zero data steps. `uv run ci db init` installed the root on
+`corpus_structure_sbx09_pdf_qualification` (OID `136698022`). Maintenance matched frozen
+descriptor `7bb80447ffee7f286c27afd680366f00d9ff90f5909ec73ac23b8f4c1bed53a1`, checked
+the empty baseline and retired body storage, and confirmed that the lowering selector
+stays private from the reader and writer. The native inventory delta is confined to PDF
+spool and certification routines and the two compilation descriptors. Reconcile earlier
+non-PDF evidence using its exact source, test harness and application acquisition premises.
+`just model check` confirmed the released projections and `uv run ci check` passed after
+typing the manifest test fixture (`28e639b6671c413eb694bf295b1deca2`).
 
 ### Development reset through SBX-09
 

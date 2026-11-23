@@ -1,5 +1,6 @@
 """Real current PDF transport with independently specified finite recognition data."""
 
+import json
 from hashlib import sha256
 
 import pytest
@@ -41,6 +42,17 @@ def selected_reference(case, operation, snapshot=None):
         product_id=output["product_id"],
         derivation_id=use["derivation_id"],
     )
+
+
+def assert_fresh_standard_capture(case, capture):
+    name = "pdf-domain/implementation/pdf/lowering/capture-contract.json"
+    archived = next(
+        source for source in case.kernel.preparation.dependencies.artifacts if source.name == name
+    )
+    assert json.loads(archived.content)["profile"] == "pdf-record-lowering-contract-v3"
+    assert capture.receipt.publication.release_id == case.prepared.release_id
+    assert capture.receipt.certification.lowering_identity == archived.digest
+    assert capture.receipt.certification.basis == "round-trip-verified"
 
 
 def test_current_observation_reclaim_preserves_first_publication_without_fresh_provider_credit(
@@ -210,7 +222,7 @@ def test_current_policy_only_change_reuses_native_observation_support_without_pr
             first_publication = acquire_selected_pdf_source(
                 connection, selected_reference(case, "source.pdf_integrated/reconcile")
             )
-            assert first_capture.receipt.certification.basis == "producer-certified"
+            assert_fresh_standard_capture(case, first_capture)
             assert all(not page.adapter_reused for page in first_observation.receipt.pages)
         policy = dict(
             policy_id="pdf-integration-v1",
@@ -285,7 +297,7 @@ def test_historical_pdf_basis_survives_real_generation_advance_without_rehabilit
             old_raw = acquire_selected_pdf_source(
                 connection, selected_reference(case, "source.pdf/capture")
             )
-            assert old_raw.receipt.certification.basis == "producer-certified"
+            assert_fresh_standard_capture(case, old_raw)
             assert all(not page.adapter_reused for page in old.receipt.pages)
         old_use = next(row for row in case.snapshot["uses"] if row["use_id"] == old.reference.use_id)
         old_result = decode_semantic_value(
