@@ -64,11 +64,13 @@ def test_native_statement_and_acquisition_defects_retain_their_exact_identity(fa
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
 def test_invalid_request_is_not_misreported_as_an_executed_native_result(ddo_kernel):
-    with ddo_kernel.purpose("read").begin() as connection:
-        with pytest.raises(DBAPIError, match="wire.*input schema") as caught:
-            DataOperationStorage(connection)._invoke(
-                "inspect_data_operation_release", {"release_id": "r", "unknown": True}
-            )
+    with (
+        ddo_kernel.purpose("read").begin() as connection,
+        pytest.raises(DBAPIError, match=r"wire.*input schema") as caught,
+    ):
+        DataOperationStorage(connection)._invoke(
+            "inspect_data_operation_release", {"release_id": "r", "unknown": True}
+        )
     assert isinstance(caught.value.orig, psycopg.Error)
     assert caught.value.orig.sqlstate == "23514"
 

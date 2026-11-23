@@ -11,8 +11,7 @@ JUDGMENT_KINDS = {
     "DdoAuthoredTerminologyJudgment": "terminology.interpretation",
 }
 JUDGMENT_KIND_IRIS = frozenset(
-    f"https://corpus-structure.dev/domains/statistics/terminology/{kind}"
-    for kind in JUDGMENT_KINDS
+    f"https://corpus-structure.dev/domains/statistics/terminology/{kind}" for kind in JUDGMENT_KINDS
 )
 
 

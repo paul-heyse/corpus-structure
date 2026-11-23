@@ -21,7 +21,9 @@ def test_native_projection_keeps_exact_authored_judgments_without_computational_
 ):
     from corpus_structure.semantic.composed import data_operation_dependencies
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-    from corpus_structure.semantic.data_operation_storage import data_operation_definition_projection
+    from corpus_structure.semantic.data_operation_storage import (
+        data_operation_definition_projection,
+    )
     from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
 
