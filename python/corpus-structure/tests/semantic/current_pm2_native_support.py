@@ -193,7 +193,9 @@ def pure_source(preparation, text="12", *, native_text=None):
             )
         ],
     )
-    scope = dict(source=value.value["source"], selectors=value.value["selectors"])
+    from corpus_structure.semantic.native_source_view import thaw_native
+
+    scope = thaw_native(dict(source=value.value["source"], selectors=value.value["selectors"]))
     context = dict(
         project_id=PROJECT,
         subject="pure:source",

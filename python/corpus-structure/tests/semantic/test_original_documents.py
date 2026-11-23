@@ -12,8 +12,8 @@ from corpus_structure.semantic.data_operation_support import (
 )
 from corpus_structure.semantic.data_operation_wire import validate_native_wire
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.native_protocol_authoring import native_protocol_sources
 from corpus_structure.semantic.original_documents import OriginalDocumentAcquisition
-from semantic.data_operation_port_support import captured
 
 
 def reference():
@@ -54,11 +54,12 @@ def test_raw_admission_wire_refuses_body_recipe_and_view_references():
         "selection_name": "book",
         **OriginalDocumentAcquisition("book", reference()).selection().record(),
     }
-    validate_native_wire("admit_original_document_asset", "input", request, sources=captured())
+    captured = native_protocol_sources()
+    validate_native_wire("admit_original_document_asset", "input", request, sources=captured)
     for extra in ({"body": {"document": "forged"}}, {"recipe": "converter:one"}):
         with pytest.raises(ValueError):
             validate_native_wire(
-                "admit_original_document_asset", "input", {**request, **extra}, sources=captured()
+                "admit_original_document_asset", "input", {**request, **extra}, sources=captured
             )
     # This complete historical physical reference used to be admitted as an
     # original fact. Its real shape now refuses at the current boundary.

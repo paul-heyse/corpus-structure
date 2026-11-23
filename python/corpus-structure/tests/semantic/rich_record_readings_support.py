@@ -36,6 +36,8 @@ def inspected_reading(family):
         anchor_identity,
         evidence_set_identity,
         interpretation_identity,
+        record_family_contract,
+        record_identity,
     )
 
     row, coordinates = current_reading(family)
@@ -66,5 +68,6 @@ def inspected_reading(family):
             field["evidence_sets"] = (evidence["set_id"],)
             field["evidence_status"] = "available"
     row["anchors"], row["evidence_sets"] = tuple(anchors), tuple(sets)
+    row["record_id"] = record_identity(record_family_contract(current()[1], row["contract"]), row)
     row["interpretation_id"] = interpretation_identity(row)
     return row, coordinates

@@ -17,12 +17,12 @@ from corpus_structure.semantic.rich_knowledge import (
     RichKnownEntityIdentity,
     resolve_rich_entities,
 )
-from corpus_structure.semantic.types import SourceArtifact, SourceBundle
+from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
 from semantic.identity_resolution_support import source_values
 
 
 @lru_cache(maxsize=4)
-def release(keyed=False, local=False):
+def release(keyed=False, local=False, dependencies=ResolvedDependencies()):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     classes: dict[str, dict[str, Any]] = {}
     for name, primitive in (("Person", "string"), ("Device", "integer")):
@@ -48,7 +48,8 @@ def release(keyed=False, local=False):
                 SourceArtifact("core", core.read_bytes()),
                 SourceArtifact("domain", yaml.safe_dump(domain).encode()),
             ),
-        )
+        ),
+        dependencies,
     )
 
 
@@ -305,22 +306,14 @@ def test_current_scientific_context_needs_exact_archive_but_no_legacy_execution_
         SemanticComparator,
         scientific_policy_recipe,
     )
-    from corpus_structure.semantic.types import PreparedArtifact
 
     profile = acquire_analysis_context_profile()
     # Current comparison consumes the supplied semantic schema and explicit
     # captured policy, without acquiring an execution catalog.
-    prepared = release()
-    artifact = PreparedArtifact(
+    artifact = SourceArtifact(
         SCIENTIFIC_POLICY_INPUT, canonical_bytes(scientific_policy_recipe(context_profile=profile))
     )
-    prepared = replace(
-        prepared,
-        artifacts=(
-            *(item for item in prepared.artifacts if item.kind != SCIENTIFIC_POLICY_INPUT),
-            artifact,
-        ),
-    )
+    prepared = release(dependencies=ResolvedDependencies(artifacts=(artifact,)))
     comparator = SemanticComparator({}, prepared=prepared, context_profile=profile)
     equal = comparator.compare({"kind": "number", "number": 7}, {"kind": "number", "number": 7})
     different = comparator.compare({"kind": "number", "number": 7}, {"kind": "number", "number": 8})

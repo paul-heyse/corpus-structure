@@ -362,6 +362,7 @@ def test_pdf_reader_materialization_checkpoint_observes_actual_request_cancellat
 def test_pdf_only_modes_declare_their_actual_source_member_contexts(tmp_path):
     """No downstream language consumer may supply discovery's missing subject meaning."""
     from corpus_structure.semantic.data_operation_ports import PortRefusal, project_product_members
+    from corpus_structure.semantic.native_source_view import thaw_native
     from corpus_structure.semantic.source_discovery import selected_source_population
     from corpus_structure.semantic.source_products import FrozenNativeSource
     from semantic.current_pdf_integration_support import integrated_pdf_recipe
@@ -411,7 +412,7 @@ def test_pdf_only_modes_declare_their_actual_source_member_contexts(tmp_path):
         assert member["context"]["subject"] == population["members"][0]["context"]["subject"]
         assert (
             member["context"]["analyzed_scope"]
-            == population["members"][0]["context"]["analyzed_scope"]
+            == thaw_native(population["members"][0]["context"]["analyzed_scope"])
         )
         invalid = {
             **population,
