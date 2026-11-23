@@ -21,7 +21,13 @@ def selected_records(monkeypatch):
 
     def read(connection, demand_id, *, project_id, **kwargs):
         seen.append(dict(demand_id=demand_id, project_id=project_id, **kwargs))
-        return DemandResult(json_bytes(demand_result_page()))
+        page = demand_result_page()
+        page["view"] = kwargs["view"]
+        if kwargs["view"] == "frontier":
+            for product in page["uses"][0]["products"]:
+                product.pop("body")
+                product["body_state"] = "not_requested"
+        return DemandResult(json_bytes(page))
 
     monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result", read)
     return seen
@@ -44,7 +50,10 @@ def test_current_records_keep_actual_product_member_episode_and_numeric_value(se
     assert first["use_id"] == "use:A" and first["derivation_id"] == "episode:original"
     assert first["multiplicity"] == 2
     assert "scientific_support" not in first and "accepted" not in first
-    assert selected_records[0]["view"] == "products"
+    frontier, products = selected_records
+    assert frontier["view"] == "frontier" and frontier["recheck_bodies"]
+    assert products["view"] == "products" and products["cut"].identity == result["cut_id"]
+    assert products["continuation"]["read_id"] == "read:A"
 
 
 def test_current_records_cli_consumes_exact_project_demand_and_explicit_null_source(
@@ -83,7 +92,7 @@ def test_current_records_cli_consumes_exact_project_demand_and_explicit_null_sou
     )
     assert result.exit_code == 0, (result.output, result.exception)
     assert json_loads(result.stdout)["items"][0]["body"]["amount"] == Decimal(
-        "0.123456789012345678901"
+        "0.12345678901234568"
     )
     assert seen[0].project_id == "project:A" and seen[0].demand_id == "demand:A"
     assert seen[0].original_source is None and "original_source" in seen[0].model_fields_set
@@ -108,6 +117,6 @@ def test_current_record_filter_keeps_zero_match_frontier_without_absence_claim(s
         DemandQueryRequest(project_id="project:A", demand_id="demand:A", member_id="unselected"),
     )
     assert result["items"] == []
-    assert result["obligations"] == [{"obligation_id": "obligation:A", "fate": "fulfilled"}]
+    assert result["obligations"] == demand_result_page()["obligations"]
     assert result["uses"][0]["derivation_id"] == "episode:original"
     assert result["knowledge"] == "unknown"

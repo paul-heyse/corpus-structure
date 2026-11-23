@@ -9,20 +9,26 @@ from semantic.demand_result_support import demand_result_page
 def test_support_keeps_real_relations_and_unknown_scientific_standing(monkeypatch):
     records = [
         {
+            "key": "episode:original",
             "relation": "ops.data_derivation",
             "record": {"id": "episode:original", "state": "published"},
         },
         {
+            "key": "input:source",
             "relation": "ops.data_derivation_input",
             "record": {"derivation_id": "episode:original", "product_id": "product:source"},
         },
         {
+            "key": "source:A",
             "relation": "ops.original_source_admission",
             "record": {"original_source": "source:A", "digest": "actual-retained-digest"},
         },
     ]
     native = demand_result_page()
     native["view"] = "support"
+    for product in native["uses"][0]["products"]:
+        product.pop("body")
+        product["body_state"] = "not_requested"
     native["support_page"] = {"records": records, "after": None, "complete": True}
     seen = []
 

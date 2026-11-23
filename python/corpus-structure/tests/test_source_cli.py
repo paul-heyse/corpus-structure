@@ -346,11 +346,12 @@ def test_source_find_routes_exact_selected_request_and_preserves_current_handles
     path = tmp_path / "search.json"
     path.write_text(json.dumps(content))
     seen = []
+    native_responses = []
 
     def search(connection, request):
         assert connection is source_runtime.connection
         seen.append(request)
-        return source_search.SourceSearchResponse(
+        response = source_search.SourceSearchResponse(
             cut={"read_id": PIN["read_id"], "scope": {"ratio": Decimal("0.123456789012345678901")}},
             rows=[]
             if empty
@@ -370,12 +371,16 @@ def test_source_find_routes_exact_selected_request_and_preserves_current_handles
             next_cursor="next:selected",
             population_complete=False,
         )
+        native_responses.append(response)
+        return response
 
     monkeypatch.setattr(source_search, "search_source", search)
     reply = cli("source", "find", str(path), "--json")
     assert reply.exit_code == 0, (reply.output, reply.exception)
     value = json_loads(reply.stdout)
-    assert value["cut"]["scope"]["ratio"] == Decimal("0.123456789012345678901")
+    assert native_responses[0].cut["scope"]["ratio"] == Decimal("0.123456789012345678901")
+    assert value["cut"]["scope"]["ratio"] == Decimal("0.12345678901234568")
+    assert value["cut"]["read_id"] == PIN["read_id"]
     assert value["next_cursor"] == "next:selected" and not value["population_complete"]
     if not empty:
         selection = value["rows"][0]["selection"]

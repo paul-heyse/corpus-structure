@@ -9,7 +9,7 @@ from semantic.demand_result_support import demand_result_page
 def test_operation_diagnostics_are_actual_frontier_and_do_not_expand_output_body(monkeypatch):
     native = demand_result_page(empty=True)
     native["view"] = "frontier"
-    native["obligations"][0].update(fate="failed", reason="producer refused authentic source")
+    native["obligations"][0].update(fate="failed", historical_fate="failed")
 
     def read(connection, demand_id, *, project_id, **kwargs):
         assert kwargs["view"] == "frontier"
