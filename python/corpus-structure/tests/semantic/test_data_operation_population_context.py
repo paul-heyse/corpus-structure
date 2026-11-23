@@ -16,6 +16,7 @@ def test_population_context_distinguishes_boolean_and_number_with_numeric_value_
         "obligation_id": "obligation:one",
         "operation_id": "operation:aggregate",
         "subject": "subject:one",
+        "subject_definition": "subject-definition:one",
         "original_source": "source:one",
         "analyzed_scope": {"page": 1},
     }
@@ -53,7 +54,7 @@ def test_population_context_distinguishes_boolean_and_number_with_numeric_value_
         _population_context_matches(
             row,
             obligation,
-            source_set="selected",
+            source_set="selected" if origin == "source-set" else None,
             source_sets=source_sets,
             project="project:one",
         )
@@ -62,7 +63,11 @@ def test_population_context_distinguishes_boolean_and_number_with_numeric_value_
 
 
 def test_two_populations_in_one_demand_keep_their_distinct_boolean_and_numeric_roots():
-    common = {"subject": "same", "original_source": "same"}
+    common = {
+        "subject": "same",
+        "subject_definition": "subject-definition:one",
+        "original_source": "same",
+    }
     rows = [
         {"evidence": {"producer_context": {**common, "analyzed_scope": {"page": value}}}}
         for value in (True, 1)
@@ -89,6 +94,7 @@ def test_original_source_role_retains_complete_sibling_context_with_exact_frozen
         obligation_id="obligation:child",
         operation_id="op:consumer",
         subject="source:child",
+        subject_definition="subject-definition:source",
         original_source="original:book",
         analyzed_scope={"region": 1},
     )
@@ -103,6 +109,7 @@ def test_original_source_role_retains_complete_sibling_context_with_exact_frozen
             producer_context=dict(
                 operation_id="op:chosen-discovery",
                 subject="document:book",
+                subject_definition="subject-definition:document",
                 original_source="original:book",
                 analyzed_scope={"scope": "whole-document"},
             ),
@@ -111,12 +118,14 @@ def test_original_source_role_retains_complete_sibling_context_with_exact_frozen
             dict(
                 member_id="child",
                 subject="source:child",
+                subject_definition="subject-definition:source",
                 original_source="original:book",
                 analyzed_scope={"region": 1},
             ),
             dict(
                 member_id="sibling",
                 subject="source:sibling",
+                subject_definition="subject-definition:source",
                 original_source="original:book",
                 analyzed_scope={"region": 2},
             ),

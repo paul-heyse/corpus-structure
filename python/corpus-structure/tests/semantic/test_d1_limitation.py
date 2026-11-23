@@ -280,20 +280,21 @@ def test_native_attempt_wire_preserves_closed_unperformed_diagnostic(controlled,
         validate_native_wire("release_data_attempt", "input", request)
 
 
-def test_known_failure_uses_existing_release_only_after_claim_check(controlled, monkeypatch):
+def test_known_failure_uses_existing_release_only_after_claim_check(controlled):
     from corpus_structure.orchestrate import data_operations
 
     retained = []
-    monkeypatch.setattr(
-        data_operations,
-        "DataOperationStorage",
-        lambda conn: SimpleNamespace(release_data_attempt=retained.append),
-    )
     executor = object.__new__(data_operations.NativeDemandExecutor)
-    executor.runtime = cast(Any, SimpleNamespace(runtime_id="runtime:one"))
+    executor._draft_origins = {}
     checked = []
-    owner = SimpleNamespace(check_claim=checked.append, settle=lambda claim, action: action(None))
-    claim = SimpleNamespace(fence=controlled.fence, runtime_id="runtime:one")
+    calls = SimpleNamespace(release_data_attempt=retained.append)
+    owner = SimpleNamespace(check_claim=checked.append, settle=lambda claim, action: action(calls))
+    claim = SimpleNamespace(
+        fence=controlled.fence,
+        runtime_id="runtime:one",
+        task_id=controlled.fence["task_id"],
+        attempt=controlled.fence["attempt"],
+    )
     executor._known_failure(claim, owner, classify(controlled), phase="computation")
     assert checked == [claim]
     assert retained[0]["physical_retirement"] == "confirmed"

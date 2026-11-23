@@ -54,7 +54,7 @@ def test_archive_stages_support_keys_and_hydrates_only_staged_relations():
     hydrate = _compile(selected_archive_records(metadata, page))
     assert pglast.parse_sql(prepare) and pglast.parse_sql(hydrate)
     assert "WITH RECURSIVE" in prepare and "WITH RECURSIVE" not in hydrate
-    assert "ops.ddo_body_access(" in prepare
+    assert "ops.ddo_admitted_body_access(" in prepare
     assert "to_jsonb(" not in prepare and "ops.ddo_cpu_execution_leaf(" not in prepare
     assert "ops.ddo_valid_closure(" not in prepare + hydrate
     assert "bounded_keys.locator" in hydrate and "ops.ddo_cpu_execution_leaf(" in hydrate

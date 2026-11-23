@@ -49,7 +49,7 @@ def disclosure_control(infrastructure_rollback):
         "RETURN true; END$$"
     )
     connection.exec_driver_sql(
-        "CREATE FUNCTION ops.ddo_body_access(kind text,body jsonb) RETURNS boolean "
+        "CREATE FUNCTION ops.ddo_admitted_body_access(kind text,body jsonb) RETURNS boolean "
         "LANGUAGE plpgsql STABLE AS $$BEGIN PERFORM ops.ddo_kind_access(kind); "
         "IF body->>'protected_member'='true' AND "
         "current_setting('test.disclosure_evaluator',true) IS DISTINCT FROM 'on' THEN "
@@ -218,7 +218,7 @@ def test_custody_output_keeps_exact_disclosure_and_pinned_nested_universes():
     for required in (
         "boundary.public_disclosure",
         "boundary.access_universes",
-        "ops.ddo_body_kind_contracts",
+        "ops.ddo_admitted_body_kind_contracts",
         "ops.ddo_policy_authority_leaf",
         "ops.ddo_valid_closure",
         "latest.id = p_use",

@@ -111,6 +111,8 @@ def test_native_reader_requires_exact_checked_current_coverage_export():
                 "subject_definition": operation.subject,
                 "recipe": "recipe:controlled",
                 "profile": operation.profile,
+                "validity_families": list(operation.validity.families),
+                "validity_conservative": operation.validity.conservative,
                 "binding": {},
                 "definition": "definition:controlled",
                 "eligibility": "eligibility:controlled",
