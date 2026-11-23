@@ -202,6 +202,25 @@ requirements of this cutover. The affected provider selection is also retrying t
 identities that originally lacked the installed PM2 asset directory setting
 (`d8565b34e13d47468b6065d1304732e8`).
 
+**Ordinary and provider follow-through · 2026-11-22.** Three shared-authentication
+controls passed on the shared host (`994ab77b344f47b0810912910d38f3b6`). The
+one-worker CPU lifecycle retry passed all nine tests (`5faf3d3701104c8cb9065c3cad10b383`).
+Current observation, declaration, protected reads and exact binding fixtures passed
+their scoped retries (`cf406ff3b59c460e8d0539f7a609cb89`,
+`9cdfd9d3d27744719f9bc594dbd8b0e7`, `742f867d911446658c713fd3aac49918`,
+`e34f673b490f4d4ab1fd86a247cefe41`). The active same-release source cohort retains
+the earlier failures and subsequent scoped passes.
+
+The real two-language-region journey passed its call in the active PM2 retry, including
+exact native resume. The isolated test database's top-level `pg_stat_statements` rows
+reported one attachment group with 7 calls and 94.35 cumulative server seconds, one
+publication group with 16 calls and 89.22 seconds, and one completion-intent group
+with 16 calls and 27.14 seconds. Maximum calls were 41.72, 28.43 and 8.21 seconds
+respectively. These are one fixture's per-statement groups. Nested costs and earlier
+release preparation are outside that observation. A concurrent annotation-fork
+worker waited for the same physical GPU lease held by the PM2 worker. Keep that wait
+separate from the cost of either worker's PostgreSQL transactions.
+
 **Cold authoring checkpoint · 2026-11-21.** `uv run ci db init --creation-only` created
 `corpus_structure_sbx09_author` on the dedicated cluster. Managed preview
 `038a531859e443c19f46429255d4876f` and rollback-only candidate

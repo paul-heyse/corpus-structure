@@ -19,7 +19,7 @@ UNRELATED_KIND = "urn:test:unrelated"
 
 
 def native_projection(model):
-    prepared = SimpleNamespace(index=SimpleNamespace(definitions=()), enum_members=lambda _: ())
+    prepared = SimpleNamespace(index=SimpleNamespace(definitions={}), enum_members=lambda _: ())
     return data_operation_definition_projection(
         cast(PreparedRelease, prepared), model, native_digest="controlled"
     )
