@@ -41,10 +41,7 @@ def test_external_protocol_refuses_unadmitted_authority(change):
     elif change == "effect-authorization":
         declared["effects"][0]["authorization"] = ["operator-assumed"]
     else:
-        declared["capabilities"]["prepared_factory"] = {
-            "reference": "missing.Factory",
-            "method": "acquire",
-        }
+        declared["capabilities"]["prepared_factory"] = "acquire"
     expected = {
         "protected": "protected evaluator kinds",
         "reference-scope": "declared-input reference scope",

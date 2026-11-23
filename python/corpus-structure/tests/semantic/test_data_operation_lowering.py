@@ -41,15 +41,13 @@ def test_frontier_indexes_follow_actual_lookup_keys():
         "ops.data_population"
     )
     use_indexes = indexes("ops.demand_use")
-    assert use_indexes[("demand_id", "fate")].dialect_options["postgresql"]["include"] == [
+    assert tuple(use_indexes[("demand_id", "fate")].dialect_options["postgresql"]["include"]) == (
         "obligation_id",
         "derivation_id",
         "created_at",
-    ]
-    assert (
-        str(use_indexes[("derivation_id",)].dialect_options["postgresql"]["where"])
-        == "derivation_id IS NOT NULL"
     )
+    predicate = use_indexes[("derivation_id",)].dialect_options["postgresql"]["where"]
+    assert predicate.compare(table("ops.demand_use").c.derivation_id.is_not(None))
 
 
 def test_read_scope_evidence_is_typed_and_keeps_both_origins():

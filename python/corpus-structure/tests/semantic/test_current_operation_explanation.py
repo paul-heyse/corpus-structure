@@ -97,23 +97,38 @@ def test_explanation_preserves_actual_native_binding_reasons_and_cut(monkeypatch
 
     prepared = current_release()
     observed = dict(
-        cut={"release_id": prepared.release_id},
+        cut=dict(
+            demand_id="demand:actual",
+            project_id="project:actual",
+            release_id=prepared.release_id,
+            runtime_id="runtime:actual",
+            read_id="read:actual",
+        ),
         cut_id="cut:actual",
         page_complete=False,
         items=[
             {
-                "obligation": {
-                    "fate": "blocked",
-                    "selection": {
-                        "reasons": [
-                            {
-                                "code": "cardinality",
-                                "location": "input:x",
-                                "detail": "required scalar unavailable",
-                            },
-                        ]
-                    },
-                }
+                "obligation": {"obligation_id": "obligation:actual"},
+                "uses": [
+                    dict(
+                        use_id="use:actual",
+                        obligation_id="obligation:actual",
+                        fate="awaiting-inputs",
+                        historical_fate="awaiting-inputs",
+                        request_id=None,
+                        generation=None,
+                        derivation_id=None,
+                        selection={
+                            "reasons": [
+                                {
+                                    "code": "cardinality",
+                                    "location": "input:x",
+                                    "detail": "required scalar unavailable",
+                                },
+                            ]
+                        },
+                    )
+                ],
             }
         ],
         continuation="actual-native-continuation",
@@ -131,6 +146,11 @@ def test_explanation_preserves_actual_native_binding_reasons_and_cut(monkeypatch
     ).model_dump(mode="json")
     assert json.loads(report["observation_json"]) == observed
     assert report["observation_status"] == "observed" and not report["complete"]
+    native = report["native_observation"]
+    assert {key: native[key] for key in observed["cut"]} == observed["cut"]
+    assert native["uses"][0]["use_id"] == "use:actual"
+    assert native["uses"][0]["historical_fate"] == "awaiting-inputs"
+    assert not native["complete"]
     with pytest.raises(ValueError, match="exact selected"):
         explain_operation(
             prepared,
