@@ -269,6 +269,35 @@ The fresh-root retry passed exact contextual graph publication and detached refe
 replay (`e5dc07c0fc214c0c9089dfc54327da5c`). `uv run ci check` passed on the same source
 (`4ca0b69c86574c129a9571aa99d363c8`).
 
+Both source-demand identities passed on the refreshed root (`b6535f47373444dfb1a39f50355d089f`).
+They closed a truly empty selection and exercised two language regions through typed
+full composition and exact resume. All three M1 and parser identities passed their calls
+(`ee724556edd34a8abc4c5d800ac588ad`), including exact D1 contextual replay and unchanged
+resume of three parser families. The supervisor retained the original cleanup failure.
+Managed recovery settled the recognized scratch after process drain. All three E5
+selected-context retrieval identities passed together (`79414f4b14f947f08ab6f1bd61a97dc7`).
+`uv run ci test coverage` observes passes for all 17 identities in the original provider
+selection. The independently scheduled two-formal-report case is the eighteenth named
+identity and passed in `7566d5a501984c7c872c48f74433010b`. Native host and source contexts
+remain recorded separately. The refreshed native inventory changed PDF routines and
+compilation descriptors. The earlier annotation, canonical, HanLP and construction proof
+assertions retain their typed-root results. The refreshed contextual and two-language
+journeys also exercise supporting population acquisition and construction consumers.
+
+**Byte and attempt custody · Tested by selected identity · 2026-11-23.** A private
+one-worker run passed 174 of 175 scoped controls (`7840b5ee82c84ae8b495b2d47a2c1779`).
+Passed controls include handoff, late imports, encoding tamper, expired attempts,
+protected native replies and read wire fidelity. The sole failed identity was a
+nested reporting test that inherited the outer private host marker. The fixture now
+selects its own host explicitly. Normal private cleanup uses the existing recovery
+checks for recognized scratch only after a successful, completely drained cohort.
+The positive and live-child retention controls both passed by identity.
+
+All 67 selected identities passed in `13e5a67db2d34710a81a25c482e24044`, including the
+reporting retry, typed COPY and promotion, malformed population rollback, declared rule
+establishment, exact bound references, native read budget, and composition with the
+actual selected dependencies.
+
 ### Development reset through SBX-09
 
 1. Complete the [columnar replacement sequence](#columnar-cutover-sequence), including the

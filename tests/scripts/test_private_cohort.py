@@ -314,7 +314,9 @@ def test_managed_evidence_probe_selectors_remain_explicit_and_contained(tmp_path
             receipts.validate_pytest_args([rejected])
 
 
-def test_failed_pytest_exit_is_not_an_independent_host_reporting_failure(tmp_path):
+def test_failed_pytest_exit_is_not_an_independent_host_reporting_failure(tmp_path, monkeypatch):
+    # The nested suite exercises reporting without acquiring a second private host.
+    monkeypatch.setenv("CORPUS_CI_NATIVE_HOST", "shared")
     suite = tmp_path / "suite"
     suite.mkdir()
     (suite / "pytest.ini").write_text("[pytest]\naddopts=\n")
@@ -487,7 +489,7 @@ def test_recovery_removes_selected_sqlite_scratch_after_drain(owned_private_resi
     (scratch / "support.sqlite").write_bytes(b"SQLite format 3\0")
     (scratch / "support.sqlite-journal").write_bytes(b"interrupted rollback journal")
     _interrupted_private_receipts(receipt)
-    # Ordinary finish retains these files; only recovery proves all child groups drained.
+    # This partial finish has no matching complete process receipt.
     assert finish_private_temporary(receipt, {"returncode": 0})["state"] == "retained"
     before = {path.name: path.read_bytes() for path in receipt.iterdir()}
 
@@ -502,6 +504,38 @@ def test_recovery_removes_selected_sqlite_scratch_after_drain(owned_private_resi
     assert groups == [(101, 0), (102, 0)]
     assert recovery["cleanup"] == {"state": "removed"} and not temporary.exists()
     assert all((receipt / name).read_bytes() == body for name, body in before.items())
+
+
+@pytest.mark.parametrize("child_present", (False, True))
+def test_successful_private_finish_checks_drain_before_removing_scratch(
+    owned_private_residue, monkeypatch, child_present
+):
+    receipt, temporary = owned_private_residue
+    (temporary / ".ses").write_bytes(b"1772223334445\n01010101-0202-0303-0404-050505050505\n")
+    old = _interrupted_private_receipts(receipt)
+    process = {
+        "finished": old["finished"],
+        "returncode": 0,
+        "owned_group_cleanup": old["owned_group_cleanup"],
+    }
+    (receipt / "private-cohort.process.json").write_text(json.dumps(process))
+    child_path = receipt / "pytest.process.json"
+    child = json.loads(child_path.read_text())
+    child_path.write_text(json.dumps({**child, "returncode": 0}))
+    groups = []
+
+    def probe(group, sig):
+        groups.append(group)
+        if group == 102 and child_present:
+            return
+        raise ProcessLookupError()
+
+    monkeypatch.setattr(os, "killpg", probe)
+    assert finish_private_temporary(receipt, process)["state"] == (
+        "retained" if child_present else "removed"
+    )
+    assert temporary.exists() is child_present
+    assert groups == [101, 102]
 
 
 def _orphan_multiprocessing_socket(temporary, monkeypatch):

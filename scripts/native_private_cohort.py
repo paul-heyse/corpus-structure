@@ -199,7 +199,7 @@ def stop_private_cohort(
 
 
 def finish_private_temporary(directory: Path, process: dict[str, Any]) -> dict[str, Any]:
-    """Remove only an acknowledged owned empty directory tree after settlement."""
+    """Remove owned temporary storage after settlement, including verified scratch."""
     owner_path = directory / "private-host-owner.json"
     owner = json.loads(owner_path.read_text())
     uncertain = bool(
@@ -211,6 +211,20 @@ def finish_private_temporary(directory: Path, process: dict[str, Any]) -> dict[s
         outcome = {"state": "retained", "reason": "owned cohort process settlement is unconfirmed"}
     else:
         outcome = _remove_owned_empty_tree(owner)
+        if (
+            outcome.get("reason") == "pg_virtualenv left owned temporary residue"
+            and process.get("returncode") == 0
+            and not process.get("interruption")
+        ):
+            try:
+                _, original = _private_recovery_sources(directory)
+                if original["private-cohort.process.json"] != process:
+                    raise ValueError("private cohort process receipt changed")
+                _require_private_process_drain(original)
+            except (OSError, ValueError):
+                pass  # Preserve the original retained outcome for managed recovery.
+            else:
+                outcome = _remove_owned_empty_tree(owner, recover_selected_scratch=True)
     owner_path.write_text(json.dumps({**owner, **outcome}) + "\n")
     return outcome
 
@@ -420,21 +434,29 @@ def _private_recovery_sources(directory: Path):
 
 def _require_private_drain(original):
     process = original["private-cohort.process.json"]
-    children = original["private-host-child-settlement.json"]
     if (
         process.get("cleanup_error") != _RESIDUE_ERROR
-        or not process.get("finished")
-        or type(process.get("returncode")) is not int
         or process.get("private_temporary_cleanup", {}).get("reason")
         != "pg_virtualenv left owned temporary residue"
+    ):
+        raise ValueError(
+            "private cohort has no acknowledged temporary-only cleanup failure and drained children"
+        )
+    _require_private_process_drain(original)
+
+
+def _require_private_process_drain(original):
+    process = original["private-cohort.process.json"]
+    children = original["private-host-child-settlement.json"]
+    if (
+        not process.get("finished")
+        or type(process.get("returncode")) is not int
         or process.get("owned_group_cleanup", {}).get("group_present_after_cleanup") is not False
         or process.get("owned_group_cleanup", {}).get("descendants_after_leader_exit") is True
         or children.get("state") != "settled"
         or children.get("pending") != {}
     ):
-        raise ValueError(
-            "private cohort has no acknowledged temporary-only cleanup failure and drained children"
-        )
+        raise ValueError("private cohort process settlement is unconfirmed")
     groups = [process.get("owned_group_cleanup", {}).get("group")]
     if not children.get("owned_groups"):
         raise ValueError("private cohort child identities are unavailable")
