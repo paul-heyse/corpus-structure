@@ -53,7 +53,9 @@ def test_native_owner_counts_refuse_missing_or_duplicate_membership(
         revision_id=build.revision_id,
         release_id=build.release_id,
         source_digest=build.source_digest,
-        record_id_for=lambda address, kind: sha256((address + "\0" + kind).encode()).hexdigest(),
+        record_id_for=lambda address, kind: sha256(
+            (build.source_digest + "\0" + address + "\0" + kind).encode()
+        ).hexdigest(),
         write_scalar=no_parts,
     ):
         family = "header" if row.kind == "document" else row.kind
@@ -115,18 +117,28 @@ def test_native_owner_counts_refuse_missing_or_duplicate_membership(
     # rows challenge SQL ownership directly and never claim a passed oracle.
     with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+        assert conn.scalar(
+            text("SELECT root_id FROM ops.pdf_record_document WHERE product_id=:build"),
+            {"build": build.build_id},
+        ) == rows["header"][0]["root_id"]
         relations = {
-            "header": "ops.pdf_record_document",
             "native": "kb.pdf_record_native",
             "membership": "kb.pdf_record_membership",
             "reference": "kb.pdf_record_reference",
         }
-        for family in ("reference", "membership", "header", "native"):
+        # This owned database fixture deliberately bypasses only the immutable
+        # write guard while replacing the independently authored invalid rows.
+        # Restore it before the inventory checker runs under publisher authority.
+        for relation in relations.values():
+            conn.exec_driver_sql(
+                "ALTER TABLE " + relation + " DISABLE TRIGGER semantic_immutable"
+            )
+        for family in ("reference", "membership", "native"):
             conn.execute(
                 text(f"DELETE FROM {relations[family]} WHERE product_id=:build"),
                 {"build": build.build_id},
             )
-        for family in ("header", "native", "membership", "reference"):
+        for family in ("native", "membership", "reference"):
             for value in rows.get(family, ()):
                 value = {
                     key: json.loads(item)
@@ -141,6 +153,10 @@ def test_native_owner_counts_refuse_missing_or_duplicate_membership(
                     ),
                     {"body": json.dumps(value)},
                 )
+        for relation in relations.values():
+            conn.exec_driver_sql(
+                "ALTER TABLE " + relation + " ENABLE TRIGGER semantic_immutable"
+            )
     with (
         pytest.raises(
             DBAPIError,
