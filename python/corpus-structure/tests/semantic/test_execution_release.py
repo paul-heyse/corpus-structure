@@ -68,7 +68,9 @@ def test_current_operation_inputs_and_products_reload_exactly_offline(
             ).all()
         )
         assert {name: bytes(content) for name, content in actual.items()} == {
-            item.name: item.content for item in dependencies.artifacts
+            item.name: item.content
+            for item in dependencies.artifacts
+            if not (item.authoring_provenance or item.runtime_transport)
         }
 
 
@@ -172,13 +174,14 @@ def test_native_constraint_diagnostic_distinguishes_stale_descriptor_from_shape_
     from sqlalchemy.exc import DBAPIError
 
     schema = yaml.safe_load(STORAGE.schema_text)
-    schema["classes"]["Sample"]["attributes"]["value"] = {
+    schema["classes"]["Sample"]["attributes"]["label"] = {
         "range": "string",
         "required": True,
         "pattern": "^bounded$",
     }
     with commit_db_engine.begin() as connection:
         *_, prepared = _stage(connection, schema=schema)
+        admit_data_operation_release(connection, prepared)
         query = text("SELECT data.require_execution_release(:r)")
         connection.execute(query, {"r": prepared.release_id})
         fault = connection.begin_nested()
@@ -194,7 +197,7 @@ def test_native_constraint_diagnostic_distinguishes_stale_descriptor_from_shape_
             """)
             with (
                 pytest.raises(
-                    DBAPIError, match="native constraint projection is missing or incompatible"
+                    DBAPIError, match="release was prepared for a different native kernel"
                 ),
                 connection.begin_nested(),
             ):
