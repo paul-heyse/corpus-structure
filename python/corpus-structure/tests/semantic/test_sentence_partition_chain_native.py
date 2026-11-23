@@ -309,6 +309,9 @@ def test_actual_population_readback_binds_moved_renamed_and_split_occurrences(
 def test_actual_annotation_partition_proof_and_canonical_chain(
     commit_db_engine, native_settings, tmp_path, monkeypatch
 ):
+    from corpus_structure.semantic.selected_population_archive import POPULATION_ITEMS
+    from corpus_structure.serve.demand_export import export_demand_result, verified_demand_export
+
     text = "Ada acts. Bob waits."
     target = "segment.sentences/canonical-projection"
     namespace = "https://corpus-structure.dev/semantic/data-operation-sentences/"
@@ -519,6 +522,36 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
         assert selection.name == "canonical-sentences" and selection.generation >= 1
         repeated = execute_captured_kernel_demand(kernel, demand_id)
         assert repeated.receipt_count == 0
+
+        destination = tmp_path / "canonical-population-export"
+        with kernel.purpose("read").begin() as connection:
+            detached = export_demand_result(
+                connection,
+                demand_id,
+                project_id=PROJECT,
+                destination=destination,
+                format="parquet",
+                scope={"product_ids": [canonical.row["product_id"]]},
+            )
+        with verified_demand_export(destination, manifest_digest=detached.manifest_digest) as (
+            manifest,
+            _prepared,
+            _models,
+            index,
+        ):
+            archive = index.population_archive
+            assert archive is not None
+            assert manifest.relations[POPULATION_ITEMS].file.endswith(".parquet")
+            for packet, expected in ((annotated, annotation_rows), (projected, canonical_rows)):
+                captured = archive.rows(
+                    POPULATION_ITEMS,
+                    product_id=packet["product_id"],
+                    collection=packet["collection"],
+                    partition_key=packet["partition_key"],
+                )
+                assert [
+                    decode_semantic_value(json.loads(row["canonical_text"])) for row in captured
+                ] == expected
 
 
 @pytest.mark.gpu

@@ -125,14 +125,23 @@ publication-to-detached replay and original draft recovery. Repository checks pa
 `5fe2124e2b5d4357b3fdacb22bdddce7` was interrupted before recapture. Its two observed
 failures were shared request-byte credit refusals on the annotation and canonical chain.
 
-**Combined source · Implemented · 2026-11-23.** Rich extraction, clauses, M1, and selected
-evaluation now use typed population inputs. Acquired request credit accounts for hydrated
-populations and leaves room for compact control. spaCy and HanLP produce Arrow populations.
-Canonical workers return bounded Arrow IPC in the authenticated reply and retain block-local
-memo rows independently of current placement. The root source removes
+**Combined source · Implemented · 2026-11-23.** Rich extraction, clauses, M1, predicates,
+named definitions, and selected evaluation now use typed population inputs. Acquired request
+credit accounts for hydrated populations and leaves room for compact control. spaCy and HanLP
+produce Arrow populations. Canonical workers seal their Arrow output in a file reserved by the
+existing CPU call and return its receipt. The parent maps that file under the same credit.
+Block-local memo rows retain their separate identity from current placement. The root source removes
 `kb.data_product_partition` and its native body admission and read routines. The generated
 product contract carries population manifests. Historical replay support still recognizes its
 earlier archive schema. The combined source requires its own root and qualification.
+
+**Corrective checks · Tested by selected scope · 2026-11-23.** The earlier private cohort
+`517f147284284033954f76bc14369958` passed 59 of 66 identities. Its remaining failures covered
+the rich capture, fixture refusal messages, and canonical text ordering. The corrective private
+one-worker selection `6ae5e0a7b3d04ee7b62e5b165e2b9216` passed all 17 identities, including
+rich CPU correspondence, native fresh refusal and exact replay, M1 predicate inputs, and
+declared collection admission. Canonical sealed replies and the authored-only rich reading
+correction postdate that selection.
 
 ### Development reset through SBX-09
 

@@ -186,6 +186,7 @@ def test_completed_request_drops_body_caches_only_after_physical_retirement():
     assert not owner.release_retired_inputs() and reference() is not None
     owner.running = False
     assert owner.release_retired_inputs() and reference() is None
+    assert not owner.handles
     assert owner.hydrated_inputs is None and not owner.consumer_inputs
     assert not owner.consumer_results and not owner.hydrated_sizes
 

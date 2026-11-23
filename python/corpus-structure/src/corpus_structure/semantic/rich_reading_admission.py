@@ -42,7 +42,7 @@ def rich_reading_decisions(prepared, model, *, inputs: RichKernelInputs, consoli
         if isinstance(packet.body, DdoRichSourceReadingAssertion)
     )
     decisions = []
-    recipe = reading_recipe_identity(model)
+    recipe = None
     for selection in select_rich_readings(
         prepared, inputs, original_population=consolidation.input_population
     ):
@@ -75,6 +75,8 @@ def rich_reading_decisions(prepared, model, *, inputs: RichKernelInputs, consoli
             selection.event,
         )
         assert row is not None and event is not None
+        if recipe is None:
+            recipe = reading_recipe_identity(model)
         fields.update(
             resolution=resolution, resolved=resolved_ref, interpretation_id=row["interpretation_id"]
         )

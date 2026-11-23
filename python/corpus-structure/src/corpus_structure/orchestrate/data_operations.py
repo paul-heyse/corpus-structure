@@ -395,7 +395,7 @@ class _RequestExecution:
             self.uncertain_submission = True
             self.invocation.uncertain_python.append((completed, share))
             raise
-        self.invocation.python_work.append(work)
+        self.invocation.python_work.add(work)
         return work
 
     def relay(self, plan):
@@ -461,9 +461,13 @@ class _RequestExecution:
             plan.close()
 
     def release_retired_inputs(self):
-        """Drop decoded bodies only after reduction and physical retirement."""
+        """Drop decoded bodies and physical replies after retirement and reduction."""
         if self.running or not self.retired():
             return False
+        for handle in self.handles:
+            if isinstance(handle, _PythonWork):
+                self.invocation.python_work.discard(handle)
+        self.handles.clear()
         self.hydrated_inputs = None
         self.consumer_inputs.clear()
         self.consumer_results.clear()
@@ -482,7 +486,8 @@ class _RunExecution:
     def __init__(self, executor, host):
         self.host = host
         resources = host.resources
-        self.pool, self.python_work = resources.pool, []
+        self.pool = resources.pool
+        self.python_work: set[_PythonWork] = set()
         self.uncertain_python = []
         self.pending_failures = []
         self.requests = []
