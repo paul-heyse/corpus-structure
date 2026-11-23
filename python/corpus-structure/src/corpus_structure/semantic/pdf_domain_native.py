@@ -55,7 +55,6 @@ def pdf_domain_native_programs(
     release = core_variable("p_release", inputs.c.release_id.type)
     name = core_variable("p_name", inputs.c.input_name.type)
     operation = core_variable("p_operation", contracts.c.operation_id.type)
-    fresh = core_variable("p_new_release", Boolean())
     content = core_variable("content_", inputs.c.content.type)
     facet_digest = core_variable("facet_digest", inputs.c.content_digest.type)
     expected, facet, input_spec, action = (
@@ -164,7 +163,7 @@ def pdf_domain_native_programs(
     admit = NativeRoutine(
         "sem",
         "admit_pdf_operation_contracts",
-        parameters=(release_parameter, Parameter("p_new_release", pg_type("bool"))),
+        parameters=(release_parameter,),
         returns=pg_type("void"),
         security_definer=True,
         search_path=policy,
@@ -178,10 +177,8 @@ def pdf_domain_native_programs(
                     ~core_variable("found", Boolean()),
                     (If(contract_available, (refusal,)), Return()),
                 ),
-                If(fresh & matches_native_basis(facet).is_distinct_from(True), (refusal,)),
+                If(matches_native_basis(facet).is_distinct_from(True), (refusal,)),
                 If(~supported, (capability_refusal,)),
-                # Forward DATA authenticates retained facts under their own
-                # manifest. Runtime reads require the current contract.
                 ForQuery(
                     ("input_",),
                     select(retained_inputs.c.value),

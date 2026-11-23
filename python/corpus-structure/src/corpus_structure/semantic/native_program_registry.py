@@ -357,9 +357,7 @@ def program_closures(definitions: tuple[NativeDefinition, ...], wire_names) -> P
 
     return ProgramClosures(
         lowering=closure(
-            NativeIdentity(
-                "function", "sem", "ddo_lower_data_operation_definitions", ("jsonb", "boolean")
-            )
+            NativeIdentity("function", "sem", "ddo_lower_data_operation_definitions", ("jsonb",))
         ),
         read=closure(
             operation("read_demand_result"),

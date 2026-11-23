@@ -105,7 +105,7 @@ def test_independent_family_guard_edit_changes_only_its_closure():
         routine=NativeRoutine(
             "sem",
             "ddo_lower_data_operation_definitions",
-            (Parameter("p", pg_type("jsonb")), Parameter("q", pg_type("boolean"))),
+            (Parameter("p", pg_type("jsonb")),),
             pg_type("bool"),
             select(literal(True)),
         ),

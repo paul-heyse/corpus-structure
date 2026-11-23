@@ -23,7 +23,6 @@ from sqlalchemy import (
     null,
     or_,
     select,
-    tuple_,
 )
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array, insert
 
@@ -574,7 +573,6 @@ def _lowering_program(model, subject_scopes):
             "provider_profile",
         )
     )
-    new_release = core_variable("p_new_release", Boolean())
     old, lowered, header = (
         _row("old", kinds),
         _row("lowered", definitions),
@@ -653,17 +651,6 @@ def _lowering_program(model, subject_scopes):
         .select_from(nodes)
         .where(nodes.c.node["operator"].astext.in_(("forall", "absent", "membership", "covers")))
         .exists()
-    )
-    derived_names = (
-        "binding_expression",
-        "parameter_definitions",
-        "definition_identity",
-        "eligibility_identity",
-        "quantified",
-        "validity_families",
-        "validity_conservative",
-        "command_class",
-        "dependencies",
     )
     kind_steps = (
         _refuse(
@@ -958,22 +945,6 @@ def _lowering_program(model, subject_scopes):
             )
             .on_conflict_do_nothing()
         ),
-        If(
-            not_(new_release),
-            (
-                Sql(
-                    definitions.update()
-                    .values({name: lowered[name] for name in derived_names})
-                    .where(
-                        definitions.c.release_id == lowered["release_id"],
-                        definitions.c.operation_id == lowered["operation_id"],
-                        tuple_(*(definitions.c[name] for name in derived_names)).is_distinct_from(
-                            tuple_(*(lowered[name] for name in derived_names))
-                        ),
-                    )
-                ),
-            ),
-        ),
         _refuse(
             not_(
                 _exists(
@@ -1061,11 +1032,8 @@ def _lowering_program(model, subject_scopes):
     statements = (
         _fields(p.op("-")(literal("rules")) if rules is not None else p, release_fields),
         _refuse(
-            and_(
-                new_release,
-                p["native_digest"].astext.is_distinct_from(
-                    func.sem.data_operation_native_descriptor(type_=JSONB())["source_digest"].astext
-                ),
+            p["native_digest"].astext.is_distinct_from(
+                func.sem.data_operation_native_descriptor(type_=JSONB())["source_digest"].astext
             ),
             "native source correspondence mismatch",
         ),
@@ -1131,24 +1099,6 @@ def _lowering_program(model, subject_scopes):
             )
             .on_conflict_do_nothing()
         ),
-        If(
-            not_(new_release),
-            (
-                Sql(
-                    releases.update()
-                    .values(lowering_digest=lowering_digest, binding_types=archived["kinds"])
-                    .where(
-                        releases.c.release_id == p["release_id"].astext,
-                        releases.c.model_digest == p["model_digest"].astext,
-                        releases.c.native_kernel_digest == p["native_digest"].astext,
-                        or_(
-                            releases.c.lowering_digest.is_distinct_from(lowering_digest),
-                            releases.c.binding_types.is_distinct_from(archived["kinds"]),
-                        ),
-                    )
-                ),
-            ),
-        ),
         SelectInto(
             select(core_relation_row(releases))
             .select_from(releases)
@@ -1169,7 +1119,7 @@ def _lowering_program(model, subject_scopes):
             "release facts changed under admitted release",
         ),
         *rule_steps,
-        Perform(func.sem.admit_pdf_operation_contracts(p["release_id"].astext, new_release)),
+        Perform(func.sem.admit_pdf_operation_contracts(p["release_id"].astext)),
         Return(
             _object("release_id", p["release_id"].astext, "model_digest", p["model_digest"].astext)
         ),
@@ -1177,7 +1127,7 @@ def _lowering_program(model, subject_scopes):
     return _program(
         "sem",
         "ddo_lower_data_operation_definitions",
-        (Parameter("p_payload", pg_type("jsonb")), Parameter("p_new_release", pg_type("bool"))),
+        (Parameter("p_payload", pg_type("jsonb")),),
         statements,
         (
             Local("p", pg_type("jsonb"), core_variable("p_payload", JSONB())),
@@ -1444,9 +1394,7 @@ def compiler_native_programs(
         (Parameter("p_payload", pg_type("jsonb")),),
         (
             Return(
-                func.sem.ddo_lower_data_operation_definitions(
-                    core_variable("p_payload", JSONB()), True
-                )
+                func.sem.ddo_lower_data_operation_definitions(core_variable("p_payload", JSONB()))
             ),
         ),
         access=NativeProgramAccess(purposes=("admit",)),
