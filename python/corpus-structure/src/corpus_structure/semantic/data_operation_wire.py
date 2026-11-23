@@ -26,7 +26,7 @@ from pydantic import TypeAdapter
 from pydantic.json_schema import GenerateJsonSchema, JsonSchemaMode, JsonSchemaValue
 from pydantic_core import core_schema
 
-from .data_operation_json import json_bytes
+from .data_operation_json import JsonBoundaryError, finite_json_bytes, json_bytes
 from .identity import canonical_bytes
 from .schema_validation import PreparedSchemaValidator, prepared_schema_validator
 from .types import SourceArtifact
@@ -402,18 +402,38 @@ def _references(value: Any) -> set[str]:
 
 def checked_json_schema(schema: dict[str, Any]) -> dict[str, Any]:
     """Validate the selected dialect and resolve no remote/implicit resource."""
+    checker = Draft7Validator.check_schema
+    try:
+        content = finite_json_bytes(schema)
+    except JsonBoundaryError:
+        _check_json_schema(schema, checker)
+    else:
+        try:
+            _checked_json_schema_content(content, checker)
+        except ValueError, TypeError:
+            # Preserve diagnostics from the caller's original declaration order.
+            _check_json_schema(schema, checker)
+    return schema
+
+
+@lru_cache(maxsize=256)
+def _checked_json_schema_content(content: bytes, checker: Callable[[Any], None]) -> None:
+    """Retain successful admission of exact inert content under its schema checker."""
+    _check_json_schema(json.loads(content), checker)
+
+
+def _check_json_schema(schema: dict[str, Any], checker: Callable[[Any], None]) -> None:
     if not isinstance(schema, dict):
         raise ValueError("native wire kind requires an object schema")
     if schema.get("$schema", DRAFT7) != DRAFT7:
         raise ValueError("native wire schema requires Draft7")
     try:
-        Draft7Validator.check_schema(schema)
+        checker(schema)
     except SchemaError as exc:
         raise ValueError("invalid Draft7 wire schema: " + exc.message) from exc
     definitions = schema.get("definitions", {})
     if not isinstance(definitions, dict) or not _references(schema) <= definitions.keys():
         raise ValueError("unresolved local native wire schema reference")
-    return schema
 
 
 def _generated_schema_node(schema):

@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "id": "sbx09.wire-schema-reuse",
+  "title": "Exact closed wire schema admission reuse",
+  "group": "python-postgresql-efficiency",
+  "package": "SBX-09",
+  "finalized": "2026-11-22",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does exact schema admission reuse reduce repeated Draft7 and closed-reference checking across detached copies?",
+  "answers": [
+    "I07"
+  ],
+  "method": "Compare ten direct checks and ten cached checks on each of three actual captured wire contracts in one isolated process based on 76f2f7f34 with the wire reuse correction. Each iteration decodes a new dictionary. Retain the initial sample and repeat after adding schema hashes to the probe output.",
+  "commands": [
+    "UV_NO_SYNC=1 PYTHONPATH=python/corpus-structure/src:python/corpus-structure/tests uv run --no-sync python docs/design_review/evidence/2026-11-22_python-postgresql-efficiency/wire_schema_reuse.py",
+    "uv run ci test --workers 1 -- python/corpus-structure/tests/semantic/test_data_operation_wire.py -k schema_admission",
+    "UV_NO_SYNC=1 PYTHONPATH=python/corpus-structure/src uv run --no-sync pytest -n 0 python/corpus-structure/tests/semantic/test_data_operation_wire.py",
+    "UV_NO_SYNC=1 PYTHONPATH=python/corpus-structure/src just model check"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "wire_schema_reuse.py",
+      "role": "reproducible exact captured contract comparison",
+      "sha256": "b7d9582927373648df4b869966739193eb840ab089be3147cfb52029907148e2"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/wire-schema-reuse-initial.json",
+      "role": "initial ten-admission operation totals",
+      "sha256": "846f9bf09615e2cd3c5b7553c84f206041336cf2978f97a9eca7a9c614085e8d"
+    },
+    {
+      "path": "raw/wire-schema-reuse.json",
+      "role": "repeat ten-admission operation totals and schema hashes",
+      "sha256": "5420b35972816c19e5579306d1db20d6e316d4f0cfc6ec13a318e318ac4a4677"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "read_demand_result input direct_seconds",
+      "value": 0.05883607598661911,
+      "of": null,
+      "unit": "seconds",
+      "note": "Total of ten admissions with fresh JSON-decoded dictionaries. Reuse includes its first admission and nine cache hits."
+    },
+    {
+      "name": "read_demand_result input reuse_seconds_including_first_admission",
+      "value": 0.00951723600155674,
+      "of": null,
+      "unit": "seconds",
+      "note": "Total of ten admissions with fresh JSON-decoded dictionaries. Reuse includes its first admission and nine cache hits."
+    },
+    {
+      "name": "read_demand_result output direct_seconds",
+      "value": 0.17444757200428285,
+      "of": null,
+      "unit": "seconds",
+      "note": "Total of ten admissions with fresh JSON-decoded dictionaries. Reuse includes its first admission and nine cache hits."
+    },
+    {
+      "name": "read_demand_result output reuse_seconds_including_first_admission",
+      "value": 0.031424344997503795,
+      "of": null,
+      "unit": "seconds",
+      "note": "Total of ten admissions with fresh JSON-decoded dictionaries. Reuse includes its first admission and nine cache hits."
+    },
+    {
+      "name": "attach_data_requests input direct_seconds",
+      "value": 0.031191698988550343,
+      "of": null,
+      "unit": "seconds",
+      "note": "Total of ten admissions with fresh JSON-decoded dictionaries. Reuse includes its first admission and nine cache hits."
+    },
+    {
+      "name": "attach_data_requests input reuse_seconds_including_first_admission",
+      "value": 0.005051131010986865,
+      "of": null,
+      "unit": "seconds",
+      "note": "Total of ten admissions with fresh JSON-decoded dictionaries. Reuse includes its first admission and nine cache hits."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The bounded256-entry successful-admission cache reduced time for repeated identical schema checks in both samples. Six mutation, reference closure, nonordinary and current-checker controls passed through managed73ef4d4ec98c45179196d40989cf2256. The full62-case wire file and model projection check passed. Complete release preparation and live native journeys require their own qualification.",
+  "consumed_by": [
+    "SBX-09"
+  ]
+}

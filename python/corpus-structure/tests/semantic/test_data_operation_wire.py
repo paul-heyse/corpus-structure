@@ -319,6 +319,94 @@ def test_shared_wire_contract_is_detached_and_has_only_local_resolved_references
             checked_json_schema(schema)
 
 
+def test_schema_admission_reuses_exact_content_and_rechecks_mutation(monkeypatch):
+    from corpus_structure.semantic import data_operation_wire as wire
+
+    original = wire.Draft7Validator.check_schema
+    checked = []
+
+    def check(schema):
+        checked.append(copy.deepcopy(schema))
+        original(schema)
+
+    monkeypatch.setattr(wire.Draft7Validator, "check_schema", check)
+    schema: dict[str, Any] = {"type": "object", "properties": {"value": {"type": "integer"}}}
+    assert checked_json_schema(schema) is schema
+    detached = copy.deepcopy(schema)
+    assert checked_json_schema(detached) is detached
+    assert len(checked) == 1
+    schema["properties"]["value"]["type"] = "string"
+    assert checked_json_schema(schema) is schema
+    assert len(checked) == 2
+    schema["properties"]["value"]["type"] = "invalid-kind"
+    with pytest.raises(ValueError, match="invalid Draft7 wire schema"):
+        checked_json_schema(schema)
+    assert checked_json_schema(detached) is detached
+
+
+def test_schema_admission_rechecks_mutated_reference_closure():
+    schema = {
+        "$ref": "#/definitions/value",
+        "definitions": {"value": {"type": "integer"}},
+    }
+    assert checked_json_schema(schema) is schema
+    del schema["definitions"]["value"]
+    for _ in range(2):
+        with pytest.raises(ValueError, match="unresolved local native wire schema reference"):
+            checked_json_schema(schema)
+    schema["$ref"] = "https://example.invalid/schema"
+    with pytest.raises(ValueError, match="only closed local definition references"):
+        checked_json_schema(schema)
+
+
+@pytest.mark.parametrize("unusual", ["decimal", "dictionary-subclass", "tuple"])
+def test_schema_admission_keeps_nonordinary_values_with_direct_checker(monkeypatch, unusual):
+    from corpus_structure.semantic import data_operation_wire as wire
+
+    class Declaration(dict):
+        pass
+
+    schema: dict[str, Any] = {"type": "number"}
+    if unusual == "decimal":
+        schema["minimum"] = Decimal("0.123456789012345678901")
+    elif unusual == "dictionary-subclass":
+        schema = Declaration(schema)
+    else:
+        schema["x-note"] = ("original",)
+    original = wire.Draft7Validator.check_schema
+    checked = []
+
+    def check(declaration):
+        checked.append(declaration)
+        original(declaration)
+
+    monkeypatch.setattr(wire.Draft7Validator, "check_schema", check)
+    for _ in range(2):
+        assert checked_json_schema(schema) is schema
+    assert len(checked) == 2
+    assert all(declaration is schema for declaration in checked)
+
+
+def test_schema_admission_uses_current_checker_and_original_failure_diagnostic(monkeypatch):
+    from jsonschema.exceptions import SchemaError
+
+    from corpus_structure.semantic import data_operation_wire as wire
+
+    schema = {"type": "string", "description": "current-checker"}
+    checked_json_schema(schema)
+
+    def reject(declaration):
+        assert declaration == schema
+        raise SchemaError("selected checker refusal")
+
+    monkeypatch.setattr(wire.Draft7Validator, "check_schema", reject)
+    for _ in range(2):
+        with pytest.raises(
+            ValueError, match="invalid Draft7 wire schema: selected checker refusal"
+        ):
+            checked_json_schema(schema)
+
+
 def test_effective_wire_record_has_the_same_constrained_field_graph():
     model = wire_model(captured())
     owner = KIND_PREFIX + "claim_data_requests_request"
