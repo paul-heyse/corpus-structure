@@ -8,8 +8,11 @@ from pathlib import Path
 from typing import Any
 
 from .data_operation_model import ResolvedRoleBinding, SubjectContext
+from .data_operation_partitions import PartitionedInput
+from .data_operation_population import AcquiredPopulation
 from .identity import canonical_bytes
 from .python_module_projection import admitted_operation_module_meaning
+from .sentence_population_inputs import SentencePopulationInputs, prepare_sentence_populations
 from .types import SourceArtifact
 
 _ROOT = Path(__file__).parents[1]
@@ -29,6 +32,10 @@ _FILES = (
     "semantic/construction_products.py",
     "semantic/reference_resolution.py",
     "semantic/sentence_products.py",
+    "semantic/sentence_partitions.py",
+    "semantic/sentence_population_inputs.py",
+    "semantic/data_operation_partitions.py",
+    "semantic/data_operation_population.py",
     "methods/model_observation.json",
     "methods/predicate_frames.py",
 )
@@ -83,6 +90,8 @@ def definition_component_operation_sources(*, include_learned=False):
         "semantic/definition_component_products.py",
         "methods/definition_named_declared.py",
         "semantic/constructions/declared_named.py",
+        "semantic/sentence_population_inputs.py",
+        "semantic/data_operation_partitions.py",
     )
     if include_learned:
         modules = (
@@ -263,7 +272,9 @@ def _component_authority_kernel(
         )
     body_values = {name: (arguments[name],) for name in names}
     if named:
-        body_values["annotations"] = (arguments["annotations"]["header"],)
+        from .data_operation_json import json_loads
+
+        body_values["annotations"] = (json_loads(arguments["annotations"].header),)
     require_consumed_cpu_basis(
         input_basis,
         context,
@@ -314,13 +325,27 @@ class DefinitionComponentsCallPlan:
         if binding is None or binding.subject_context is None:
             raise ValueError("definition components require their exact qualified binding")
         from .data_operation_cpu_basis import cpu_input_basis_from_binding
+        from .data_operation_json import json_loads
 
-        body_values = {role.role: (arguments.arguments[role.role],) for role in binding.roles}
+        values = dict(arguments.arguments)
+        body_values = {role.role: (values[role.role],) for role in binding.roles}
+        population_arguments = {}
+        population_inputs = {}
         if self.kernel is named_definition_components_kernel:
-            body_values["annotations"] = (arguments.arguments["annotations"]["header"],)
+            annotations = values.pop("annotations")
+            placements, transfers = prepare_sentence_populations(
+                annotations, self.port.identity.recipe
+            )
+            body_values["annotations"] = (json_loads(annotations.header),)
+            population_arguments = {
+                "annotation_header": annotations.header,
+                "annotation_placements": placements,
+                "annotation_items": tuple(item.population for item in transfers),
+            }
+            population_inputs = {"annotation_items": transfers}
         signature = inspect.signature(self.kernel, eval_str=True)
         bound = signature.bind(
-            arguments=arguments.arguments,
+            arguments=values,
             roles=binding.roles,
             context=binding.subject_context,
             input_basis=cpu_input_basis_from_binding(
@@ -330,6 +355,7 @@ class DefinitionComponentsCallPlan:
             ),
             prepared=self.prepared,
             check_active=check_active,
+            **population_arguments,
         )
         return (
             yield from self.port.plan_cpu(
@@ -339,6 +365,7 @@ class DefinitionComponentsCallPlan:
                     include_learned=self.kernel is definition_components_kernel
                 ),
                 prepared_release_id=self.prepared.release_id,
+                population_inputs=population_inputs,
                 verify=self.verify,
                 execution_owner=execution_owner,
                 check_active=check_active,
@@ -411,7 +438,7 @@ def resolve_definition_components_port(
 
 
 def project_named_definition_components(
-    prepared, roles, context, source, annotations, constructions, *, check_active
+    prepared, roles, context, source, annotations: PartitionedInput, constructions, *, check_active
 ):
     """Read primary named roles and native display geometry using the original kernels."""
     from itertools import pairwise
@@ -431,11 +458,13 @@ def project_named_definition_components(
 
     from .construction_products import CharacterizationSnapshot
     from .constructions.declared_named import DeclaredNamedRules
+    from .data_operation_admission import bound_data_operation_model
+    from .data_operation_json import json_loads
     from .data_product_reference import DataProductMemberReference, SemanticReference
     from .declared_record_sources import DeclaredNativeFrameSource
     from .declared_structural_calls import _passage
     from .reference_resolution import require_selected_whole_reference
-    from .sentence_products import retained_source_annotation_products
+    from .sentence_products import acquired_source_annotations, retained_source_annotation_products
     from .source_products import FrozenNativeSource
     from .structural_products import (
         DeclaredDefinitionBasisWitness,
@@ -462,7 +491,7 @@ def project_named_definition_components(
     frame = DeclaredNativeFrameSource.acquire(
         prepared, selected, member("source"), project=context.project_id
     )
-    annotation_header = annotations["header"]
+    annotation_header = json_loads(annotations.header)
     for body in (annotation_header, constructions):
         if body["source"] != source["source"] or tuple(body["selectors"]) != tuple(
             source["selectors"]
@@ -476,10 +505,17 @@ def project_named_definition_components(
         producing=construction_member,
         selected=annotation_member,
     )
-    native = CharacterizationSnapshot(
-        annotation_member.product,
-        canonical_bytes(annotation_header),
-        tuple(canonical_bytes(packet) for packet in annotations["partitions"]),
+    if not annotation_header["block_layouts"]:
+        raise ValueError("named definition components require actual retained native source blocks")
+    native = acquired_source_annotations(
+        prepared,
+        bound_data_operation_model(prepared),
+        annotations.header,
+        annotations.packets,
+        selected,
+        populations=annotations.populations,
+        member=annotation_member,
+        project=context.project_id,
     )
     primary = (
         CharacterizationSnapshot(construction_member.product, canonical_bytes(constructions)),
@@ -686,11 +722,17 @@ def named_definition_components_kernel(
     context: SubjectContext,
     input_basis: list,
     *,
+    annotation_header: bytes,
+    annotation_placements: SentencePopulationInputs,
+    annotation_items: tuple[AcquiredPopulation, ...],
     prepared: Any,
     check_active: Any,
 ) -> dict:
     return _component_authority_kernel(
-        arguments,
+        {
+            **arguments,
+            "annotations": annotation_placements.attach(annotation_header, annotation_items),
+        },
         roles,
         context,
         input_basis,

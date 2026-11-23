@@ -2,6 +2,7 @@
 
 from typing import ClassVar
 
+from corpus_structure.semantic.data_operation_partitions import PartitionedInput
 from corpus_structure.semantic.definition_component_products import (
     execute_named_definition_components,
 )
@@ -262,12 +263,18 @@ class NamedDefinitionComponentsOperation:
                 ],
             },
         ],
+        "bound_inputs": ["annotations"],
         "opaque": [
             {
                 "reference": "corpus_structure.semantic.definition_component_products.execute_named_definition_components",
                 "contract": "definition-components/profile-assets",
                 "role": "paired-native-components-reader",
-            }
+            },
+            {
+                "reference": "corpus_structure.semantic.data_operation_partitions.PartitionedInput",
+                "contract": "definition-components/profile-assets",
+                "role": "owned-typed-population-input",
+            },
         ],
         "assets": [
             {
@@ -302,5 +309,5 @@ class NamedDefinitionComponentsOperation:
             check_active,
         )
 
-    def run(self, source: dict, annotations: dict, constructions: dict) -> dict:
+    def run(self, source: dict, annotations: PartitionedInput, constructions: dict) -> dict:
         return execute_named_definition_components(self, source, annotations, constructions)

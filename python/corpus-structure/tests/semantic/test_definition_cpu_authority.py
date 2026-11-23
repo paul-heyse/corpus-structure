@@ -75,6 +75,29 @@ def selected_roles(names, *, sequences=()):
     return context, tuple(roles), bodies
 
 
+def _wire_call(descriptor, signature, arguments, *args, **kwargs):
+    from corpus_structure.semantic.data_operation_cpu import cpu_population_packet
+    from corpus_structure.semantic.sentence_population_inputs import SentencePopulationInputs
+
+    if "annotation_items" not in signature.parameters:
+        return descriptor.packet(signature.bind(arguments, *args, **kwargs).arguments, signature)
+    controls = dict(arguments)
+    selected = controls.pop("annotations")
+    bound = signature.bind(
+        controls,
+        *args,
+        annotation_header=canonical_bytes(selected["header"]),
+        annotation_placements=SentencePopulationInputs((), ()),
+        annotation_items=(),
+        **kwargs,
+    )
+    packet, transfers = cpu_population_packet(
+        descriptor, bound, signature, {"annotation_items": ()}
+    )
+    assert not transfers
+    return packet
+
+
 @pytest.mark.parametrize("variant", ["declaration", "applicability", "learned", "named"])
 def test_definition_wrappers_bind_actual_values_parameters_and_support_before_dispatch(
     monkeypatch, variant, prepared_workflow
@@ -186,10 +209,9 @@ def test_definition_wrappers_bind_actual_values_parameters_and_support_before_di
     signature = inspect.signature(kernel, eval_str=True)
 
     def invoke(*args, **kwargs):
-        bound = signature.bind(*args, **kwargs)
         return json.loads(
             execute_python_call(
-                descriptor.packet(bound.arguments, signature),
+                _wire_call(descriptor, signature, *args, **kwargs),
                 lambda: None,
                 prepared_releases={prepared_workflow.release_id: prepared_workflow},
             )
@@ -401,8 +423,10 @@ def test_component_cpu_retains_selected_source_member_and_requires_whole_primary
             parameters=canonical_bytes(semantic_value({})),
             replicate=None,
         )
-        bound = signature.bind(
-            arguments=arguments,
+        packet = _wire_call(
+            descriptor,
+            signature,
+            arguments,
             roles=selected_roles,
             context=context,
             input_basis=basis,
@@ -410,7 +434,7 @@ def test_component_cpu_retains_selected_source_member_and_requires_whole_primary
             check_active=lambda: None,
         )
         raw = execute_python_call(
-            descriptor.packet(bound.arguments, signature),
+            packet,
             lambda: None,
             prepared_releases={prepared_workflow.release_id: prepared_workflow},
         )

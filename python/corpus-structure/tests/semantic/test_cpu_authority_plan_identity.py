@@ -13,6 +13,7 @@ from corpus_structure.semantic.data_operation_model import (
     ResolvedRoleBinding,
     SubjectContext,
 )
+from corpus_structure.semantic.data_operation_partitions import PartitionedInput
 from corpus_structure.semantic.data_operation_ports import python_port_identity
 from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
@@ -117,7 +118,7 @@ def test_cpu_plans_use_actual_nominal_recipe_identity(actual_nominal_identity, v
         name = "source" if variant == "fixture" else "annotations"
         binding = binding.__replace__(roles=(binding.roles[0].__replace__(role=name),))
         arguments = SimpleNamespace(
-            arguments={name: 7 if variant == "fixture" else {"header": 7, "partitions": []}}
+            arguments={name: 7 if variant == "fixture" else PartitionedInput(b"7", ())}
         )
     execution = plan.plan(
         arguments, binding=binding, check_active=lambda: None, execution_owner=None
