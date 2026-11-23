@@ -108,7 +108,7 @@ def test_current_private_request_refuses_integer_review_aliases():
         )
 
 
-def test_main_mcp_private_proposal_tool_preserves_exact_scope_and_server_selection(monkeypatch):
+def test_main_mcp_private_proposal_tool_preserves_scope_pins_and_server_selection(monkeypatch):
     import anyio
     from fastmcp import Client
     from sqlalchemy import create_engine
@@ -121,14 +121,22 @@ def test_main_mcp_private_proposal_tool_preserves_exact_scope_and_server_selecti
 
     def inspect(connection, request):
         seen.append(request)
-        return answer(
+        result = answer(
             "selected_private_proposals",
             {
-                "cut": {"analyzed_scope": {"fraction": Decimal("0.123456789012345678901")}},
+                "cut_id": "cut:exact",
+                "cut": {
+                    "read_id": "read:exact",
+                    "analyzed_scope": {"fraction": Decimal("0.123456789012345678901")},
+                },
                 "items": [],
                 "knowledge": "unknown",
             },
         )
+        assert result.body["cut"]["analyzed_scope"]["fraction"] == Decimal(
+            "0.123456789012345678901"
+        )
+        return result
 
     monkeypatch.setattr(interpretation_tools, "inspect_selected_proposals", inspect)
     engine = create_engine("sqlite://")
@@ -154,9 +162,11 @@ def test_main_mcp_private_proposal_tool_preserves_exact_scope_and_server_selecti
                 if not response.is_error:
                     assert response.structured_content is not None
                     content = response.structured_content["result"]
-                    assert content["body"]["cut"]["analyzed_scope"]["fraction"] == Decimal(
-                        "0.123456789012345678901"
-                    )
+                    assert content["body"]["cut_id"] == "cut:exact"
+                    assert content["body"]["cut"]["read_id"] == "read:exact"
+                    # ADR-0142 selects finite displayed numbers while the native
+                    # cut and read handles identify the exact scope.
+                    assert content["body"]["cut"]["analyzed_scope"]["fraction"] == 0.12345678901234568
             assert len(seen) == 1 and "original_source" not in seen[0].model_fields_set
 
     try:

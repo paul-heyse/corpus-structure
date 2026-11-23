@@ -160,12 +160,15 @@ def test_view_catalog_preserves_member_identity_exact_scope_and_unknown_standing
     prepared_catalog, monkeypatch, member_id
 ):
     from corpus_structure.semantic import releases
+    from corpus_structure.semantic.native_source_view import thaw_native
     from corpus_structure.serve import source_catalog
     from semantic.test_source_discovery import source
 
     kind = next(iter(_kind_contracts(prepared_catalog, "DdoSelectedNativeSource")))
-    body = source(
-        SimpleNamespace(prepared=prepared_catalog), document="original:book", start=1, end=3
+    body = thaw_native(
+        source(
+            SimpleNamespace(prepared=prepared_catalog), document="original:book", start=1, end=3
+        )
     )
     row = dict(
         member_id=member_id,

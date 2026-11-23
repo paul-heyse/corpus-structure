@@ -29,7 +29,15 @@ def selection():
                 read_id="read:one",
                 read_snapshot="1:2:",
                 frontier_at="2026-11-15T00:00:00+00:00",
-                selection={},
+                selection=dict(
+                    version="data-demand-public-selection-v1",
+                    model="a" * 64,
+                    intent_digest="intent:controlled",
+                    roots=[],
+                    targets=["record_policy.grade"],
+                    root_operations=["record_policy.grade"],
+                    discovery=[],
+                ),
                 scope={},
                 trust_snapshot={},
             )
