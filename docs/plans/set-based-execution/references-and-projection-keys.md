@@ -678,6 +678,18 @@ SBX-07 retains the canonical worker-local memo and verifies current placement, s
 and authority on that journey. Retain the dated checkpoint evidence below at its original
 source and scope.
 
+**Formal execution scope · Inspected and reproduced · 2026-11-22.** Two releases used
+the same formal recipe and exact selected source member, including the body digest and
+complete bound context. The formal release projection has `reuse_eligible=false`, so the
+request identity includes the demand's execution scope. Formal parsing can publish a
+wall-clock grammar timeout or an internal runtime diagnostic. Keep formal attempts scoped
+to their demands and verify exact current and historical bindings. Exercise positive
+cross-release reuse through the existing eligible deterministic and canonical routes.
+Revisit formal reuse when the owner distinguishes verified reusable terminal results from
+attempt diagnostics and can preserve captured assets and exact current input authority.
+[ADR-0126](../../adr/0126-terminal-outcomes-and-attempt-failures.md) ·
+[Cross-release scope](cutover-and-qualification.md#sbx-efficiency-qualification)
+
 <a id="sbx-native-attachment-and-completion"></a>
 ### Native attachment and completion efficiency
 

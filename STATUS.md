@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-22. SBX execution has resumed. Main has the refreshed semantic_sbx_current_root for admitted read and worker handoff, attachment and completion work reduction, and stored-body reuse during lease renewal. Rollback-only authoring and registration passed. Final-source acceptance is open. Development still runs native N29 and its data is disposable._ [SBX execution sequence](docs/plans/set-based-execution_2026-11-21.md#remaining-execution-through-sbx-09) · [ADR-0150](docs/adr/0150-sbx-empty-development-cutover.md)
+_Updated 2026-11-22. The refreshed `semantic_sbx_current_root` is installed on the empty qualification target. The actual evaluator event, two-report construction, guarded read, native witness and detached replay checks passed by selected identity. Broader campaigns and cross-release formal reuse remain open. Development still runs native N29 and its data is disposable._ [SBX acceptance](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-efficiency-qualification) · [ADR-0150](docs/adr/0150-sbx-empty-development-cutover.md)
 
 ## Current owners
 

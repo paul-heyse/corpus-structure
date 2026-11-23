@@ -144,6 +144,34 @@ schema checks. Preview `4775d29ebf7747f2b3787c24618955ab`, rollback-only candida
 `410ff9ab575940938887f5f95fe14109` and registration `892e4269383644b9be4539b9c9562a4a`
 passed. Installed acceptance and development reset remain separate obligations.
 
+**Refreshed root acceptance by selected identity · 2026-11-22.** On `9c8378632`,
+`uv run ci db init` installed the refreshed sole root on the empty
+`corpus_structure_sbx09_eff_final` qualification database. The descriptor matched the
+frozen program. Reader disclosure, writer and evaluator resume, and the private helper
+refusals matched their purpose grants. The project, document, original source, demand and
+product relations were empty. `uv run ci check` passed (`d50cc41e3a354944b18af19191665002`)
+and `uv run ci test --lane fault` passed all eight shared controls
+(`cb20140df66a427fa487ef4545de69c7`). The model projections were current.
+
+The guarded public read passed, including the warm-cache lower-budget refusal. Its
+48.3-second call followed 253.1 seconds of fixture setup. The summary, protected nested
+body controls and authentic finite/rich producer-to-replay identity passed in the same
+private selection (`94119172d7894e12bbcc122c8f945798`). Its initial seven witness
+failures were in fixture preparation and expectations. The corrected fixture passed
+publication and all six refusal cases in `e27900def706432085cf219d74a4d0c4` and
+`f5c97a83b4b94b6e806918ee7f221e46`. Managed cleanup recovered the original
+selection after preserving the worker's synthetic recipe scratch, and coverage accounted
+for all 17 identities. The fixture now uses pytest's own temporary path
+(`ba9b1d985c2942819628a010de0a7bbb`, passed).
+
+The renewed private event selection passed its full three-case journey without changing
+the 10-second native renewal limit (`09725b2de1be4bd6ac7252911b2b74bc`). The corrected
+scorer fixture uses the same named-definition variant reader as production. The actual
+two-report construction provider passed with both independent outputs at position zero
+(`7419fb37fb0c4adda31fe20a3085be5b`). Runner self-tests passed all 443 identities on
+their shared-host route (`f488b4f4fa524d8d9a42649e9b0c38db`). Broader ordinary and
+provider campaigns remain in progress.
+
 **Cold authoring checkpoint · 2026-11-21.** `uv run ci db init --creation-only` created
 `corpus_structure_sbx09_author` on the dedicated cluster. Managed preview
 `038a531859e443c19f46429255d4876f` and rollback-only candidate
