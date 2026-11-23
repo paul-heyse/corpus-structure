@@ -259,18 +259,18 @@ def named_witness_case() -> dict[str, Any]:
         (columns,) = annotate((request,), profile)
     from dataclasses import replace
 
-    from corpus_structure.semantic.data_operation_partitions import partition_header
+    from corpus_structure.semantic.data_operation_partitions import partition_commitment_header
     from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.sentence_partitions import partition_source_annotations
+    from corpus_structure.semantic.sentence_partitions import produce_sentence_populations
 
     native = retained_source_annotations(source, frame, context, (columns,), profile)
-    if native.partitions is None:
-        header, packets = partition_source_annotations(json.loads(native.content))
-        native = replace(
-            native,
-            content=canonical_bytes(dict(header, rows=partition_header(packets))),
-            partitions=tuple(canonical_bytes(packet) for packet in packets),
-        )
+    kind = next(kind for kind in native.model.kinds if kind.name == "DdoSourceAnnotations")
+    populations = produce_sentence_populations(native.partition_blocks, native.prepared, kind)
+    header = json.loads(native.content)
+    header["rows"] = partition_commitment_header(item.commitment for item in populations)
+    native = replace(
+        native, content=canonical_bytes(header), partitions=(), populations=populations
+    )
     formal, construction = profiles()
     primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
     rule = AnnotationRule(
@@ -295,7 +295,35 @@ def named_witness_case() -> dict[str, Any]:
         for packet in products[product.semantic_id]["members"]
         if packet["body"].get("kind") == "construction.named_binding"
     )
-    assert native.partitions is not None
+    population_headers, population_items = [], []
+    for population in populations:
+        partition = population.commitment
+        coordinates = dict(
+            product_id=native.semantic_id,
+            collection=partition.collection,
+            partition_key=partition.key,
+        )
+        population_headers.append(
+            dict(
+                coordinates,
+                ordinal=partition.ordinal,
+                partition_digest=partition.digest,
+                item_count=partition.item_count,
+                group_digests=canonical_bytes(dict(population.group_digests)).decode(),
+                placement=canonical_bytes(dict(start=partition.start, end=partition.end)).decode(),
+            )
+        )
+        for row, item in zip(
+            population.population.rows(), population.canonical_items.to_pylist(), strict=True
+        ):
+            population_items.append(
+                dict(
+                    coordinates,
+                    ordinal=item["item_ordinal"],
+                    address_key=canonical_bytes([row["record_type"], row["ordinal"]]).decode(),
+                    canonical_text=item["canonical_text"],
+                )
+            )
     return dict(
         products=products,
         product=product.semantic_id,
@@ -303,7 +331,8 @@ def named_witness_case() -> dict[str, Any]:
         formal=primary.semantic_id,
         member=match["local_id"],
         block=request.block_id,
-        packets=[json.loads(packet) for packet in native.partitions],
+        population_headers=population_headers,
+        population_items=population_items,
         input_product=native.semantic_id,
         use=True,
         construction_formal_parents={product.semantic_id: product.construction_formal_parents},
@@ -314,11 +343,21 @@ def named_witness_case() -> dict[str, Any]:
 def _named_witness(case):
     from types import SimpleNamespace
 
+    import pyarrow as pa
+
+    from corpus_structure.analytics import connection
     from corpus_structure.evaluate.characterization_assessment import SelectedAnnotationTargets
     from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.data_product_reference import DataProductReference
     from corpus_structure.semantic.declared_formal_readings import (
         SelectedCharacterizationInventories,
+    )
+    from corpus_structure.semantic.selected_population_archive import (
+        HEADER_FIELDS,
+        ITEM_FIELDS,
+        POPULATION_HEADERS,
+        POPULATION_ITEMS,
+        PopulationArchive,
     )
 
     kind_contract = "kind:annotation-partition"
@@ -333,9 +372,6 @@ def _named_witness(case):
     }
     rows = {
         "kb.data_product": list(records.values()),
-        "kb.data_product_partition": [
-            dict(packet, product_id=case["native"]) for packet in case["packets"]
-        ],
         "sem.data_kind_contract": [
             dict(
                 kind_contract=kind_contract,
@@ -362,6 +398,9 @@ def _named_witness(case):
     }
 
     class SelectedRows:
+        def __init__(self, archive):
+            self.population_archive = archive
+
         def mapping(self, relation, keys):
             def identity(row):
                 values = tuple(row[key] for key in keys)
@@ -382,11 +421,30 @@ def _named_witness(case):
         learned_dependencies=case["learned_dependencies"],
     )
     cut = SimpleNamespace(record={"project_id": "graph-test", "demand_id": "assessment"})
-    projection = LayerProjection(
-        lambda pin: inventories[DataProductReference(pin["product_id"])].payload,
-        SelectedAnnotationTargets(SelectedRows(), cut),
-    )
-    return projection.graph(dict(product_id=case["product"]), case["member"], witness_closure=True)
+    with connection() as engine:
+        relations = {}
+        for relation, names, population_rows in (
+            (POPULATION_HEADERS, HEADER_FIELDS, case["population_headers"]),
+            (POPULATION_ITEMS, ITEM_FIELDS, case["population_items"]),
+        ):
+            schema = pa.schema(
+                [
+                    pa.field(name, pa.int64() if name in {"ordinal", "item_count"} else pa.string())
+                    for name in names
+                ]
+            )
+            relations[relation] = engine.from_arrow(
+                pa.Table.from_pylist(population_rows, schema=schema)
+            )
+        archive = PopulationArchive(relations, len(case["population_headers"]))
+        archive.verify_relations()
+        projection = LayerProjection(
+            lambda pin: inventories[DataProductReference(pin["product_id"])].payload,
+            SelectedAnnotationTargets(SelectedRows(archive), cut),
+        )
+        return projection.graph(
+            dict(product_id=case["product"]), case["member"], witness_closure=True
+        )
 
 
 def test_named_witness_closes_actual_native_block_and_token_partitions(named_witness_case):
@@ -491,7 +549,8 @@ def test_named_witness_refuses_foreign_or_ambiguous_native_closure(named_witness
     elif mutation == "missing_use":
         case["use"] = False
     else:
-        case["packets"] = []
+        case["population_headers"] = []
+        case["population_items"] = []
     with pytest.raises(ValueError):
         _named_witness(case)
 

@@ -354,13 +354,18 @@ class CharacterizationSnapshot:
 
     @classmethod
     def from_product(cls, product):
-        positions = getattr(product, "construction_formal_parents", ())
-        snapshot = cls(
+        fields = (
             product.semantic_id,
             product.content,
             getattr(product, "partitions", None),
-            positions,
+            getattr(product, "construction_formal_parents", ()),
             getattr(product, "contextual_input_parents", ()),
+        )
+        populations = getattr(product, "populations", ())
+        snapshot = (
+            PopulationCharacterizationSnapshot(*fields, populations=populations)
+            if populations
+            else cls(*fields)
         )
         object.__setattr__(snapshot, "value", product.value)
         return snapshot
@@ -381,7 +386,7 @@ class CharacterizationSnapshot:
 
 @dataclass(frozen=True)
 class PopulationCharacterizationSnapshot(CharacterizationSnapshot):
-    """Child-owned view with its already authenticated populations."""
+    """A construction view with its acquired populations."""
 
     populations: tuple[AcquiredPopulationPartition, ...] = field(default=(), kw_only=True)
 

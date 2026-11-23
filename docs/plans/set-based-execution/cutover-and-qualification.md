@@ -238,6 +238,20 @@ The withdrawn public read remained refused. These cases exercised Standard captu
 the installed recognition worker against a finite loopback service. Real model-provider
 accuracy belongs to its own qualification.
 
+**Release and source custody · Tested by selected identity · 2026-11-23.** The refreshed
+root passed exact historical PDF raw-lineage refusal and original-byte retention for
+both URI spellings in `93f2164200f44263a2350809f550cfab`. The deployment case passed its
+migration, admission, recovery and separate activation steps before its fixture rejected
+compilation of a separate application-only preview. The fixture now permits that
+preview to compile once and retains the recompilation refusal for candidate and deploy.
+An intervening retry (`616ec2420b5a4d1bbe3fc89d5c2ac315`) refused a live source edit,
+as required by compilation custody. The frozen-source rerun passed the full deployment
+case, including the application-only preview, deployment and first ordinary demand
+(`e4005bf5fead4fa789414dd8ccaa5be9`). All 33 accompanying assessment identities passed
+after replacing the retired partition-table fixture with typed populations and preserving
+the acquired populations in synchronous construction snapshots. `uv run ci check` passed
+on those changes (`4d26368ff9ca4665b0aae8411b6b2045`).
+
 ### Development reset through SBX-09
 
 1. Complete the [columnar replacement sequence](#columnar-cutover-sequence), including the
