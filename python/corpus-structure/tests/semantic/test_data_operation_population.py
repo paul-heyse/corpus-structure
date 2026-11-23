@@ -330,3 +330,20 @@ def test_effective_sentence_and_hanlp_item_layouts_share_exact_reference_values(
             )
             (block,) = acquire_sentence_blocks((), header, populations=selected_input.populations)
             assert block.packet() == expected
+
+
+def test_population_decodes_immutable_rows_once_per_acquisition(monkeypatch):
+    from corpus_structure.semantic.data_operation_population import _ValueShape
+
+    population = layout().from_rows([{"ordinal": 0, "number": 1}])
+    first = tuple(population.immutable_rows())
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("acquired rows decoded twice")
+
+    monkeypatch.setattr(_ValueShape, "decode", forbidden)
+    second = tuple(population.immutable_rows())
+    assert second[0] is first[0]
+    with pytest.raises(TypeError):
+        second[0]["ordinal"] = 1
+    assert first == ({"ordinal": 0, "number": 1},)

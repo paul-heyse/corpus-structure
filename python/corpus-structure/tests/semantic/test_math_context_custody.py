@@ -3,6 +3,7 @@
 import inspect
 import sys
 from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -81,3 +82,63 @@ def test_preparation_requires_captured_context_and_preserves_it_without_reacquis
     assert context.implementation_digests == captured.implementation_digests
     assert context.model_id == captured.model_id
     assert "Gamma" in context.grammar_context.functions
+
+
+def test_retained_context_roundtrip_preserves_resolved_semantics_and_stage_keys(monkeypatch):
+    from corpus_structure.semantic import math_context
+    from corpus_structure.semantic.declared_math_products import (
+        DeclaredMathOptions,
+        RetainedMathContext,
+    )
+
+    profile = acquire_analysis_context_profile()
+    options = DeclaredMathOptions(constants=("c",))
+    context = prepare_interpretation_context(
+        context_profile=profile,
+        macros={},
+        constants=options.constants,
+        bindings=({"symbol": "u", "kind": "unresolved"},),
+        assumptions=({"positive": "c"},),
+        declarations=(
+            {
+                "symbol": "f",
+                "role": "function",
+                "authority": "source",
+                "evidence": "original:declaration",
+                "source_id": "source:1",
+                "scope": "section:1",
+                "start": 0,
+                "end": 3,
+            },
+        ),
+        source_id="source:1",
+        scope="section:1",
+        offset=1,
+        demand="occurrences",
+    )
+    captured = RetainedMathContext.capture(
+        SimpleNamespace(
+            pointer="#/texts/1", prepared=SimpleNamespace(latex="f(c)+u", context=context)
+        ),
+        options,
+    )
+    retained = RetainedMathContext.model_validate_json(captured.model_dump_json())
+    monkeypatch.setattr(
+        math_context,
+        "prepare_interpretation_context",
+        lambda **_kw: pytest.fail("reopening repeated context preparation"),
+    )
+    reopened = retained.reopen(profile, options)
+    assert reopened.source_id == "source:1" and reopened.scope == "section:1"
+    assert "f" in reopened.grammar_context.functions
+    assert "c" in reopened.grammar_context.constants
+    assert reopened.unresolved == frozenset({"u"})
+    assert reopened.assumptions == b'[{"positive":"c"}]'
+    assert reopened.bindings == b'[{"kind":"unresolved","symbol":"u"}]'
+    assert reopened.declarations == context.declarations
+    assert reopened.stage_key("occurrences") == context.stage_key("occurrences")
+    assert reopened.stage_key("interpretation") == context.stage_key("interpretation")
+    with pytest.raises(ValueError, match="captured configuration"):
+        retained.reopen(profile, DeclaredMathOptions(constants=("different",)))
+    with pytest.raises(ValueError, match="captured configuration"):
+        retained.reopen(replace(profile, implementation_digests=()), options)

@@ -178,7 +178,7 @@ class AnalysisContextProfile:
     profile: MathInterpretationPolicy
     implementation_digests: tuple[tuple[str, str], ...]
 
-    @property
+    @cached_property
     def model_id(self) -> str:
         from dataclasses import asdict
 

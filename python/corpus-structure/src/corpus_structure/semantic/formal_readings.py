@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
-from bisect import bisect_left, bisect_right
 from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import cached_property
+from hashlib import sha256
 from types import MappingProxyType
 from typing import Any
+
+from corpus_structure.caches import declare, retained_size
 
 from .data_product_reference import (
     DataProductMemberReference,
     DataProductReference,
     member_reference,
 )
+from .positioned_rows import PositionedRows
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,65 +63,41 @@ class LexicalFact:
 
 
 @dataclass(frozen=True)
-class _IntervalRows:
-    starts: tuple[int, ...]
-    maximum_ends: tuple[int, ...]
-    rows: tuple[tuple[int, dict, dict], ...]
-
-    @classmethod
-    def build(cls, rows):
-        ordered = tuple(sorted(rows, key=lambda row: (row[2]["start"], row[0])))
-        maximum, ends = -1, []
-        for _, _, part in ordered:
-            maximum = max(maximum, part["end"])
-            ends.append(maximum)
-        return cls(tuple(part["start"] for _, _, part in ordered), tuple(ends), ordered)
-
-    def selected(self, start, end, *, overlapping=False):
-        if overlapping:
-            first = bisect_right(self.maximum_ends, start)
-            last = bisect_left(self.starts, end)
-            eligible = (row for row in self.rows[first:last] if row[2]["end"] > start)
-        else:
-            first, last = bisect_left(self.starts, start), bisect_left(self.starts, end)
-            eligible = (
-                row for row in self.rows[first:last] if row[2]["start"] < row[2]["end"] <= end
-            )
-        return tuple((node, part) for _, node, part in sorted(eligible, key=lambda row: row[0]))
-
-
 class _RetainedReadings:
-    def __init__(self, pin, body, source):
-        self.pin, self.body, self.source = pin, body, source
+    pin: DataProductReference
+    body: Mapping[str, Any]
+    source: SemanticFormalSource
 
     @cached_property
     def occurrences(self):
-        return {row["local_id"]: row for row in self.body["occurrences"]}
+        return MappingProxyType({row["local_id"]: row for row in self.body["occurrences"]})
 
     @cached_property
     def annotations(self):
-        return {row["local_id"]: row for row in self.body["annotations"]}
+        return MappingProxyType({row["local_id"]: row for row in self.body["annotations"]})
 
     @cached_property
     def memberships(self):
         result = {}
         for row in self.body["memberships"]:
             result.setdefault(row["group"], []).append(row)
-        return {key: tuple(rows) for key, rows in result.items()}
+        return MappingProxyType({key: tuple(rows) for key, rows in result.items()})
 
     @cached_property
     def coverage(self):
         result = {}
         for row in self.body["coverage"]:
             result.setdefault(row["family"], row)
-        return result
+        return MappingProxyType(result)
 
     @cached_property
     def parts(self):
-        return {
-            key: _extent(node, self.occurrences, self.source)
-            for key, node in self.annotations.items()
-        }
+        return MappingProxyType(
+            {
+                key: _extent(node, self.occurrences, self.source)
+                for key, node in self.annotations.items()
+            }
+        )
 
     @cached_property
     def intervals(self):
@@ -137,11 +116,16 @@ class _RetainedReadings:
                 result.setdefault(("formal_input", node["family"]), []).append(
                     (ordinal, node, part)
                 )
-        return {key: _IntervalRows.build(rows) for key, rows in result.items()}
+        return MappingProxyType(
+            {
+                key: PositionedRows.build(rows, lambda row: (row[2]["start"], row[2]["end"]))
+                for key, rows in result.items()
+            }
+        )
 
     @cached_property
     def ordinals(self):
-        return {key: index for index, key in enumerate(self.annotations)}
+        return MappingProxyType({key: index for index, key in enumerate(self.annotations)})
 
     def selected(self, kind, family, start, end, *, overlapping=False):
         groups = (
@@ -155,10 +139,12 @@ class _RetainedReadings:
         # even if a future declared kind is shared by more than one family.
         ordinal = self.ordinals if family is None else None
         rows = [
-            row
+            (node, part)
             for group in groups
             if group is not None
-            for row in group.selected(start, end, overlapping=overlapping)
+            for _, node, part in (
+                group.overlapping(start, end) if overlapping else group.contained(start, end)
+            )
         ]
         return (
             tuple(sorted(rows, key=lambda row: ordinal[row[0]["local_id"]]))
@@ -168,6 +154,40 @@ class _RetainedReadings:
 
     def covered(self, family, start, end):
         return _covered(self.coverage.get(family), self.source, start, end)
+
+
+@declare(
+    "formal-retained-readings",
+    "runtime_bytes",
+    key=lambda pin, body, source: (
+        pin,
+        sha256(_retained_bytes(body)).digest(),
+        source,
+    ),
+    weight=lambda value: retained_size(value),
+)
+def _retained_index(pin, body, source) -> _RetainedReadings:
+    from .native_source_view import freeze_native
+
+    index = _RetainedReadings(pin, freeze_native(body), source)
+    for name in (
+        "occurrences",
+        "annotations",
+        "memberships",
+        "coverage",
+        "parts",
+        "intervals",
+        "ordinals",
+    ):
+        getattr(index, name)
+    return index
+
+
+def _retained_bytes(body):
+    from .identity import canonical_bytes
+    from .native_source_view import thaw_native
+
+    return canonical_bytes(thaw_native(body))
 
 
 class FormalSourceReadings:
@@ -234,7 +254,7 @@ class FormalSourceReadings:
 
     @cached_property
     def _indexes(self):
-        return tuple(_RetainedReadings(pin, body, self.source) for pin, body in self._selected)
+        return tuple(_retained_index(pin, body, self.source) for pin, body in self._selected)
 
     def positioned(self, *, start: int, end: int):
         """Exact primary lexical categories and atoms; never recover by classifying again."""

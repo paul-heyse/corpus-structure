@@ -138,7 +138,14 @@ def declared_math_readings(
 
 
 def declared_normalization_readings(
-    source, records, configuration, *, prepared, prepare_context, check_active=lambda: None
+    source,
+    records,
+    configuration,
+    *,
+    prepared,
+    contexts,
+    context_profile,
+    check_active=lambda: None,
 ):
     """Consume the exact occurrence codec without recognizing or parsing again."""
     from .native import NativeReading, _restore_reading
@@ -146,17 +153,14 @@ def declared_normalization_readings(
 
     if not isinstance(source, DeclaredNativeFrameSource):
         raise TypeError("normalization requires an admitted semantic source")
-    positions = {item["self_ref"]: n for n, item in enumerate(source.items)}
     selected, _ = selected_formula_inputs(
         FrozenNativeSource.acquire(prepared, source.acquired_source)
     )
-    topology = prepare_native_topology_columns(
-        root=source.section_pointer,
-        text=source.text,
-        items=source.items,
-        ancestors=source.ancestors,
-        pieces=source.pieces,
-    )
+    retained_contexts = {context.pointer: context for context in contexts}
+    if len(retained_contexts) != len(contexts) or set(retained_contexts) != {
+        record["pointer"] for record in records
+    }:
+        raise ValueError("normalization context inventory differs from occurrence inputs")
     pieces = {piece["item_ref"]: piece for piece in source.pieces if piece.get("item_ref")}
     items = {item["self_ref"]: item for item in source.items}
     seen = set()
@@ -172,16 +176,10 @@ def declared_normalization_readings(
             raise ValueError("occurrence inventory differs from selected original formula atoms")
         seen.add(pointer)
         basis = record["context"]
-        context = prepare_context(
-            macros=configuration.section().macro_table(),
-            constants=configuration.section().constants,
-            source_id=basis["source_id"],
-            scope=basis["scope"],
-            offset=positions[pointer],
-            scope_chain=topology.scope_chain(pointer, basis["source_id"]),
-            declarations=[d for d in basis["declarations"] if d["authority"] == "source"],
-            demand="occurrences",
-        )
+        retained_context = retained_contexts[pointer]
+        if retained_context.recognized_latex != record["recognized_latex"]:
+            raise ValueError("normalization context differs from its exact occurrence input")
+        context = retained_context.reopen(context_profile, configuration)
         if context.stage_key("occurrences") != record["occurrence_basis"]:
             raise ValueError("normalization context differs from its exact occurrence input")
         operand = PreparedMathInput(

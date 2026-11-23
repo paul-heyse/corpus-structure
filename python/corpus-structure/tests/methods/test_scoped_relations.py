@@ -708,3 +708,103 @@ def _assert_public_condition_projection(view, relation, rows, predicate):
     )
     assumption = condition_qualification(inputs, attachment, changed, project_id=project_id)
     assert assumption.relation == "assumption"
+
+
+def test_sentence_to_scoped_relations_reuses_derived_views(monkeypatch):
+    from collections import Counter
+    from functools import cached_property
+
+    from corpus_structure import caches
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.semantic import formal_readings, source_products
+    from corpus_structure.semantic.constructions import navigation
+    from corpus_structure.semantic.data_operation_population import AcquiredPopulation
+    from methods.navigation_fixture import source_primary_products
+    from methods.structural_roles_support import annotation
+
+    text = "Table 5.1 must be reviewed by Manager."
+    frame = source(text, labels=("text",))
+    columns, _ = annotation(
+        text,
+        [
+            ("Table", "NOUN", "nsubjpass", 4, "NN"),
+            ("5.1", "NUM", "nummod", 0, "CD"),
+            ("must", "AUX", "aux", 4, "MD"),
+            ("be", "AUX", "auxpass", 4, "VB"),
+            ("reviewed", "VERB", "ROOT", 4, "VBN"),
+            ("by", "ADP", "agent", 4, "IN"),
+            ("Manager", "NOUN", "pobj", 5, "NN"),
+        ],
+        frame=frame,
+    )
+    caches.clear("runtime_bytes")
+    builds = {}
+
+    def count_loader(owner):
+        counts = Counter()
+        builds[owner.name] = counts
+        original = owner.loader
+
+        def load(*args, **kwargs):
+            counts[owner.key(*args, **kwargs)] += 1
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(owner, "loader", load)
+
+    for owner in (
+        source_products._native_source_view,
+        source_products._native_source_selectors,
+        formal_readings._retained_index,
+        navigation._navigation_index,
+    ):
+        count_loader(owner)
+    rows_built = Counter()
+    original_rows = AcquiredPopulation._rows.func
+
+    def decoded_rows(population):
+        rows_built[id(population)] += 1
+        return original_rows(population)
+
+    rows = cached_property(decoded_rows)
+    rows.__set_name__(AcquiredPopulation, "_rows")
+    monkeypatch.setattr(AcquiredPopulation, "_rows", rows)
+    primary = source_primary_products(
+        frame,
+        annotations=(columns,),
+        profile=AnnotationProfile(execution_profile="unadmitted:controlled-columns"),
+    )
+    expected = discover_relations(frame, primary=primary, source_work="parent")
+    from corpus_structure.semantic.sentence_partitions import produce_sentence_populations
+    from corpus_structure.semantic.sentence_products import SourceAnnotations
+    from methods.declared_primary_fixture import profiles
+
+    native = primary.native
+    assert native is not None
+    kind = next(kind for kind in native.model.kinds if kind.name == "DdoSourceAnnotations")
+    populations = produce_sentence_populations(native.partition_blocks, native.prepared, kind)
+    typed = SourceAnnotations(
+        native.content,
+        native.prepared,
+        native.model,
+        (),
+        subject_context=native.subject_context,
+        populations=populations,
+    )
+    _, construction_profile = profiles()
+    built = construction_profile.run(
+        primary.source, (primary.formal,), sentences=typed, subject_context=primary.context
+    )
+    primary = replace(
+        primary,
+        native=typed,
+        construction=built,
+        navigation=navigation.NativeNavigationIndex((built,), primary.source),
+    )
+    first = discover_relations(frame, primary=primary, source_work="parent")
+    second = discover_relations(frame, primary=primary, source_work="parent")
+    assert first == second == expected
+    values = [source_python(row["value"]) for row in first["contributions"] if "value" in row]
+    assert any(value.get("relation") == "uses_artifact" for value in values)
+    assert rows_built and set(rows_built.values()) == {1}
+    for counts in builds.values():
+        assert counts and set(counts.values()) == {1}

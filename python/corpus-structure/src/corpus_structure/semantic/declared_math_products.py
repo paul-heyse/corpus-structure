@@ -12,10 +12,14 @@ import json
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from functools import cached_property, lru_cache
+from hashlib import sha256
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
+
+from corpus_structure.core.evidence import MacroDef
 
 from .constructions.math_scope import Binders, NativeDomainRule
 from .data_operation_model import ResolvedRoleBinding
@@ -26,6 +30,8 @@ from .declared_structural_references import DeclaredStructuralSource
 from .identity import canonical_bytes
 from .math_context import (
     AnalysisContextProfile,
+    PreparedInterpretationContext,
+    SymbolDeclaration,
     acquire_analysis_context_profile,
     prepare_interpretation_context,
 )
@@ -51,8 +57,91 @@ _PATHS = (
     "methods/math/spans.py",
     "methods/math/scope.py",
     "semantic/formal_forest.py",
+    "semantic/positioned_rows.py",
     "semantic/constructions/math_scope.py",
 )
+
+
+class DeclaredMathOptions(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    parse_seconds: float = Field(default=2.0, gt=0)
+    macros: dict[str, str] = Field(default_factory=dict)
+    constants: tuple[str, ...] = ()
+    math_scope_binders: Binders | None = None
+    math_domain_rules: tuple[NativeDomainRule, ...] = ()
+
+    @cached_property
+    def preparation_key(self):
+        return sha256(canonical_bytes(self.model_dump(mode="json"))).hexdigest()
+
+    def section(self):
+        from corpus_structure.methods.math.configuration import MathSection
+
+        return MathSection(
+            macros=self.macros, constants=self.constants, native_domain_rules=self.math_domain_rules
+        )
+
+
+class RetainedMathContext(BaseModel):
+    """A prepared occurrence context bound to its captured semantic inputs."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    pointer: str
+    recognized_latex: str
+    model_id: str
+    configuration_basis: str
+    kind: str
+    macros: dict[str, MacroDef]
+    declarations: tuple[SymbolDeclaration, ...]
+    conflicts: tuple[str, ...]
+    unresolved: tuple[str, ...]
+    source_id: str | None
+    scope: str | None
+    assumptions: str
+    bindings: str
+    demand: str
+
+    @classmethod
+    def capture(cls, reading, configuration):
+        context = reading.prepared.context
+        return cls(
+            pointer=reading.pointer,
+            recognized_latex=reading.prepared.latex,
+            model_id=context.model_id,
+            configuration_basis=configuration.preparation_key,
+            kind=context.kind,
+            macros=dict(context.macros),
+            declarations=context.declarations,
+            conflicts=tuple(sorted(context.conflicts)),
+            unresolved=tuple(sorted(context.unresolved)),
+            source_id=context.source_id,
+            scope=context.scope,
+            assumptions=context.assumptions.decode(),
+            bindings=context.bindings.decode(),
+            demand=context.demand,
+        )
+
+    def reopen(self, context_profile, configuration):
+        if (
+            self.model_id != context_profile.model_id
+            or self.configuration_basis != configuration.preparation_key
+        ):
+            raise ValueError("retained mathematical context differs from captured configuration")
+        return PreparedInterpretationContext(
+            context_profile.profile,
+            self.model_id,
+            MappingProxyType(dict(self.macros)),
+            self.kind,
+            self.declarations,
+            frozenset(self.conflicts),
+            frozenset(self.unresolved),
+            self.source_id,
+            self.scope,
+            self.assumptions.encode(),
+            self.bindings.encode(),
+            self.demand,
+            context_profile.implementation_digests,
+        )
 
 
 class DeclaredMathProduct(BaseModel):
@@ -65,6 +154,7 @@ class DeclaredMathProduct(BaseModel):
     construction_input: DeclaredMathInput | None = None
     source_declarations: tuple[dict[str, JsonValue], ...] = ()
     items: tuple[dict[str, JsonValue], ...]
+    contexts: tuple[RetainedMathContext, ...] = ()
     issues: tuple[str, ...] = ()
     outcome: Literal["complete", "partial"]
 
@@ -72,11 +162,13 @@ class DeclaredMathProduct(BaseModel):
 class DeclaredMathOccurrenceProduct(DeclaredMathProduct):
     phase: Literal["occurrences"] = "occurrences"
     formal_input: DeclaredMathInput
+    contexts: tuple[RetainedMathContext, ...]
 
 
 class DeclaredMathSymbolicProduct(DeclaredMathProduct):
     phase: Literal["symbolic"] = "symbolic"
     occurrence_input: SemanticWholeReference
+    contexts: tuple[RetainedMathContext, ...]
 
 
 class DeclaredMathScopeProduct(DeclaredMathProduct):
@@ -90,22 +182,6 @@ class _MathProductDeclarations(BaseModel):
     occurrences: tuple[DeclaredMathOccurrenceProduct, ...] = ()
     symbolic: tuple[DeclaredMathSymbolicProduct, ...] = ()
     scopes: tuple[DeclaredMathScopeProduct, ...] = ()
-
-
-class DeclaredMathOptions(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-    parse_seconds: float = Field(default=2.0, gt=0)
-    macros: dict[str, str] = Field(default_factory=dict)
-    constants: tuple[str, ...] = ()
-    math_scope_binders: Binders | None = None
-    math_domain_rules: tuple[NativeDomainRule, ...] = ()
-
-    def section(self):
-        from corpus_structure.methods.math.configuration import MathSection
-
-        return MathSection(
-            macros=self.macros, constants=self.constants, native_domain_rules=self.math_domain_rules
-        )
 
 
 def math_operation_declarations():
@@ -411,6 +487,7 @@ def execute_occurrences(receiver, source, formal, inherited, ancestor_sources, c
             DeclaredMathInput.from_bound(pin, project=profile.project) for pin in pins
         ),
         items=json.loads(canonical_bytes(records)),
+        contexts=tuple(RetainedMathContext.capture(row, profile.options) for row in readings),
         issues=tuple(issues),
         outcome="complete" if complete else "partial",
     ).model_dump(mode="json")
@@ -430,7 +507,8 @@ def execute_normalization(receiver, source, occurrences):
         product.items,
         profile.options,
         prepared=profile.prepared,
-        prepare_context=profile.prepare_context,
+        contexts=product.contexts,
+        context_profile=profile.context_profile,
         check_active=profile.check_active,
     )
     original = {row["self_ref"]: row.get("orig", "") for row in frame.items}
@@ -440,6 +518,7 @@ def execute_normalization(receiver, source, occurrences):
         occurrence_input=SemanticReference.whole("occurrences").whole_value(),
         inherited_inputs=product.inherited_inputs,
         source_declarations=product.source_declarations,
+        contexts=product.contexts,
         items=json.loads(
             canonical_bytes(
                 tuple(

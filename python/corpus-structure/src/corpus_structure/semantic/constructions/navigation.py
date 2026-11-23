@@ -8,11 +8,13 @@ from collections import Counter, defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from functools import lru_cache
+from hashlib import sha256
 from itertools import pairwise
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Literal
 
+from corpus_structure.caches import declare, retained_size
 from corpus_structure.ingest.annotation_views import annotation_view
 from corpus_structure.ingest.annotations import (
     AnnotationProduct,
@@ -831,7 +833,9 @@ def populate_navigation_products(
         )
         coordinate = source.value["source"]
         body = json.loads(native.content)
-        if body["source"] != coordinate or tuple(body["selectors"]) != tuple(source.value["selectors"]):
+        if body["source"] != coordinate or tuple(body["selectors"]) != tuple(
+            source.value["selectors"]
+        ):
             raise ValueError(
                 "navigation native input differs from its original source and analyzed scope"
             )
@@ -1328,11 +1332,32 @@ class NavigationRecord:
         return "".join(e["text"] for e in self.fragments(role))
 
 
+@declare(
+    "native-navigation-indexes",
+    "runtime_bytes",
+    key=lambda products, source: (
+        sha256(source.content).digest(),
+        tuple((product.semantic_id, sha256(product.content).digest()) for product in products),
+    ),
+    weight=lambda value: retained_size(value),
+)
+def _navigation_index(products, source) -> NativeNavigationIndex:
+    index = object.__new__(NativeNavigationIndex)
+    index._build(products, source)
+    return index
+
+
 class NativeNavigationIndex:
     """Read exact declared construction members; never recognize missing navigation."""
 
     def __init__(self, products, source):
+        retained = _navigation_index(tuple(products), source)
+        self.records, self.coverage = retained.records, retained.coverage
+        self._by_kind, self._by_pointer = retained._by_kind, retained._by_pointer
+
+    def _build(self, products, source):
         from ..data_product_reference import DataProductReference, member_reference
+        from ..native_source_view import freeze_native
 
         selected = source.value
         projection = selected["source"]["projection"]
@@ -1343,12 +1368,14 @@ class NativeNavigationIndex:
             if reference in seen:
                 raise ValueError("navigation input repeats a declared product")
             seen.add(reference)
-            body = json.loads(product.content)
-            if body["source"] != selected["source"] or tuple(body["selectors"]) != tuple(selected["selectors"]):
+            body = freeze_native(json.loads(product.content))
+            if body["source"] != selected["source"] or tuple(body["selectors"]) != tuple(
+                selected["selectors"]
+            ):
                 raise ValueError(
                     "navigation product differs from its exact original source and analyzed scope"
                 )
-            facts = product.inventory()
+            facts = freeze_native(product.inventory())
             occurrences = {row["local_id"]: row for row in facts["occurrences"]}
             coverage.extend(row for row in body["coverage"] if row["family"] == FAMILY)
             for annotation in facts["annotations"]:
@@ -1394,8 +1421,8 @@ class NativeNavigationIndex:
         for row in self.records:
             by_kind[row.payload["kind"]].append(row)
             by_pointer[row.payload["kind"], row.payload["pointer"]].append(row)
-        self._by_kind = {key: tuple(rows) for key, rows in by_kind.items()}
-        self._by_pointer = {key: tuple(rows) for key, rows in by_pointer.items()}
+        self._by_kind = MappingProxyType({key: tuple(rows) for key, rows in by_kind.items()})
+        self._by_pointer = MappingProxyType({key: tuple(rows) for key, rows in by_pointer.items()})
 
     @property
     def complete(self):

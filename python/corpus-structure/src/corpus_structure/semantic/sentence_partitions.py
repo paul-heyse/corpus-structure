@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from functools import cached_property
 from hashlib import sha256
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
@@ -123,6 +124,10 @@ class SentenceProductPayload(_SentenceProductHeader):
     blocks: tuple[SentenceBlock, ...]
     populations: tuple = ()
 
+    @cached_property
+    def population_blocks(self):
+        return _blocks_from_populations(self.populations)
+
 
 @dataclass(frozen=True, slots=True)
 class _SentencePartitionBody:
@@ -192,7 +197,7 @@ def selected_sentence_blocks(payload: SentenceProductPayload) -> tuple[SentenceB
     """Enter the row API only for a consumer that actually needs working sentence records."""
     if not payload.populations:
         return payload.blocks
-    return _blocks_from_populations(payload.populations)
+    return payload.population_blocks
 
 
 def _verify_population_header(populations, header):
@@ -208,8 +213,6 @@ def _verify_population_header(populations, header):
 
 
 def _blocks_from_populations(populations) -> tuple[SentenceBlock, ...]:
-    from .data_operation_consumers import _freeze_consumer
-
     result = []
     for item in sorted(populations, key=lambda selected: selected.commitment.ordinal):
         partition = item.commitment
@@ -219,7 +222,7 @@ def _blocks_from_populations(populations) -> tuple[SentenceBlock, ...]:
                 partition.ordinal,
                 partition.start,
                 partition.end,
-                tuple(_freeze_consumer(row) for row in item.population.rows()),
+                tuple(item.population.immutable_rows()),
             )
         )
     return tuple(result)

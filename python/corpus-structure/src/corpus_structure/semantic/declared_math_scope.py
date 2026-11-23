@@ -42,6 +42,7 @@ def execute_scope(
         or normalized.phase != "symbolic"
         or not occurrence.source.matches_pin(frame.pin.values())
         or occurrence.source != normalized.source
+        or occurrence.contexts != normalized.contexts
     ):
         raise ValueError(
             "symbol scope requires exact source and occurrence/normalization correspondence"
@@ -86,12 +87,16 @@ def execute_scope(
         pieces=frame.pieces,
         domains=domains,
     )
-    positions = {item["self_ref"]: n for n, item in enumerate(frame.items)}
     native = {item["self_ref"]: item for item in frame.items}
 
     def readings(product):
         rows = []
         seen = set()
+        contexts = {context.pointer: context for context in product.contexts}
+        if len(contexts) != len(product.contexts) or set(contexts) != {
+            record["pointer"] for record in product.items
+        }:
+            raise ValueError("mathematical scope context inventory differs from its readings")
         for record in product.items:
             profile.check_active()
             pointer = record["pointer"]
@@ -104,17 +109,10 @@ def execute_scope(
             seen.add(pointer)
             if pointer not in segments:
                 continue
-            basis = record["context"]
-            context = profile.prepare_context(
-                macros=profile.options.section().macro_table(),
-                constants=profile.options.constants,
-                source_id=basis["source_id"],
-                scope=basis["scope"],
-                offset=positions[pointer],
-                scope_chain=topology.scope_chain(pointer, basis["source_id"]),
-                declarations=[d for d in basis["declarations"] if d["authority"] == "source"],
-                demand="occurrences",
-            )
+            captured = contexts[pointer]
+            if captured.recognized_latex != record["recognized_latex"]:
+                raise ValueError("mathematical scope context differs from its exact formula")
+            context = captured.reopen(profile.context_profile, profile.options)
             if context.stage_key("occurrences") != record["occurrence_basis"]:
                 raise ValueError(
                     "mathematical scope reading differs from captured occurrence context"

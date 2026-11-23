@@ -7,6 +7,7 @@ from collections.abc import Generator, Iterable, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from decimal import Decimal
+from functools import cached_property
 from typing import Any, Literal
 
 import pyarrow as pa
@@ -397,10 +398,37 @@ class AcquiredPopulation:
             )
         return AcquiredPopulation._from_table(layout, table)
 
+    @cached_property
+    def _rows(self):
+        from .data_operation_consumers import _freeze_consumer
+
+        return tuple(
+            _freeze_consumer(self.layout._shape.decode(row, self.layout._digits))
+            for batch in self.table.to_batches()
+            for row in batch.to_pylist()
+        )
+
+    def immutable_rows(self):
+        """Reuse immutable nominal rows for this acquired partition's lifetime."""
+        return iter(self._rows)
+
     def rows(self):
-        for batch in self.table.to_batches():
-            for row in batch.to_pylist():
-                yield self.layout._shape.decode(row, self.layout._digits)
+        """Return detached working records with the decoded public container shapes."""
+        return (_working_row(row) for row in self._rows)
+
+
+def _working_row(value):
+    from .data_operation_values import CollectionValue
+
+    if isinstance(value, OptionalValue):
+        return OptionalValue(value.state, _working_row(value.value))
+    if isinstance(value, CollectionValue):
+        return CollectionValue(value.kind, tuple(_working_row(item) for item in value.members))
+    if isinstance(value, Mapping):
+        return {name: _working_row(item) for name, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [_working_row(item) for item in value]
+    return value
 
 
 def population_layout(prepared: PreparedRelease, kind, collection: str) -> PopulationLayout:

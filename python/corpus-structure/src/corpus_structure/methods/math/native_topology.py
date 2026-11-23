@@ -6,19 +6,26 @@ coordinates. No parsing, source rewriting or inferred sibling relationship is pe
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from hashlib import sha256
+from types import MappingProxyType
 from typing import Any
+
+from corpus_structure.caches import declare, retained_size
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.native_source_view import thaw_native
 
 
 @dataclass(frozen=True)
 class NativeTopology:
     root: str
-    order: dict[str, int]
-    chains: dict[str, tuple[str, ...]]
-    section_parents: dict[str, str | None]
-    ends: dict[str, int]
-    bounds: dict[str, tuple[int, int]]
-    projected: dict[str, tuple[int, int]]
+    order: Mapping[str, int]
+    chains: Mapping[str, tuple[str, ...]]
+    section_parents: Mapping[str, str | None]
+    ends: Mapping[str, int]
+    bounds: Mapping[str, tuple[int, int]]
+    projected: Mapping[str, tuple[int, int]]
 
     def section(self, pointer: str) -> str:
         return self.chains[pointer][0]
@@ -37,7 +44,31 @@ def prepare_native_topology(view: Any) -> NativeTopology:
     )
 
 
-def prepare_native_topology_columns(*, root, text, items, ancestors, pieces) -> NativeTopology:
+def _topology_key(*, root: str, text: str, items, ancestors, pieces) -> bytes:
+    return sha256(
+        canonical_bytes(
+            thaw_native(
+                dict(
+                    root=root,
+                    text=text,
+                    items=items,
+                    ancestors=ancestors,
+                    pieces=pieces,
+                )
+            )
+        )
+    ).digest()
+
+
+@declare(
+    "native-topology-columns",
+    "runtime_bytes",
+    key=_topology_key,
+    weight=lambda value: retained_size(value),
+)
+def prepare_native_topology_columns(
+    *, root: str, text: str, items, ancestors, pieces
+) -> NativeTopology:
     """Use actual native columns and their original root, without a source-view identity."""
     nodes = {item["self_ref"]: item for item in (*ancestors, *items)}
     sections = {
@@ -99,7 +130,15 @@ def prepare_native_topology_columns(*, root, text, items, ancestors, pieces) -> 
                 if previous is None
                 else (min(previous[0], piece["start"]), max(previous[1], piece["end"]))
             )
-    return NativeTopology(root, order, chains, parents, ends, bounds, projected)
+    return NativeTopology(
+        root,
+        MappingProxyType(order),
+        MappingProxyType(chains),
+        MappingProxyType(parents),
+        MappingProxyType(ends),
+        MappingProxyType(bounds),
+        MappingProxyType(projected),
+    )
 
 
 def native_topology(view: Any) -> NativeTopology:

@@ -9,16 +9,20 @@ from functools import cached_property
 from hashlib import sha256
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import yaml
 from pydantic import BaseModel
 
-from corpus_structure.caches import declare
+from corpus_structure.caches import declare, retained_size
+from corpus_structure.semantic.positioned_rows import merge_touching_spans
 
 from .identity import canonical_bytes
 from .original_documents import original_document_subject
 from .types import PreparationProfile, PreparedRelease, SourceArtifact, SourceBundle
+
+if TYPE_CHECKING:
+    from .native_source_view import NativeSourceView
 
 _MODEL = Path(__file__).resolve().parents[1] / "model/semantic/data-operation-source.yaml"
 
@@ -265,13 +269,7 @@ def native_selected_ranges(value, selectors, parents, pages, *, include_unknown=
             ):
                 continue
             intervals.append((max(start, piece["start"]), min(end, piece["end"])))
-    merged = []
-    for start, end in sorted((a, b) for a, b in intervals if a < b):
-        if merged and start <= merged[-1][1]:
-            merged[-1] = (merged[-1][0], max(end, merged[-1][1]))
-        else:
-            merged.append((start, end))
-    return tuple(merged)
+    return merge_touching_spans((a, b) for a, b in intervals if a < b)
 
 
 def native_selected_unprojected_atoms(value, selectors, parents, pages, *, include_unknown=False):
@@ -339,6 +337,75 @@ def _native_source_decoder(prepared):
     ).digest()
 
 
+@declare(
+    "native-source-views",
+    "runtime_bytes",
+    key=lambda source: (sha256(source.content).digest(), source._validation[1]),
+    weight=lambda value: retained_size(value),
+)
+def _native_source_view(source) -> NativeSourceView:
+    from .native_source_view import NativeSourceView
+
+    view = NativeSourceView.from_acquired(source)
+    # Complete the fixed index graph before charging its retained size.
+    for name in (
+        "starts",
+        "ends",
+        "native_pieces",
+        "native_ends",
+        "items_by_ref",
+        "context_items_by_ref",
+        "piece_indices_by_item",
+        "pieces_by_item",
+        "item_piece_ends",
+        "item_ordinals",
+    ):
+        getattr(view, name)
+    return view
+
+
+@declare(
+    "native-source-selectors",
+    "runtime_bytes",
+    key=lambda source: (sha256(source.content).digest(), source._validation[1]),
+    weight=lambda value: retained_size(value),
+)
+def _native_source_selectors(source) -> NativeSourceSelectorIndex:
+    return NativeSourceSelectorIndex.from_value(source.value)
+
+
+@declare(
+    "native-source-items",
+    "runtime_bytes",
+    key=lambda source: (sha256(source.content).digest(), source._validation[1]),
+    weight=lambda value: retained_size(value),
+)
+def _native_source_items(source) -> tuple[Mapping[str, Any], ...]:
+    from .native_source_view import freeze_native
+
+    value = source.value
+    by_pointer = {item["self_ref"]: item for item in (*value["items"], *value["ancestors"])}
+    rows: list[dict[str, Any]] = []
+    for item in by_pointer.values():
+        restored = {
+            **item,
+            **({"parent": {"$ref": item["parent"]}} if "parent" in item else {}),
+        }
+        for name in ("children", "captions", "footnotes", "references"):
+            if name in item:
+                restored[name] = [{"$ref": pointer} for pointer in item[name]]
+        if "data" in item:
+            restored["data"] = {
+                **item["data"],
+                "table_cells": [
+                    {**cell, **({"ref": {"$ref": cell["ref"]}} if "ref" in cell else {})}
+                    for cell in item["data"]["table_cells"]
+                ],
+            }
+        rows.append(restored)
+    return freeze_native(rows)
+
+
 @dataclass(frozen=True)
 class _NativeSourcePayload:
     content: bytes
@@ -353,10 +420,10 @@ class _NativeSourcePayload:
         decoder,
         sha256(selected.meaning).digest() if selected is not None else None,
     ),
-    weight=lambda payload: len(payload.content),
+    weight=lambda value: retained_size(value),
 )
-def _native_source_payload(content, decoder, prepared=None, selected=None):
-    """Retain immutable interpretation only; occurrence indexes stay invocation-owned."""
+def _native_source_payload(content, decoder, prepared=None, selected=None) -> _NativeSourcePayload:
+    """Retain immutable interpretation under the exact content and decoder."""
     from .native_source_view import freeze_native
 
     if prepared is None:
@@ -533,7 +600,7 @@ class FrozenNativeSource:
 
     @cached_property
     def _selector_index(self) -> NativeSourceSelectorIndex:
-        return NativeSourceSelectorIndex.from_value(self._value)
+        return _native_source_selectors(self)
 
     def native_items(self) -> tuple[Mapping[str, Any], ...]:
         """Exact immutable original items/ancestor context for pure native owners."""
@@ -541,29 +608,7 @@ class FrozenNativeSource:
 
     @cached_property
     def _native_items(self) -> tuple[Mapping[str, Any], ...]:
-        from .native_source_view import freeze_native
-
-        value = self.value
-        by_pointer = {item["self_ref"]: item for item in (*value["items"], *value["ancestors"])}
-        rows: list[dict[str, Any]] = []
-        for item in by_pointer.values():
-            restored = {
-                **item,
-                **({"parent": {"$ref": item["parent"]}} if "parent" in item else {}),
-            }
-            for name in ("children", "captions", "footnotes", "references"):
-                if name in item:
-                    restored[name] = [{"$ref": pointer} for pointer in item[name]]
-            if "data" in item:
-                restored["data"] = {
-                    **item["data"],
-                    "table_cells": [
-                        {**cell, **({"ref": {"$ref": cell["ref"]}} if "ref" in cell else {})}
-                        for cell in item["data"]["table_cells"]
-                    ],
-                }
-            rows.append(restored)
-        return freeze_native(rows)
+        return _native_source_items(self)
 
     @property
     def _value(self):
@@ -572,9 +617,7 @@ class FrozenNativeSource:
 
     @cached_property
     def view(self):
-        from .native_source_view import NativeSourceView
-
-        return NativeSourceView.from_acquired(self)
+        return _native_source_view(self)
 
     @property
     def value(self) -> Mapping[str, Any]:

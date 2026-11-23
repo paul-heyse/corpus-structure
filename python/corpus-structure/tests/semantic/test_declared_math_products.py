@@ -76,6 +76,11 @@ def test_occurrence_and_normalization_consume_exact_retained_syntax(math_profile
     monkeypatch.setattr(grammar, "syntax", refuse_parse)
     monkeypatch.setattr(grammar, "syntax_forest", refuse_parse)
     actual = DeclaredMathOccurrences(profile).run(dict(source.value), thaw_native(formal.value))
+    monkeypatch.setattr(
+        PreparedMathInputs,
+        "prepare_context",
+        lambda *_a, **_kw: pytest.fail("normalization rebuilt its occurrence context"),
+    )
     product = DeclaredMathProduct.model_validate(actual)
     assert product.phase == "occurrences" and product.outcome == "complete"
     assert product.source.source_product == "product:source"
@@ -111,6 +116,12 @@ def test_occurrence_and_normalization_consume_exact_retained_syntax(math_profile
         DeclaredMathNormalization(normalizer).run(dict(source.value), changed)
     changed = {**actual, "items": [{**actual["items"][0], "occurrence_basis": "wrong"}]}
     with pytest.raises(ValueError, match="normalization context"):
+        DeclaredMathNormalization(normalizer).run(dict(source.value), changed)
+    changed_configuration = replace(normalizer, options=DeclaredMathOptions(constants=("x",)))
+    with pytest.raises(ValueError, match="captured configuration"):
+        DeclaredMathNormalization(changed_configuration).run(dict(source.value), actual)
+    changed = {**actual, "contexts": []}
+    with pytest.raises(ValueError, match="context inventory"):
         DeclaredMathNormalization(normalizer).run(dict(source.value), changed)
 
 
@@ -151,6 +162,11 @@ def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
         lambda: None,
     )
     original = DeclaredMathOccurrences(profile).run(dict(source.value), thaw_native(formal.value))
+    monkeypatch.setattr(
+        PreparedMathInputs,
+        "prepare_context",
+        lambda *_a, **_kw: pytest.fail("math successor rebuilt its occurrence context"),
+    )
     occurrence_member = replace(
         formal_member, product="product:occurrences", kind_contract="kind:math"
     )

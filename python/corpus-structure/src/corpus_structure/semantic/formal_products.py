@@ -113,6 +113,10 @@ class _RecognizerSource:
     pieces: tuple[dict[str, Any], ...]
     items: tuple[dict[str, Any], ...]
     health: dict[str, Any]
+    native: Any
+
+    def native_gap(self, start: int, end: int) -> bool:
+        return self.native.native_gap(start, end)
 
 
 class FormalEvidenceOptions(BaseModel):
@@ -619,11 +623,7 @@ def formal_positioned_lexicon(builder, selected):
                 continue
             a, b = max(lower, piece["start"]), min(upper, piece["end"])
             if a < b:
-                if admitted and all(
-                    p["kind"] != "native_text"
-                    for p in builder.view.pieces
-                    if admitted[-1][1] < p["end"] and p["start"] < a
-                ):
+                if admitted and builder.view.native_gap(admitted[-1][1], a):
                     admitted[-1] = (admitted[-1][0], b)
                 else:
                     admitted.append((a, b))
@@ -687,6 +687,7 @@ def formal_product_values(
         tuple(selected["pieces"]),
         tuple((*selected["items"], *selected.get("ancestors", ()))),
         {"formula_outcomes": selected.get("recognition", [])},
+        source.view,
     )
     builder = _LayerBuilder(
         view,

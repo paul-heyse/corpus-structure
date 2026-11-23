@@ -105,6 +105,35 @@ def _release_storages(budgets: tuple[Budget, ...]) -> None:
                 storage.cache.clear()
 
 
+def retained_size(value: object) -> int:
+    """Estimate a fixed retained object graph, counting shared objects once."""
+    from collections.abc import Mapping
+    from dataclasses import fields, is_dataclass
+    from sys import getsizeof
+    from types import MappingProxyType
+
+    seen: set[int] = set()
+
+    def size(item):
+        if id(item) in seen:
+            return 0
+        seen.add(id(item))
+        weight = getsizeof(item)
+        if isinstance(item, MappingProxyType):
+            weight += getsizeof(dict(item))
+        if isinstance(item, Mapping):
+            return weight + sum(size(key) + size(value) for key, value in item.items())
+        if isinstance(item, (tuple, list, set, frozenset)):
+            return weight + sum(size(value) for value in item)
+        if hasattr(item, "__dict__"):
+            return weight + size(vars(item))
+        if is_dataclass(item) and not isinstance(item, type):
+            return weight + sum(size(getattr(item, field.name)) for field in fields(item))
+        return weight
+
+    return max(1, size(value))
+
+
 def configured() -> CacheSettings:
     with _lock:
         return _config

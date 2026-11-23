@@ -27,6 +27,7 @@ from corpus_structure.ingest.annotation_views import AnnotationView, annotation_
 from corpus_structure.ingest.annotations import AnnotationProduct, AnnotationUnavailable
 from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
 from corpus_structure.semantic.file_custody import observed_file
+from corpus_structure.semantic.positioned_rows import PositionedRows
 
 if TYPE_CHECKING:
     from corpus_structure.semantic.data_product_reference import DataProductMemberReference
@@ -64,8 +65,9 @@ class SourceLayoutIndex:
             if item.get("label") in {"title", "section_header"}:
                 headings[item.get("parent")].append(piece)
         self.headings = {parent: tuple(rows) for parent, rows in headings.items()}
-        self.heading_ends = {
-            parent: tuple(row["end"] for row in rows) for parent, rows in self.headings.items()
+        self.heading_indexes = {
+            parent: PositionedRows.build(rows, lambda row: (row["start"], row["end"]))
+            for parent, rows in self.headings.items()
         }
 
     def preceding(self, start):
@@ -77,8 +79,8 @@ class SourceLayoutIndex:
             else {}
         )
         parent = item.get("parent")
-        index = bisect_right(self.heading_ends.get(parent, ()), start) - 1
-        return self.headings[parent][index] if index >= 0 else None
+        headings = self.heading_indexes.get(parent)
+        return headings.preceding(start) if headings is not None else None
 
 
 def source_layout(

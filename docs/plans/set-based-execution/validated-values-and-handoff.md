@@ -492,3 +492,15 @@ in SBX-03; this package does not build an interim one over packets.
 is built once per process, asserted by counting, and results are unchanged. The span vocabulary
 returns the same rows in the same order as each index it replaces, on the existing tests of
 those indexes. Normalization and scope read published formula contexts and build none.
+
+**Implemented and tested by selected identity · 2026-11-23.** Acquired sentence populations reuse immutable
+decoded rows internally. The public row reader preserves decoded list and record shapes.
+Source, formal, navigation and topology indexes use bounded retention of their exact inputs.
+The occurrence producer publishes typed interpretation contexts. Normalization and scope
+reopen the captured context and verify configuration, coordinates and occurrence stage. The
+sentence-to-scoped-relations regression compares the complete fixture result and counts
+derived builds. Serial `uv run ci test --workers 1` passed all 38 selected declared-math,
+math-context custody, span and scoped-relations checks (`0ddf1c5f450249648f968fe48c0dc910`).
+The earlier attestation and container-shape failures remain recorded under
+`0722da4f5d4e41cf8d54afb7729b2c35`, `aeb829afe1dd4f7aa53d3f0e3986f0e7` and
+`0cd3058365094184bba9efa060331357`. Installed producer integration remains open.

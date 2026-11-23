@@ -65,3 +65,43 @@ def test_navigation_fragments_keep_role_order_and_refuse_repeated_role_identity(
     )
     with pytest.raises(ValueError, match="role identity repeats"):
         repeated.fragments("name")
+
+
+def test_positioned_neighbors_ties_points_merging_and_translation():
+    rows = ((5, 8, "first"), (0, 10, "outer"), (5, 8, "tie"), (8, 8, "point"))
+    index = PositionedRows.build(rows, lambda row: row[:2])
+    assert index.nearest_enclosing(6, 7) == rows[0]
+    assert index.preceding(8) == rows[0]
+    assert index.following(8) == rows[3]
+    assert index.nearest_enclosing(8, 8) == rows[3]
+    assert index.ordinal_within(0, 10, rows[2]) == 2
+    assert index.preceding(-1) is None
+    assert index.following(11) is None
+    assert index.contained(8, 8) == ()
+    assert index.overlapping(8, 9) == (rows[1],)
+    assert index.merge_touching(((8, 10), (0, 2), (2, 5), (4, 6))) == ((0, 6), (8, 10))
+    assert index.translate(3, 7, -3) == (0, 4)
+
+
+def test_native_topology_retention_keys_columns_and_is_immutable():
+    import pytest
+
+    from corpus_structure.methods.math.native_topology import prepare_native_topology_columns
+
+    columns = dict(
+        root="#/root",
+        text="abc",
+        ancestors=(),
+        items=({"self_ref": "#/one", "parent": {"$ref": "#/root"}},),
+        pieces=({"start": 0, "end": 3, "item_ref": "#/one"},),
+    )
+    first = prepare_native_topology_columns(**columns)
+    assert prepare_native_topology_columns(**columns) is first
+    assert first.bounds["#/root"] == (0, 3)
+    assert first.chains["#/one"] == ("#/root",)
+    from operator import setitem
+
+    with pytest.raises(TypeError):
+        setitem(first.order, "#/one", 9)
+    changed = prepare_native_topology_columns(**{**columns, "text": "abcd"})
+    assert changed is not first and changed.bounds["#/root"] == (0, 4)

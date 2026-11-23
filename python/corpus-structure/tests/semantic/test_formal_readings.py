@@ -256,12 +256,26 @@ def test_retained_interval_queries_restore_original_order_and_reuse_indexes(monk
         readings, readings.source, kind="formal.identifier", start=3, end=8
     )
     assert [(row.start, row.text) for row in narrowed] == [(4, "two")]
+    reopened = FormalSourceReadings._from_retained(
+        {"source": {"projection": projection}, "text": "one two three"},
+        [(DataProductReference("fixture:retained"), body)],
+        (),
+    )
+    assert reopened._indexes[0] is readings._indexes[0]
+    assert (
+        lexical_fact_readings(reopened, reopened.source, kind="formal.identifier", start=3, end=8)
+        == narrowed
+    )
 
 
 def test_native_piece_containment_keeps_pointer_and_zero_width_boundaries(profile):
     source = selected_rows(profile, ("one", "text", "", ""), ("two", "text", "", ""))
     view = source.view
     assert source.view is view
+    reopened = FrozenFormalSource.acquire(profile.prepared, source.value)
+    assert reopened is not source and reopened.view is view
+    assert reopened.selector_index() is source.selector_index()
+    assert reopened.native_items() is source.native_items()
     first, second = view.native_pieces
     assert view.containing_piece(first["item_ref"], first["start"], first["end"]) == first
     assert view.containing_piece(first["item_ref"], first["end"], first["end"]) == first
