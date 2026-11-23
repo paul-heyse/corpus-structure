@@ -73,8 +73,11 @@ def product_connection(infrastructure_rollback):
         "ddo_field",
         "ddo_json",
         "ddo_kind_access",
+        "ddo_body_kind_contracts_impl",
         "ddo_body_kind_contracts",
         "ddo_body_access",
+        "ddo_admitted_body_kind_contracts",
+        "ddo_admitted_body_access",
     }
     parsed = prepare_sql(
         native_sql_script(
@@ -87,22 +90,7 @@ def product_connection(infrastructure_rollback):
         if (
             isinstance(node, ast.CreateFunctionStmt)
             and node.funcname
-            and node.funcname[-1].sval
-            in {
-                "require_float_lexical",
-                "ddo_fields",
-                "ddo_normalize",
-                "ddo_json_meaning",
-                "ddo_identity",
-                "ddo_digest",
-                "ddo_authorize",
-                "ddo_require_subject_source",
-                "ddo_field",
-                "ddo_json",
-                "ddo_kind_access",
-                "ddo_body_kind_contracts",
-                "ddo_body_access",
-            }
+            and node.funcname[-1].sval in required_helpers
         ):
             execute_native_sql(connection, parsed.excerpt(i))
     # This isolated database intentionally omits request/source tables. The
@@ -875,7 +863,8 @@ def test_retained_selected_use_establishes_only_its_current_rule_premise(product
         "RETURNS TABLE(kind text,id text,valid boolean) LANGUAGE plpgsql AS $$ BEGIN "
         "IF 'unrelated-use'=ANY($1) THEN RAISE EXCEPTION 'unrelated support reached'; END IF; "
         "RETURN QUERY SELECT 'use'::text,u,true FROM unnest($1) u UNION ALL "
-        "SELECT 'episode'::text,derivation_id,true FROM ops.demand_use WHERE ops.demand_use.id=ANY($1); "
+        "SELECT 'episode'::text,d.id,true FROM ops.data_derivation d WHERE d.id=ANY($2) "
+        "OR EXISTS (SELECT 1 FROM ops.demand_use u WHERE u.id=ANY($1) AND u.derivation_id=d.id); "
         "END $$",
     ):
         execute_native_sql(connection, statement)

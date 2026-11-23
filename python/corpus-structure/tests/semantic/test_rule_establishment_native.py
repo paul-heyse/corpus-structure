@@ -336,6 +336,15 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
     assert conn.scalar(text("SELECT last_value FROM pg_temp.rule_base_evaluations")) - before == 4
     run_settle(entries, "first")
     run_settle(entries, "second")
+    assert conn.execute(
+        text(
+            "SELECT origin_kind, origin_id, project_id, original_source "
+            "FROM ops.data_binding_origin ORDER BY origin_id"
+        )
+    ).all() == [
+        ("rule-establishment", episode, context["project_id"], context["original_source"])
+        for episode in ("first", "second")
+    ]
     assert conn.execute(text("SELECT count(*) FROM kb.data_validity")).scalar_one() == 4
     assert (
         conn.execute(text("SELECT count(*) FROM kb.data_validity_establishment")).scalar_one() == 8
