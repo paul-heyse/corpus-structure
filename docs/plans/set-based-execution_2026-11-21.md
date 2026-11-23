@@ -2,8 +2,8 @@
 
 **Status · 2026-11-23.** The typed population implementation is in progress against the
 [accepted redesign](#columnar-redesign-amendment). Native typed admission and indexed readback
-have focused PostgreSQL evidence. Tests resumed in one-worker cohorts. Cold authoring, integrated
-qualification and the development reset are open.
+have focused PostgreSQL evidence. The replacement root was authored, registered and installed on
+the fresh qualification target. Integrated qualification and the development reset are open.
 [Typed implementation checkpoint](set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation) ·
 [Qualification checkpoint](set-based-execution/cutover-and-qualification.md#sbx-09-qualification-pause)
 

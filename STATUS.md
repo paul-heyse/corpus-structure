@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-23. The typed population runtime is on `main`. Validation resumed in serialized cohorts. Rollback-only cold authoring passed. Replacement registration, fresh-install qualification, and the development reset are open. Development still runs N29._ [Typed implementation checkpoint](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation) · [ADR-0154](docs/adr/0154-sbx-columnar-populations.md) · [ADR-0150](docs/adr/0150-sbx-empty-development-cutover.md)
+_Updated 2026-11-23. The typed population runtime and replacement root are on `main`. The root installed on the fresh qualification database. Functional qualification is in progress in serialized cohorts. Development still runs N29 and its reset follows integrated acceptance._ [Typed implementation checkpoint](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation) · [ADR-0154](docs/adr/0154-sbx-columnar-populations.md) · [ADR-0150](docs/adr/0150-sbx-empty-development-cutover.md)
 
 ## Current owners
 
@@ -12,6 +12,8 @@ _Updated 2026-11-23. The typed population runtime is on `main`. Validation resum
 
 ## Last verified
 
+- **Passed · 2026-11-23.** The replacement root passed rollback-only authoring (`eddeda3a6d0445cba2ef02dacb9b5c9c`), registration (`18ef4dc232464ab8a85e3d42a020a782`) and fresh `uv run ci db init`. The installed descriptor, empty relations, and targeted purpose grants were verified. [Typed implementation checkpoint](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation)
+- **Passed · 2026-11-23.** `uv run ci check --only types` passed on the runtime implementation (`1f7f76cd8f8644bd87cf8ef1712fe70c`).
 - **Passed · 2026-11-23.** `uv run ci schema check --correction-detail --retain-diagnostics --json` passed (`9a6503f1641446ba99242101e966811e`). The private one-worker native control exercised authenticated COPY, durable retention, exact replay, publication and indexed readback (`38104b6beaef4266a2a05dd997c531d3`). [Typed implementation checkpoint](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation)
 - **Passed · 2026-11-23.** The single-worker foundation selection passed 20 ordinary identities (`36997f01e6f34e7a874d94a1b2d9d5a0`). It covers retained relation constraints, existing identity parity, effective Arrow layouts, sealed IPC and exact pgpq upload bytes. The registered root still uses the earlier runtime routes.
 
@@ -28,5 +30,5 @@ _Updated 2026-11-23. The typed population runtime is on `main`. Validation resum
 ## Remaining acceptance
 
 - Verify the integrated typed producer, worker, admission, and selected-replay routes on a registered replacement root. Retire remaining replaced paths as their consumers move. [Cutover sequence](docs/plans/set-based-execution/cutover-and-qualification.md#columnar-cutover-sequence)
-- Reconcile retained ordinary and provider receipts by exact source, root and context. Cold installation and functional qualification of the latest registration were `not_run`. Witness replay, remaining provider checks and other diagnoses are open. [Qualification checkpoint](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-09-qualification-pause)
+- Reconcile retained ordinary and provider receipts by exact source, root and context. Witness replay, remaining provider checks and other diagnoses are open. [Qualification checkpoint](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-09-qualification-pause)
 - The development reset remains gated on integrated acceptance. The cutover targets the dedicated development database and discards its prior data. [Development reset](docs/plans/set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09)

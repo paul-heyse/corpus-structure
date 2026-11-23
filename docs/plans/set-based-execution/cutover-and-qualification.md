@@ -1,8 +1,7 @@
 # Cutover and qualification
 
-**Status · 2026-11-23.** The typed population replacement is undergoing focused checks in
-serialized cohorts. The dedicated authoring target is empty. Final-root qualification and the
-development reset are open.
+**Status · 2026-11-23.** The typed population root installed on the fresh qualification
+target. Final-root qualification in serialized cohorts and the development reset are open.
 Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
@@ -105,8 +104,18 @@ The draft control requires the replacement installation.
 The dedicated `corpus_structure_sbx09_typed_author` database passed rollback-only
 `uv run ci model change candidate` (`7513fd70e5c54c2abe8df888c9683911`) after authoring
 and runtime preparation were wired to the same temporary upload and fence schemas. The
-candidate predates final type corrections. Required exact-root provider and replay
-evidence, remaining retirement, and the development reset follow the sequence below.
+candidate predates final type corrections. Type validation then passed
+(`uv run ci check --only types`, `1f7f76cd8f8644bd87cf8ef1712fe70c`).
+
+**Cold install · Passed · 2026-11-23.** Source `e2771f989` produced managed preview
+`5b1862285c594a6d922daea2af16fe23` and rollback-only candidate
+`eddeda3a6d0445cba2ef02dacb9b5c9c`. Inspection found the sole
+`semantic_sbx_current_root` with a null predecessor and zero data steps. Registration
+`18ef4dc232464ab8a85e3d42a020a782` and `uv run ci db init` installed it on
+`corpus_structure_sbx09_typed_qualification`. Maintenance readback matched the descriptor
+and found empty originals, demands, products, and retained populations. The reader can use
+the keyed read routines. Upload preparation is granted to the writer. Exact-root provider and
+replay obligations, remaining retirement, and the development reset remain open.
 
 ### Development reset through SBX-09
 
