@@ -18,6 +18,11 @@ from corpus_structure.semantic.prepared_sql import prepare_sql
 def read_boundary_control(infrastructure_rollback):
     connection = infrastructure_rollback
     connection.exec_driver_sql("CREATE SCHEMA ops")
+    connection.exec_driver_sql("CREATE SCHEMA sem")
+    connection.exec_driver_sql(
+        "CREATE FUNCTION sem.data_operation_native_descriptor() RETURNS jsonb "
+        "LANGUAGE sql AS $$SELECT jsonb_build_object('read_closure','kernel:control')$$"
+    )
     for name in (
         "data_demand",
         "data_demand_read",
@@ -42,7 +47,7 @@ def read_boundary_control(infrastructure_rollback):
             + "(d ops.data_demand,boundary ops.data_demand_read) RETURNS void LANGUAGE plpgsql STABLE AS $$BEGIN IF d.id='infinite' THEN RAISE EXCEPTION 'not finite' USING ERRCODE='23514'; ELSIF d.id='forbidden' THEN RAISE EXCEPTION 'census refused' USING ERRCODE='42501'; END IF; END$$"
         )
     prepared = prepare_sql(
-        read_boundary_native_sql(get_metadata()).replace("__DDO_SOURCE_DIGEST__", "kernel:control"),
+        read_boundary_native_sql(get_metadata()),
         source="read-boundary-control",
     )
     for index, _ in enumerate(prepared.statements):
