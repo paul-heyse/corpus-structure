@@ -41,6 +41,9 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Efficiency and analytical redesign through SBX-09](set-based-execution-efficiency-and-analytical-redesign_2026-11-22.md).
+  Compares whole execution designs and proposes shared typed populations, scoped native
+  authority and Arrow, DuckDB and ADBC adoption across complete producer and consumer paths.
 - [Python validation and PostgreSQL execution through SBX-09](set-based-execution-validation-and-postgresql_2026-11-22.md).
   Compares admitted-page reuse on the exact live read with targeted PostgreSQL
   attribution, worker and witness preparation, and typed replay placement.

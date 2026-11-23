@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "id": "sbx09.analytical-redesign",
+  "title": "Grouped batch composition and single-use Arrow readers",
+  "group": "sbx-analytical-redesign",
+  "package": "SBX-09",
+  "finalized": "2026-11-22",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can native grouping share both checks across batch boundaries, and can DuckDB execute a reusable relation over a one-shot Arrow reader?",
+  "answers": [
+    "I02",
+    "I06"
+  ],
+  "method": "Run installed Acero and DuckDB over independent six-row Arrow readers, then exercise DuckDB reader consumption and a separate CLI plan.",
+  "commands": [
+    "OPENBLAS_NUM_THREADS=1 timeout 30s taskset -c 0-1 prlimit --core=0 --fsize=16777216 -- uv run --no-sync python -X faulthandler docs/design_review/evidence/2026-11-22_sbx-analytical-redesign/probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "reproducible source",
+      "sha256": "3e7db0455faf1d4f32746af2c13960b8f76bb4c998d22675d9085c53067a73d4"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/probe.json",
+      "role": "normalized observations",
+      "sha256": "f148c5b87dfaafeedb2a410ff08a4604e5e6d193596d7d1f3a3613f02ec5f1b8"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Engines matching independent grouping results",
+      "value": 2,
+      "of": 2,
+      "unit": null,
+      "note": "Two batches, five compound groups and two aggregate values per group."
+    },
+    {
+      "name": "Reads of the explicitly materialized relation",
+      "value": 2,
+      "of": 2,
+      "unit": null,
+      "note": "The direct Arrow reader refuses the second scan."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Group multiple checks in native execution. Give a multi-consumer fork an explicit reusable representation. The synthetic control establishes library behavior.",
+  "consumed_by": [
+    "SBX-09",
+    "SBX-18"
+  ]
+}
