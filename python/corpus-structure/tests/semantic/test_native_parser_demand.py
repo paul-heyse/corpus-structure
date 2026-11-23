@@ -27,13 +27,13 @@ from corpus_structure.semantic.hanlp_products import prepare_hanlp_selection
 from corpus_structure.semantic.primary_operations import primary_operation_inputs
 from corpus_structure.semantic.regeneration import DOMAINS, acquire_pack
 from corpus_structure.serve.demand_export import export_demand_result, verified_demand_export
-from semantic.selected_population_native_support import selected_population_packets
 from semantic.current_pdf_source_support import (
     PROJECT,
     admit_current_target,
     current_consumer_request,
 )
 from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
+from semantic.selected_population_native_support import selected_population_packets
 from semantic.test_sentence_partition_chain_native import _registered_source
 
 ROOT = Path(__file__).resolve().parents[4]

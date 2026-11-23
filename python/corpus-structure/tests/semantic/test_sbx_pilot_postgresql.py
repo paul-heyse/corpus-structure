@@ -7,7 +7,18 @@ from decimal import Decimal
 import pyarrow as pa
 import pytest
 from adbc_driver_manager import DatabaseError
-from sqlalchemy import BigInteger, DateTime, Numeric, Text, cast, column, func, literal, select, text
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    Numeric,
+    Text,
+    cast,
+    column,
+    func,
+    literal,
+    select,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql.elements import BindParameter
 

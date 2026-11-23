@@ -24,10 +24,10 @@ from corpus_structure.semantic.source_contexts import (
     source_slice,
 )
 from corpus_structure.semantic.structural_products import StructuralPassage
-from semantic.selected_population_native_support import selected_population_packets
 from semantic.current_pdf_source_support import (
     current_pdf_source_factory as current_pdf_source_factory,
 )
+from semantic.selected_population_native_support import selected_population_packets
 
 
 def passage(spelling, start=0, end=None):

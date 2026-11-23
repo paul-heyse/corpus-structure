@@ -15,8 +15,8 @@ from corpus_structure.semantic.data_completion_settlement_native import (
 )
 from corpus_structure.semantic.data_operation_partitions import partition_packet
 from corpus_structure.semantic.data_operation_read_native import read_native_programs
-from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.data_operation_reference_native import reference_native_programs
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.data_product_reference import (
     SemanticReference,
     read_semantic_reference,
