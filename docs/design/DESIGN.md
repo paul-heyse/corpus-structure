@@ -238,7 +238,7 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 
 > Decision: [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md)
 
-**Accepted set-based target · implementation and qualification Proposed · 2026-11-21.**
+**Accepted set-based target · SBX-09 slice Tested · 2026-11-23.**
 Homogeneous populations use declared partition addresses, with relative item coordinates and
 content digests distinct from authenticated occurrence placement and order. Individually bound
 and identified graph members retain their addressed units. Body references name declared input
@@ -399,7 +399,7 @@ and final qualification.
 
 > Decision: [ADR-0150](../adr/0150-sbx-empty-development-cutover.md)
 
-**Accepted columnar adoption target · implementation and qualification Proposed · 2026-11-23.**
+**Accepted columnar adoption target · SBX-09 prerequisites Tested · 2026-11-23.**
 The shared analytical fidelity, query-custody and resource prerequisites precede the annotation
 population replacement. The scoped-relations family keeps its complete trial under the analytical
 owner, with explicit ordinals, phase order and Python operations outside the approved population
@@ -564,7 +564,7 @@ legacy wait barrier rather than implying that every old option is supported.
 
 > Decision: [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md)
 
-**Accepted partition and proof target · implementation and qualification Proposed · 2026-11-23.**
+**Accepted partition and proof target · SBX-09 slice Tested · 2026-11-23.**
 Generic logged item rows sit under partition headers and an authenticated completion-intent
 parent, with output role/position and final product identity held distinctly. Native
 admission validates canonical items and derives or verifies typed rule/address fields before
@@ -808,7 +808,7 @@ book-scale publication, complete streaming integration or adopted consumer quali
 
 > Decision: ADR-0130
 
-**Accepted PDF producer custody · implementation and qualification Proposed · 2026-11-23.**
+**Accepted PDF producer custody · SBX-09 slice Tested · 2026-11-23.**
 The released PDF facet binds one set of schemas, codecs and access contracts. It may carry
 separate lowerings for selected Standard capture and transformed publication. The capture
 port selects its own lowering. Native publication resolves the producing operation from the
@@ -955,7 +955,7 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
 
-**Accepted SBX model target · implementation and qualification Proposed · 2026-11-21.**
+**Accepted SBX model target · SBX-09 slice Tested · 2026-11-23.**
 Effective LinkML slots declare collections, field groups, addresses and reference targets.
 Generated Python and native contracts consume that one interpretation. A consumer receives only
 its declared read projection, whose digest replaces the whole input product id in request
@@ -966,7 +966,7 @@ dependencies conservatively widen the premise. [Shared SBX contracts](../plans/s
 
 > Decision: [ADR-0150](../adr/0150-sbx-empty-development-cutover.md), [ADR-0154](../adr/0154-sbx-columnar-populations.md), [ADR-0146](../adr/0146-sbx-content-validity.md)
 
-**Accepted discovered formal input target · implementation Proposed · 2026-11-22.** Construction
+**Accepted discovered formal input target · Tested · 2026-11-23.** Construction
 binds independently discovered formal-evidence products as a set. More than one eligible report
 can bind for the same source scope. A citation uses the original derivation's role-local input
 address and member key. The consumer authorizes the exact cited input in its current use.
@@ -977,7 +977,7 @@ A supplied empty set discloses no eligible formal input.
 
 > Decision: [ADR-0151](../adr/0151-sbx-discovered-formal-inputs.md), [ADR-0153](../adr/0153-sbx-exact-named-formal-inputs.md)
 
-**Accepted validated-carrier target · implementation and qualification Proposed · 2026-11-23.**
+**Accepted validated-carrier target · SBX-09 slice Tested · 2026-11-23.**
 The admitting constructor owns model-derived Arrow columns and their established facts for
 affected populations. Workers accept sealed IPC through a named boundary bound to request, schema
 and logical commitments. Compatible consumers share buffers and derived views through their
@@ -987,7 +987,7 @@ The owner releases mappings, readers, retained capacity and spill on success or 
 
 > Decision: [ADR-0154](../adr/0154-sbx-columnar-populations.md)
 
-**Accepted Integrated PDF material reuse · implementation and qualification Proposed · 2026-11-23.**
+**Accepted Integrated PDF material reuse · SBX-09 slice Tested · 2026-11-23.**
 Capture, recognition and reconciliation compare their own determining inputs and acquired
 execution contracts. Recognition observes the original capture episode. Independent
 producer custody allows an Integrated policy change to reuse eligible upstream work while
@@ -1408,7 +1408,7 @@ Captured-source discovery, source editing, semantic drift and explicit navigatio
 
 ### §B6 Escalation is routed by versioned policies over measurements
 
-**Accepted code-custody target · implementation and qualification Proposed · 2026-11-21.**
+**Accepted code-custody target · SBX-09 slice Tested · 2026-11-23.**
 Each port prepares its authenticated code slice once and checks it before submission and after
 reply collection. The second boundary covers modules first imported during computation. Request
 digest correspondence, current native support, claim fences and publication remain with their

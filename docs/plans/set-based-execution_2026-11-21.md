@@ -1,13 +1,12 @@
 # Set-based execution
 
-**Status · 2026-11-23.** The [accepted redesign](#columnar-redesign-amendment) has typed producers,
-workers, retained rows, and selected consumers on `main`. The refreshed root includes the
-approved PDF producer custody slice and installed empty with native body storage retired.
-Scoped functional checks have passed. Integrated qualification and the development reset are open.
-[Typed implementation checkpoint](set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation) ·
-[Qualification checkpoint](set-based-execution/cutover-and-qualification.md#sbx-09-qualification-pause)
+**Status · 2026-11-23.** SBX-00 through SBX-09 are complete for the development cutover.
+The [accepted redesign](#columnar-redesign-amendment) uses typed producers, workers,
+retained rows and selected consumers on `main`. The sole native root includes the approved
+PDF producer custody slice and is installed on an empty development database.
+[Integrated qualification](set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation) ·
+[Verified development reset](set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09)
 
-SBX-00 through SBX-02 have package evidence. SBX-03 through SBX-09 have scoped verification.
 This series owns the pivot to
 partition-unit storage, declared rules and proofs, projection-keyed reuse, native change
 propagation, owner-resolved reads and the single-derivation PDF path. **Created:** 2026-11-21.
@@ -209,15 +208,15 @@ capability consumed.
 | Package | Delivers | Needs | Companion |
 |---|---|---|---|
 | SBX-00 | Complete. Decision records, entry evidence and fixture baseline are recorded. Exact selected-use readers and detached demand ownership passed genuine finite and rich export checks. | — | [Entry and reader evidence](#sbx-00) |
-| SBX-01 | Implemented on the typed item-row layout. Managed cold authoring and installation passed. Exact COPY, retention, promotion, and indexed readback passed by selected identity. Integrated custody and replay qualification remain open. | SBX-00 and columnar rule decisions | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-01) |
-| SBX-02 | Implemented and tested for native rule evaluation, retained establishment, product and partition attestations, and binding. The typed cold root installed. Fresh provider and selected-use qualification remain open. | SBX-01 partitions; shared premise and scenario contract | [PRP and remaining adoption conditions](set-based-execution/populations-rules-and-proofs.md#sbx-02) |
-| SBX-03 | In qualification. The typed annotation fork binds layout, membership and coverage proofs. Real annotation and canonical publication passed authenticated typed Parquet replays. The typed checkpoint also passed canonical adoption across captures and exact selected reads after occurrence changes. | SBX-01 partitions, SBX-02 proof binding, SBX-05 resolver and SBX-08 acquired carriers | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-03) · [Typed evidence](set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation) |
-| SBX-04 | In qualification. Construction binds the original selected annotation block, token and layout. Contextual acquisition consumes that establishment and the exact supporting input. External premises and packed choices use original roles. Released attachment-policy witnesses have declared attestations. | SBX-02 | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-04) |
-| SBX-05 | In qualification. Construction, contextual discovery, declaration, artifact, comparison and contribution reports declare original role addresses. Selected graph readers acquire one authentic original binding. The contextual scorer now compares authored policy meaning across separate demand admissions. The proposed replacement adds typed references and requalifies selected witness and replay on its root. SBX-11 owns the early keyed read. | SBX-01 addresses | [RPK](set-based-execution/references-and-projection-keys.md#sbx-05) · [Qualification checkpoint](set-based-execution/cutover-and-qualification.md#sbx-09-qualification-pause) |
-| SBX-06 | In qualification. Registered controls passed ordinary committed-gap recovery, both cross-demand commit orders, exact pins, original and selected population wakes, scalar and closed collection unavailability, and terminal empty discovery. Recursive readiness state and repeated readiness scans are retired. Proof-uncertain and nonempty qualified-context scopes retain pending standing until authoritative settlement. | SBX-01 field groups and SBX-02 shared premises, plus runnable SBX-03–05 address, proof and binding slices | [RPK](set-based-execution/references-and-projection-keys.md#sbx-06) |
-| SBX-07 | In qualification. Canonical retains deterministic local rows across pointer renames and assembles current addresses and placement. The typed checkpoint passed governed occurrence changes and cross-capture adoption with revocation. The other current hosts keep whole-result execution. | SBX-06, SBX-03 | [RPK](set-based-execution/references-and-projection-keys.md#sbx-07) |
-| SBX-08 | In qualification. Acquired source frames and immutable partition, formal, interpreted and composed payloads have scoped evidence. Formal and construction reuse authenticated characterization interpretation. The live-page and witness handoffs passed selected native and malformed-input controls. | SBX-04/05 proof and address contracts | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-08) · [Refreshed root evidence](set-based-execution/cutover-and-qualification.md#sbx-efficiency-qualification) |
-| SBX-09 | In qualification. Cold authoring, registration, installation, deployment recovery, and both PDF reuse journeys passed on the refreshed root. Sealed canonical output, custody and replay passed by selected identity. Remaining provider and ordinary scope, evidence reconciliation, and the development reset remain open. | Integrated SBX-03–08 behavior, the brought-forward PDF producer slice, and final-source correspondence to the registered root | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-09) · [Typed checkpoint](set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation) |
+| SBX-01 | Complete. Typed item COPY, retention, promotion, indexed readback and authenticated Parquet replay passed. Native partition body storage is retired. | SBX-00 and columnar rule decisions | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-01) |
+| SBX-02 | Complete. Native rule evaluation, retained establishment, product and partition attestations, and selected binding passed valid and refusal cases. | SBX-01 partitions and shared premises | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-02) |
+| SBX-03 | Complete. The real typed annotation fork binds layout, membership and coverage. Annotation and canonical publications passed authenticated Parquet replay and exact reads after occurrence changes. | SBX-01 partitions, SBX-02 proof binding, SBX-05 resolver and SBX-08 acquired carriers | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-03) |
+| SBX-04 | Complete. Construction binds the original selected annotation block, token and layout. Contextual acquisition checks the exact supporting input, original roles and released attachment-policy witnesses. | SBX-02 | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-04) |
+| SBX-05 | Complete. Selected graph readers bind authentic original role addresses. Typed references, contextual witness and detached replay passed. SBX-11 retains the wider keyed and online read scope. | SBX-01 addresses | [RPK](set-based-execution/references-and-projection-keys.md#sbx-05) |
+| SBX-06 | Complete. Native readiness, exact pins, original and selected population wakes, both commit orders, terminal empty discovery, cancellation and settlement passed. Recursive readiness state and repeated scans are retired. | SBX-01 field groups and SBX-02/03–05 proofs, addresses and binding | [RPK](set-based-execution/references-and-projection-keys.md#sbx-06) |
+| SBX-07 | Complete. Governed canonical reuse passed across occurrence edits and separate annotation captures, with exact placement and revocation. Other current hosts use whole-result execution. | SBX-06, SBX-03 | [RPK](set-based-execution/references-and-projection-keys.md#sbx-07) |
+| SBX-08 | Complete. Acquired source frames and immutable typed, formal, interpreted and composed payloads passed the named provider, handoff and malformed-input checks. | SBX-04/05 proof and address contracts | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-08) |
+| SBX-09 | Complete. Sealed output and reply custody, registered-root use, deployment recovery, both PDF reuse journeys, and applicable ordinary, provider and shared fault qualification passed. The development database was recreated empty on the verified sole root. | Integrated SBX-03–08 behavior, the brought-forward PDF producer slice, and final-source correspondence to the registered root | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-09) · [Verified reset](set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09) |
 | SBX-10 | Derived views computed once; one span vocabulary; producer-published contexts | SBX-08; SBX-03 for token views | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-10) |
 | SBX-11 | Read programs with scoped authority acquisition, answer shapes, filters, keyset paging and explicit freshness disclosure | SBX-01 for partition reads; SBX-02 for proof answers; SBX-06 settlement coverage for the freshness slice | [ORR](set-based-execution/owner-resolved-reads.md#sbx-11) |
 | SBX-12 | Selected structural Parquet replay, partition and proof export, unified cursor and substantive cache with current authority | SBX-11; SBX-02 proof and SBX-05 reference contracts; shared typed projection contract | [ORR](set-based-execution/owner-resolved-reads.md#sbx-12) |
@@ -240,7 +239,8 @@ comparisons account for shared installed effects and PDF qualification uses fres
 The scoped-relations trial consumes its named inputs and retains its own adoption decision.
 SBX-20 to SBX-22 close the series.
 
-### Remaining execution through SBX-09
+<a id="remaining-execution-through-sbx-09"></a>
+### Execution through SBX-09
 
 **Execution sequence · 2026-11-23.** The prior registered root and pilot retain their evidence.
 The [typed implementation checkpoint](set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation)
@@ -494,9 +494,9 @@ reconstruction on either side of Arrow. The new target removes those surrounding
 the typed population serves the actual consumers. [Shared target](set-based-execution/common-analytical-basis.md#columnar-population-target)
 
 The retained probes establish synthetic identity parity, typed set-call feasibility and
-specific library behavior. Production type fidelity, composed COPY, grants, recovery and
-qualification remain open. The recorded incident establishes that stopping concurrent runs
-released memory. Source inspection identifies avoidable passes and duplicated fixture work.
+specific library behavior. The later [cutover qualification](set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation)
+covers production type fidelity, composed COPY, grants and recovery. Stopping concurrent
+runs released memory. Source inspection identified avoidable passes and duplicated fixture work.
 Relative native cost and lock attribution remain with SBX-06 and SBX-11. Preserve earlier
 receipts and judge applicability to the particular source, root, harness and provider scope.
 [Columnar probes](../design_review/evidence/2026-11-22_sbx-columnar-basis/README.md) ·
@@ -523,8 +523,9 @@ receipts and judge applicability to the particular source, root, harness and pro
 | [Redesign I07](../plan_improvement_reviews/set-based-execution-efficiency-and-analytical-redesign_2026-11-22.md#I07) | Select exact committed-cut ADBC bulk reads and same-session Psycopg/pgpq writes. Defer ADBC ingestion and direct federation unless a whole owned operation warrants them. [Transfer](set-based-execution/common-analytical-basis.md#postgresql-placement-and-transfer) |
 | [Redesign I08](../plan_improvement_reviews/set-based-execution-efficiency-and-analytical-redesign_2026-11-22.md#I08) | Select stable-source receipt reconciliation and one managed bounded qualification owner. [Cutover](set-based-execution/cutover-and-qualification.md#columnar-cutover-sequence) |
 
-The [rule changes](#columnar-rule-confirmation) were accepted on 2026-11-23. Replacement
-implementation and qualification remain open.
+The [rule changes](#columnar-rule-confirmation) were accepted on 2026-11-23. The replacement
+and its applicable verification are complete through the
+[development reset](set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09).
 Historical findings and receipts retain their dates and exact scope.
 
 ## Completion
@@ -535,7 +536,8 @@ including the [shared change scenarios](set-based-execution/cutover-and-qualific
 and the applicable native propagation and read coverage;
 superseded machinery and its mechanism-specific tests are gone, with independent semantic
 expectations carried to the replacement; and the owning design sections and decision records
-describe the implemented state. Qualify the selected population path on the integrated SBX-09 root before resetting development. Close the physical replacement and its dependent readers and workers together. Record the scoped-relations adoption decision in SBX-19 and qualify the
+describe the implemented state. SBX-09 delivered the development baseline for that work.
+Record the scoped-relations adoption decision in SBX-19 and qualify the
 adopted read, replay and analytical routes at the applicable final-source boundary.
 
 SBX-00 records the focused Revision A target review and its disposition. Revision A registration

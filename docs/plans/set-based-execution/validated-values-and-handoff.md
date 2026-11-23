@@ -385,21 +385,14 @@ cancellation and acknowledgment. Such a proposal follows the existing custody de
 [Review I05](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I05) ·
 [Decision routes](common-analytical-basis.md#decision-routes)
 
-**Remaining acceptance · Scheduled · 2026-11-22.** Both PDF region modes and visual mapping
-retain authenticated slices. Their second check now follows encoding, and scoped late-import
-and encoding-time tamper controls have passed as recorded by the coordinator. Qualify that
-integrated route on the final registered root. Keep exactly two full checks around actual work.
-The CPU route's final check stays after result collection.
-Retain current-attempt checks after collection and the independent request and reply fences.
-Exercise the ordinary executor on the final registered root, including a function-local import
-or asset changed during the call, an expired attempt, and refusal before publishing an invalid
-reply. Keep the existing construction two-check assertion and actual learned-provider acceptance.
+**Integrated acceptance · Tested · 2026-11-23.** Both PDF region modes and visual mapping
+retain authenticated slices and check again after encoding. The ordinary cohort exercised
+late import and encoding tamper, expired attempts, refusal of an invalid collected reply,
+and the construction and formal two-check brackets. The CPU route's final check follows
+result collection and retains independent current-attempt, request and reply fences.
+Actual learned-provider acceptance passed by selected identity.
 [Witness and completion handoff](#sbx-witness-handoff) ·
 [Final-root qualification](cutover-and-qualification.md#development-reset-through-sbx-09)
-
-The concurrent qualification runs were stopped by the operator. Retained selected results and
-the remaining witness and provider checks are recorded at the
-[qualification checkpoint](cutover-and-qualification.md#sbx-09-qualification-pause).
 
 Keyed PDF rendering already acquires a selected region and original bytes and releases its
 database lease before rendering. Visual mapping consumes one observation and PNG. Their remaining

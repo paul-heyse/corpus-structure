@@ -1,15 +1,16 @@
 # Cutover and qualification
 
-**Status · 2026-11-23.** The integrated typed population root installed on the fresh
-qualification target with native body storage retired. Functional qualification and the
-development reset are open.
+**Status · 2026-11-23.** The refreshed typed population root passed applicable SBX-09
+qualification and is installed on the empty development database. Stage installation
+and assembled qualification retain their scope in SBX-20 to SBX-22.
 Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
 This companion owns how the series lands: the native revisions, regeneration, retirement and the
 assembled evidence. It owns SBX-20 to SBX-22 and the shared early integration and change scenarios
 used by the preceding packages. Source observations below are **Inspected** at `d36e07594`.
-Design and acceptance statements are **Proposed**. The [coordinator](../set-based-execution_2026-11-21.md)
+Design targets are **Proposed** unless their dated status establishes otherwise.
+The [coordinator](../set-based-execution_2026-11-21.md)
 owns current package state and review dispositions.
 
 ## Cutover policy
@@ -339,6 +340,25 @@ Their recorded host and worker groups had exited. [Qualification pause](#sbx-09-
 
 ### Development reset through SBX-09
 
+**Completed · Passed · 2026-11-23.** The applicable ordinary and 18 named provider
+identities are reconciled above. On source `aab01537f`, all eight shared fault cases
+passed (`06038452500a42fd8843b57ceecd063b`), `uv run ci check` passed
+(`1f51795470464c58b7f8d057e54ca167`), and `just model check` matched the released projections.
+
+`uv run ci host status` (`553ea8b67ab145a68df539f0f6fb7922`) and
+`uv run ci db status --maintenance` identified PostgreSQL `18/corpus`, port `5434`,
+cluster identifier `7701811359771751232`, and the prior `corpus_structure_dev` OID
+`131763263` at `semantic_ddo_pe_n29`. No sessions were attached. The reset dropped that
+database without force and `uv run ci db init` created it at OID `136708860` with sole
+head `semantic_sbx_current_root`. Maintenance matched native descriptor
+`7bb80447ffee7f286c27afd680366f00d9ff90f5909ec73ac23b8f4c1bed53a1`. Projects, documents,
+originals, demands, tasks, products and retained populations were empty. The native
+body table was absent. The reader could resolve exact items, the writer could prepare
+typed upload, and the PDF lowering selector stayed internal. Stage installation belongs
+to [SBX-20](#sbx-20).
+
+**Execution procedure.**
+
 1. Complete the [columnar replacement sequence](#columnar-cutover-sequence), including the
    early selected-read and custody consumers. Apply the [efficiency qualification setup](#sbx-efficiency-qualification)
    and apply the recorded architectural decisions before dependent implementation. When the
@@ -648,8 +668,9 @@ Resume evidence reconciliation after the operator's follow-up review.
 **Integrated on `main`.** The retired relowering branches, contextual policy correspondence,
 PDF search fill and regenerated root are committed as `338a13f36`, `da35ad7b4` and `f93a53e8d`.
 The original receipts retain the isolated source and context. The earlier named provider and
-readiness coverage still establishes those earlier selections. The integrated final-source union
-remains open. Development is still on N29 and its reset follows integrated acceptance.
+readiness coverage still establishes those earlier selections. At that checkpoint the final-source
+union was open and development still ran N29. The later
+[cutover evidence](#sbx-columnar-implementation) records the applicable follow-through.
 
 **Worktree consolidation · 2026-11-22.** The bounded proof tokenizer and its UTF-8 and escaping
 parity control were brought from `663254b05` onto `main` in `0613f5bc6`. The selected path
@@ -692,7 +713,7 @@ preview `42df5b1b7dd541d397f522020c8e2db2`).
 checkout (`3c8d0725d0b34912b5f2860699486a0d`).
 `uv run ci db init` installed `semantic_sbx_current_root` on the empty
 `corpus_structure_sbx09_cold` database. This rehearsal predates the remaining SBX-06
-and SBX-08/09 integration. Main registration and the development reset stay open.
+and SBX-08/09 integration. Main registration and the development reset were pending at this point.
 
 The next isolated build compared the native stored empty-collection default in online
 inspection and detached export. Candidate `0b87567e253a4cb699ee9d3b22f1fdfc` and
@@ -888,8 +909,8 @@ The provider lane lost two workers to their test watchdogs. The host ran out of 
 both campaigns were active. The managed supervisors drained on request and retained incomplete
 ordinary and provider results. The shared fault lane then passed all eight cases.
 The assessment fixtures now pass all 33 selected cases with the carried construction inputs
-(`b0de9837d0794da8ad1f6f7a402a7f83`). Reconcile unresolved ordinary and provider identities
-using smaller cohorts. The development database still awaits integrated acceptance.
+(`b0de9837d0794da8ad1f6f7a402a7f83`). At this point the ordinary and provider identities still
+needed reconciliation in smaller cohorts before resetting development.
 
 **Repaired root installation · Tested by selected scope · 2026-11-22.** The event frame
 resolves its definition component through the admitted nominal member of the authenticated
@@ -1016,9 +1037,9 @@ The structural dossier and detached export passed by selected identity in
 `1a1f7a3b8abc4d989d0d77f6b678cead`. Its finite and rich replay worker crashed during Python
 model preparation; the exact private retry passed (`93e9997f5d61466e9201c87390e15671`).
 The second dossier case passed on its private retry (`5a3b93c2ec84469aa8ea086df087f1a6`).
-The full event journey remains open following its interrupted retry
-(`d274226692ff45f8a015118f50269d8e`). Development readback still identifies the original N29
-database.
+The full event journey was pending after its interrupted retry
+(`d274226692ff45f8a015118f50269d8e`). Development readback at that checkpoint identified
+the original N29 database.
 
 Keep one authentic cross-boundary producer, publication and export journey. Reader-only checks
 can consume its authenticated artifacts while their producer, prepared release, wire and authority
