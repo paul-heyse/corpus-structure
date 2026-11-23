@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from pglast import ast, enums
 from pglast.stream import RawStream
+from pyarrow import compute as pc
 from sqlalchemy import CheckConstraint, Column, MetaData, Table
 from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.schema import CreateTable
@@ -436,13 +437,11 @@ class PdfSharedStreamTransfer:
             return False
         ids = set()
         for batch in relations["artifact_part"]:
-            if any(
-                value != build.build_id
-                for name in ("product_id", "revision_id")
-                for value in batch.column(name).to_pylist()
-            ):
-                raise ValueError("shared part replay changes its owned build")
-            ids.update(batch.column("stream_id").to_pylist())
+            for name in ("product_id", "revision_id"):
+                column = batch.column(name)
+                if column.null_count or pc.any(pc.not_equal(column, build.build_id)).as_py():
+                    raise ValueError("shared part replay changes its owned build")
+            ids.update(pc.unique(batch.column("stream_id")).to_pylist())
         if not ids or not ids <= self.descriptors.keys():
             return False
         return ids <= verified_shared_stream_ids(

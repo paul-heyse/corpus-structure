@@ -179,6 +179,12 @@ changes, post-encoding tamper detection and genuine interrupted/recovered adopti
 reader, connection and spill cleanup on early exit. Replace the mechanism-specific SQLite and
 hex controls with the equivalent behavioral assertions on the typed route.
 
+**Early omission slice · Tested by selected identity · 2026-11-22.** The current shared-stream
+adoption path checks build columns and selects distinct part stream IDs in Arrow. It still
+submits the selected descriptors to a fresh native probe. The six transport-omission controls
+passed with `uv run ci test --workers 1 -- python/corpus-structure/tests/semantic/test_pdf_shared_streams.py -k transport_omission`
+(`01094d17f290448a82a25907a18510a2`). The certifier and adopted-root replay retain their scope above.
+
 <a id="sbx-14"></a>
 ## SBX-14 — One rebuild, under the captured policy
 

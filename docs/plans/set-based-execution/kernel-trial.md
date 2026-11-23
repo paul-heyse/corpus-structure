@@ -61,6 +61,15 @@ A buffer-manager limit does not cover complete process memory. Preserve captured
 model correspondence, cancellation drain and final resource release. These obligations are
 prerequisites for the actual worker path, without a separate broad qualification campaign.
 
+**Resource slice · Tested by selected identity · 2026-11-22.** The configured analytical
+owner sets binary collation and bounds DuckDB asynchronous I/O by the captured thread count.
+Spawned CPU workers initialize Arrow CPU and I/O pools from the existing native thread
+policy. `uv run ci test --workers 1 -- python/corpus-structure/tests/test_analytics.py`
+passed 11 identities, including the real spawned-consumer control
+(`e789cc5d3eca4d239c3991964c28e43c`). The CPU worker and in-flight cancellation selection
+also passed (`66a858e58d634dc18d3f97a5361195d2`). Typed IPC cleanup remains part of the
+replacement worker acceptance.
+
 **Canonical production and authoring.** The reconciled target proposes model-derived canonical
 item text and ordered digest aggregation while keeping the existing identity definition and
 independent Python reference. The recorded identity-rule change must be resolved before use.

@@ -292,6 +292,10 @@ def _initialize(
     ):
         os.environ[variable] = str(native_threads)
     _apply_native_thread_limits()
+    import pyarrow as pa
+
+    pa.set_cpu_count(native_threads)
+    pa.set_io_thread_count(native_threads)
     _WORKER_RELEASES.clear()
     from corpus_structure.caches import CacheMetrics, register
 

@@ -136,6 +136,11 @@ output shapes derive from the same release contract. A mismatched result contrac
 transaction back before effects commit. ADR-0128/0144/0145 changes follow the coordinator's
 explicit rule dispositions before production adoption.
 
+A reused temporary intake must begin empty and be bound to the current preparation. Check
+its actual temporary namespace, owner, columns and relation behavior, using the PDF intake
+precedent. Recheck the invocation's release and attempt after COPY. Reject a precreated or
+altered intake, and test expiration between preparation and the protected effect.
+
 A cheap fence check precedes content preparation. Check canonical item shape and lexical form
 once, and derive native rule/address columns from that admitted value or compare every supplied
 projection against it. A valid item digest with forged projection fields refuses. Share the
@@ -156,6 +161,13 @@ interrupted COPY exposes no publishable partial product. No purpose role gains u
 insertion into retained product storage. Direct COPY into retained rows is conditional on a
 complete attempt-scoped permission design.
 
+Review the retained parent key before declaring the item relation. It must exist before the
+visible product and remain stable when publication makes the rows visible. Keep immutable
+logical item keys and commitments independent of lifecycle state. Preserve recognition of an
+exact already-committed replay after the producing claim expires, subject to replay authority.
+A new effect still requires a current fence. Check both cases with an independent lost-acknowledgement
+control. Verify that returning a typed refusal leaves the refused item's effects rolled back.
+
 Member collections carry shared context once per product and keep heterogeneous canonical bodies.
 Extract typed role, occurrence, collection, partition and address rows once during admission.
 They feed closure checks and the live and detached resolvers. Reuse the once-validated member
@@ -173,6 +185,13 @@ The synthetic identity/transaction probes establish feasibility for their covere
 Real purpose-role and recovery controls remain required on the integrated root.
 [Boundary evidence](../../design_review/evidence/2026-11-22_sbx-columnar-basis/README.md) ·
 [Cutover sequence](cutover-and-qualification.md#columnar-cutover-sequence)
+
+**Premise preparation · Tested by selected identity · 2026-11-22.** Sentence and formal
+completions share admitted output and selected-input projections while emitting distinct
+rule attestations. Sentence partition projections are released after each partition. The
+single-worker ordinary CI selection `2fc6263dc9824604b36d51e0b7e18706` passed focused
+premise parity and refusal controls and prepared sentence/formal completion checks. Native
+admission and final-root correspondence retain their own acceptance.
 
 ## Rules
 

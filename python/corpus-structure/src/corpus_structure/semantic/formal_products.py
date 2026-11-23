@@ -1143,8 +1143,8 @@ class PreparedFormalEvidencePort:
         from ._data_operation_wire import WireKindContract, WireOutputMember
         from .data_operation_ports import PortCompletion, RoleValue
         from .established_validity import (
+            RuleAttestationPreparation,
             RuleObservedInput,
-            successful_rule_attestation,
         )
 
         output = next(role for role in self.operation.roles if role.direction == "output")
@@ -1184,13 +1184,12 @@ class PreparedFormalEvidencePort:
                 "text.formal_evidence/canonical-occurrence-addresses": None,
                 "text.formal_evidence/symbolic-inventory-positions": None,
             }
+            preparation = RuleAttestationPreparation(
+                kind, self.operation.semantic_id, packet, product.subject_context
+            )
             attestations = tuple(
-                successful_rule_attestation(
+                preparation.attest(
                     rule,
-                    kind,
-                    self.operation.semantic_id,
-                    packet,
-                    product.subject_context,
                     selected_inputs=observed[rule.id],
                 )
                 for rule in self.profile.model.rules

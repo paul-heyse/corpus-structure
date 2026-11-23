@@ -1421,7 +1421,7 @@ class PreparedSentencePort:
             product = product.with_context(binding.subject_context)
         from ._data_operation_wire import WireKindContract, WireOutputMember
         from .data_operation_ports import PortCompletion
-        from .established_validity import RuleObservedInput, successful_rule_attestation
+        from .established_validity import RuleAttestationPreparation, RuleObservedInput
         from .sentence_partitions import partitioned_role
 
         # Product meaning uses the exact typed record's fields; display JSON and native
@@ -1455,22 +1455,33 @@ class PreparedSentencePort:
                 },
             }
             # The producer validated these facts before detaching the answer.
-            attestations = tuple(
-                successful_rule_attestation(
-                    rule,
-                    kind,
-                    self.operation.semantic_id,
-                    packet,
-                    binding.subject_context,
-                    partition=thaw_native(partition) if partition is not None else None,
-                    selected_inputs=observed[rule.id],
-                )
-                for rule in self.profile.model.rules
-                if rule.id in observed
-                for partition in (
-                    product._payload.packets if rule.scope == "partition" else (None,)
-                )
+            preparation = RuleAttestationPreparation(
+                kind, self.operation.semantic_id, packet, binding.subject_context
             )
+            rules = [rule for rule in self.profile.model.rules if rule.id in observed]
+            by_rule = {rule.id: [] for rule in rules}
+            partition_rules = []
+            for rule in rules:
+                if rule.scope == "partition":
+                    partition_rules.append(rule)
+                else:
+                    by_rule[rule.id].append(
+                        preparation.attest(rule, selected_inputs=observed[rule.id])
+                    )
+            if partition_rules:
+                for frozen_partition in product._payload.packets:
+                    partition = thaw_native(frozen_partition)
+                    # Release the decoded rows and projections after this partition.
+                    preparation = RuleAttestationPreparation(
+                        kind, self.operation.semantic_id, packet, binding.subject_context
+                    )
+                    for rule in partition_rules:
+                        by_rule[rule.id].append(
+                            preparation.attest(
+                                rule, partition=partition, selected_inputs=observed[rule.id]
+                            )
+                        )
+            attestations = tuple(attestation for group in by_rule.values() for attestation in group)
         return PortCompletion(
             self.operation.semantic_id,
             (result,),

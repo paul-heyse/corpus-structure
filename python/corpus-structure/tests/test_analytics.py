@@ -16,9 +16,11 @@ def test_invocation_uses_settings_and_releases_private_spill(tmp_path):
     with connection(settings) as db:
         actual = db.native.execute(
             "SELECT current_setting('threads'), current_setting('memory_limit'), "
-            "current_setting('temp_directory'), current_setting('TimeZone')"
+            "current_setting('temp_directory'), current_setting('TimeZone'), "
+            "current_setting('async_threads'), current_setting('default_collation')"
         ).fetchall()[0]
         assert actual[0] == 2 and actual[1] == "122.0 MiB" and actual[3] == "UTC"
+        assert actual[4:] == (2, "binary")
         scratch = Path(actual[2])
         assert scratch.is_absolute() and scratch.parent == tmp_path
         assert scratch.is_dir() and scratch.stat().st_mode & 0o077 == 0
@@ -104,7 +106,8 @@ def _worker_analytics_consumers(directory):
             observed.append(
                 db.native.execute(
                     "SELECT current_setting('threads'), current_setting('memory_limit'), "
-                    "current_setting('temp_directory'), current_setting('TimeZone')"
+                    "current_setting('temp_directory'), current_setting('TimeZone'), "
+                    "current_setting('async_threads'), current_setting('default_collation')"
                 ).fetchall()[0]
             )
             yield db
@@ -145,7 +148,15 @@ def _worker_analytics_consumers(directory):
             alternatives=(),
             specs=(),
         )
-    return os.getpid(), observed, geometry_rows, replay_rows, views
+    return (
+        os.getpid(),
+        observed,
+        geometry_rows,
+        replay_rows,
+        views,
+        pa.cpu_count(),
+        pa.io_thread_count(),
+    )
 
 
 def test_spawned_cpu_uses_captured_settings_for_real_analytical_consumers(tmp_path, monkeypatch):
@@ -165,15 +176,17 @@ def test_spawned_cpu_uses_captured_settings_for_real_analytical_consumers(tmp_pa
         analytics_settings=selected,
     )
     try:
-        pid, observed, geometry, replay, views = (
+        pid, observed, geometry, replay, views, arrow_cpu, arrow_io = (
             scope._executor().submit(_worker_analytics_consumers, tmp_path).result(timeout=60)
         )
     finally:
         scope.close()
     assert pid != os.getpid()
+    assert (arrow_cpu, arrow_io) == (scope.policy.cpu_native_threads,) * 2
     assert len(observed) == 2
-    for threads, memory, directory, zone in observed:
+    for threads, memory, directory, zone, io_threads, collation in observed:
         assert (threads, memory, zone) == (2, "122.0 MiB", "UTC")
+        assert (io_threads, collation) == (2, "binary")
         assert Path(directory).parent == selected.scratch_path
         assert not Path(directory).exists()
     assert len(geometry) == 1 and geometry[0][:2] == (7, 0)

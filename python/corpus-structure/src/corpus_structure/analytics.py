@@ -141,7 +141,9 @@ def connection(settings: AnalyticsSettings | None = None):
         native = duckdb.connect(
             config={
                 "TimeZone": "UTC",
+                "default_collation": "binary",
                 "threads": selected.threads,
+                "async_threads": selected.threads,
                 "memory_limit": selected.memory_limit,
                 "temp_directory": str(Path(directory).resolve()),
             }

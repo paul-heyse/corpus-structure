@@ -338,6 +338,54 @@ def test_transport_omission_rechecks_the_actual_build_and_keeps_source_packets(m
     assert source["artifact_part"][0].num_rows == 2
 
 
+@pytest.mark.parametrize("field", ["product_id", "revision_id"])
+@pytest.mark.parametrize("value", [None, "another-build"])
+def test_transport_omission_refuses_changed_or_null_build_before_probe(monkeypatch, field, value):
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic import pdf_shared_streams
+
+    build = SimpleNamespace(build_id="build")
+    transfer = PdfSharedStreamTransfer()
+    probes = []
+    monkeypatch.setattr(
+        pdf_shared_streams, "verified_shared_stream_ids", lambda *args: probes.append(args)
+    )
+    transfer.omit_verified_parts(None, build, packet("artifact_stream", [descriptor(build)]))
+    rows = part_rows(build)
+    rows[-1][field] = value
+    with pytest.raises(ValueError, match="changes its owned build"):
+        transfer.omit_verified_parts(None, build, packet("artifact_part", rows))
+    assert probes == []
+
+
+def test_transport_omission_probes_distinct_streams_across_batches(monkeypatch):
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic import pdf_shared_streams
+
+    build = SimpleNamespace(build_id="build")
+    transfer = PdfSharedStreamTransfer()
+    probes = []
+
+    def probe(connection, owned, rows):
+        probes.append(tuple(row["stream_id"] for row in rows))
+        return frozenset({"first"})
+
+    monkeypatch.setattr(pdf_shared_streams, "verified_shared_stream_ids", probe)
+    transfer.omit_verified_parts(
+        None,
+        build,
+        packet("artifact_stream", [descriptor(build, stream=name) for name in ("first", "second")]),
+    )
+    first = packet("artifact_part", part_rows(build, stream="first"))["artifact_part"]
+    second = packet("artifact_part", part_rows(build, stream="second"))["artifact_part"]
+    assert not transfer.omit_verified_parts(
+        None, build, {"artifact_part": (*first, *first, *second)}
+    )
+    assert probes == [("first", "second")]
+
+
 def test_another_project_cannot_reuse_the_verified_key(
     create_private_build,
     commit_writer_engine,
