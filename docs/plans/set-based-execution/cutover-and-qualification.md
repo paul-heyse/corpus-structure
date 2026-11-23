@@ -166,7 +166,14 @@ occurrences, canonical cross-capture adoption with revocation, and HanLP/declara
 It was interrupted after construction failed to recognize the typed worker input. Managed
 recovery settled the private host and retained all completed, failed, and incomplete identities.
 The annotation reader now accepts an owned typed population with no packet body.
-Construction and the related annotation fork still require their corrective provider runs.
+All three corrective provider identities passed in `7566d5a501984c7c872c48f74433010b`:
+exact construction references, the shared annotation and formal input fork, and the two independent
+formal reports at producer position zero. The invocation retained its failed outcome because
+private PostgreSQL scratch remained after the child processes exited. `uv run ci results recover`
+settled custody. `uv run ci test review` accounts for all three selected identities and their
+complete native observations. `uv run ci test --lane fault` passed all eight shared controls
+(`fd0cc642472145bd9eb9314c4bc9cfe8`), and `uv run ci check` passed after the reader correction
+(`6b248a6ad235476eb5141f5f4f791cd0`).
 
 ### Development reset through SBX-09
 
