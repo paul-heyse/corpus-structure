@@ -21,13 +21,19 @@ def selection():
     return selected, content, assets
 
 
-def missing_pdf_resume_assets():
+def missing_pdf_capture_assets():
     from semantic.provider_book_panel_support import missing_snapshot
 
     selected, _content, assets = selection()
-    missing = missing_snapshot(
+    return missing_snapshot(
         Path(selected["assets_root"]), tuple(name for name, _ in assets["files"])
     )
+
+
+def missing_pdf_resume_assets():
+    from semantic.provider_book_panel_support import missing_snapshot
+
+    missing = missing_pdf_capture_assets()
     original = missing_snapshot(ORIGINAL.parent, (ORIGINAL.name,))
     return "; ".join(item for item in (missing, original) if item) or None
 

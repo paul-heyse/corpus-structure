@@ -49,6 +49,7 @@ ROOT = Path(__file__).resolve().parents[4]
 @dataclass(frozen=True)
 class IntegratedPdfScenario:
     integration_policy: bytes = b"{}"
+    managed_endpoint: str | None = None
 
     @property
     def requires_consumer_binding(self) -> bool:
@@ -59,26 +60,55 @@ class IntegratedPdfScenario:
         from corpus_structure.semantic.data_operation_json import json_loads
 
         return _integrated_pdf_kernel(
-            directory, integration_policy=json_loads(self.integration_policy)
+            directory,
+            integration_policy=json_loads(self.integration_policy),
+            managed_endpoint=self.managed_endpoint,
         )
 
 
 def integrated_pdf_recipe(
-    *, integration_policy: dict[str, Any] | None = None
+    *, integration_policy: dict[str, Any] | None = None, managed_endpoint: str | None = None
 ) -> IntegratedPdfScenario:
     from corpus_structure.semantic.data_operation_json import json_bytes
 
     return IntegratedPdfScenario(
-        json_bytes({} if integration_policy is None else integration_policy)
+        json_bytes({} if integration_policy is None else integration_policy),
+        managed_endpoint,
     )
 
 
-def _integrated_pdf_kernel(directory, *, integration_policy):
+def _integrated_pdf_kernel(directory, *, integration_policy, managed_endpoint):
+    if managed_endpoint is None:
+        capture_profile = None
+        producer = {}
+        worker = directory / "explicit-provider.py"
+        content = "raise AssertionError('controlled provider boundary must replace inference')\n"
+        if worker.exists() and worker.read_text() != content:
+            raise ValueError("controlled provider binding contains a different program")
+        if not worker.exists():
+            worker.write_text(content)
+        python, endpoint = sys.executable, "http://127.0.0.1:8123/v1"
+        recipe = NemotronRecipe("2" * 64, "3" * 64)
+    else:
+        from semantic.pdf_reuse_support import (
+            SERVICE,
+            recognition_interpreter,
+            recognition_recipe,
+            standard_capture_profile,
+        )
+
+        capture_profile = standard_capture_profile()
+        producer = {"standard_producer": capture_profile[2]}
+        worker = SERVICE / "worker.py"
+        python, endpoint = str(recognition_interpreter()), managed_endpoint
+        recipe = recognition_recipe()
+
     def operation_sources(native, assets, capture):
         organization = pdf_transform_operation_sources(
             "organized",
             options=SectionPolicy("explicit-native-headings"),
             directory=directory / "owned",
+            **producer,
         )
         enriched = pdf_transform_operation_sources(
             "enriched",
@@ -87,29 +117,25 @@ def _integrated_pdf_kernel(directory, *, integration_policy):
             options=PdfEnrichmentOptions(),
             directory=directory / "owned",
             input_operation="source.pdf_sections/organize",
+            **producer,
         )
-        worker = directory / "explicit-provider.py"
-        content = "raise AssertionError('controlled provider boundary must replace inference')\n"
-        if worker.exists() and worker.read_text() != content:
-            raise ValueError("controlled provider binding contains a different program")
-        if not worker.exists():
-            worker.write_text(content)
         integration = pdf_transform_operation_sources(
             "integrated",
-            recognition_recipe=NemotronRecipe("2" * 64, "3" * 64),
+            recognition_recipe=recipe,
             options=PdfIntegrationOptions(
                 integration_policy={} if integration_policy is None else integration_policy
             ),
             recognition_options=PdfRecognitionOptions(recovery_policy=None),
             resources=PdfRecognitionResources(
-                python=sys.executable,
+                python=python,
                 script=str(worker),
-                endpoint="http://127.0.0.1:8123/v1",
+                endpoint=endpoint,
                 receipts=str(directory / "receipts"),
-                timeout_seconds=1,
+                timeout_seconds=5 if managed_endpoint is not None else 1,
             ),
             directory=directory / "owned",
             input_operation="source.pdf_sections/organize",
+            **producer,
         )
         return combine_primary_sources(
             pdf_views_operation_sources(
@@ -127,6 +153,7 @@ def _integrated_pdf_kernel(directory, *, integration_policy):
         name="controlled-pdf-transform-demand",
         bundle=bundle,
         operation_sources=operation_sources,
+        capture_profile=capture_profile,
     )
 
 
@@ -160,6 +187,7 @@ class CurrentPdfIntegration:
     observation_source: Any = None
     reclaimed_fence: Any = None
     interruption: Any = None
+    managed_endpoint: str | None = None
 
     @property
     def prepared(self):
@@ -175,9 +203,15 @@ def remap_current_integration(case, policy):
 
     kernel = admit_current_target(
         case,
-        integrated_pdf_recipe(integration_policy=policy).bind(case.kernel.preparation.directory),
+        integrated_pdf_recipe(
+            integration_policy=policy, managed_endpoint=case.managed_endpoint
+        ).bind(case.kernel.preparation.directory),
         case.directory / "policy-consumer",
     )
+    return kernel, _current_integration_demand(case, kernel)
+
+
+def _current_integration_demand(case, kernel):
     request = SourceRunRequest(
         project_id=case.original.project_id,
         release_id=kernel.prepared.release_id,
@@ -201,8 +235,32 @@ def remap_current_integration(case, policy):
             admission_engine=kernel.purpose("admit"),
         )
     with case.reader().begin() as connection:
-        snapshot = read_data_demand(connection, result.demand_id, view="products")
-    return kernel, snapshot
+        return read_data_demand(connection, result.demand_id, view="products")
+
+
+@contextmanager
+def acquired_integration_journey(scenario_seeds, tmp_path, native_settings):
+    """Exercise actual Standard capture and acquired recognition over one known page."""
+    from semantic.pdf_reuse_support import finite_recognition_service, printed_original
+
+    with finite_recognition_service() as service:
+        target = OriginalSeedRecipe(
+            integrated_pdf_recipe(managed_endpoint=service.endpoint), printed_original()
+        )
+        with scenario_seeds.build_for_consumer(target, tmp_path) as clone:
+            seed = clone.stage.kernel
+            kernel = Kernel(clone.admin, seed.preparation, seed.identities, seed.recipe, clone)
+            settings = settings_for_native_clone(native_settings, clone.admin.url.database)
+            case = CurrentPdfIntegration(
+                kernel,
+                clone,
+                clone.stage.original.reference,
+                settings,
+                tmp_path,
+                managed_endpoint=service.endpoint,
+            )
+            case.snapshot = _current_integration_demand(case, kernel)
+            yield case, service
 
 
 @contextmanager

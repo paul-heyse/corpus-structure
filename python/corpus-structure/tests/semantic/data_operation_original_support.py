@@ -31,6 +31,7 @@ PROJECT = "current-original-source"
 @dataclass(frozen=True)
 class OriginalSeedRecipe:
     target: KernelRecipe | KernelScenario
+    content: bytes | None = None
 
     @property
     def requires_consumer_binding(self) -> bool:
@@ -94,13 +95,15 @@ def build_original_seed(recipe, admin, writer, directory, *, purpose_engine=None
     with admin.begin() as connection:
         admitted = admit_kernel(connection, target, engine=admin, preparation=preparation)
 
-    document = pdfium.PdfDocument.new()
-    page = document.new_page(200, 300)
-    page.close()
-    output = BytesIO()
-    document.save(output)
-    document.close()
-    original = output.getvalue()
+    original = recipe.content
+    if original is None:
+        document = pdfium.PdfDocument.new()
+        page = document.new_page(200, 300)
+        page.close()
+        output = BytesIO()
+        document.save(output)
+        document.close()
+        original = output.getvalue()
     path = directory / "independent-original.pdf"
     path.write_bytes(original)
     with writer.begin() as connection:

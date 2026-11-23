@@ -51,21 +51,30 @@ ROOT = Path(__file__).resolve().parents[4]
 PROJECT = "current-source-catalog"
 
 
-def compose_current_pdf_recipe(directory, *, name, bundle, operation_sources, declarations=()):
+def compose_current_pdf_recipe(
+    directory, *, name, bundle, operation_sources, declarations=(), capture_profile=None
+):
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
 
-    recipe = PdfRecipe(
-        "0" * 40,
-        "1" * 40,
-        device="cpu",
-        ocr_device="cpu",
-        recipe_id="docling-standard-pdf-stream-v1",
+    if capture_profile is None:
+        recipe = PdfRecipe(
+            "0" * 40,
+            "1" * 40,
+            device="cpu",
+            ocr_device="cpu",
+            recipe_id="docling-standard-pdf-stream-v1",
+        )
+        assets = PreparedPdfAssets(directory, b"{}", ())
+        producer = {}
+    else:
+        recipe, assets, standard = capture_profile
+        producer = {"standard_producer": standard}
+    capture = pdf_capture_operation_sources(
+        recipe, assets, directory=directory / "owned", **producer
     )
-    assets = PreparedPdfAssets(directory, b"{}", ())
-    capture = pdf_capture_operation_sources(recipe, assets, directory=directory / "owned")
     native = native_protocol_sources()
-    pdf = pdf_domain_dependencies(ResolvedDependencies())
+    pdf = pdf_domain_dependencies(ResolvedDependencies(), **producer)
     dependencies = data_operation_dependencies(
         ResolvedDependencies((*pdf.artifacts, *native)),
         (native_operation_declarations(native), *declarations),
