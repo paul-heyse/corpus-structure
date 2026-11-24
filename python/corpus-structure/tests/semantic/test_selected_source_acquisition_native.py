@@ -8,22 +8,30 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
+from corpus_structure.semantic._data_operation_wire import (
+    WireReadGovernedSelectionRequest,
+    WireRevokeDataSupportRequest,
+)
 from corpus_structure.semantic.data_operation_demands import (
     DemandPlanner,
+    OperationSelection,
     RootSubject,
     freeze_demand,
 )
+from corpus_structure.semantic.data_operation_service import advance_demand_selection
 from corpus_structure.semantic.data_operation_source_sets import (
     FrozenSourceSet,
     SelectedSourceSetEntry,
 )
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-from corpus_structure.semantic.demand_results import read_demand_result
+from corpus_structure.semantic.demand_results import read_demand_result, read_selected_answer
+from native_test_support import principal_engine
+from semantic.data_operation_demand_support import attach, claim, publish, retain
 from semantic.population_completion_support import complete_ready
 from semantic.test_data_operation_pinned_reuse_native import (
     CONSUMER,
     PINNED,
+    PRODUCER,
     _produce,
     _ready,
 )
@@ -41,6 +49,13 @@ def ddo_kernel(request, commit_db_engine, tmp_path):
     preparation = prepare_kernel(recipe, directory=tmp_path / "source-acquisition-kernel")
     with commit_db_engine.begin() as connection:
         return admit_kernel(connection, recipe, engine=commit_db_engine, preparation=preparation)
+
+
+@pytest.fixture
+def public_reader(commit_db_engine, native_settings):
+    reader = principal_engine(native_settings, "read", commit_db_engine.url.database)
+    yield reader
+    reader.dispose()
 
 
 def selected(kernel, demand, *, member_id=None):
@@ -187,7 +202,6 @@ def test_native_source_acquisition_distinguishes_anchor_from_actual_producing_us
     from corpus_structure.semantic.data_operation_source_sets import selected_source_entries
     from corpus_structure.semantic.demand_results import acquired_selected_relations
     from corpus_structure.semantic.selected_support import SelectedReadReference
-    from semantic.test_data_operation_pinned_reuse_native import PRODUCER
 
     source_demand, source_receipt, _ = _produce(
         ddo_kernel, subject="source-subject:B", value=42, inference="source-anchor-control"
@@ -311,7 +325,6 @@ def _two_role_slot_recipe():
     from copy import deepcopy
 
     from corpus_structure.semantic.identity import canonical_bytes
-    from semantic.test_data_operation_pinned_reuse_native import PRODUCER
 
     assert PINNED.declaration_content is not None
     declarations = json.loads(PINNED.declaration_content)
@@ -344,7 +357,6 @@ TWO_ROLE_SLOTS = _two_role_slot_recipe()
 @pytest.mark.parametrize("ddo_kernel", [TWO_ROLE_SLOTS], indirect=True, ids=["two-emitting-slots"])
 def test_native_source_proof_selection_is_role_local_and_preserves_original_reuse_basis(ddo_kernel):
     from corpus_structure.semantic.selected_support import SelectedReadReference
-    from semantic.data_operation_demand_support import attach, claim, publish, retain
 
     demand, _, _, attached = attach(
         ddo_kernel,
@@ -403,6 +415,229 @@ def test_native_source_proof_selection_is_role_local_and_preserves_original_reus
         assert {
             key: value for key, value in retained_binding.items() if key != "execution_profile"
         } == original_binding
+
+
+@pytest.mark.parametrize("ddo_kernel", [TWO_ROLE_SLOTS], indirect=True, ids=["distinct-originals"])
+def test_native_governed_source_roles_use_distinct_selected_original_sources(
+    ddo_kernel, public_reader
+):
+    sources = {}
+    for role, original, value in (("left", "source:B", 41), ("right", "source:C", 42)):
+        producer, _, _, attached = attach(
+            ddo_kernel, subject="source-subject:" + role, original_source=original
+        )
+        fence = claim(ddo_kernel, attached)
+        publish(ddo_kernel, fence, retain(ddo_kernel, fence, outputs=(value,)))
+        sources[role] = selected(ddo_kernel, producer)
+    demand = register(
+        ddo_kernel,
+        tuple(FrozenSourceSet.from_selected(role, (source,)) for role, source in sources.items()),
+    )["demand_id"]
+    selection = "cross-source-role-proof"
+    with ddo_kernel.engine.begin() as connection:
+        advance_demand_selection(
+            connection,
+            "ddo-test",
+            selection,
+            demand,
+            expected_demand_id=None,
+            expected_generation=0,
+        )
+
+    def governed(original_source="source:A", **options):
+        with public_reader.begin() as connection:
+            return DataOperationStorage(connection).read_governed_selection(
+                cast(
+                    WireReadGovernedSelectionRequest,
+                    dict(
+                        project_id="ddo-test",
+                        selection_name=selection,
+                        scope={"operation_id": CONSUMER, "original_source": original_source},
+                        **options,
+                    ),
+                )
+            )
+
+    # Explicit cross-source pins use checked binding, outside scalar readiness.
+    # Until the exact binding is fulfilled, freshness has insufficient coverage.
+    assert governed()["state"] == "Unknown"
+    _, (ready,) = _ready(ddo_kernel, {"demand_id": demand})
+    for role in ready.binding_result.roles:
+        (member,) = role.members
+        source = sources[role.role]
+        assert member.original_source == source.entry.original_source
+        assert member.support_references == (source.proof.support,)
+        assert member.producer_output == source.proof.output
+    complete_ready(ddo_kernel, ready, value=99)
+    fresh = governed()
+    assert fresh["state"] == "Fresh"
+    assert governed("source:B")["state"] != "Fresh"
+    assert governed("source:C")["state"] != "Fresh"
+    with public_reader.begin() as connection:
+        page = read_demand_result(
+            connection,
+            demand,
+            project_id="ddo-test",
+            continuation={
+                "demand_id": demand,
+                "read_id": fresh["read_id"],
+                "view": "products",
+                "scope": {"operation_id": CONSUMER, "original_source": "source:A"},
+            },
+        )
+        (use,) = [use for use in page.record["uses"] if use["fate"] == "fulfilled"]
+        facts = read_selected_answer(
+            connection,
+            "read_selected_derivation_facts",
+            demand,
+            project_id="ddo-test",
+            read_id=page.cut.record["read_id"],
+            scope=page.cut.record["scope"],
+            use_id=use["use_id"],
+            derivation_id=use["derivation_id"],
+        )
+    assert {row["role"]: row["product_id"] for row in facts["rows"]} == {
+        role: source.entry.product for role, source in sources.items()
+    }
+    for row in facts["rows"]:
+        assert any(
+            reference["derivation_id"] == sources[row["role"]].proof.support.derivation_id
+            and reference["admission_use_id"] == sources[row["role"]].proof.support.admission_use_id
+            for reference in row["support"]
+        )
+    withdrawn = sources["right"]
+    with ddo_kernel.engine.begin() as connection:
+        DataOperationStorage(connection).revoke_data_support(
+            cast(
+                WireRevokeDataSupportRequest,
+                {
+                    "project_id": "ddo-test",
+                    "original_source": withdrawn.entry.original_source,
+                    "selector_kind": "derivation",
+                    "selector": withdrawn.proof.support.derivation_id,
+                    "reason": "right selected original withdrawn",
+                },
+            )
+        )
+    with pytest.raises(DBAPIError, match="read trust changed"):
+        governed(mode="last-settled", read_id=fresh["read_id"], selection_generation=1)
+
+
+@pytest.mark.parametrize("ddo_kernel", [TWO_ROLE_SLOTS], indirect=True, ids=["enrolled-originals"])
+def test_native_governed_coverage_traverses_enrolled_distinct_originals(ddo_kernel, public_reader):
+    sources = {}
+    roots = {}
+    # Publication order, right before left, differs from the binding role order.
+    for role, original, page, value in (("right", "source:C", 2, 42), ("left", "source:B", 1, 41)):
+        subject = "source-subject:" + role
+        producer, _, _, attached = attach(
+            ddo_kernel, subject=subject, original_source=original, analyzed_scope={"page": page}
+        )
+        fence = claim(ddo_kernel, attached)
+        publish(ddo_kernel, fence, retain(ddo_kernel, fence, outputs=(value,)))
+        sources[role] = selected(ddo_kernel, producer)
+        entry = sources[role].entry
+        roots[role] = RootSubject(entry.subject, entry.original_source, entry.analyzed_scope)
+
+    focus = RootSubject("focus:A", "source:A", b'{"focus":true}')
+    left_sibling = replace(roots["left"], analyzed_scope=b'{"page":3}')
+    intent = freeze_demand(
+        ddo_kernel.model,
+        roots=(focus, roots["right"], left_sibling, roots["left"]),
+        targets=(CONSUMER,),
+        selections=(OperationSelection(CONSUMER, selected_dependencies=(PRODUCER,)),),
+        source_sets=tuple(
+            FrozenSourceSet.from_selected(role, (source,)) for role, source in sources.items()
+        ),
+        inference="governed-enrolled-distinct-originals",
+        execution_profile="execution:test",
+    )
+    selected_consumer = next(
+        operation for operation in intent.record["operations"] if operation["operation"] == CONSUMER
+    )
+    assert selected_consumer["dependencies"] == [PRODUCER]
+    name = "enrolled-original-role-coverage"
+    with ddo_kernel.engine.begin() as connection:
+        planner = DemandPlanner(ddo_kernel.model, DataOperationStorage(connection))
+        demand = planner.register(
+            intent,
+            project="ddo-test",
+            release=ddo_kernel.prepared.release_id,
+            runtime=ddo_kernel.runtime,
+        )["demand_id"]
+        advance_demand_selection(
+            connection, "ddo-test", name, demand, expected_demand_id=None, expected_generation=0
+        )
+
+    def acquire():
+        with ddo_kernel.engine.begin() as connection:
+            planner = DemandPlanner(ddo_kernel.model, DataOperationStorage(connection))
+            return planner.resume(demand)
+
+    def matches(row, operation, root):
+        return (
+            row["operation_id"] == operation
+            and row["subject"] == root.subject
+            and row["original_source"] == root.original_source
+            and row["analyzed_scope"] == json.loads(root.analyzed_scope)
+        )
+
+    def fate(snapshot, operation, root):
+        (row,) = [row for row in snapshot["obligations"] if matches(row, operation, root)]
+        return row["fate"]
+
+    def execute(operation, root, value):
+        snapshot = acquire()
+        (obligation,) = [row for row in snapshot["obligations"] if matches(row, operation, root)]
+        with ddo_kernel.engine.begin() as connection:
+            planner = DemandPlanner(ddo_kernel.model, DataOperationStorage(connection))
+            (work,) = planner.ready({**snapshot, "obligations": [obligation]}, authorization=b"{}")
+        complete_ready(ddo_kernel, work, value=value)
+        return work
+
+    def governed():
+        with public_reader.begin() as connection:
+            return DataOperationStorage(connection).read_governed_selection(
+                cast(
+                    WireReadGovernedSelectionRequest,
+                    {
+                        "project_id": "ddo-test",
+                        "selection_name": name,
+                        "scope": {
+                            "operation_id": CONSUMER,
+                            "subject": focus.subject,
+                            "original_source": focus.original_source,
+                            "analyzed_scope": {"focus": True},
+                        },
+                    },
+                )
+            )
+
+    assert governed()["state"] == "Unknown"
+    execute(PRODUCER, roots["left"], 41)
+    work = execute(CONSUMER, focus, 99)
+    assert {
+        role.role: (member.original_source, member.support_references, member.producer_output)
+        for role in work.binding_result.roles
+        for member in role.members
+    } == {
+        role: (source.entry.original_source, (source.proof.support,), source.proof.output)
+        for role, source in sources.items()
+    }
+    before = acquire()
+    assert fate(before, CONSUMER, focus) == "fulfilled"
+    assert fate(before, PRODUCER, roots["left"]) == "fulfilled"
+    assert fate(before, PRODUCER, roots["right"]) != "fulfilled"
+    assert governed()["state"] == "Pending"
+
+    execute(PRODUCER, roots["right"], 42)
+    after = acquire()
+    assert fate(after, PRODUCER, roots["right"]) == "fulfilled"
+    assert fate(after, PRODUCER, focus) != "fulfilled"
+    assert fate(after, PRODUCER, left_sibling) != "fulfilled"
+    fresh = governed()
+    assert fresh["state"] == "Fresh"
+    assert fresh["demand_id"] == demand and fresh["selection_generation"] == 1
 
 
 def _member_source_recipe():

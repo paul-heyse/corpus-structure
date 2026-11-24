@@ -352,7 +352,7 @@ classes:
       primary_key: {unique_key_slots: [product_id, member_id]}
     annotations:
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
-      ph:indexes: {"tag":"ph:indexes","value":[["product_id","subject","kind_contract"]]}
+      ph:indexes: {"tag":"ph:indexes","value":[["product_id","subject","kind_contract"],["product_id","kind_contract","member_id"]]}
       ph:immutability: intrinsic
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id"],"target":"kb.data_product.id"},{"columns":["kind_contract"],"target":"sem.data_kind_contract.kind_contract"}]}
   data_execution_origin:

@@ -248,6 +248,34 @@ def read_demand_result(
     return page
 
 
+def acquire_selected_cut(
+    connection,
+    demand_id: str,
+    *,
+    project_id: str,
+    read_id: str | None = None,
+    scope: Mapping[str, Any] | None = None,
+    max_bytes: int = 8 * 1024 * 1024,
+) -> CutSelection:
+    """Acquire or reopen a full selected cut without examining output addresses."""
+    from .data_operation_storage import DataOperationStorage
+
+    if not demand_id or not project_id:
+        raise ValueError("selected cut requires explicit demand and project")
+    request: dict[str, Any] = dict(
+        demand_id=demand_id, project_id=project_id, scope=dict(scope or {}), max_bytes=max_bytes
+    )
+    if read_id is not None:
+        request["read_id"] = read_id
+    cut = CutSelection.from_native(DataOperationStorage(connection)._acquire_read_context(request))
+    record = cut.record
+    if record["demand_id"] != demand_id or record["project_id"] != project_id:
+        raise ValueError("native selected cut differs from its demand or project")
+    if read_id is not None and record["read_id"] != read_id:
+        raise ValueError("native selected cut differs from its exact acquisition")
+    return cut
+
+
 def read_selected_answer(
     connection,
     program: Literal[

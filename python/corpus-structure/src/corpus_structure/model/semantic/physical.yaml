@@ -1683,6 +1683,22 @@ classes:
       ph:immutability: immutable
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id"],"target":"ops.pdf_stage_build.build_id"}]}
+  pdf_record_region_address:
+    description: Physical page and provenance ordinal of an admitted item extent.
+    in_subset: [kb]
+    attributes:
+      product_id: {range: string, required: true}
+      revision_id: {range: string, required: true}
+      page_no: {range: integer, required: true}
+      pointer: {range: string, required: true}
+      region_index: {range: integer, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [product_id, revision_id, page_no, pointer, region_index]}
+      item_region: {unique_key_slots: [product_id, revision_id, pointer, region_index]}
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id","revision_id","pointer"],"target":"kb.pdf_record_access.product_id,revision_id,pointer"}]}
   pdf_record_report_item:
     description: Pointer membership of an exact native diagnostic report occurrence.
     in_subset: [kb]

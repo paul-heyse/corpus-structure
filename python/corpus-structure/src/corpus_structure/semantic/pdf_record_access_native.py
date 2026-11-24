@@ -215,7 +215,36 @@ def prepare_pdf_access_statements(model: MetaData, build):
         .from_select([col.name for col in ordered.selected_columns], ordered)
         .on_conflict_do_nothing(),
         insert(pages).from_select(list(pages.c.keys()), dimensions).on_conflict_do_nothing(),
+        prepare_pdf_region_addresses(model, build),
         _prepare_pdf_report_items(model, build),
+    )
+
+
+def prepare_pdf_region_addresses(model: MetaData, build=None):
+    """Index retained provenance membership without copying coordinate values."""
+    access = model.tables["kb.pdf_record_access"]
+    addresses = model.tables["kb.pdf_record_region_address"]
+    provenance = (
+        func.jsonb_array_elements(
+            func.coalesce(access.c.native_json["prov"], cast(literal("[]"), JSONB()))
+        )
+        .table_valued(column("value", JSONB()), with_ordinality="ordinality")
+        .render_derived()
+        .lateral("provenance")
+    )
+    rows = select(
+        access.c.product_id,
+        access.c.revision_id,
+        cast(provenance.c.value["page_no"].astext, BigInteger()),
+        access.c.pointer,
+        cast(provenance.c.ordinality, BigInteger()) - 1,
+    ).select_from(access.join(provenance, true()))
+    if build is not None:
+        rows = rows.where(access.c.product_id == build, access.c.revision_id == build)
+    return (
+        insert(addresses)
+        .from_select(["product_id", "revision_id", "page_no", "pointer", "region_index"], rows)
+        .on_conflict_do_nothing()
     )
 
 
@@ -265,25 +294,17 @@ def _prepare_pdf_report_items(model: MetaData, build):
 
 
 def pdf_region_view(model: MetaData) -> Select:
-    """Expand each admitted provenance member and join its published physical page."""
+    """Seek by page or pointer before obtaining the exact admitted provenance value."""
     access = model.tables["kb.pdf_record_access"]
+    addresses = model.tables["kb.pdf_record_region_address"]
     pages = model.tables["kb.pdf_record_page_access"]
-    provenance = (
-        func.jsonb_array_elements(
-            func.coalesce(access.c.native_json["prov"], cast(literal("[]"), JSONB()))
-        )
-        .table_valued(column("value", JSONB()), with_ordinality="ordinality")
-        .render_derived()
-        .lateral("provenance")
-    )
-    bbox = provenance.c.value["bbox"]
-    page_no = cast(provenance.c.value["page_no"].astext, BigInteger())
+    bbox = access.c.native_json["prov"][cast(addresses.c.region_index, Integer())]["bbox"]
     return select(
-        access.c.product_id,
-        access.c.revision_id,
-        access.c.pointer,
-        (cast(provenance.c.ordinality, BigInteger()) - 1).label("region_index"),
-        pages.c.page_no,
+        addresses.c.product_id,
+        addresses.c.revision_id,
+        addresses.c.pointer,
+        addresses.c.region_index,
+        addresses.c.page_no,
         pages.c.page_width,
         pages.c.page_height,
         *(
@@ -295,12 +316,19 @@ def pdf_region_view(model: MetaData) -> Select:
             Text(),
         ).label("origin"),
     ).select_from(
-        access.join(provenance, true()).join(
+        addresses.join(
+            access,
+            and_(
+                access.c.product_id == addresses.c.product_id,
+                access.c.revision_id == addresses.c.revision_id,
+                access.c.pointer == addresses.c.pointer,
+            ),
+        ).join(
             pages,
             and_(
-                pages.c.product_id == access.c.product_id,
-                pages.c.revision_id == access.c.revision_id,
-                pages.c.page_no == page_no,
+                pages.c.product_id == addresses.c.product_id,
+                pages.c.revision_id == addresses.c.revision_id,
+                pages.c.page_no == addresses.c.page_no,
             ),
         )
     )

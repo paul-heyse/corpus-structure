@@ -378,16 +378,42 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
             if rule.id == "segment.sentences/token-sentence-membership"
             and rule.kind_contract == annotation.row["kind_contract"]
         ]
+        (layout_rule,) = [
+            rule
+            for rule in kernel.model.rules
+            if rule.id == "segment.sentences/source-layout"
+            and rule.kind_contract == annotation.row["kind_contract"]
+        ]
         establishment = table("kb.data_validity_establishment")
         with kernel.engine.connect() as connection:
-            premise = connection.execute(
-                select(establishment.c.premise).where(
-                    establishment.c.rule_fingerprint == rule.fingerprint,
-                    establishment.c.derivation_id == annotation.row["derivation_id"],
-                    establishment.c.role == "result",
-                    establishment.c.position == 0,
+            premises = dict(
+                connection.execute(
+                    select(establishment.c.rule_fingerprint, establishment.c.premise).where(
+                        establishment.c.rule_fingerprint.in_(
+                            (rule.fingerprint, layout_rule.fingerprint)
+                        ),
+                        establishment.c.derivation_id == annotation.row["derivation_id"],
+                        establishment.c.role == "result",
+                        establishment.c.position == 0,
+                    )
+                ).all()
+            )
+            captured_rules = table("sem.data_rule")
+            base_layout_premise = connection.scalar(
+                select(
+                    func.ops.ddo_rule_premise(
+                        captured_rules.c.specification,
+                        annotation.row["product_id"],
+                        None,
+                        None,
+                        None,
+                    )
+                ).where(
+                    captured_rules.c.release_id == page.cut.record["release_id"],
+                    captured_rules.c.rule_id == layout_rule.id,
                 )
-            ).scalar_one()
+            )
+        assert base_layout_premise and base_layout_premise != premises[layout_rule.fingerprint]
 
         address: dict[str, Any] = dict(
             project_id=PROJECT,
@@ -395,7 +421,13 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
             product_id=annotation.row["product_id"],
             partition_key=annotated["partition_key"],
         )
-        proof_key = dict(rule_fingerprint=rule.fingerprint, premise=premise)
+        proof_key = dict(rule_fingerprint=rule.fingerprint, premise=premises[rule.fingerprint])
+        layout_key = dict(
+            rule_fingerprint=layout_rule.fingerprint, premise=premises[layout_rule.fingerprint]
+        )
+        provenance = [
+            dict(derivation_id=annotation.row["derivation_id"], role="result", position=0)
+        ]
         initial = initial_cuts[demand_id]
         with kernel.purpose("read").begin() as connection:
             absent = read_selected_answer(
@@ -414,17 +446,26 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
                 connection, "read_selected_proofs", demand_id, premises=[proof_key], **pinned
             )
             assert established["cut"] == page.cut.record
-            assert established["rows"] == [
-                dict(
-                    proof_key,
-                    provenance=[
-                        dict(
-                            derivation_id=annotation.row["derivation_id"], role="result", position=0
-                        )
-                    ],
-                )
-            ]
+            assert established["rows"] == [dict(proof_key, provenance=provenance)]
             assert established["answer_after"] is None
+            whole_product = {key: value for key, value in pinned.items() if key != "partition_key"}
+            for read_id, expected in (
+                (initial.record["read_id"], []),
+                (page.cut.record["read_id"], [dict(layout_key, provenance=provenance)]),
+            ):
+                observed = read_selected_answer(
+                    connection,
+                    "read_selected_proofs",
+                    demand_id,
+                    premises=[layout_key, dict(layout_key, premise=base_layout_premise)],
+                    **dict(whole_product, read_id=read_id),
+                )
+                assert observed["rows"] == expected
+                assert observed["answer_after"] is None
+            misaddressed = read_selected_answer(
+                connection, "read_selected_proofs", demand_id, premises=[layout_key], **pinned
+            )
+            assert misaddressed["rows"] == []
 
             header = read_selected_answer(
                 connection, "read_selected_partitions", demand_id, collection="rows", **pinned
@@ -455,6 +496,15 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
                 )
             ]
             assert exact["answer_after"] is None
+            upstream = read_selected_answer(
+                connection,
+                "read_selected_partitions",
+                demand_id,
+                collection="rows",
+                item_key=["sentence", 0],
+                **dict(pinned, use_id=canonical.row["use_id"]),
+            )
+            assert upstream == exact
             missing = read_selected_answer(
                 connection,
                 "read_selected_partitions",

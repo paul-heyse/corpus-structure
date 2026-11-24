@@ -4,16 +4,29 @@ import json
 from dataclasses import replace
 from typing import cast
 
+import pyarrow as pa
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic._data_operation_wire import WireReadDemandResultRequest
 from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
+from corpus_structure.semantic.data_operation_partitions import (
+    PartitionCommitment,
+    partition_group_digests,
+    partition_header,
+    partition_packet,
+)
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.data_operation_version import MODEL_VERSION
+from corpus_structure.semantic.demand_results import read_demand_result, read_selected_answer
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.population_transfer import (
+    PopulationUploadPartition,
+    population_item_write_profile,
+    population_upload_batches,
+)
 from semantic.data_operation_declaration_support import source_declaration
 from semantic.data_operation_demand_support import attach, claim, publish, retain
 from semantic.data_operation_kernel_support import MANIFEST, KernelRecipe, prepare_kernel
@@ -279,3 +292,118 @@ def test_selected_product_scope_avoids_unreturned_large_sibling_body(ddo_kernel)
     returned = [p for use in scoped["uses"] for p in use["products"]]
     assert [p["product_id"] for p in returned] == [selected]
     assert len(json.dumps(scoped)) < 65536
+
+
+def protected_partition_recipe():
+    declaration = source_declaration()
+    declaration["roles"][0]["kind"] = "urn:body-privacy:ProtectedPartition"
+    return KernelRecipe(
+        "protected-partition-read",
+        """id: urn:body-privacy
+name: target
+prefixes: {p: 'urn:body-privacy:'}
+default_prefix: p
+types:
+  integer: {base: int, uri: 'http://www.w3.org/2001/XMLSchema#integer'}
+classes:
+  ProtectedItem:
+    attributes:
+      ordinal: {range: integer, required: true}
+      value: {range: integer, required: true}
+  ProtectedPartition:
+    annotations: {cs:data_universe: evaluator}
+    attributes:
+      rows:
+        range: ProtectedItem
+        inlined: true
+        multivalued: true
+        annotations:
+          cs:collection: '{"unit":"partitioned","partition_key":"block","item_order":["ordinal"],"address":["ordinal"],"field_groups":{"value":["value"]}}'
+""",
+        canonical_bytes({"version": MODEL_VERSION, "operations": [declaration]}),
+        MANIFEST,
+    )
+
+
+@pytest.mark.parametrize("ddo_kernel", [protected_partition_recipe()], indirect=True)
+def test_native_selected_protected_partition_is_available_only_to_evaluator(ddo_kernel):
+    evaluated = replace(ddo_kernel, engine=ddo_kernel.purpose("evaluate"))
+    demand, _, _, attached = attach(evaluated)
+    fence = claim(evaluated, attached)
+    rows = [{"ordinal": 0, "value": 918273}, {"ordinal": 1, "value": 17}]
+    packets = [
+        partition_packet("rows", str(ordinal), ordinal, ordinal, ordinal + 1, [row])
+        for ordinal, row in enumerate(rows)
+    ]
+    partitions = [
+        PopulationUploadPartition(
+            PartitionCommitment(
+                "rows",
+                packet["partition_key"],
+                ordinal,
+                ordinal,
+                ordinal + 1,
+                packet["partition_digest"],
+                1,
+            ),
+            partition_group_digests([row], {"value": ["value"]}),
+            pa.table(
+                {
+                    "item_ordinal": [0],
+                    "canonical_text": [canonical_bytes(semantic_value(row)).decode()],
+                }
+            ),
+        )
+        for ordinal, (packet, row) in enumerate(zip(packets, rows, strict=True))
+    ]
+    profile = population_item_write_profile(release_id=ddo_kernel.prepared.release_id)
+    contract = ddo_kernel.identities["urn:body-privacy:ProtectedPartition", "kind"]
+
+    def completion(value):
+        value["outputs"][0]["product"].update(
+            kind_contract=contract,
+            body=semantic_value({"rows": partition_header(packets)}),
+            partitions=[partition.manifest() for partition in partitions],
+        )
+
+    # Staging COPY is limited to the writer purpose. The administrative fixture
+    # supplies the protected upload while publication uses the actual evaluator.
+    with ddo_kernel.engine.begin() as connection:
+        DataOperationStorage(connection).prepare_population_upload(
+            fence,
+            profile,
+            population_upload_batches(profile, (("result", 0, part) for part in partitions)),
+            release_id=ddo_kernel.prepared.release_id,
+        )
+        intent = retain(evaluated, fence, mutate=completion, connection=connection)
+    publish(evaluated, fence, intent)
+
+    def read(connection, **options):
+        return read_selected_answer(
+            connection, "read_selected_partitions", demand["demand_id"], **options
+        )
+
+    with evaluated.engine.begin() as connection:
+        page = read_demand_result(connection, demand["demand_id"], project_id="ddo-test")
+        (header,) = page.members()
+        address = dict(
+            project_id="ddo-test",
+            use_id=header["use_id"],
+            product_id=header["product_id"],
+            collection="rows",
+        )
+        pinned = dict(address, read_id=page.cut.record["read_id"])
+        first = read(connection, limit=1, **pinned)
+        second = read(connection, limit=1, after=first["answer_after"], **pinned)
+        assert first["cut"] == second["cut"] == page.cut.record
+        assert [result["rows"][0]["partition_key"] for result in (first, second)] == ["0", "1"]
+        assert first["answer_after"] == [0, "0"] and second["answer_after"] is None
+        exact = read(connection, partition_key="0", item_key=[0], fields=["value"], **pinned)
+        (item,) = exact["rows"]
+        assert item["fields"] == {"value": semantic_value(918273)}
+
+    reader = ddo_kernel.purpose("read")
+    for requested in (address, pinned):
+        with reader.begin() as connection, pytest.raises(DBAPIError, match="evaluator") as caught:
+            read(connection, partition_key="0", item_key=[0], fields=["value"], **requested)
+        assert getattr(caught.value.orig, "sqlstate", None) == "42501"

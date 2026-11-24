@@ -22,6 +22,7 @@ from corpus_structure.schema.integrity import role_name
 
 from .data_operation_native_identity import native_identity_field
 from .data_operation_projections import (
+    cut_selection_projection,
     read_access_universes,
     read_page,
     read_scope_rows,
@@ -246,10 +247,19 @@ def _read_demand_result(model, *, context_only=False, scheduler=False, answer=No
             *(
                 (
                     _refusal(
-                        project.is_distinct_from(payload["project_id"].astext),
+                        and_(
+                            or_(literal(answer is not None), payload.has_key("project_id")),
+                            project.is_distinct_from(payload["project_id"].astext),
+                        ),
                         "selected read is outside its project",
                         "42501",
                     ),
+                )
+                if answer is not None or context_only
+                else ()
+            ),
+            *(
+                (
                     _refusal(
                         and_(payload.has_key("answer_after"), ~acquisition),
                         "a selected answer continuation requires its acquired cut",
@@ -449,22 +459,15 @@ def _read_demand_result(model, *, context_only=False, scheduler=False, answer=No
             ),
             *(
                 (
-                    Return(
-                        func.jsonb_build_object(
-                            "demand_id",
-                            demand_id,
-                            "selection",
-                            read_selection(),
-                            "trust_snapshot",
-                            snapshot,
-                            "read_id",
-                            pinned("id"),
-                            "read_snapshot",
-                            pinned("read_snapshot"),
-                            "frontier_at",
-                            pinned("frontier_at"),
-                        )
+                    SelectInto(cut_selection_projection(), ("results",)),
+                    _refusal(
+                        and_(
+                            payload.has_key("max_bytes"),
+                            func.octet_length(func.data.canonical_json(results)) > max_bytes,
+                        ),
+                        "complete native selected cut exceeds max_bytes",
                     ),
+                    Return(results),
                 )
                 if context_only
                 else (

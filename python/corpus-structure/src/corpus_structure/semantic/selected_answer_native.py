@@ -36,6 +36,7 @@ from .data_operation_projections import (
     _visible,
 )
 from .native_program import core_reference
+from .rule_establishment_native import _input_reads, _rule_premise, _with_input_reads
 
 
 def _selected_use_rows(model, payload):
@@ -110,8 +111,8 @@ def _page(records, payload, *, truncated=None):
     return select(result)
 
 
-def _output_address_window(model, payload, *, capacity):
-    """Visit output prefixes in index order, retaining at most one shared address window."""
+def _output_address_window(model, payload, *, capacity, prefixes):
+    """Bound both candidate addresses and visits to output prefixes in key order."""
     outputs = model.tables["ops.data_derivation_output"]
     members = model.tables["kb.data_product_member"]
     products = model.tables["kb.data_product"]
@@ -128,6 +129,19 @@ def _output_address_window(model, payload, *, capacity):
             or_(~payload.has_key("kind_contract"), kind == payload["kind_contract"].astext),
             or_(~payload.has_key("kind_contracts"), payload["kind_contracts"].has_key(kind)),
         )
+
+    has_kind_filter = or_(payload.has_key("kind_contract"), payload.has_key("kind_contracts"))
+    kind_list = (
+        func.jsonb_array_elements_text(payload["kind_contracts"])
+        .table_valued(column("kind_contract", Text()))
+        .render_derived(name="answer_requested_kind_list")
+    )
+    kinds = union_all(
+        select(payload["kind_contract"].astext.label("kind_contract")).where(
+            payload.has_key("kind_contract"), requested_kind(payload["kind_contract"].astext)
+        ),
+        select(kind_list.c.kind_contract).where(~payload.has_key("kind_contract")),
+    ).cte("answer_requested_kinds")
 
     requested_obligation = (
         select(demand_uses.c.obligation_id)
@@ -150,7 +164,9 @@ def _output_address_window(model, payload, *, capacity):
         literal(False).label("parent"),
         empty_members.label("member_ids"),
         literal(capacity).label("remaining"),
+        literal(0).label("visited"),
         literal(True).label("initial"),
+        literal(False).label("advance_obligation"),
     ).cte("answer_address_steps", recursive=True)
     s = steps.c
     latest = _latest_read_use(model, scope)
@@ -162,6 +178,7 @@ def _output_address_window(model, payload, *, capacity):
         select(outputs)
         .where(
             outputs.c.derivation_id == latest.c.derivation_id,
+            latest.c.fate == "fulfilled",
             coordinate
             >= tuple_(
                 case((same_use, s.role), else_=""),
@@ -170,25 +187,6 @@ def _output_address_window(model, payload, *, capacity):
             or_(
                 ~exact_cursor_output,
                 and_(s.initial, outputs.c.product_id >= s.product_id),
-            ),
-            or_(
-                ~payload.has_key("product_id"), outputs.c.product_id == payload["product_id"].astext
-            ),
-            or_(
-                and_(want_members, ~payload.has_key("member_id")),
-                and_(
-                    outputs.c.member_id.is_(None),
-                    or_(
-                        want_members,
-                        select(1)
-                        .where(
-                            products.c.id == outputs.c.product_id,
-                            requested_kind(products.c.kind_contract),
-                        )
-                        .exists(),
-                    ),
-                ),
-                and_(want_members, outputs.c.member_id == payload["member_id"].astext),
             ),
         )
         .order_by(outputs.c.role, outputs.c.position)
@@ -208,13 +206,22 @@ def _output_address_window(model, payload, *, capacity):
             output.c.product_id,
             output.c.member_id.label("output_member_id"),
         )
-        .select_from(scope.join(latest, literal(True)).join(output, literal(True)))
+        .select_from(
+            scope.outerjoin(
+                latest,
+                and_(
+                    or_(scope.c.id > s.obligation_id, latest.c.id >= s.use_id),
+                    or_(~payload.has_key("use_id"), latest.c.id == requested_use),
+                ),
+            ).outerjoin(output, literal(True))
+        )
         .where(
             scope.c.id >= s.obligation_id,
-            or_(scope.c.id > s.obligation_id, latest.c.id >= s.use_id),
+            or_(
+                scope.c.id > s.obligation_id,
+                and_(scope.c.id == s.obligation_id, ~s.advance_obligation),
+            ),
             or_(~payload.has_key("use_id"), scope.c.id == requested_obligation),
-            or_(~payload.has_key("use_id"), latest.c.id == requested_use),
-            latest.c.fate == "fulfilled",
         )
         .order_by(scope.c.id)
         .limit(1)
@@ -222,6 +229,20 @@ def _output_address_window(model, payload, *, capacity):
         .lateral("answer_next_prefix")
     )
     p = prefix.c
+    eligible_prefix = and_(
+        s.visited < prefixes,
+        p.product_id.is_not(None),
+        or_(~payload.has_key("product_id"), p.product_id == payload["product_id"].astext),
+        or_(
+            p.output_member_id.is_(None),
+            and_(
+                want_members,
+                or_(
+                    ~payload.has_key("member_id"), p.output_member_id == payload["member_id"].astext
+                ),
+            ),
+        ),
+    )
     resumes_members = and_(
         s.initial,
         p.obligation_id == s.obligation_id,
@@ -231,6 +252,7 @@ def _output_address_window(model, payload, *, capacity):
         p.product_id == s.product_id,
     )
     parent = and_(
+        eligible_prefix,
         p.output_member_id.is_(None),
         ~payload.has_key("member_id"),
         ~resumes_members,
@@ -247,18 +269,41 @@ def _output_address_window(model, payload, *, capacity):
         .where(
             members.c.product_id == p.product_id,
             members.c.member_id > func.coalesce(lower_member, ""),
-            requested_kind(members.c.kind_contract),
+            eligible_prefix,
             want_members,
         )
         .correlate(steps, prefix)
     )
-    point_member = eligible_member.where(members.c.member_id == exact_member, member_slots > 0)
+    point_member = eligible_member.where(
+        members.c.member_id == exact_member,
+        member_slots > 0,
+        requested_kind(members.c.kind_contract),
+    )
     member_page = (
-        eligible_member.where(exact_member.is_(None))
+        eligible_member.where(exact_member.is_(None), ~has_kind_filter)
         .order_by(members.c.member_id)
         .limit(func.greatest(member_slots, 0))
     )
-    matched_members = union_all(point_member, member_page).subquery("answer_next_members")
+    kind_page = (
+        eligible_member.where(
+            exact_member.is_(None), members.c.kind_contract == kinds.c.kind_contract
+        )
+        .order_by(members.c.member_id)
+        .limit(func.greatest(member_slots, 0))
+        .correlate(kinds)
+        .lateral("answer_kind_members")
+    )
+    # Each kind can seek its own index range. Merge the IDs before a body read.
+    filtered_page = (
+        select(kind_page.c.member_id)
+        .select_from(kinds.join(kind_page, literal(True)))
+        .order_by(kind_page.c.member_id)
+        .limit(func.greatest(member_slots, 0))
+        .correlate(steps, prefix)
+    )
+    matched_members = union_all(point_member, member_page, filtered_page).subquery(
+        "answer_next_members"
+    )
     batch = (
         select(
             func.coalesce(
@@ -285,13 +330,19 @@ def _output_address_window(model, payload, *, capacity):
             parent,
             batch.c.member_ids,
             member_slots - func.cardinality(batch.c.member_ids),
+            s.visited
+            + case(
+                (or_(p.derivation_id.is_not(None), p.obligation_id != s.obligation_id), 1), else_=0
+            ),
             literal(False),
+            p.derivation_id.is_(None),
         )
         .select_from(steps.join(prefix, literal(True)).join(batch, literal(True)))
-        .where(s.remaining > 0)
+        .where(s.remaining > 0, s.visited <= prefixes)
     )
 
     s = steps.c
+    more_prefixes = select(1).where(s.visited > prefixes).exists()
     addresses = union_all(
         select(*s, cast(null(), Text()).label("member_id")).where(s.parent),
         select(*s, func.unnest(s.member_ids, type_=Text()).label("member_id")).where(~s.initial),
@@ -313,7 +364,7 @@ def _output_address_window(model, payload, *, capacity):
         "original_source",
         "analyzed_scope",
     )
-    return (
+    candidates = (
         select(
             a.use_id,
             a.obligation_id,
@@ -344,6 +395,7 @@ def _output_address_window(model, payload, *, capacity):
         .cte("answer_candidate_addresses")
         .prefix_with("MATERIALIZED")
     )
+    return candidates, more_prefixes
 
 
 def outputs_answer(model, payload):
@@ -362,8 +414,12 @@ def outputs_answer(model, payload):
     # Work bounds and delivery bounds are independent. A cheap extra address
     # proves truncation without opening an unexamined body's classification.
     examined = 4096
-    candidates = _output_address_window(model, payload, capacity=examined + 1)
-    truncated = select(func.count()).select_from(candidates).scalar_subquery() > examined
+    candidates, more_prefixes = _output_address_window(
+        model, payload, capacity=examined + 1, prefixes=examined
+    )
+    truncated = or_(
+        more_prefixes, select(func.count()).select_from(candidates).scalar_subquery() > examined
+    )
     window = (
         select(candidates)
         .order_by(candidates.c.key)
@@ -929,9 +985,16 @@ def proofs_answer(model, payload):
             fingerprint.label("rule_fingerprint"),
             premise.label("premise"),
             declared["checker"].astext.label("checker"),
+            _input_reads(declared).label("input_reads"),
+            case(
+                (
+                    and_(original_visible, scope_matches),
+                    _rule_premise(declared, product, source_partition, target, target_partition),
+                ),
+            ).label("base_premise"),
         )
         .select_from(
-            requested.join(rules, rules.c.specification["fingerprint"].astext == fingerprint)
+            requested.join(rules, rules.c.fingerprint == fingerprint)
             .join(products, products.c.kind_contract == rules.c.kind_contract)
             .join(
                 proofs, and_(proofs.c.rule_fingerprint == fingerprint, proofs.c.premise == premise)
@@ -945,19 +1008,10 @@ def proofs_answer(model, payload):
                 func.jsonb_build_array(fingerprint, premise, type_=JSONB())
                 > payload["answer_after"],
             ),
-            case(
-                (
-                    and_(original_visible, scope_matches),
-                    func.ops.ddo_rule_premise(
-                        declared, product, source_partition, target, target_partition
-                    )
-                    == premise,
-                ),
-                else_=False,
-            ),
         )
         .distinct()
         .cte("answer_checked_proofs")
+        .prefix_with("MATERIALIZED")
     )
     issuer_is_visible = (
         select(1)
@@ -966,24 +1020,44 @@ def proofs_answer(model, payload):
             authorized.c.role == p.role,
             authorized.c.position == p.position,
             authorized.c.product_id == product,
+            authorized.c.output_member_id.is_(None),
         )
+        .correlate(provenance)
         .exists()
     )
-    proof_match = and_(
-        p.rule_fingerprint == matching.c.rule_fingerprint,
-        p.premise == matching.c.premise,
-        _visible(provenance),
-        ~_public_authority_leaf(p.derivation_id),
-        issuer_is_visible,
-    )
+
+    def proof_match(address):
+        return and_(
+            p.rule_fingerprint == address.rule_fingerprint,
+            p.premise == address.premise,
+            case(
+                (
+                    and_(
+                        _visible(provenance),
+                        ~_public_authority_leaf(p.derivation_id),
+                        issuer_is_visible,
+                    ),
+                    p.premise
+                    == _with_input_reads(
+                        model, address.base_premise, address.input_reads, p.derivation_id
+                    ),
+                ),
+                else_=False,
+            ),
+        )
+
     key = func.jsonb_build_array(matching.c.rule_fingerprint, matching.c.premise, type_=JSONB())
     proof_window = (
         select(matching, key.label("key"))
         .where(
+            matching.c.base_premise.is_not(None),
             or_(
-                matching.c.checker == "admission",
-                select(1).where(proof_match).correlate(matching).exists(),
-            )
+                and_(
+                    matching.c.checker == "admission",
+                    matching.c.premise == matching.c.base_premise,
+                ),
+                select(1).where(proof_match(matching.c)).correlate(matching).exists(),
+            ),
         )
         .order_by(key)
         .limit(_var("lim", BigInteger) + 1)
@@ -999,13 +1073,7 @@ def proofs_answer(model, payload):
                 p.position,
             )
         )
-        .where(
-            p.rule_fingerprint == proof_window.c.rule_fingerprint,
-            p.premise == proof_window.c.premise,
-            _visible(provenance),
-            ~_public_authority_leaf(p.derivation_id),
-            issuer_is_visible,
-        )
+        .where(proof_match(proof_window.c))
         .correlate(proof_window)
         .scalar_subquery()
     )

@@ -72,27 +72,33 @@ class DataOperationStorage(DataOperationCalls):
         self, demand_id: str, read_id: str, trust_snapshot: dict
     ) -> AcquiredDataReadContext:
         """Authenticate the exact read without constructing an output frontier."""
+        acquired = self._acquire_read_context(
+            {"demand_id": demand_id, "trust_snapshot": trust_snapshot, "read_id": read_id}
+        )
+        context = _READ_CONTEXT.validate_python(
+            _read_context_validator()(
+                {name: acquired[name] for name in AcquiredDataReadContext.__annotations__}
+            ),
+            strict=True,
+        )
+        if context["read_id"] != read_id or context["demand_id"] != demand_id:
+            raise ValueError("native read context differs from its exact acquisition")
+        return context
+
+    def _acquire_read_context(self, request: dict[str, Any]) -> dict[str, Any]:
         acquired = self.connection.scalar(
             select(
                 cast(
                     func.ops.acquire_data_read_context(bindparam("read_context", type_=JSONB)), Text
                 )
             ),
-            {
-                "read_context": {
-                    "demand_id": demand_id,
-                    "trust_snapshot": trust_snapshot,
-                    "read_id": read_id,
-                }
-            },
+            {"read_context": request},
         )
         if not isinstance(acquired, str):
             raise ValueError("native read context must retain its exact JSON text")
-        context = _READ_CONTEXT.validate_python(
-            _read_context_validator()(native_json_loads(acquired)), strict=True
-        )
-        if context["read_id"] != read_id or context["demand_id"] != demand_id:
-            raise ValueError("native read context differs from its exact acquisition")
+        context = native_json_loads(acquired)
+        if not isinstance(context, dict):
+            raise ValueError("native read context requires an object")
         return context
 
     def _invoke(self, name: str, payload: Any) -> Any:
