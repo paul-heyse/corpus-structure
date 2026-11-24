@@ -1,6 +1,6 @@
 # The kernel trial
 
-**Status:** SBX-18 and SBX-19 have open completion obligations. The typed scoped-relations route is adopted. Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
+**Status:** SBX-18 and SBX-19 are accepted for development. Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
 This companion owns one kernel family rebuilt as set operations over tables, as a trial that
@@ -456,78 +456,92 @@ supplies the required columns, so this path keeps its existing transfer and type
 Predicate evidence is the next family to consider where a distinct trial of retained token
 partitions is scheduled through the existing decision route. SBX-20 retains stage installation.
 
-### Remaining SBX-18 completion obligations
+<a id="remaining-sbx-18-completion-obligations"></a>
+### SBX-18 completion evidence
 
 <a id="sbx-18-a1"></a>
-**SBX-18-A1 · Open implementation · Inspected · 2026-11-24.** Selected PDF source verification
-runs its oracle after closing the checkout with no analytical allocation. The child maps the
-captured IPC and uses the unallocated DuckDB connection, which lacks the job spill ceiling.
-Give this supported entry point an owned allocation for captured inputs, mapped buffers,
-engine workspace and spill through child exit. Its private mapped replay copy is created in
-child-owned temporary storage outside the job scratch. Keep that storage in parent-owned
-custody so forced child exit can release it. Verify release after success and cancellation.
-[Selected source verification](../../../python/corpus-structure/src/corpus_structure/serve/source_verification.py#L27) ·
-[Oracle spawn](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_publication.py#L404) ·
-[Private replay copy](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_replay_transport.py#L42) ·
-[Connection resource policy](../../../python/corpus-structure/src/corpus_structure/analytics.py#L274)
+**SBX-18-A1 · Tested · 2026-11-24.** Source verification captures its analytical settings,
+admits the combined family extent and engine workspace, and dispatches an explicitly
+allocated DB-free child. An existing demand lends its workspace exclusively through
+settlement. The parent keeps custody of the private replay copies and spill until child
+exit. The finite cancellation control reaped the child and removed its replay scratch
+(`95cc4fd3e5c54534898ee350dcd52531`). Selected-source verification and forced validation
+under the captured policy passed in the private installed cohort
+`2d18e1746d5b446f8dcf41b59d708390`.
+[Selected source verifier](../../../python/corpus-structure/src/corpus_structure/serve/source_verification.py) ·
+[Oracle admission](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_publication.py)
 
 <a id="sbx-18-a2"></a>
-**SBX-18-A2 · Open implementation and qualification · Inspected · 2026-11-24.** A stop or
-failure after the draft owner installs `.body`, `.arrow` and `.candidate` but before `.ack`
-can strand the files. The writer's cleanup removes the temporary path and candidate recovery
-requires an acknowledgment. Settle ownership and cleanup across the pre-ack seal, preserving
-the original bytes after a durable seal or uncertain native settlement. Carry borrower stop
-through the private upload copy and native COPY. These operations currently have no propagated
-active check. The native sentence case covers successful file-backed COPY and exact readback.
-Close I05 and I13 with the adopted
-carrier through the native consumer, including short or partially consumed readers, incomplete
-writes or seals, oversized refusal, cancellation and lost acknowledgment followed by recovery.
-Keep the existing independent byte and commitment checks.
-[Draft seal](../../../python/corpus-structure/src/corpus_structure/semantic/completion_drafts.py#L293) ·
-[Candidate lookup](../../../python/corpus-structure/src/corpus_structure/semantic/completion_drafts.py#L384) ·
-[Transactional COPY consumer](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py#L1457)
+**SBX-18-A2 · Tested · 2026-11-24.** The draft owner removes incomplete pre-ack files
+under its existing lock and recovers abandoned staging without deleting an active writer's
+file. Acknowledged bytes survive failures and uncertain native settlement. Population
+uploads propagate stop through the authenticated private copy and the owning Psycopg
+transaction. Finite seal and custody faults and live transaction cancellation passed.
+The first provider case in `4277f3bf31284a208e1f2a63e3f0a294` exposed a conflict between
+the upload activity check and the claim owner's uncertain-commit replay. The upload now
+checks managed stop and the transaction's borrower cancellation. PostgreSQL checks the
+claim when preparing upload scratch. The exact replay retains authority to compare the
+uploaded rows with the committed intent.
+The next attempt (`926e86ba334c49c28665be5d32e33103`) reached publication after the lost
+response. Its observation also counted the following canonical upload. The fixture now
+observes only the interrupted draft and its exact replays.
+`uv run ci test retry 93829a3f885f4c8d80133a772ebd9ed0 --lane ordinary --workers 1` passed
+`75752b95178e4c78ba982e08b47dacf9`. It cancelled actual file-backed COPY, retried the same sealed
+draft after rollback, lost a successful commit response, and replayed the identical upload
+under the original claim. The upload bytes, partition commitments and selected readback agreed.
+This closes I05/I13 and SBX-18 for development.
+[Draft seal and recovery](../../../python/corpus-structure/src/corpus_structure/semantic/completion_drafts.py) ·
+[Transactional COPY consumer](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py)
 
-**I14 · Open qualification · Inspected · 2026-11-24.** The two-worker control calls the pool
-directly, sets the cancellation flag and releases the admissions itself. Exercise serial and
-concurrent analytical jobs through normal dispatch, cancellation and handle retirement with
-actual spill or substantial sealed output and a partial reader. Verify that open readers,
-mapped inputs, scratch and reservations remain owned until physical release or handoff.
-[Two-worker control](../../../python/corpus-structure/tests/test_analytics.py#L154) ·
-[Production submission](../../../python/corpus-structure/src/corpus_structure/semantic/cpu_execution.py#L1104)
+**I14 · Tested · 2026-11-24.** The production CPU admission, captured dispatch and handle
+lifecycle passed serial and concurrent tests. One worker held a partial Arrow reader over
+real DuckDB spill while its sibling was interrupted. Readers, scratch and reservations
+retired through the normal handles. The separate managed-stop control interrupted the
+live retained-upload transaction, rolled it back and verified the next borrower.
+[Two-worker and fidelity control](../../../python/corpus-structure/tests/test_analytics.py)
 
 <a id="sbx-18-o10"></a>
-**O10 · Open qualification · Inspected · 2026-11-24.** The selected cohorts cover typed
-ordering, wide integer and canonical partition parity. Separate Arrow capture and transfer
-controls cover nanoseconds and decimal values. Account for admitted mixed precision and scale,
-wider lexical decimals, UTC nanoseconds and null versus absence on the adopted worker and
-carrier boundaries, including exact refusal where values fall outside the declared shape.
-[Canonical parity control](../../../python/corpus-structure/tests/semantic/test_data_operation_population.py#L190) ·
-[Capture digest control](../../../python/corpus-structure/tests/semantic/test_capture_storage.py#L12)
+**O10 · Tested · 2026-11-24.** The dispatched analytical route preserved mixed decimal
+precision and scale, sub-microsecond UTC ticks, nulls and duplicate occurrences. Independent
+canonical partition expectations covered a wider lexical decimal, typed scalar distinctions
+and optional states. The Arrow COPY profile tests preserved PostgreSQL numeric digits and
+refused unsupported implicit timestamp narrowing. These controls passed by selected
+identity in `78aab57e41fd409fb23bf5a4597dd759`.
+[Canonical parity](../../../python/corpus-structure/tests/semantic/test_data_operation_population.py) ·
+[Exact COPY profiles](../../../python/corpus-structure/tests/semantic/test_arrow_transfer.py)
 
-### Remaining SBX-19 completion obligations
+<a id="remaining-sbx-19-completion-obligations"></a>
+### SBX-19 completion evidence
 
 <a id="sbx-19-a1"></a>
-**SBX-19-A1 · Open implementation · Inspected · 2026-11-24.** The installed operation still
-acquires its source mapping twice. The source cache computes its canonical key before lookup,
-and the frame serializes and decodes owned native columns before rebuilding a separate
-inventory. Reuse one authenticated acquisition for the frame and model-derived inventory.
-Batch the remaining per-item containment, table geometry and schematic matching, and
-same-parent formal-symbol questions. The supported method-level ordered witness also
-re-scans sibling and cue inputs per use. Retain lexical judgments and canonical identity in
-the Python seam. State the final named steps and preserve occurrence, extent, null and ordering
-semantics.
-[Acquisition](../../../python/corpus-structure/src/corpus_structure/semantic/scoped_products.py#L126) ·
-[Frame projection](../../../python/corpus-structure/src/corpus_structure/semantic/declared_record_sources.py#L192) ·
-[Structural matches](../../../python/corpus-structure/src/corpus_structure/methods/scoped_relations.py#L672) ·
-[Ordered witness](../../../python/corpus-structure/src/corpus_structure/methods/witnessed_source_links.py#L466)
+**SBX-19-A1 · Tested · 2026-11-24.** The installed method binds its frame directly from one
+authenticated acquisition and derives the source-piece field types from the admitted model.
+Scoped discovery reads the owned view. It batches pointer and extent containment, table
+counterparts, same-parent formal matching and ordered witness candidates. The final
+named steps are source and scope membership, navigation containment, table geometry and
+schematic pairing, formal symbol and witness matching, and participant and report assembly.
+Python preserves lexical and canonical identity decisions and the existing phase order.
+[Acquisition](../../../python/corpus-structure/src/corpus_structure/semantic/scoped_products.py) ·
+[Typed relations](../../../python/corpus-structure/src/corpus_structure/methods/scoped_inventory.py)
 
-**I06 · Open qualification · Inspected · 2026-11-24.** The four retained excerpts compare full
-report bytes with independent answers for the replaced question layer, using the same surrounding
-kernel. The installed fixture verifies the acquisition-to-artifact custody with controlled
-decoding and a table nomination. Complete the accepted acquired-route comparison on the final
-batched kernel. Include real-source inputs and the installed SBX-10 formula contexts with
-independent incumbent expectations for report bytes and exact reference provenance. Cover the
-remaining named steps and apply the production job lifetime and selected artifact controls to the
-completed route.
-[Reference comparison](../../../python/corpus-structure/tests/methods/test_scoped_inventory.py#L281) ·
-[Installed artifact control](../../../python/corpus-structure/tests/semantic/test_scoped_relational_trial_native.py#L93)
+**I06 · Tested · 2026-11-24.** Incumbent table, formula and Unicode report digests
+were captured before changing the scoped kernel. The candidate matches those commitments
+and the independent relational answers. The initial `64ade47001e249c6ba10e94948cf2e38`
+found the frozen-footnote regression, and the corrected cases passed in
+`78aab57e41fd409fb23bf5a4597dd759`. The installed private cohort
+`2d18e1746d5b446f8dcf41b59d708390` passed the complete artifact journey with a controlled
+decoder. The scoped report contains nonempty SBX-10 formula-symbol and declaration
+contributions. Artifact nomination follows the exact report occurrence and source member
+through publication, selected readback and verified detached reopen. The four retained-book
+comparisons passed by selected identity in `4277f3bf31284a208e1f2a63e3f0a294`.
+The first real fixture in `4277f3bf31284a208e1f2a63e3f0a294` reached native publication
+and hit its 120-second statement timeout while canonicalizing the three-page input.
+The second attempt (`926e86ba334c49c28665be5d32e33103`) reached the 64 MiB reply allowance
+in upstream construction on physical page 121. The smaller functional retry used the
+caption-bearing physical page 119. It passed genuine capture, publication, selected readback
+and verified detached reopen by selected identity in `93829a3f885f4c8d80133a772ebd9ed0`.
+The managed invocation was interrupted on its following COPY case, and `uv run ci results
+recover` settled custody with the completed scoped result. This closes SBX-19 for development.
+Larger-source qualification stays with SBX-22.
+[Incumbent and independent checks](../../../python/corpus-structure/tests/methods/test_scoped_inventory.py) ·
+[Installed journeys](../../../python/corpus-structure/tests/semantic/test_scoped_relational_trial_native.py)

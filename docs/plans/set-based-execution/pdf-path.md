@@ -1,6 +1,6 @@
 # The PDF path
 
-**Status:** SBX-14–16 accepted for development. SBX-17 has open completion obligations. Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
+**Status:** SBX-14–17 accepted for development. Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
 This companion owns the PDF path from an original to published records. It owns SBX-14 to SBX-17
@@ -559,31 +559,34 @@ genuine Standard and recognition reuse after policy remap, and historical author
 generation advance and withdrawal (`8dd7a7bfd13241d9bba9a3fa92589a42`, selected PDF identities).
 
 <a id="sbx-17-o09"></a>
-**O09 · Open · Inspected · 2026-11-24.** Both companion export and detached logical readback
-call `LogicalRows.write`, which still converts individual Arrow scalars and resolves key columns
-inside the row loop. Prepare logical values and key columns once per typed batch and keep the
-existing ordered, length-framed canonical encoder. Establish independent mixed-type digest
-parity across export and detached readback, preserving key refusal and batch invariance.
-[Logical row encoder](../../../python/corpus-structure/src/corpus_structure/semantic/capture_storage.py#L56) ·
-[Export and readback](../../../python/corpus-structure/src/corpus_structure/serve/companion_export.py#L194)
+**O09 · Tested · 2026-11-24.** Export and detached verification use the same logical row
+encoder. It resolves key columns once and prepares bounded slices by column before the
+existing ordered, length-framed fold. The independent mixed-type control covers signed
+zero, exponent floats, decimal scale, nanosecond ticks, binary, non-ASCII values, nulls,
+batch boundaries and strict key order. The installed companion export and reopen also
+passed (`2d18e1746d5b446f8dcf41b59d708390`).
+[Logical row encoder](../../../python/corpus-structure/src/corpus_structure/semantic/capture_storage.py)
 
 <a id="sbx-17-a1"></a>
-**SBX-17-A1 · Open · Inspected · 2026-11-24.** The keyed store still copies each Arrow binary
-scalar to Python `bytes` when certification and independent validation read it. Pass owned
-Arrow buffer views through per-part authentication and the ordered stream fold. Preserve exact
-part, stream and logical commitments, including streams spanning canonical block boundaries,
-and release the mapped buffers on completion and early stop. Verify shared and unreferenced
-streams on this certifier path. Genuine recovered adoption establishes parity on the existing
-typed path. The [selected oracle's allocation](kernel-trial.md#sbx-18-a1) is shared work owned
-by SBX-18.
-[Part lookup](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_payload_validation.py#L294) ·
-[Canonical byte fold](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_record_identity.py#L79)
+**SBX-17-A1 · Tested · 2026-11-24.** PDF certification and the independent oracle
+borrow slices of the original Arrow binary data buffer. The fold uses aligned views and
+only assembles blocks that span input slices. The buffer-address control covers sliced
+arrays and null refusal. Shared and unreferenced streams exercise per-part authentication
+and their exact stream commitment. The captured-policy and selected-source oracle cases
+passed on the installed revision. [Live buffer lookup](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_payload_validation.py) ·
+[Oracle ownership](kernel-trial.md#sbx-18-a1)
 
 <a id="sbx-17-a2"></a>
-**SBX-17-A2 · Open · Inspected · 2026-11-24.** Certification reconstructs Python row values
-and encodes frames before DuckDB sorts them. Prepare values by column using the captured model
-where compatible with exact normalization. Keep the canonical frame encoder and ordered fold.
-Use independent expected bytes for absent and null fields, exponent-spelled floats and
-non-ASCII keys under the captured lowering.
-[Native identity inputs](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_certification.py#L228) ·
-[Frame preparation](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_certification.py#L308)
+**SBX-17-A2 · Tested · 2026-11-24.** Certification prepares native identity inputs
+from the captured Arrow columns and keeps the canonical encoder, ordered DuckDB frame
+delivery and fold. Independent vectors cover exact field order, absent and explicit null
+values, exponent floats and non-ASCII keys. The complete reference fold and forced
+captured-policy reconstruction passed. [Certification preparation](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_certification.py)
+
+**Selected evidence · 2026-11-24.** The earlier `7fc3050e0af5453aaad8c24d6987a190` failed the
+address check because `BinaryScalar.as_buffer()` produced a distinct address on the selected
+route. The direct data-buffer slice passed the replacement controls in
+`78aab57e41fd409fb23bf5a4597dd759`. The genuine Standard recovery and recertified adoption
+case passed in `4277f3bf31284a208e1f2a63e3f0a294` by selected identity. It interrupted and
+resumed acquisition of Grinstead–Snell pages 120–122 and verified the recertified native
+build through selected readback. This closes SBX-17 for development.

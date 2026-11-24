@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-24. Development runs `semantic_sbx_pdf_binary_rows`. The completion audit reopened SBX-17–19 for outstanding implementation and qualification. The typed DuckDB scoped-relations route is adopted._ [Completion audit](docs/plans/set-based-execution_2026-11-21.md#completion-audit) · [Development revision](docs/plans/set-based-execution/cutover-and-qualification.md#native-revisions)
+_Updated 2026-11-24. Development runs `semantic_sbx_pdf_binary_rows`. The SBX-17–19 audit repairs are implemented and accepted for development. Stage and whole-book qualification remain open._ [Completion audit](docs/plans/set-based-execution_2026-11-21.md#completion-audit) · [Development revision](docs/plans/set-based-execution/cutover-and-qualification.md#native-revisions)
 
 ## Current owners
 
@@ -10,6 +10,8 @@ _Updated 2026-11-24. Development runs `semantic_sbx_pdf_binary_rows`. The comple
 
 ## Last verified
 
+- **Passed · 2026-11-24.** Private serial `uv run ci test --native-host private --workers 1` verified the rebuilt PDF oracle, live upload cancellation, and scoped report publication with installed math, exact artifact nomination and detached reopen (`2d18e1746d5b446f8dcf41b59d708390`). `uv run ci check --view steps` passed (`a470e97e5cc24be5b694194aa55c5cda`). `just model check` confirmed the released projections are current. [Audit repairs](docs/plans/set-based-execution_2026-11-21.md#completion-audit)
+- **Passed by selected identity · 2026-11-24.** Private serial provider tests passed genuine Standard recovery, populated COPY replay after a lost commit response, and scoped publication and reopen on a genuine retained page. The coverage review accounts for all four selected provider identities and retains the earlier failures and recovered interruption. [Audit provider receipts](docs/plans/set-based-execution_2026-11-21.md#completion-audit)
 - **Passed · 2026-11-24.** `uv run ci model change deploy 9d74447019204fcda9e6c0ac50be6554` installed `semantic_sbx_pdf_binary_rows` (`7fed7fec64dc4e3e82c702bee9a05eec`). `uv run ci db status --maintenance --json` confirmed the installed and registered head. [Native revision effects](docs/plans/set-based-execution/cutover-and-qualification.md#native-revisions)
 - **Passed by selected identity · 2026-11-24.** `uv run ci test --workers 1` covered scoped report parity, analytical cancellation and the parent job settings, relay and lifetime corrections (`8ea062e8ef40464db87095e64b135d28`, `8dd9a9efdc674f69bff14130b9d17550`). `uv run ci check --view steps` passed applicable repository checks (`2490bfe609ce48eea65ea2f77a604f3f`, Rust `1.102.0-nightly bdf712ee8`). [Analytical checkpoint](docs/plans/set-based-execution/kernel-trial.md#sbx-18-and-sbx-19-implementation-checkpoint)
 - **Passed by selected identity · 2026-11-24.** Private provider tests covered the file-backed sentence draft through COPY, scoped report parity on four retained book excerpts, and genuine Standard PDF recovery through new-build adoption and readback (`13d1c48d7610472782bb4cd87efb22c8`, `7468deed9ce84945b12b9ec4a8c52ca5`). [PDF recovery](docs/plans/set-based-execution/pdf-path.md#sbx-17) · [Analytical checkpoint](docs/plans/set-based-execution/kernel-trial.md#sbx-18-and-sbx-19-implementation-checkpoint)
@@ -24,6 +26,5 @@ _Updated 2026-11-24. Development runs `semantic_sbx_pdf_binary_rows`. The comple
 
 ## Remaining scope
 
-- [SBX-17](docs/plans/set-based-execution/pdf-path.md#sbx-17-o09) retains the PDF live-buffer and column preparation work. [SBX-18](docs/plans/set-based-execution/kernel-trial.md#remaining-sbx-18-completion-obligations) retains analytical custody and native draft failure handling and qualification. [SBX-19](docs/plans/set-based-execution/kernel-trial.md#remaining-sbx-19-completion-obligations) retains single acquisition, the remaining relational batches and complete-route qualification.
 - Stage installation belongs to [SBX-20](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-20). The final retirement and whole-book campaign belongs to [SBX-21/22](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-21).
 - The full repository-wide `uv run ci test` campaign is `not_run` at this checkpoint. The [older interrupted campaign](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-09-qualification-pause) retains its original results and staged fixture custody.

@@ -1,8 +1,8 @@
 # Set-based execution
 
 **Status · 2026-11-24.** Development runs `semantic_sbx_pdf_binary_rows`. The SBX-19 trial
-adopted typed scoped relations. The [completion audit](#completion-audit) reopened SBX-17–19
-for remaining implementation and qualification. The
+adopted typed scoped relations. The repairs from the [completion audit](#completion-audit) are
+implemented and qualified for development through SBX-19. The
 [read and evaluation checkpoint](set-based-execution/owner-resolved-reads.md#sbx-through-13-checkpoint)
 and [PDF checkpoint](set-based-execution/pdf-path.md#sbx-through-16-checkpoint) record
 the selected native, provider and measurement results. The execution queue and package
@@ -227,9 +227,9 @@ capability consumed.
 | SBX-14 | Complete for development. Shared ordered reconstruction serves transforms, full exports and validation under captured lowering. Installed transformations, forced revalidation under incompatible ambient defaults, and malformed membership, ordinal and cycle controls passed. | — | [PDF](set-based-execution/pdf-path.md#sbx-14) |
 | SBX-15 | Complete for development. The installed compact page, pointer and provenance ordinal relation serves region access and bounded visual selection. Sparse diagnostics, combined native formula and visual inspection, and genuine Chandra page 151 readback passed. | SBX-14 rebuild contract | [PDF](set-based-execution/pdf-path.md#sbx-15) |
 | SBX-16 | Complete for development. Typed document custody spans transformation, one admission precedes projected candidate reads, and the worker returns changed pages. Validation counts, installed policy reuse, atomic different-build adoption, and genuine recovery through the selected-file contract passed. The recovered-page comparison retains the Arrow IPC stream. | — | [PDF](set-based-execution/pdf-path.md#sbx-16) |
-| SBX-17 | Open. Typed certification, independent validation, binary export and genuine recovered adoption passed selected controls. Complete live-buffer folds and column-wise preparation. | SBX-15 relationship projections, SBX-16 carriers and consumed SBX-18 job contract | [PDF](set-based-execution/pdf-path.md#sbx-17) |
-| SBX-18 | Open. Bounded canonical cohorts and file-backed COPY reached the native consumer. Complete analytical custody and draft failure handling, then qualify production dispatch and native COPY recovery. | Existing typed population and worker custody | [KT](set-based-execution/kernel-trial.md#remaining-sbx-18-completion-obligations) |
-| SBX-19 | Open. The adopted typed route passed the installed artifact path. Finish one-time acquisition and relational batching, then complete the acquired-route comparison. | SBX-18, SBX-08, SBX-05 and SBX-10 installed math and indexes. The trial uses whole-source premises. | [KT](set-based-execution/kernel-trial.md#remaining-sbx-19-completion-obligations) |
+| SBX-17 | Complete for development. Live-buffer folds, column preparation, installed verification and genuine recovered adoption passed. | SBX-15 relationship projections, SBX-16 carriers and consumed SBX-18 job contract | [PDF](set-based-execution/pdf-path.md#sbx-17) |
+| SBX-18 | Complete for development. Analytical custody, production dispatch, draft seal faults, native upload cancellation and exact populated COPY replay passed. | Existing typed population and worker custody | [KT](set-based-execution/kernel-trial.md#remaining-sbx-18-completion-obligations) |
+| SBX-19 | Complete for development. Single acquisition, batched matching, incumbent report parity, installed math and artifact nomination, and genuine selected-source reopening passed. | SBX-18, SBX-08, SBX-05 and SBX-10 installed math and indexes. The trial uses whole-source premises. | [KT](set-based-execution/kernel-trial.md#remaining-sbx-19-completion-obligations) |
 | SBX-20 | Attribute the A, B and C effects against exact predecessors, register the resulting chain and install stage | Packages the candidates carry and the observed stage predecessor | [CQ](set-based-execution/cutover-and-qualification.md#sbx-20) |
 | SBX-21 | Retirement sweep, including confirmation of SBX-06 watermark and sweep removal | replacement paths and migrated consumers | [CQ](set-based-execution/cutover-and-qualification.md#sbx-21) |
 | SBX-22 | Final-source qualification, including the shared change scenarios | SBX-20, SBX-21 | [CQ](set-based-execution/cutover-and-qualification.md#sbx-22) |
@@ -243,11 +243,9 @@ Those shared contracts inform the physical carrier choices and the complete scop
 comparison. Start predecessor comparison early enough to inform stage authoring.
 [Post-SBX-09 amendment](#post-sbx-09-review-amendment)
 
-Complete the [SBX-18 custody and fault scope](set-based-execution/kernel-trial.md#remaining-sbx-18-completion-obligations)
-that the SBX-17 verification child and final SBX-19 route consume. The remaining [PDF folds and
-value preparation](set-based-execution/pdf-path.md#sbx-17-o09) and [scoped acquisition and
-batching](set-based-execution/kernel-trial.md#remaining-sbx-19-completion-obligations) can proceed
-alongside that shared work. Carry the completed effects and applicable evidence into SBX-20–22.
+Carry the completed [PDF](set-based-execution/pdf-path.md#sbx-17-o09), [analytical custody](set-based-execution/kernel-trial.md#remaining-sbx-18-completion-obligations)
+and [scoped relations](set-based-execution/kernel-trial.md#remaining-sbx-19-completion-obligations)
+effects and applicable evidence into SBX-20–22.
 
 <a id="remaining-execution-through-sbx-09"></a>
 ### Execution through SBX-09
@@ -349,8 +347,8 @@ comes from the rollback-only candidate and the specific native controls.
 | O06 typed relations for selected records | SBX-12 |
 | O07 one span vocabulary | SBX-10 |
 | O08 decode once | SBX-08 |
-| O09 logical rows by column | [SBX-17](set-based-execution/pdf-path.md#sbx-17-o09). Open in export and detached readback. |
-| O10 fidelity rules in the analytical owner | [SBX-18](set-based-execution/kernel-trial.md#sbx-18-o10). Adopted boundary fidelity qualification remains open. |
+| O09 logical rows by column | [SBX-17](set-based-execution/pdf-path.md#sbx-17-o09). Column preparation and verified detached readback passed. |
+| O10 fidelity rules in the analytical owner | [SBX-18](set-based-execution/kernel-trial.md#sbx-18-o10). The adopted worker and carrier fidelity controls passed. |
 | O11 populations as sets | SBX-01 to SBX-03 |
 | O12 one reference model | SBX-05 |
 | O13 carry validated values | SBX-08, SBX-09 |
@@ -555,17 +553,17 @@ retained Parquet probe establishes pathname-replacement behavior on its fixture.
 | [I01](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I01) | [SBX-11](set-based-execution/owner-resolved-reads.md#sbx-address-led-reads) seeks first and batches references. Exercise unrelated support inside the selected obligation, oversized unselected bodies and revoked continuation. |
 | [I02](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I02) | [Early SBX-12 reader](set-based-execution/owner-resolved-reads.md#sbx-acquired-reader) supplies the common live and detached interpretation. Establish protected-issuer and ordinary-report parity before removing displaced indexes. |
 | [I03](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I03) | [SBX-12](set-based-execution/owner-resolved-reads.md#sbx-verified-archive) verifies cold closure and reuses it inside stable custody. Compare point and full replay from sorted row groups before considering page or side indexes. |
-| [I04](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I04) | Typed relationships and genuine recovery passed selected controls. The [SBX-17 fold and value preparation](set-based-execution/pdf-path.md#sbx-17-a1) remain open. [SBX-20](set-based-execution/cutover-and-qualification.md#native-revisions) attributes split producer effects. |
-| [I05](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I05) | File-backed output reached native COPY and readback. [SBX-18](set-based-execution/kernel-trial.md#sbx-18-a2) owns the remaining seal, stop and recovery scope. |
-| [I06](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I06) | The typed route was adopted. [SBX-19](set-based-execution/kernel-trial.md#remaining-sbx-19-completion-obligations) owns the remaining acquired-route comparison through exact nomination and readback. |
+| [I04](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I04) | Typed relationships, [SBX-17 live folds and preparation](set-based-execution/pdf-path.md#sbx-17-a1) and genuine recovery passed selected controls. [SBX-20](set-based-execution/cutover-and-qualification.md#native-revisions) attributes split producer effects. |
+| [I05](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I05) | The [SBX-18 file-backed carrier](set-based-execution/kernel-trial.md#sbx-18-a2) passed native COPY, draft seal and stop controls, exact replay and readback. |
+| [I06](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I06) | The adopted [SBX-19 route](set-based-execution/kernel-trial.md#remaining-sbx-19-completion-obligations) passed report parity, installed exact nomination and readback, and genuine scoped publication and reopen. |
 | [I07](../plan_improvement_reviews/set-based-execution-after-sbx09_2026-11-23.md#I07) | [SBX-20](set-based-execution/cutover-and-qualification.md#sbx-20) compares direct, shared and material effects before stage. Any narrower admission or receipt boundary remains conditional. |
 | [I08](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I08) | [SBX-06 coverage](set-based-execution/references-and-projection-keys.md#settlement-coverage) and [SBX-11 freshness](set-based-execution/owner-resolved-reads.md#freshness-aware-reads) follow qualified dependencies. Exercise sibling and cross-source coverage, historical authorization and current membership. |
 | [I09](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I09) | [Typed acquisition](set-based-execution/owner-resolved-reads.md#sbx-acquired-reader) covers change impact and phased interpretation. [SBX-13](set-based-execution/owner-resolved-reads.md#sbx-13) preserves distinct evaluation cuts and independent controls. |
 | [I10](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I10) | [SBX-12](set-based-execution/owner-resolved-reads.md#sbx-verified-archive) binds verification and lazy scans to the same stable bytes. Exercise path replacement and in-place mutation across the consumption window. |
 | [I11](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I11) | [SBX-15](set-based-execution/pdf-path.md#sbx-pdf-sparse-access) publishes sparse access relations for readers and certification. Verify authorized selection, report order, and exact oversized refusal before transfer. |
 | [I12](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I12) | [SBX-16](set-based-execution/pdf-path.md#sbx-pdf-payload-layout) compares actual bytes acquired and decoded on a recovered sparse page. Layout and Acero remain conditional decisions. |
-| [I13](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I13) | SBX-18 batches compatible partitions and preserves their commitments. [SBX-18 draft and COPY](set-based-execution/kernel-trial.md#sbx-18-a2) owns remaining handoff qualification. |
-| [I14](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I14) | The direct admission control exercised real spill, a partial reader and interruption. [SBX-18](set-based-execution/kernel-trial.md#remaining-sbx-18-completion-obligations) still owns equivalent coverage through production dispatch. |
+| [I13](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I13) | SBX-18 batches compatible partitions and preserves their commitments. [SBX-18 draft and COPY](set-based-execution/kernel-trial.md#sbx-18-a2) passed the installed handoff and exact replay. |
+| [I14](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I14) | [SBX-18](set-based-execution/kernel-trial.md#remaining-sbx-18-completion-obligations) passed production dispatch, real spill, partial reader lifetime, interruption and normal retirement. |
 | [I15](../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I15) | [SBX-10 runtime custody](set-based-execution/validated-values-and-handoff.md#sbx-consumed-runtime-custody) verifies consumed nodes and installed math. [SBX-20–22](set-based-execution/cutover-and-qualification.md#sbx-20) account for registered effects, last-consumer retirement and final evidence. |
 
 The existing [decision routes](set-based-execution/common-analytical-basis.md#decision-routes)
@@ -577,8 +575,8 @@ reserved for comparisons where it can change a choice.
 ## Completion audit
 
 **Inspected · 2026-11-24 · `b7dba9020`.** The claimed boundary was development acceptance of
-SBX-17–19 on `semantic_sbx_pdf_binary_rows`. Each package has an incomplete implementation
-obligation. The execution queue and companion sections own the correction. SBX-19's bounded
+SBX-17–19 on `semantic_sbx_pdf_binary_rows`. The audit found incomplete implementation in each
+package. The execution queue and companion sections own the correction. SBX-19's bounded
 adoption decision stands. The [PDF obligations](set-based-execution/pdf-path.md#sbx-17-o09),
 [analytical custody obligations](set-based-execution/kernel-trial.md#remaining-sbx-18-completion-obligations)
 and [scoped-relations obligations](set-based-execution/kernel-trial.md#remaining-sbx-19-completion-obligations)
@@ -593,13 +591,37 @@ provider identities across the recorded source and context differences. The pass
 support genuine Standard recovery, successful file-backed COPY, independent expected answers
 for batched steps and exact installed artifact custody in their selected fixtures. Production
 job lifecycle, failure recovery across file-backed COPY and the complete acquired scoped route
-still need their owning acceptance evidence. New functional tests for this audit were `not_run`.
+had outstanding acceptance evidence at the audited source. New functional tests during the audit
+were `not_run`.
 
 **Execution fit · Inspected.** Binary export removes the hex bridge. Physical cohorts share
 query setup, and file-backed draft writes avoid overlapping complete IPC and Python byte copies.
-The typed scoped route batches the implemented relational questions. Remaining per-cell
-conversion and per-item scans limit how much work these changes remove across the full paths.
-The audit makes no quantitative performance claim.
+The subsequent repairs remove individual artifact body copies and use bounded column preparation
+in the PDF folds. Scoped discovery avoids repeating source acquisition and serializing the owned
+view. Its named structural joins batch the audited matches. These are structural observations.
+
+**Repair verification · 2026-11-24.** Private native cohort
+`2d18e1746d5b446f8dcf41b59d708390` passed all six selected identities on `a640c179d`. It covers
+the selected PDF oracle, captured-policy reconstruction, companion export and reopen, managed
+stop in a live upload transaction, installed math through scoped artifact nomination and
+detached reopen, and the clean worker rerun. `uv run ci check --view steps` passed on the final
+retry source (`a470e97e5cc24be5b694194aa55c5cda`). `just model check` confirmed the released model projections
+are current. Development remains at the registered `semantic_sbx_pdf_binary_rows` revision.
+
+The finite coverage view accounts for 182 selected identities across
+`78aab57e41fd409fb23bf5a4597dd759` and `9d04b3b10eef4bb7b3ad544ebb4ac42a`. The original
+retains its source-custody refusal from an edit during execution. The exact worker retry
+passed on stable source with the same test context. The earlier finite failures and the
+conditions they exposed remain with the PDF and analytical package owners.
+
+The provider coverage view reports all four selected identities covered across the original
+`4277f3bf31284a208e1f2a63e3f0a294` and retained attempts `926e86ba334c49c28665be5d32e33103`,
+`93829a3f885f4c8d80133a772ebd9ed0` and `75752b95178e4c78ba982e08b47dacf9`. It preserves the
+earlier failures, recovered interruption, source changes and private host differences. The
+PDF and book controls passed on `a640c179d`. The later changes affect upload-stop replay and
+the bounded scoped fixture, covered by the final selected provider identities on `9ce6190d6`.
+The genuine scoped route passed on retained physical page 119. The earlier native publication
+timeout and upstream construction reply limit remain recorded for larger-input qualification.
 
 ## Completion
 
@@ -610,7 +632,7 @@ and the applicable native propagation and read coverage;
 superseded machinery and its mechanism-specific tests are gone, with independent semantic
 expectations carried to the replacement; and the owning design sections and decision records
 describe the implemented state. SBX-09 delivered the development baseline for that work.
-Close the [remaining development obligations](#completion-audit) and qualify the adopted read,
+Carry the [development acceptance](#completion-audit) into stage and qualify the adopted read,
 replay and analytical routes at the applicable final-source boundary.
 
 SBX-00 records the focused Revision A target review and its disposition. Revision A registration
