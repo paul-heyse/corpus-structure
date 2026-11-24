@@ -91,6 +91,7 @@ class ScopedInventory(AbstractContextManager):
                 self._pieces.select(col("piece_ordinal")).sort(col("piece_ordinal")).fetchall()
             )
             self.pieces = tuple(self._original_pieces[index] for (index,) in indices)
+            self._selected_ordinals = {index: selected for selected, (index,) in enumerate(indices)}
             return self
         except BaseException:
             self._context.__exit__(*sys.exc_info())
@@ -287,31 +288,54 @@ class ScopedInventory(AbstractContextManager):
         condition = (col("selected","parent")==col("declaration","parent")) & (col("selected","position") > col("declaration","position")) & (col("declaration","end") <= col("selected","start")) & (col("selected","symbol")==col("declaration","symbol")) & (col("selected","name")==col("declaration","name")) & (col("selected","cue")==col("declaration","cue"))
         return selected.join(declaration,condition).select(col("selected","ordinal").alias("question"),col("declaration","ordinal").alias("declaration")).sort(col("question"),col("declaration")).fetchall()
 
+    def artifact_matches(self, records):
+        """Join retained artifact subjects to their own pointer and containing piece."""
+        schema = pa.schema([("ordinal", pa.int64()), ("pointer", pa.string()), ("start", pa.int64()), ("end", pa.int64())])
+        subjects = self.engine.from_arrow(pa.Table.from_pylist([
+            dict(ordinal=index, pointer=record.payload["pointer"], start=record.span("subject")[0], end=record.span("subject")[1])
+            for index, record in enumerate(records)
+        ], schema=schema)).set_alias("subject")
+        piece = self._pieces.filter(col("native_text")).set_alias("piece")
+        matches = piece.join(subjects,
+            (col("piece", "pointer") == col("subject", "pointer"))
+            & (col("piece", "start") <= col("subject", "start"))
+            & (col("subject", "start") < col("subject", "end"))
+            & (col("subject", "end") <= col("piece", "end")),
+        ).select(col("piece", "piece_ordinal").alias("piece"), col("subject", "ordinal").alias("subject"))
+        result = defaultdict(list)
+        for piece, subject in matches.sort(col("piece"), col("subject")).fetchall():
+            result[self._selected_ordinals[piece]].append(subject)
+        return result
+
     def table_counterparts(self, tables, pairs):
-        """Match observed numeric cells to the last schematic cell at each native extent."""
+        """Prepare each table once, then match all observed/schematic pairs by extent."""
         import re
 
         coordinates = ("start_row_offset_idx", "end_row_offset_idx", "start_col_offset_idx", "end_col_offset_idx")
-        schema = pa.schema([("pair", pa.int64()), ("ordinal", pa.int64()), ("text", pa.string()), *((name, pa.int64()) for name in coordinates)])
-        observed, schematic = [], []
-        for pair_index, (left, right) in enumerate(pairs):
-            for pointer, target in ((left, observed), (right, schematic)):
-                for index, cell in enumerate(tables[pointer]["data"]["table_cells"]):
-                    if not all(type(cell.get(name)) is int for name in coordinates):
-                        continue
-                    text = cell.get("text", "").strip()
-                    if target is observed and not re.fullmatch(r"\d+", text):
-                        continue
-                    target.append(dict(pair=pair_index, ordinal=index, text=text, **{name:cell[name] for name in coordinates}))
-        left = self.engine.from_arrow(pa.Table.from_pylist(observed, schema=schema)).set_alias("observed")
-        right = self.engine.from_arrow(pa.Table.from_pylist(schematic, schema=schema))
-        right = right.select(star(), fn("max", col("ordinal")).over(partition_by=[col("pair"), *(col(name) for name in coordinates)]).alias("last"))
-        right = right.filter(col("ordinal") == col("last")).set_alias("schematic")
-        condition = col("observed", "pair") == col("schematic", "pair")
+        schema = pa.schema([("pointer", pa.string()), ("ordinal", pa.int64()), ("text", pa.string()), ("numeric", pa.bool_()), *((name, pa.int64()) for name in coordinates)])
+        cells = []
+        for pointer in dict.fromkeys(pointer for pair in pairs for pointer in pair):
+            for index, cell in enumerate(tables[pointer]["data"]["table_cells"]):
+                if not all(type(cell.get(name)) is int for name in coordinates):
+                    continue
+                text = cell.get("text", "").strip()
+                cells.append(dict(pointer=pointer, ordinal=index, text=text, numeric=re.fullmatch(r"\d+", text) is not None, **{name: cell[name] for name in coordinates}))
+        relation = self.engine.from_arrow(pa.Table.from_pylist(cells, schema=schema))
+        observed = relation.filter(col("numeric")).set_alias("observed")
+        schematic = relation.select(star(), fn("max", col("ordinal")).over(partition_by=[col("pointer"), *(col(name) for name in coordinates)]).alias("last"))
+        schematic = schematic.filter(col("ordinal") == col("last")).set_alias("schematic")
+        pair_schema = pa.schema([("pair", pa.int64()), ("observed_pointer", pa.string()), ("schematic_pointer", pa.string())])
+        selected = self.engine.from_arrow(pa.Table.from_pylist([
+            dict(pair=index, observed_pointer=left, schematic_pointer=right) for index, (left, right) in enumerate(pairs)
+        ], schema=pair_schema)).set_alias("pair")
+        left = selected.join(observed, col("pair", "observed_pointer") == col("observed", "pointer")).select(
+            col("pair", "pair"), col("pair", "schematic_pointer"), col("observed", "ordinal"), *(col("observed", name) for name in coordinates),
+        ).set_alias("left")
+        condition = col("left", "schematic_pointer") == col("schematic", "pointer")
         for name in coordinates:
-            condition = condition & (col("observed", name) == col("schematic", name))
-        matches = left.join(right, condition).select(
-            col("observed", "pair").alias("pair"), col("observed", "ordinal").alias("observed"),
+            condition = condition & (col("left", name) == col("schematic", name))
+        matches = left.join(schematic, condition).select(
+            col("left", "pair").alias("pair"), col("left", "ordinal").alias("observed"),
             col("schematic", "ordinal").alias("schematic"), col("schematic", "text").alias("symbol"),
         )
         result = {pair: [] for pair in pairs}

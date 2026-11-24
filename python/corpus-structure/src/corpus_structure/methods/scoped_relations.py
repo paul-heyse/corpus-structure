@@ -675,11 +675,8 @@ def _discover_relations(
         for record in navigation.select(kind):
             if record.span("subject") is not None:
                 artifact_records.setdefault(record.payload["pointer"], []).append(record)
-    artifact_pieces = inventory.contained_pairs(
-        [(piece["start"], piece["end"]) for piece in source_pieces],
-        [record.span("subject") for records in artifact_records.values() for record in records],
-    )
     all_artifacts = tuple(record for records in artifact_records.values() for record in records)
+    artifact_pieces = inventory.artifact_matches(all_artifacts)
     cell_rows = {}
     text_rows = []
     artifact_captions = {}
@@ -733,8 +730,6 @@ def _discover_relations(
             text_rows.append((piece, node, text))
             for artifact_index in artifact_pieces.get(piece_index, ()):
                 record = all_artifacts[artifact_index]
-                if record.payload["pointer"] != pointer:
-                    continue
                 span = record.span("subject")
                 found = dict(
                     start=span[0] - piece["start"], end=span[1] - piece["start"],
