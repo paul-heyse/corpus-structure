@@ -498,7 +498,6 @@ def write_pdf_companion_sets(
 
 def certify_native_stream(streamed, request, replays, *, on_replay):
     """Certify the native capture while its actual complete document is alive."""
-    from corpus_structure.ingest.pdf_candidate_source import encoded_replay
     from corpus_structure.ingest.pdf_record_product import native_occurrence_rows
     from corpus_structure.ingest.pdf_streaming import _atomic_bytes, _ref
 
@@ -512,9 +511,7 @@ def certify_native_stream(streamed, request, replays, *, on_replay):
             yield {
                 "kind": "inline_candidate_pages",
                 "ordinal": number,
-                "value": encoded_replay(
-                    streamed.spool.candidates[number], streamed.spool.payload_family
-                ),
+                "value": streamed.spool.candidate_source.encoded(number),
             }
         yield {
             "kind": "runtime_report",
@@ -531,7 +528,9 @@ def certify_native_stream(streamed, request, replays, *, on_replay):
 
     companions = {
         "native_metadata": metadata(),
-        "occurrence": native_occurrence_rows(streamed.document),
+        "occurrence": native_occurrence_rows(
+            streamed.sealed.validate_under(lowering.callback_policy())
+        ),
         "health": (
             {
                 "conversion": streamed.conversion_status,

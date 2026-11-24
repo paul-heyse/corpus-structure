@@ -604,30 +604,28 @@ def _read_selected_pdf(
             )
             specs = tuple((row.section_pointer, row.membership) for row in projections)
             directory.mkdir(parents=True, exist_ok=False)
-            replays = {}
-            for payload in (
-                reader.iter_candidate_payloads(context=context) if read_candidates else ()
-            ):
-                check_active()
-                if payload.page_no in replays:
-                    raise ValueError("duplicate selected PDF candidate page")
-                replay = _atomic_bytes(
-                    directory / f"candidate-{payload.page_no:06}.arrow",
-                    payload.content,
-                    "candidate_payload",
-                )
-                replays[payload.page_no] = replace(
-                    replay,
-                    rows=1,
-                    page_no=payload.page_no,
-                    schema_digest=payload.schema_digest,
-                    logical_digest=payload.logical_digest,
-                )
-            candidates = (
-                ReplayCandidatePageSource(replays, prepare_payload_family(context))
-                if read_candidates
-                else None
-            )
+            candidates = None
+            if read_candidates:
+                candidates = ReplayCandidatePageSource({}, prepare_payload_family(context))
+                for payload in reader.iter_candidate_payloads(context=context):
+                    check_active()
+                    if payload.page_no in candidates.replays:
+                        raise ValueError("duplicate selected PDF candidate page")
+                    replay = _atomic_bytes(
+                        directory / f"candidate-{payload.page_no:06}.arrow",
+                        payload.content,
+                        "candidate_payload",
+                    )
+                    candidates.retain_admission(
+                        replace(
+                            replay,
+                            rows=1,
+                            page_no=payload.page_no,
+                            schema_digest=payload.schema_digest,
+                            logical_digest=payload.logical_digest,
+                        ),
+                        payload,
+                    )
     check_active()
     values = finish_product()
     check_active()
@@ -753,7 +751,9 @@ def integration_draft(selected, recipe_bytes, observations, directory, options):
     from corpus_structure.ingest.pdf import native_conversion_health
     from corpus_structure.ingest.pdf_hierarchy import native_nodes
     from corpus_structure.ingest.pdf_stream_reconciliation import reconcile_pdf_stream
+    from corpus_structure.ingest.pdf_streaming import SealedPdfNative
 
+    from .pdf_lowering_context import capture_pdf_lowering
     from .pdf_records import validate_native_callbacks
 
     document = validate_native_callbacks(
@@ -768,9 +768,13 @@ def integration_draft(selected, recipe_bytes, observations, directory, options):
         policy=options.integration_policy,
         context=selected.context,
     ) as reconciled:
-        health = native_conversion_health(native_nodes(reconciled.document), "success", ())
+        policy = capture_pdf_lowering(selected.context).callback_policy()
+        sealed = SealedPdfNative.from_publication(reconciled.document, policy)
+        health = native_conversion_health(
+            native_nodes(sealed.validate_under(policy)), "success", ()
+        )
         yield PdfRecordPublicationDraft(
-            document=reconciled.document,
+            document=sealed,
             product_key="integrated",
             kind="integrated",
             original=selected.original,
@@ -1272,18 +1276,21 @@ class PreparedPdfTransform:
 
         from pydantic import TypeAdapter
 
-        from corpus_structure.ingest.pdf_hierarchy import SectionPolicy, organize
+        from corpus_structure.ingest.pdf_hierarchy import SectionPolicy, organize_document
         from corpus_structure.ingest.pdf_methods import _conversion_from_values
         from corpus_structure.ingest.pdf_record_product import native_publication_draft
 
         from .pdf_lowering_context import capture_pdf_lowering
+        from .pdf_records import validate_native_callbacks
 
         check_active()
         conversion = _conversion_from_values(selected.values, recipe_bytes, selected.candidates)
-        organized = organize(
-            conversion.native,
+        document = validate_native_callbacks(
+            selected.values["document"], contract=selected.callback_policy
+        )
+        organize_document(
+            document,
             TypeAdapter(SectionPolicy).validate_python(dict(self.record["options"])),
-            contract=selected.callback_policy,
         )
         check_active()
         draft = native_publication_draft(
@@ -1291,7 +1298,7 @@ class PreparedPdfTransform:
             product_key="organized",
             original=selected.original,
             schema_bytes=selected.schema_bytes,
-            native=organized.document,
+            native=document,
             recipe_bytes=recipe_bytes,
             callback_policy=capture_pdf_lowering(selected.context).callback_policy(),
         )

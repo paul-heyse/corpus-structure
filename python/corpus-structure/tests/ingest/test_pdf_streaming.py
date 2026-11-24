@@ -438,8 +438,11 @@ def test_native_draft_preserves_attributable_health_without_publication_envelope
         original=b"%PDF-1.7",
         schema_bytes=b"{}",
     )
-    assert isinstance(draft.document, DoclingDocument)
-    assert draft.document.texts[0].text == "x+1"
+    from corpus_structure.semantic.pdf_records import native_validation_contract
+
+    sealed_document = draft.document.validate_under(native_validation_contract())
+    assert isinstance(sealed_document, DoclingDocument)
+    assert sealed_document.texts[0].text == "x+1"
     assert draft.health["display_coverage"] == "complete"
     assert draft.health["formula_outcomes"] == [
         {"pointer": formula.self_ref, "outcome": "succeeded"}

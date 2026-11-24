@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from corpus_structure.core.method import SourceViewDraft
 from corpus_structure.semantic.product_reference import ProductReference
 
-from .pdf import PdfConversion, PdfRecipe
+from .pdf import PdfRecipe
 from .pdf_candidate_source import CandidatePageSource, InMemoryCandidatePageSource
 from .pdf_candidates import CandidatePage, InlineCandidate
 from .pdf_health import FormulaOutcome
@@ -26,6 +26,7 @@ from .pdf_hierarchy import (
     section_text_recipe,
     section_view_key,
 )
+from .pdf_record_product import PdfConversionMetadata
 
 
 class PdfRuntimeConfig(BaseModel):
@@ -244,7 +245,7 @@ def _conversion_from_values(
     values: Mapping[str, Any],
     recipe_bytes: bytes,
     candidate_source: CandidatePageSource | None = None,
-) -> PdfConversion:
+) -> PdfConversionMetadata:
     if candidate_source is None:
         # Explicitly materialized native-product callers already own these values.
         # Preserve their observed metadata; the enrichment caller supplies a detached
@@ -263,10 +264,9 @@ def _conversion_from_values(
             )
             for page in values.get("inline_candidate_pages", ())
         )
-    return PdfConversion(
+    return PdfConversionMetadata(
         values["artifact_digest"],
         recipe_bytes,
-        _snapshot_from_values(values),
         values["health"]["conversion"],
         tuple(values["health"].get("issues", [])),
         tuple(
@@ -276,9 +276,6 @@ def _conversion_from_values(
         tuple(
             (r["name"], r["version"]) for r in values.get("runtime_report", {}).get("packages", [])
         ),
-        (values["page_start"], values["page_end"])
-        if values.get("source_scope") == "page_range"
-        else None,
         runtime=tuple(
             (r["name"], r["value"]) for r in values.get("runtime_report", {}).get("bindings", [])
         ),

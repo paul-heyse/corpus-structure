@@ -683,9 +683,6 @@ def read_demand_visual_routes(
     for member in members:
         value, image = member["body"], member["body"]["observation"]["image"]
         publication = _selected_pdf_publication(page, member, records, capture_kind)
-        # This is the actual publisher's physical reference from retained native
-        # evidence, rather than a run/task alias manufactured from the demand.
-        selected, furniture = _page_items(conn, publication, image["page_no"], image["page_no"])
         pin = DemandVisualEvidencePin(
             project_id=project_id,
             demand_id=demand_id,
@@ -701,18 +698,7 @@ def read_demand_visual_routes(
             "transform": json.loads(image["transform_json"]),
         }
         layout = _Observation(pin, frame, _readings(observation["raw_response"].encode(), frame))
-        requests = []
-        if observation["provider_outcome"] != "succeeded" or value["completion"] != "complete":
-            selection = image["selection"]
-            crop = (
-                VisualRouteCrop(
-                    pointer=selection["pointer"], region_index=selection["region_index"]
-                )
-                if "pointer" in selection
-                else None
-            )
-            requests.append(VisualRouteReason(code="incomplete_request", inputs=(pin,), crop=crop))
-        grouped[(image["document"], image["logical_digest"], image["page_no"])].append(
+        grouped[(publication, image["page_no"])].append(
             (
                 _SelectedVisualSample(
                     layout,
@@ -721,26 +707,19 @@ def read_demand_visual_routes(
                     observation["provider_outcome"] == "succeeded"
                     and value["completion"] == "complete",
                 ),
-                publication,
-                selected[image["page_no"]],
-                furniture[image["page_no"]],
+                observation,
             )
         )
-    for (_, _, _page_no), group in grouped.items():
-        samples = tuple(item[0] for item in group)
-        publication = group[0][1]
-        signals = _selected_page_signals(samples, group[0][2])
+    for (publication, page_no), group in grouped.items():
+        # Use the actual physical publisher from retained support. Several
+        # observations of the same page share its one native address selection.
+        selected, furniture = _page_items(conn, publication, page_no, page_no)
+        samples = tuple(sample for sample, _ in group)
+        signals = _selected_page_signals(samples, selected[page_no])
         layout = signals.layout
         assert layout is not None
         pin = layout.pin
-        image = next(
-            item["body"]["observation"]["image"]
-            for item in members
-            if item["product_id"] == pin.product_id
-        )
-        observation = next(
-            item["body"]["observation"] for item in members if item["product_id"] == pin.product_id
-        )
+        observation = next(value for sample, value in group if sample.observation.pin == pin)
         if observation["provider_outcome"] == "succeeded" and not layout.readings:
             artifacts = table("kb.source_artifact")
             original = conn.scalar(
@@ -756,13 +735,13 @@ def read_demand_visual_routes(
             with (
                 _PDFIUM_LOCK,
                 PdfDocument(bytes(original)) as document,
-                closing(document[image["page_no"] - 1]) as physical,
+                closing(document[page_no - 1]) as physical,
             ):
-                signals.blank = _original_blank_body(physical, layout, group[0][3])
+                signals.blank = _original_blank_body(physical, layout, furniture[page_no])
         routes.append(
             {
                 "source": pin.model_dump(mode="json"),
-                "route": _decide(image["page_no"], signals).model_dump(mode="json"),
+                "route": _decide(page_no, signals).model_dump(mode="json"),
             }
         )
     return {

@@ -32,8 +32,6 @@ from .work import WorkHandle as WorkHandle
 from .work import drive_prepared_work as drive_prepared_work
 
 if typing.TYPE_CHECKING:
-    from docling_core.types.doc import DoclingDocument
-
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
     from corpus_structure.ingest.pdf_streaming import SealedPdfNative
@@ -466,7 +464,7 @@ class PdfRecordPublicationDraft:
     once while their journal owner is still alive. No mutable value escapes seal.
     """
 
-    document: DoclingDocument | Mapping[str, Any]
+    document: SealedPdfNative
     product_key: str
     original: bytes
     schema_bytes: bytes
@@ -477,7 +475,6 @@ class PdfRecordPublicationDraft:
     retained_serialization: RetainedPdfSerialization | None = None
     source_scope: Literal["whole_document"] = "whole_document"
     kind: Literal["native", "integrated"] = "native"
-    sealed_document: SealedPdfNative | None = field(default=None, repr=False, compare=False)
 
 
 # --- Configuration references ------------------------------------------------------------------

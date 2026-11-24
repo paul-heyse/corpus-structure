@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from base64 import b64encode
 from typing import TYPE_CHECKING, Any, Literal, cast
 
@@ -248,10 +249,9 @@ def _media_region(row, image):
 
 def _page_incumbent(conn, source, page_no, budget):
     """Select existing projected items on this page before fetching their bounded prose."""
-    from sqlalchemy import select
+    from sqlalchemy import Text, func, select, true
 
     from corpus_structure.semantic.pdf_record_reader import published_native_table
-    from corpus_structure.semantic.pdf_storage import _budgeted_mappings
 
     regions, items = published_native_table("region"), published_native_table()
     pointers = select(regions.c.pointer).where(
@@ -259,8 +259,8 @@ def _page_incumbent(conn, source, page_no, budget):
         regions.c.product_key == source.product_key,
         regions.c.page_no == page_no,
     )
-    query = (
-        select(items.c.pointer, items.c.label, items.c.content_layer, items.c.text)
+    selected = (
+        select(items.c.pointer, items.c.label, items.c.content_layer, items.c.text, items.c.ordinal)
         .where(
             items.c.task_id == source.task_id,
             items.c.product_key == source.product_key,
@@ -268,8 +268,26 @@ def _page_incumbent(conn, source, page_no, budget):
         )
         .order_by(items.c.ordinal)
         .limit(budget.max_rows - budget.rows + 1)
+        .subquery("page_items")
     )
-    return _budgeted_mappings(conn, query, budget)
+    body = (
+        select(selected.c.pointer, selected.c.label, selected.c.content_layer, selected.c.text)
+        .correlate(selected)
+        .lateral("body")
+    )
+    # This projection has only text and null values. PostgreSQL can measure the
+    # exact JSON row crossing the boundary, including escaping and field names.
+    query = (
+        select(func.row_to_json(body.table_valued()).cast(Text).label("body"))
+        .select_from(selected.join(body, true()))
+        .order_by(selected.c.ordinal)
+    )
+    rows = budget.guarded_rows(conn, query, exact_wire_size=True)
+    values = []
+    for (value,) in rows:
+        budget.reserve(len(value.encode("utf-8")))
+        values.append(json.loads(value))
+    return values
 
 
 def inspect_pdf_visual_evidence(
@@ -336,14 +354,13 @@ def inspect_pdf_visual_evidence(
     items = ()
     mapping = selected.mapping_availability
     if request.pointer is not None:
-        rows = published.item_page(pointer=request.pointer, limit=1)
         original_regions = (
             published.regions(request.pointer)
             if request.region_index is None
             else [published.region(request.pointer, request.region_index)]
         )
         original_regions = [row for row in original_regions if row["page_no"] == page_no]
-        if not rows or not original_regions:
+        if not original_regions:
             raise ValueError("source item is outside submitted visual page")
         selection = image["selection"]
         if selection.get("pointer") is not None:
@@ -359,6 +376,9 @@ def inspect_pdf_visual_evidence(
                 raise ValueError("source item is outside submitted image")
         if submitted is None:
             mapping = "unavailable"
+        rows = published.item_page(pointer=request.pointer, limit=1)
+        if not rows:
+            raise ValueError("source item is outside submitted visual page")
         remaining = read_budget.max_rows - read_budget.rows
         if remaining < 2:
             raise ReadLimit("visual row budget exhausted", reason="work_limit")

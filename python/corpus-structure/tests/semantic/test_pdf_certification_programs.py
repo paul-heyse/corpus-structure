@@ -27,7 +27,7 @@ class StreamFixture(TypedDict):
     serialization_sha256: str | None
 
 
-def _revalidate_with_changed_defaults(capture, projection, result, *, authored):
+def _revalidate_with_changed_defaults(capture, projection, result, *, authored, count_path):
     """Discriminate both captured defaults inside the actual spawned oracle."""
     import json
 
@@ -38,6 +38,13 @@ def _revalidate_with_changed_defaults(capture, projection, result, *, authored):
     schema = json.loads(pdf_records.native_schema_bytes())
     schema["properties"]["name"]["maxLength"] = 1
     ambient_schema = json.dumps(schema).encode()
+    validate = pdf_records.validate_native_callbacks
+    policies = []
+
+    def observe(document, *, contract):
+        policies.append(contract)
+        return validate(document, contract=contract)
+
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(pdf_records, "native_validation_contract", lambda: callback_policy)
         patch.setattr(pdf_records, "native_schema_bytes", lambda: ambient_schema)
@@ -45,7 +52,9 @@ def _revalidate_with_changed_defaults(capture, projection, result, *, authored):
             pdf_records.validate_native_callbacks(authored)
         with pytest.raises(pdf_records.NativeMappingError, match="is too long"):
             pdf_records.prepare_native_schema_mapping().validate(authored)
+        patch.setattr(pdf_records, "validate_native_callbacks", observe)
         pdf_publication._native_validation_child(capture, projection, result)
+        count_path.write_text(json.dumps(policies))
 
 
 def test_force_revalidate_published_pdf_uses_captured_policy_and_schema(
@@ -88,12 +97,18 @@ def test_force_revalidate_published_pdf_uses_captured_policy_and_schema(
         )
     expected = sha256(canonical_bytes(authored)).hexdigest()
     assert expected == capture.native_document_digest
+    from corpus_structure.semantic.pdf_records import native_validation_contract
+
+    count_path = tmp_path / "oracle-validation-policies.json"
     monkeypatch.setattr(
         pdf_publication,
         "_native_validation_child",
-        partial(_revalidate_with_changed_defaults, authored=authored),
+        partial(_revalidate_with_changed_defaults, authored=authored, count_path=count_path),
     )
     result = pdf_publication.verify_published_pdf_oracle(capture, check_active=lambda: None)
+    import json
+
+    assert json.loads(count_path.read_text()) == [native_validation_contract()]
     assert result.release_id == published.release_id
     assert result.lowering_identity == capture.lowering_identity
     assert result.logical_digest == published.logical_digest

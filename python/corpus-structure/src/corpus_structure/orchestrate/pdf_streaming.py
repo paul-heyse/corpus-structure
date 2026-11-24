@@ -904,7 +904,6 @@ def publish_pdf_record_draft(
             (),
             draft.recipe_bytes,
             (),
-            sealed_input=draft.sealed_document,
         )
 
         native_replays = streamed.write_record_batches(
@@ -926,7 +925,9 @@ def publish_pdf_record_draft(
         if draft.kind == "native" and "occurrence" not in draft.companions:
             from corpus_structure.ingest.pdf_record_product import native_occurrence_rows
 
-            native_occurrences = native_occurrence_rows(draft.document)
+            native_occurrences = native_occurrence_rows(
+                draft.document.validate_under(captured_lowering.callback_policy())
+            )
         else:
             native_occurrences = None
         companions = dict(draft.companions)

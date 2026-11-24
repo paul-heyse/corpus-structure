@@ -241,6 +241,15 @@ def organize(
     *,
     contract: Mapping[str, Any] | None = None,
 ) -> OrganizedDocument:
+    """Organize an archived snapshot at the standalone serialization boundary."""
+    document = load_snapshot(source, contract=contract)
+    sections, source_pointers = organize_document(document, policy)
+    return OrganizedDocument(source.digest, snapshot(document), sections, source_pointers)
+
+
+def organize_document(
+    document: DoclingDocument, policy: SectionPolicy
+) -> tuple[tuple[SectionBasis, ...], tuple[str, ...]]:
     """Derive containers while retaining source occurrence pointers and native reading order.
 
     Each newly allocated group has its triggering native heading as its first child.
@@ -250,7 +259,6 @@ def organize(
     """
     from docling_core.types.doc import ContentLayer, DocItemLabel, GroupLabel
 
-    document = load_snapshot(source, contract=contract)
     nodes = native_nodes(document)
     missing = policy.organizational_refs - nodes.keys()
     if missing:
@@ -314,9 +322,7 @@ def organize(
     ]
     if before != after:
         raise ValueError("organization changed native content reading order")
-    return OrganizedDocument(
-        source.digest, snapshot(document), tuple(section_rows), original_pointers
-    )
+    return tuple(section_rows), original_pointers
 
 
 @dataclass(frozen=True, slots=True)

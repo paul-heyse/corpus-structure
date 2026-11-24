@@ -10,6 +10,7 @@ import pytest
 
 from corpus_structure.semantic.pdf_record_identity import byte_root
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader, PublishedReadBudget
+from corpus_structure.semantic.pdf_records import NativeMappingError
 from corpus_structure.semantic.refusal_types import ReadLimit
 from semantic.pdf_record_reader_support import NativeRows, native
 
@@ -119,6 +120,40 @@ def test_finite_rebuild_uses_owned_facts_after_reader_scope(monkeypatch):
     assert value["product_key"] == "selected"
     assert value["document"]["texts"][0]["text"] == "independent retained bytes"
     assert sum(family == "artifact_part" for family, _ in calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("defect", "message"),
+    [
+        ("cycle", "native containment cycle"),
+        ("ordinal", "missing or unordered membership"),
+        ("count", "native membership inventory differs"),
+    ],
+)
+def test_detached_transform_input_refuses_malformed_membership(monkeypatch, defect, message):
+    reader, _ = bulk_reader(monkeypatch)
+    monkeypatch.setattr(reader, "_native_product_metadata", lambda **kwargs: {})
+    (header,) = [row.values for row in reader.rows if row.kind == "document"]
+    root = header["root_id"]
+    (index,) = [
+        i
+        for i, row in enumerate(reader.rows)
+        if row.kind == "membership"
+        and row.values["parent_id"] == root
+        and row.values["field_name"] == "texts"
+    ]
+    row = reader.rows[index]
+    if defect == "cycle":
+        reader.rows[index] = replace(row, values=dict(row.values, record_id=root))
+    elif defect == "ordinal":
+        reader.rows[index] = replace(row, values=dict(row.values, ordinal=1))
+    else:
+        del reader.rows[index]
+
+    finish = reader.prepare_native_product(include_candidate_pages=False)
+    assert reader._materialized_streams is None and not reader._whole_materialization
+    with pytest.raises(NativeMappingError, match=message):
+        finish()
 
 
 def test_admitted_pages_still_count_rows_without_preflight(monkeypatch):

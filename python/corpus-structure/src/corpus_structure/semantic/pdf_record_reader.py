@@ -73,26 +73,29 @@ class PublishedReadBudget:
             func.coalesce(func.max(size), 0).label("largest"),
         ).select_from(selected)
 
-    def _admit_summary(self, rows, total_bytes, largest, *, payload_reserved):
+    def _admit_summary(
+        self, rows, total_bytes, largest, *, payload_reserved, transfer_multiplier=2
+    ):
         from .refusal_types import ReadLimit
 
         if self.rows + rows > self.max_rows:
             raise ReadLimit("native source row-work budget exhausted", reason="work_limit")
         # PostgreSQL JSON text has insignificant whitespace/hex byte transport. A
         # bounded 2x transfer preflight precedes canonical decoded-row accounting.
-        if largest > 2 * self.max_bytes:
+        if largest > transfer_multiplier * self.max_bytes:
             raise ReadLimit(
                 "a native source object exceeds the byte budget", reason="oversized_item"
             )
-        if total_bytes > 2 * self._byte_allowance(payload_reserved):
+        if total_bytes > transfer_multiplier * self._byte_allowance(payload_reserved):
             raise ReadLimit("native source byte-work budget exhausted", reason="work_limit")
         self.rows += rows
 
     def _byte_allowance(self, payload_reserved):
         return self.max_bytes if payload_reserved else self.max_bytes - self.bytes
 
-    def guarded_rows(self, conn, statement, *, payload_reserved=False):
+    def guarded_rows(self, conn, statement, *, payload_reserved=False, exact_wire_size=False):
         """Size and deliver one immutable bounded page in a single server evaluation."""
+        transfer_multiplier = 1 if exact_wire_size else 2
         ordered = self._selection(statement).subquery()
         selected = (
             select(ordered, func.row_number().over().label("_pdf_ordinal"))
@@ -103,8 +106,8 @@ class PublishedReadBudget:
         summary = self._summary(selected, ordinal=ordinal).cte("pdf_size")
         admitted = and_(
             summary.c.rows <= self.max_rows - self.rows,
-            summary.c.largest <= 2 * self.max_bytes,
-            summary.c.bytes <= 2 * self._byte_allowance(payload_reserved),
+            summary.c.largest <= transfer_multiplier * self.max_bytes,
+            summary.c.bytes <= transfer_multiplier * self._byte_allowance(payload_reserved),
         )
         query = (
             select(
@@ -115,7 +118,11 @@ class PublishedReadBudget:
         )
         with conn.execute(query) as result:
             first = next(result)
-            self._admit_summary(*first[:3], payload_reserved=payload_reserved)
+            self._admit_summary(
+                *first[:3],
+                payload_reserved=payload_reserved,
+                transfer_multiplier=transfer_multiplier,
+            )
             if first[3] is None:
                 return []
             return [first[4:], *(row[4:] for row in result)]
@@ -1002,6 +1009,30 @@ class PublishedPdfReader:
         for row in self._metadata_rows(kind, pointer=pointer, page_nos=page_nos):
             yield self.decode_companion_row(row)["value"]
 
+    def _candidate_payload(self, row):
+        from .pdf_payloads import PROFILE, EncodedPagePayload
+
+        body = row["body"]
+        fields = row.get("_fields", ())
+        if len(fields) != 1 or fields[0]["field_name"] != "value":
+            raise ValueError("page payload requires exactly one external value")
+        field = fields[0]
+        if body.get("payload_codec") != PROFILE or field["encoding_profile"] != PROFILE:
+            raise ValueError(
+                "page payload encoding profile differs from envelope: "
+                f"expected={PROFILE!r}, envelope={body.get('payload_codec')!r}, "
+                f"field={field['encoding_profile']!r}; inspect the producing release "
+                "and rebuild from compatible retained evidence"
+            )
+        page_no = body["page_no"]
+        if type(page_no) is not int or page_no < 1:
+            raise ValueError("candidate payload envelope has no exact physical page")
+        payload = b"".join(self.scalar(field["stream_id"]))
+        self._check_active()
+        return EncodedPagePayload(
+            payload, body["payload_schema_digest"], body["payload_logical_digest"], page_no
+        )
+
     def iter_payload_batches(
         self,
         kind: str = "inline_candidate_pages",
@@ -1011,35 +1042,16 @@ class PublishedPdfReader:
         context=None,
     ) -> Iterator[pa.RecordBatch]:
         """Yield owned selected-page batches after closing each artifact result page."""
-        from .pdf_payloads import FAMILY, PROFILE, prepare_payload_family
+        from .pdf_payloads import FAMILY, prepare_payload_family
 
         if kind != FAMILY:
             raise ValueError("metadata family has no declared Arrow payload realization")
+        family = prepare_payload_family(context if context is not None else self._payload_context())
         for row in self._metadata_rows(kind, page_nos=page_nos):
-            body = row["body"]
-            fields = row.get("_fields", ())
-            if len(fields) != 1 or fields[0]["field_name"] != "value":
-                raise ValueError("page payload requires exactly one external value")
-            field = fields[0]
-            if body.get("payload_codec") != PROFILE or field["encoding_profile"] != PROFILE:
-                raise ValueError(
-                    "page payload encoding profile differs from envelope: "
-                    f"expected={PROFILE!r}, envelope={body.get('payload_codec')!r}, "
-                    f"field={field['encoding_profile']!r}; inspect the producing release "
-                    "and rebuild from compatible retained evidence"
-                )
-            payload = b"".join(self.scalar(field["stream_id"]))
-            self._check_active()
-            # scalar() verifies the admitted immutable artifact's byte root and SHA. Selected
-            # columns retain schema/framing checks without rescanning unrelated OCR values.
-            batch = prepare_payload_family(
-                context if context is not None else self._payload_context()
-            ).read_batch(
-                payload,
-                schema_digest=body["payload_schema_digest"],
-                logical_digest=body["payload_logical_digest"] if columns is None else None,
-                columns=columns,
-            )
+            # Exact bytes come from the prior native publication validation and
+            # scalar() authenticates its body through this acquired receipt.
+            payload = family._admitted_page(self._candidate_payload(row))
+            batch = family.read_admitted_page(payload, columns)
             self._check_active()
             yield batch
 
@@ -1096,30 +1108,14 @@ class PublishedPdfReader:
 
     def iter_candidate_payloads(self, *, context=None):
         """Yield exact source-qualified IPC bytes without reconstructing nested values."""
-        from .pdf_payloads import PROFILE, EncodedPagePayload, prepare_payload_family
+        from .pdf_payloads import prepare_payload_family
 
         family = prepare_payload_family(context if context is not None else self._payload_context())
         for row in self._metadata_rows("inline_candidate_pages"):
-            body = row["body"]
-            fields = row.get("_fields", ())
-            if len(fields) != 1 or fields[0]["field_name"] != "value":
-                raise ValueError("page payload requires exactly one external value")
-            field = fields[0]
-            if body.get("payload_codec") != PROFILE or field["encoding_profile"] != PROFILE:
-                raise ValueError("page payload requires its released Arrow realization")
-            payload = b"".join(self.scalar(field["stream_id"]))
-            batch = family.read_batch(
-                payload,
-                schema_digest=body["payload_schema_digest"],
-                logical_digest=body["payload_logical_digest"],
-            )
-            page_no = batch.column("page_no")[0].as_py()
-            if page_no != body["page_no"]:
-                raise ValueError("candidate payload page differs from its envelope")
+            admitted = family._admitted_page(self._candidate_payload(row))
+            family.read_admitted_page(admitted, ("page_no",))
             self._check_active()
-            yield EncodedPagePayload(
-                payload, body["payload_schema_digest"], body["payload_logical_digest"], page_no
-            )
+            yield admitted
 
     def recognition_inventory(self) -> PdfRecognitionInventory:
         """Read the exact page map and native health without reconstructing values."""
@@ -1266,6 +1262,7 @@ class PublishedPdfReader:
                     self._payload_context(),
                     schema_digest=row["body"]["payload_schema_digest"],
                     logical_digest=row["body"]["payload_logical_digest"],
+                    page_no=row["body"]["page_no"],
                 )
             elif kind == "y":
                 body[name] = json.loads(payload)
@@ -1384,6 +1381,7 @@ class PublishedPdfReader:
                                 self._payload_context(),
                                 schema_digest=envelope["payload_schema_digest"],
                                 logical_digest=envelope["payload_logical_digest"],
+                                page_no=envelope["page_no"],
                             )
                         )
                     elif field["scalar_kind"] == "y":

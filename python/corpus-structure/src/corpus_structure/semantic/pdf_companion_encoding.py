@@ -123,13 +123,17 @@ def prepare_pdf_companion_batches(
                 body["outcome"] = value.get("outcome")
                 body["has_diagnostic"] = "error" in value
             if body["kind"] == "inline_candidate_pages":
-                from .pdf_payloads import PROFILE, EncodedPagePayload
+                from .pdf_payloads import PROFILE, AdmittedPagePayload, EncodedPagePayload
 
                 if codec is None:
                     raise ValueError(
                         "PDF companion preparation requires the captured payload codec"
                     )
-                if isinstance(value, EncodedPagePayload):
+                if isinstance(value, AdmittedPagePayload):
+                    if value.schema_digest != codec.schema_digest:
+                        raise ValueError("encoded page schema differs from captured codec")
+                    encoded = value
+                elif isinstance(value, EncodedPagePayload):
                     batch = codec.read_batch(
                         value.content,
                         schema_digest=value.schema_digest,

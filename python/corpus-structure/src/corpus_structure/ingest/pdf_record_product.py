@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from .pdf_candidate_source import as_candidate_source
@@ -10,6 +11,26 @@ from .pdf_hierarchy import native_nodes
 
 if TYPE_CHECKING:
     from corpus_structure.core.method import PdfRecordPublicationDraft
+
+    from .pdf_candidate_source import CandidatePageSource
+    from .pdf_candidates import CandidatePage
+    from .pdf_health import FormulaOutcome
+
+
+@dataclass(frozen=True, slots=True)
+class PdfConversionMetadata:
+    """Conversion facts used by a transform independently of its document carrier."""
+
+    original_digest: str
+    recipe: bytes
+    conversion_status: str
+    errors: tuple[str, ...]
+    formula_outcomes: tuple[FormulaOutcome, ...]
+    packages: tuple[tuple[str, str], ...]
+    runtime: tuple[tuple[str, str], ...]
+    effective_options: bytes
+    inline_candidates: tuple[CandidatePage, ...] | CandidatePageSource
+    confidence: bytes
 
 
 def native_publication_draft(
@@ -32,16 +53,12 @@ def native_publication_draft(
 
     selected = conversion.native if native is None else native
     policy = native_validation_contract() if callback_policy is None else callback_policy
-    sealed = SealedPdfNative(selected, callback_policy=policy)
-    document = sealed.validate_under(policy)
-    if document.version != selected.schema_version:
-        raise ValueError("native schema version differs from binding")
-    nodes = native_nodes(document)
+    sealed = SealedPdfNative.from_publication(selected, policy)
     if health is None:
         from .pdf import native_conversion_health
 
         health = native_conversion_health(
-            nodes,
+            native_nodes(sealed.validate_under(policy)),
             conversion.conversion_status,
             conversion.errors,
             (*conversion.formula_outcomes, *extra_outcomes),
@@ -67,7 +84,7 @@ def native_publication_draft(
             },
         )
     return PdfRecordPublicationDraft(
-        document=document,
+        document=sealed,
         product_key=product_key,
         original=original,
         schema_bytes=schema_bytes,
@@ -75,7 +92,6 @@ def native_publication_draft(
         health=health,
         metadata=captured,
         kind="native",
-        sealed_document=sealed.publication_value(document),
     )
 
 

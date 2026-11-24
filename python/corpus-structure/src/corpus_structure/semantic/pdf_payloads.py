@@ -265,6 +265,30 @@ class EncodedPagePayload:
     page_no: int
 
 
+_PAGE_ADMISSION = object()
+
+
+@dataclass(frozen=True, init=False)
+class AdmittedPagePayload(EncodedPagePayload):
+    """Exact immutable IPC bytes with locally established complete page admission."""
+
+    def __init__(self, payload: EncodedPagePayload, *, proof: object):
+        if proof is not _PAGE_ADMISSION:
+            raise ValueError("candidate page requires local admission")
+        object.__setattr__(self, "content", payload.content)
+        object.__setattr__(self, "schema_digest", payload.schema_digest)
+        object.__setattr__(self, "logical_digest", payload.logical_digest)
+        object.__setattr__(self, "page_no", payload.page_no)
+
+    def __reduce__(self):
+        return EncodedPagePayload, (
+            self.content,
+            self.schema_digest,
+            self.logical_digest,
+            self.page_no,
+        )
+
+
 @dataclass(frozen=True)
 class PreparedPayloadFamily:
     json_schema: Mapping[str, Any]
@@ -322,15 +346,61 @@ class PreparedPayloadFamily:
 
     def encode_page(
         self, value: Mapping[str, Any], *, compression: str | None = None
-    ) -> EncodedPagePayload:
+    ) -> AdmittedPagePayload:
         """Seal the canonical receipt and IPC bytes after one page admission."""
         batch = self.batch(value)
-        return EncodedPagePayload(
+        payload = EncodedPagePayload(
             self._encode_batch(batch, compression=compression),
             self.schema_digest,
             self._admitted_digest(value),
             batch.column("page_no")[0].as_py(),
         )
+        return self._admitted_page(payload)
+
+    def _admitted_page(self, payload: EncodedPagePayload) -> AdmittedPagePayload:
+        if type(payload.content) is not bytes:
+            _error("#", "candidate page requires immutable IPC bytes")
+        if payload.schema_digest != self.schema_digest:
+            _error("#", "payload schema binding differs")
+        return AdmittedPagePayload(payload, proof=_PAGE_ADMISSION)
+
+    def admit_page(self, payload: EncodedPagePayload) -> tuple[AdmittedPagePayload, pa.RecordBatch]:
+        """Admit a complete received page and return the same bounded decoded batch."""
+        if type(payload.content) is not bytes:
+            _error("#", "candidate page requires immutable IPC bytes")
+        batch = self._read_bound_page(payload, logical_digest=payload.logical_digest)
+        self.decode_batch(batch)
+        return self._admitted_page(payload), batch
+
+    def read_admitted_page(
+        self, payload: AdmittedPagePayload, columns: Sequence[str] | None = None
+    ) -> pa.RecordBatch:
+        if not isinstance(payload, AdmittedPagePayload):
+            _error("#", "candidate page requires local admission")
+        return self._read_bound_page(payload, columns=columns)
+
+    def _read_bound_page(
+        self,
+        payload: EncodedPagePayload,
+        *,
+        logical_digest: str | None = None,
+        columns: Sequence[str] | None = None,
+    ) -> pa.RecordBatch:
+        physical = columns
+        if columns is not None:
+            if not columns or len(set(columns)) != len(columns):
+                _error("#", "payload projection requires distinct named columns")
+            if "page_no" not in columns:
+                physical = (*columns, "page_no")
+        batch = self.read_batch(
+            payload.content,
+            schema_digest=payload.schema_digest,
+            logical_digest=logical_digest,
+            columns=physical,
+        )
+        if batch.column("page_no")[0].as_py() != payload.page_no:
+            _error("#/page_no", "candidate payload page binding differs")
+        return batch.select(columns) if columns is not None else batch
 
     def read_batch(
         self,
@@ -503,10 +573,14 @@ def decode_page_payload(
     *,
     schema_digest: str | None = None,
     logical_digest: str | None = None,
+    page_no: int | None = None,
 ) -> dict[str, Any]:
-    return prepare_payload_family(context).decode(
+    page = prepare_payload_family(context).decode(
         payload, schema_digest=schema_digest, logical_digest=logical_digest
     )
+    if page_no is not None and (type(page_no) is not int or page["page_no"] != page_no):
+        _error("#/page_no", "candidate payload page binding differs")
+    return page
 
 
 def page_payload_batches(

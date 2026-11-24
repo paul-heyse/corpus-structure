@@ -99,6 +99,21 @@ def test_owned_projected_batch_and_inventory_keep_nested_arrays():
     ]
 
 
+def test_published_projection_checks_unrequested_physical_page_number():
+    reader = PageReader([inventory()])
+    assert next(reader.iter_payload_batches(columns=["candidates", "has_words"])).schema.names == [
+        "candidates",
+        "has_words",
+    ]
+    reader.rows[0]["body"]["page_no"] = 2
+    with pytest.raises(ValueError, match="candidate payload page binding differs"):
+        next(reader.iter_payload_batches(page_nos=[2], columns=["candidates", "has_words"]))
+    with pytest.raises(ValueError, match="candidate payload page binding differs"):
+        next(reader.iter_candidate_payloads())
+    with pytest.raises(ValueError, match="candidate payload page binding differs"):
+        next(reader.native_metadata("inline_candidate_pages", page_nos=[2]))
+
+
 def test_recovered_candidate_projects_previously_admitted_bytes(tmp_path, monkeypatch):
     from corpus_structure.ingest.pdf_candidate_source import ReplayCandidatePageSource
     from corpus_structure.ingest.pdf_stream_types import PdfReplayRef

@@ -94,6 +94,14 @@ def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
         assert conn.execute(
             text(
+                "SELECT page_no, pointer, region_index "
+                "FROM kb.pdf_record_region_address "
+                "WHERE product_id=:build AND revision_id=:build ORDER BY page_no"
+            ),
+            {"build": build.build_id},
+        ).all() == [(1, "#/texts/0", 0), (2, "#/texts/0", 1)]
+        assert conn.execute(
+            text(
                 'SELECT pointer, region_index, page_no, "left", top, origin '
                 "FROM kb.pdf_record_region_view WHERE product_id=:build AND revision_id=:build "
                 "ORDER BY pointer, region_index"

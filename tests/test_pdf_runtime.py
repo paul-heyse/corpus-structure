@@ -367,6 +367,7 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
 ):
     """Pure orchestration control; this does not qualify a model or database publication."""
     import json
+    import pickle
 
     from docling_core.types.doc import (
         BoundingBox,
@@ -412,7 +413,9 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
     organization = organize(snapshot(document), PdfIngestConfig().section_policy())
     section = organization.sections[1 if with_ancestor else 0].group_ref
     membership: Literal["direct", "descendants"] = "descendants" if with_ancestor else "direct"
-    candidate = InlineCandidate(1, "x", 25, 10, 35, 30, "TOPLEFT", "CMMI10", "native-math-font-v1")
+    candidate = InlineCandidate(
+        1, "x", 25, -0.5, 35, 30, "TOPLEFT", "CMMI10", "native-math-font-v1"
+    )
     if unresolved_context:
         candidate = InlineCandidate(
             1,
@@ -462,6 +465,7 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
     for page in as_candidate_source(conversion.inline_candidates).iter_pages():
         spool.capture_candidates(page)
     candidate_source = spool.candidate_source
+    original_page = candidate_source.encoded(1)
 
     class Engine:
         def predict_batch(self, inputs):
@@ -484,7 +488,7 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
     monkeypatch.setattr(
         "corpus_structure.ingest.pdf_candidates.rediscover_candidates",
         lambda original, pages, parser_threads: (
-            CandidatePage(1, True, False, (candidate,), not missing_vectors),
+            CandidatePage(1, True, missing_vectors, (candidate,), not missing_vectors),
         ),
     )
     cfg = PdfEnrichmentOptions()
@@ -497,12 +501,37 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
     monkeypatch.setattr(converter, "runtime_bindings", lambda: ())
     from corpus_structure.ingest.pdf_enrichment import compute_enrichment
     from corpus_structure.ingest.pdf_worker import PdfWorker
-    from corpus_structure.semantic.pdf_records import native_validation_contract
+    from corpus_structure.semantic import pdf_records
+    from corpus_structure.semantic.pdf_payloads import PreparedPayloadFamily
 
     worker = PdfWorker(recipe)
-    monkeypatch.setattr(
-        worker, "enrich", lambda request, **kwargs: compute_enrichment(request, converter)
-    )
+    full_page_reads = []
+    read_batch = PreparedPayloadFamily.read_batch
+
+    def observe_page_read(codec, content, **options):
+        digest = options.get("logical_digest")
+        if digest is not None:
+            full_page_reads.append(digest)
+        return read_batch(codec, content, **options)
+
+    validations = []
+    validate = pdf_records.validate_native_callbacks
+
+    def observe_validation(values, *, contract):
+        result = validate(values, contract=contract)
+        validations.append(result)
+        return result
+
+    def compute(request, **kwargs):
+        assert len(validations) == 1
+        result = compute_enrichment(pickle.loads(pickle.dumps(request)), converter)
+        assert len(validations) == 2
+        assert full_page_reads == [original_page.logical_digest]
+        return result
+
+    monkeypatch.setattr(worker, "enrich", compute)
+
+    crops = []
 
     class Renderer:
         def __init__(self, *args, **kwargs):
@@ -515,29 +544,45 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
             pass
 
         def __call__(self, page, bbox):
+            crops.append((page, bbox.l, bbox.t, bbox.r, bbox.b))
             return Image.new("RGB", (20, 20))
 
     monkeypatch.setattr("corpus_structure.ingest.pdf_enrichment.PdfRegionRenderer", Renderer)
-    draft = enrich_selected_pdf(
-        product.values(),
-        pin,
-        ((section, membership),),
-        cfg,
-        b"captured-enrichment-recipe",
-        candidate_source,
-        worker,
-        original=product.original,
-        schema_bytes=product.schema_bytes,
-        source_policy=native_validation_contract(),
-        output_policy=native_validation_contract(),
-        check_active=lambda: None,
-    )
+    policy = pdf_records.native_validation_contract()
     try:
+        with monkeypatch.context() as capture:
+            capture.setattr(pdf_records, "validate_native_callbacks", observe_validation)
+            capture.setattr(PreparedPayloadFamily, "read_batch", observe_page_read)
+            draft = enrich_selected_pdf(
+                product.values(),
+                pin,
+                ((section, membership),),
+                cfg,
+                b"captured-enrichment-recipe",
+                candidate_source,
+                worker,
+                original=product.original,
+                schema_bytes=product.schema_bytes,
+                source_policy=policy,
+                output_policy=policy,
+                check_active=lambda: None,
+            )
+            enriched = draft.document.validate_under(policy)
+            assert len(validations) == 3 and enriched is validations[2]
+            (published_page,) = draft.metadata["inline_candidate_pages"]
+            assert full_page_reads == [original_page.logical_digest]
+        if not missing_vectors and not unresolved_context:
+            assert published_page == original_page
+        if missing_vectors:
+            assert (
+                candidate_source.payload_family.decode(published_page.content)["has_chars"] is True
+            )
+        published_snapshot = snapshot(enriched)
         reference = ProductReference(2, "math-enriched", "f" * 64)
         source_views = _drafts(
             1,
             reference,
-            snapshot(draft.document),
+            published_snapshot,
             draft.health,
             (section,),
             membership,
@@ -560,6 +605,7 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
     assert row["outcome"] == expected_coverage
     assert source_views[0].health["inline_coverage"] == expected_coverage
     if unresolved_context:
+        assert crops == []
         assert draft.metadata["inline_alignment_reports"][0]["item_pointers"] == [
             paragraph.self_ref
         ]
@@ -570,7 +616,7 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
         (context,) = _drafts(
             1,
             reference,
-            snapshot(draft.document),
+            published_snapshot,
             draft.health,
             (organization.sections[0].group_ref,),
             "direct",
@@ -585,6 +631,18 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
         }
         assert len(draft.metadata["recognition_coverage"]) == 6
     assert len(draft.metadata["derivation_mappings"]) == 3
+    assert crops == [(1, 25, -0.5, 35, 30)]
+    (formula,) = (item for item in enriched.texts if str(item.label) == "formula")
+    assert len(formula.prov) == 1
+    (prov,) = formula.prov
+    assert (prov.page_no, prov.bbox.l, prov.bbox.t, prov.bbox.r, prov.bbox.b, prov.charspan) == (
+        1,
+        25,
+        0,
+        35,
+        30,
+        (0, 1),
+    )
     assert {r["origin_pointer"] for r in draft.metadata["derivation_mappings"]} == {
         paragraph.self_ref
     }

@@ -157,23 +157,32 @@ class CurrentPdfSource:
     sections: tuple[str, ...]
     published_only: bool = False
 
-    def publication(self, connection):
+    def publication(self, connection, *, include_siblings=False):
         from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
         from corpus_structure.serve.selected_pdf import (
             SelectedPdfSourceReference,
             acquire_selected_pdf_source,
         )
 
-        # This fixture owns one known capture. A general catalog's first bounded
-        # page may instead contain discovery, and incomplete serving code cannot
-        # grant the continuation needed to search its later pages. Acquire a new
-        # exact capture/source cut rather than treating that unknown as absence.
+        # Ordinary capture inspection can narrow the cut to its operation.
+        # A visual read uses the exact original cut and selects the capture
+        # by nominal kind so the same cut includes the requested visual work.
+        capture = "source.pdf/capture"
+        capture_kind = None
+        if include_siblings:
+            (role,) = (
+                role
+                for role in self.kernel.model.operation(capture).roles
+                if role.direction == "output"
+            )
+            capture_kind = self.kernel.identities[role.kind, "kind"]
         page = serve_demand_query(
             connection,
             DemandQueryRequest(
                 project_id=PROJECT,
                 demand_id=self.demand_id,
-                operation_id="source.pdf/capture",
+                operation_id=None if include_siblings else capture,
+                kind_contract=capture_kind,
                 original_source=self.document_key,
                 containers_only=True,
                 limit=1,
@@ -191,8 +200,8 @@ class CurrentPdfSource:
             product_id=row["product_id"],
             derivation_id=row["derivation_id"],
         )
-        # The operation filter narrows selection; only the native publication
-        # owner establishes the nominal kind, sealed receipt and exact source.
+        # The native publication owner establishes the nominal kind, sealed
+        # receipt and exact source.
         selected = acquire_selected_pdf_source(connection, reference)
         assert selected.original_source == self.document_key
         return reference, page
@@ -339,7 +348,9 @@ class PublishedCaptureStage:
         )
 
 
-def _capture_source(kernel, directory, sections, *, source_uri="independent-original.pdf"):
+def _capture_source(
+    kernel, directory, sections, *, source_uri="independent-original.pdf", original=None
+):
     from hashlib import sha256
 
     import pypdfium2 as pdfium
@@ -358,13 +369,14 @@ def _capture_source(kernel, directory, sections, *, source_uri="independent-orig
         register_original_document,
     )
 
-    document = pdfium.PdfDocument.new()
-    page = document.new_page(200, 300)
-    page.close()
-    output = BytesIO()
-    document.save(output)
-    document.close()
-    original = output.getvalue()
+    if original is None:
+        document = pdfium.PdfDocument.new()
+        page = document.new_page(200, 300)
+        page.close()
+        output = BytesIO()
+        document.save(output)
+        document.close()
+        original = output.getvalue()
     path = directory / "independent-original.pdf"
     path.write_bytes(original)
     with kernel.purpose("write").begin() as connection:
@@ -470,6 +482,22 @@ def current_pdf_process_source(scenario_seeds, directory):
         kernel = Kernel(clone.admin, stage.preparation, stage.identities, recipe, clone)
         demand, key, original = _capture_source(kernel, directory, ())
         yield CurrentPdfSource(kernel, demand, key, original, ())
+
+
+@contextmanager
+def current_pdf_fixture_source(scenario_seeds, directory, *, content, original, source_uri):
+    """Use a controlled incumbent for independently retained original bytes."""
+    from pdf_controlled_support import controlled_pdf_converter
+
+    recipe = current_pdf_recipe(directory)
+    with scenario_seeds.build_for_consumer(recipe, directory) as clone:
+        stage = clone.stage
+        kernel = Kernel(clone.admin, stage.preparation, stage.identities, recipe, clone)
+        with controlled_pdf_converter(content):
+            demand, key, retained = _capture_source(
+                kernel, directory, (), source_uri=source_uri, original=original
+            )
+            yield CurrentPdfSource(kernel, demand, key, retained, ())
 
 
 @contextmanager

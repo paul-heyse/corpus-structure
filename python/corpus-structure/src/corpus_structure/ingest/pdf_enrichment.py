@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass, replace
 from functools import cmp_to_key
 from typing import Any, Literal
 
-from .pdf import CellCandidate, CellEnrichment, PdfConversion, PdfConverter
+from .pdf import CellCandidate, CellEnrichment, PdfConverter
 from .pdf_candidate_geometry import CandidateGeometry, CandidatePageStatus, candidate_page_status
 from .pdf_candidate_source import (
     CandidatePageSource,
@@ -19,6 +19,7 @@ from .pdf_candidate_source import (
 from .pdf_candidates import CandidatePage, InlineCandidate
 from .pdf_health import FormulaOutcome, ObservedFormulaStage
 from .pdf_hierarchy import NativeSnapshot, load_snapshot, native_nodes, snapshot
+from .pdf_record_product import PdfConversionMetadata
 
 
 class RecognitionUnavailable(ValueError):
@@ -534,7 +535,8 @@ def classify_cells(
 
 @dataclass(frozen=True, slots=True)
 class PdfEnrichmentRequest:
-    conversion: PdfConversion
+    conversion: PdfConversionMetadata
+    native: NativeSnapshot
     original: bytes
     selected: frozenset[str]
     cell_math_pattern: str
@@ -549,11 +551,23 @@ class PdfEnrichmentResult:
     outcomes: tuple[FormulaOutcome, ...]
     mappings: tuple[dict[str, Any], ...]
     cell_reports: tuple[dict[str, Any], ...]
-    candidate_pages: CandidatePageSource
+    candidate_overrides: dict[int, CandidatePage]
     packages: tuple[tuple[str, str], ...]
     runtime: tuple[tuple[str, str], ...]
     effective_options: bytes
     alignment_reports: tuple[InlineAlignmentReport, ...] = ()
+
+
+def _normalize_new_formula_provenance(document: Any, outcomes: tuple[FormulaOutcome, ...]):
+    """Clamp only the new formula geometry after inference has consumed its original crop."""
+    from docling_core.types.doc import RefItem
+
+    for outcome in outcomes:
+        formula = RefItem(cref=outcome.item_ref).resolve(document)
+        for prov in formula.prov:
+            page = document.pages.get(prov.page_no)
+            if page is not None:
+                document._clamp_provenance_bbox_to_page(prov=prov, page_size=page.size)
 
 
 def compute_enrichment(
@@ -567,7 +581,7 @@ def compute_enrichment(
 
     if sha256(request.original).hexdigest() != request.conversion.original_digest:
         raise ValueError("enrichment original differs from its pinned native product")
-    document = load_snapshot(request.conversion.native, contract=request.source_policy)
+    document = load_snapshot(request.native, contract=request.source_policy)
     nodes = native_nodes(document)
     if not request.selected <= nodes.keys():
         raise ValueError("enrichment selection names missing native occurrences")
@@ -703,12 +717,21 @@ def compute_enrichment(
             "requested": bool(demanded or inline),
         },
     }
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    from .pdf_streaming import _json_view, _own_json
+
+    new_outcomes = cell_outcomes + inline_outcomes
+    _normalize_new_formula_provenance(document, new_outcomes)
+    # The reply transports projected native values. The parent admits the
+    # complete output and rejects unrelated normalization before publication.
+    payload = canonical_bytes(_own_json(_json_view(document)))
     return PdfEnrichmentResult(
-        snapshot(document),
-        cell_outcomes + inline_outcomes,
+        NativeSnapshot(payload, sha256(payload).hexdigest(), document.version),
+        new_outcomes,
         cell_mappings + inline_mappings,
         tuple(reports),
-        candidates,
+        overrides,
         pdf_package_versions(),
         converter.runtime_bindings(),
         json.dumps(effective_options, ensure_ascii=False, allow_nan=False).encode(),

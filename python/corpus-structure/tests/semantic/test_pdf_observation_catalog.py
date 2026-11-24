@@ -1,4 +1,4 @@
-"""Selected provider-failure observations retain genuine native receipt custody.
+"""Selected visual observations and mappings retain genuine native receipt custody.
 
 This native journey is required after the combined current source capture. The
 controlled submitted response establishes no actual model/provider qualification.
@@ -10,6 +10,7 @@ from dataclasses import replace
 from hashlib import sha256
 
 import pytest
+from pdf_controlled_support import controlled_pdf_converter
 from pydantic import ValidationError
 
 from corpus_structure.semantic.data_operation_external import ExternalDataSession
@@ -19,10 +20,15 @@ from corpus_structure.semantic.data_operation_service import (
 )
 from corpus_structure.semantic.demand_results import selected_read_snapshot
 from corpus_structure.semantic.refusal_types import InvalidContinuation
+from corpus_structure.semantic.visual_evidence import VisualText
+from corpus_structure.serve.native_source import NativeSourceRequest, inspect_native_source
 from corpus_structure.serve.pdf_visual_evidence import visual_observation_manifest
 from corpus_structure.serve.source_catalog import SourceCatalogRequest
-from semantic.current_pdf_source_support import PROJECT, ROOT
+from semantic.current_pdf_source_support import PROJECT, ROOT, section_content, source_content
 from semantic.current_pdf_source_support import current_pdf_source as current_pdf_source
+from semantic.current_pdf_source_support import (
+    current_pdf_source_factory as current_pdf_source_factory,
+)
 
 
 @pytest.mark.parametrize(
@@ -43,21 +49,8 @@ def test_current_source_catalog_requires_typed_bounded_semantic_scope(changes):
         )
 
 
-def test_failed_provider_observation_remains_selected_and_inspectable(
-    current_pdf_source, monkeypatch, cli
-):
-    case = current_pdf_source
-    with case.kernel.purpose("write").begin() as connection:
-        demand = case.register(
-            connection,
-            "source.visual/recognize",
-            selections=(
-                DemandOperationSelection(
-                    operation="source.visual_input/render", parameters={"selection": {"page_no": 1}}
-                ),
-            ),
-        )
-    execute_data_demand(
+def _execute(case, demand):
+    return execute_data_demand(
         case.kernel.purpose("write"),
         demand,
         source_root=ROOT / "python/corpus-structure/src",
@@ -65,6 +58,20 @@ def test_failed_provider_observation_remains_selected_and_inspectable(
         project_id=PROJECT,
         database_capacity=6,
     )
+
+
+def _visual_packet(case, target):
+    with case.kernel.purpose("write").begin() as connection:
+        demand = case.register(
+            connection,
+            target,
+            selections=(
+                DemandOperationSelection(
+                    operation="source.visual_input/render", parameters={"selection": {"page_no": 1}}
+                ),
+            ),
+        )
+    _execute(case, demand)
     session = ExternalDataSession(case.kernel.purpose("write"), PROJECT, demand_id=demand)
     (packet,) = session.queue()["packets"]
     claim = session.claim(packet["packet_id"])
@@ -72,7 +79,10 @@ def test_failed_provider_observation_remains_selected_and_inspectable(
     submitted = session.read(packet["packet_id"], claim)
     (image,) = submitted["input_views"]
     assert image["role"] == "image" and image["value"]["document"] == case.document_key
-    raw = ""
+    return demand, session, submitted["packet"], claim, image["value"]
+
+
+def _submit_observation(session, packet, claim, image, *, raw, outcome, finish, diagnostic):
     completed = session.submit(
         packet["packet_id"],
         claim,
@@ -82,24 +92,42 @@ def test_failed_provider_observation_remains_selected_and_inspectable(
                 {
                     "role": "observation",
                     "body": dict(
-                        image=image["value"],
+                        image=image,
                         raw_response=raw,
                         response_digest=sha256(raw.encode()).hexdigest(),
-                        finish_reason="inference_error",
+                        finish_reason=finish,
                         runtime_identity_json='{"controlled":"no model inference"}',
-                        provider_outcome="failed",
-                        diagnostic="Independent controlled provider failure",
+                        provider_outcome=outcome,
+                        diagnostic=diagnostic,
                     ),
                 }
             ],
         },
-        actor_assertion="controlled-source-native-test",
-        model_assertion=None,
+        actor_assertion=packet["protocol"]["requested_actor"],
+        model_assertion=packet["protocol"]["requested_model"],
     )
     assert completed["state"] == "committed"
+
+
+def test_failed_provider_observation_remains_selected_and_inspectable(
+    current_pdf_source, monkeypatch, cli
+):
+    case = current_pdf_source
+    with controlled_pdf_converter(source_content()):
+        demand, session, packet, claim, image = _visual_packet(case, "source.visual/recognize")
+    _submit_observation(
+        session,
+        packet,
+        claim,
+        image,
+        raw="",
+        outcome="failed",
+        finish="inference_error",
+        diagnostic="Independent controlled provider failure",
+    )
     selected = replace(case, demand_id=demand)
     with selected_read_snapshot(case.kernel.purpose("read")) as connection:
-        source, _ = selected.publication(connection)
+        source, _ = selected.publication(connection, include_siblings=True)
         continuation, entries = None, []
         while True:
             page = visual_observation_manifest(
@@ -153,3 +181,80 @@ def test_failed_provider_observation_remains_selected_and_inspectable(
     actual = json.loads(result.stdout)
     assert actual["observations"][0]["execution_outcome"] == "failed"
     assert actual["observations"][0]["raw"]["derivation_id"] == observation.raw.derivation_id
+
+
+def test_selected_formula_and_controlled_visual_mapping_share_the_exact_page(
+    current_pdf_source_factory,
+):
+    rows = (
+        ("formula", "x^2", "x²", "succeeded"),
+        ("text", "Unrelated prose", "Unrelated prose", None),
+    )
+    raw = '<div data-label="Formula" data-bbox="50 70 750 130"><math>x^2</math></div>'
+    with (
+        current_pdf_source_factory(rows) as case,
+        controlled_pdf_converter(section_content(rows)),
+    ):
+        demand, session, packet, claim, image = _visual_packet(case, "source.visual/map")
+        _submit_observation(
+            session,
+            packet,
+            claim,
+            image,
+            raw=raw,
+            outcome="succeeded",
+            finish="end_of_sequence",
+            diagnostic="",
+        )
+        _execute(case, demand)
+        selected = replace(case, demand_id=demand)
+        with selected_read_snapshot(case.kernel.purpose("read")) as connection:
+            source, _ = selected.publication(connection, include_siblings=True)
+            original = source.model_dump()
+            manifest = visual_observation_manifest(connection, source, page_no=1)
+            (entry,) = [row for row in manifest.observations if row.mapped is not None]
+            assert entry.mapping_availability == "available"
+            assert entry.execution_outcome == "succeeded"
+            assert entry.raw_producer["producer_task_id"] == claim["task_id"]
+            assert entry.raw_producer["producer_attempt"] == claim["attempt"]
+
+            request = NativeSourceRequest(
+                **original, view="visual_evidence", evidence=entry.mapped, page_no=1
+            )
+            page = inspect_native_source(connection, request)
+            assert [(row["pointer"], row["label"], row["text"]) for row in page.rows] == [
+                ("#/texts/0", "formula", "x^2"),
+                ("#/texts/1", "text", "Unrelated prose"),
+            ]
+            assert page.visual_evidence is not None
+            assert (
+                page.visual_evidence.original_artifact_digest == sha256(case.original).hexdigest()
+            )
+            assert page.visual_evidence.raw_evidence == entry.raw
+            (candidate,) = page.visual_evidence.items
+            assert isinstance(candidate, VisualText)
+            assert (candidate.kind, candidate.text) == ("formula", "x^2")
+
+            pointer = "#/texts/0"
+            item = inspect_native_source(
+                connection, request.model_copy(update={"pointer": pointer, "region_index": 0})
+            )
+            assert [row["pointer"] for row in item.rows] == [pointer]
+            assert item.visual_evidence is not None
+            (region,) = item.visual_evidence.original_regions
+            assert (region["page_no"], region["region_index"], region["left"]) == (1, 0, "10.0")
+            with pytest.raises(ValueError, match="outside submitted visual page"):
+                inspect_native_source(connection, request.model_copy(update={"pointer": "#/body"}))
+            with pytest.raises(ValueError, match="another submitted page"):
+                inspect_native_source(connection, request.model_copy(update={"page_no": 2}))
+
+            formula = inspect_native_source(
+                connection, NativeSourceRequest(**original, view="formula", pointer=pointer)
+            )
+            (value,) = formula.rows
+            assert value["original_text"] == "x²" and value["recognized_latex"] == "x^2"
+            recognition = value["recognition"]
+            regions = value["regions"]
+            assert isinstance(recognition, dict) and recognition["outcome"] == "succeeded"
+            assert isinstance(regions, list) and isinstance(regions[0], dict)
+            assert regions[0]["page_no"] == 1

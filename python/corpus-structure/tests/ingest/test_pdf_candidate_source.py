@@ -32,13 +32,21 @@ def page(number, texts=("x", "=", "Ω")):
 def test_candidate_spool_encodes_once_and_callbacks_keep_exact_binding(tmp_path, monkeypatch):
     family = prepare_payload_family()
     encodes = []
-    original = PreparedPayloadFamily.encode
+    complete_decodes = []
+    original = PreparedPayloadFamily.encode_page
+    read = PreparedPayloadFamily.read_batch
 
     def counted(self, value, **kwargs):
         encodes.append(value["page_no"])
         return original(self, value, **kwargs)
 
-    monkeypatch.setattr(PreparedPayloadFamily, "encode", counted)
+    def counted_read(self, payload, **options):
+        if options.get("logical_digest") is not None:
+            complete_decodes.append(options["logical_digest"])
+        return read(self, payload, **options)
+
+    monkeypatch.setattr(PreparedPayloadFamily, "encode_page", counted)
+    monkeypatch.setattr(PreparedPayloadFamily, "read_batch", counted_read)
     observed = []
     spool = PdfStreamSpool(tmp_path / "spool", payload_family=family, on_page=observed.append)
     original_page = page(7)
@@ -52,6 +60,7 @@ def test_candidate_spool_encodes_once_and_callbacks_keep_exact_binding(tmp_path,
     assert observed[0].path.suffix == ".arrow"
     assert not list(spool.root.glob("candidate-*.json"))
     assert encoded.content == observed[0].path.read_bytes()
+    assert not complete_decodes
     value = family.decode(
         encoded.content,
         schema_digest=encoded.schema_digest,
@@ -79,7 +88,7 @@ def test_selected_batches_skip_other_replays_and_own_buffers_after_close(tmp_pat
     # Original list order establishes indices before downstream filtering.
     assert [candidate["text"].as_py() for candidate in candidates] == ["x", "=", "Ω"]
     assert candidate_from_payload(candidates[2].as_py()).text == "Ω"
-    with pytest.raises(ValueError, match="bytes changed"):
+    with pytest.raises(ValueError, match="changed"):
         spool.candidate_source.encoded(2)
 
 

@@ -7,11 +7,13 @@ buffers, so a selected result remains usable after its reader and source have cl
 from __future__ import annotations
 
 from collections.abc import Collection, Iterable, Iterator, Mapping, Sequence
+from hashlib import sha256
 from typing import Any, Protocol, cast
 
 import pyarrow as pa
 
 from corpus_structure.semantic.pdf_payloads import (
+    AdmittedPagePayload,
     EncodedPagePayload,
     PreparedPayloadFamily,
     _from_arrow,
@@ -54,21 +56,9 @@ def _replay_payload(replay: PdfReplayRef) -> EncodedPagePayload:
     )
 
 
-def _read_replay(
-    replay: PdfReplayRef, family: PreparedPayloadFamily
-) -> tuple[EncodedPagePayload, pa.RecordBatch]:
-    encoded = _replay_payload(replay)
-    batch = family.read_batch(
-        encoded.content, schema_digest=encoded.schema_digest, logical_digest=encoded.logical_digest
-    )
-    if batch.column("page_no")[0].as_py() != replay.page_no:
-        raise ValueError("candidate replay page binding differs")
-    return encoded, batch
-
-
-def encoded_replay(replay: PdfReplayRef, family: PreparedPayloadFamily) -> EncodedPagePayload:
+def encoded_replay(replay: PdfReplayRef, family: PreparedPayloadFamily) -> AdmittedPagePayload:
     """Verify exact custody and released schema without reconstructing page mappings."""
-    return _read_replay(replay, family)[0]
+    return family.admit_page(_replay_payload(replay))[0]
 
 
 def candidate_from_payload(
@@ -118,8 +108,34 @@ class ReplayCandidatePageSource:
     def encoded(self, page_no: int) -> EncodedPagePayload:
         replay, value = self._acquire(page_no)
         if self._admitted.get(page_no) != replay:
-            self._admit(replay, value)
-        return value
+            return self._admit(replay, value)[0]
+        return self.payload_family._admitted_page(value)
+
+    def retain_admission(self, replay: PdfReplayRef, payload: AdmittedPagePayload) -> None:
+        """Retain a local admission through a controlled write of exactly its bytes."""
+        if not isinstance(payload, AdmittedPagePayload):
+            raise ValueError("candidate replay requires local page admission")
+        if payload.schema_digest != self.payload_family.schema_digest or (
+            replay.family,
+            replay.page_no,
+            replay.schema_digest,
+            replay.logical_digest,
+            replay.byte_length,
+            replay.digest,
+        ) != (
+            "candidate_payload",
+            payload.page_no,
+            payload.schema_digest,
+            payload.logical_digest,
+            len(payload.content),
+            sha256(payload.content).hexdigest(),
+        ):
+            raise ValueError("candidate replay differs from its admitted page")
+        prior = self.replays.get(payload.page_no)
+        if prior is not None and prior != replay:
+            raise ValueError("candidate source repeated a physical page")
+        self.replays[payload.page_no] = replay
+        self._admitted[payload.page_no] = replay
 
     def _acquire(self, page_no: int) -> tuple[PdfReplayRef, EncodedPagePayload]:
         replay = self.replays[page_no]
@@ -128,16 +144,12 @@ class ReplayCandidatePageSource:
             raise ValueError("candidate source page binding differs")
         return replay, encoded
 
-    def _admit(self, replay: PdfReplayRef, encoded: EncodedPagePayload) -> pa.RecordBatch:
-        batch = self.payload_family.read_batch(
-            encoded.content,
-            schema_digest=encoded.schema_digest,
-            logical_digest=encoded.logical_digest,
-        )
-        if batch.column("page_no")[0].as_py() != encoded.page_no:
-            raise ValueError("candidate replay page binding differs")
+    def _admit(
+        self, replay: PdfReplayRef, encoded: EncodedPagePayload
+    ) -> tuple[AdmittedPagePayload, pa.RecordBatch]:
+        admitted = self.payload_family.admit_page(encoded)
         self._admitted[encoded.page_no] = replay
-        return batch
+        return admitted
 
     def iter_batches(self, page_nos=None, columns=None) -> Iterator[pa.RecordBatch]:
         if columns is not None and (
@@ -151,17 +163,12 @@ class ReplayCandidatePageSource:
                 continue
             replay, encoded = self._acquire(number)
             if self._admitted.get(number) != replay:
-                batch = self._admit(replay, encoded)
+                _, batch = self._admit(replay, encoded)
+                yield batch.select(columns) if columns is not None else batch
             else:
-                physical = columns
-                if columns is not None and "page_no" not in columns:
-                    physical = (*columns, "page_no")
-                batch = self.payload_family.read_batch(
-                    encoded.content, schema_digest=encoded.schema_digest, columns=physical
+                yield self.payload_family.read_admitted_page(
+                    self.payload_family._admitted_page(encoded), columns=columns
                 )
-                if batch.column("page_no")[0].as_py() != number:
-                    raise ValueError("candidate replay page binding differs")
-            yield batch.select(columns) if columns is not None else batch
 
     def iter_pages(self, page_nos=None) -> Iterator[CandidatePage]:
         for batch in self.iter_batches(page_nos):

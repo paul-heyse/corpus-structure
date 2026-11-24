@@ -85,7 +85,6 @@ class PdfStreamSpool:
         self.root = root
         self.on_page, self.check_active = on_page, check_active
         self.pages: dict[int, PdfReplayRef] = {}
-        self.candidates: dict[int, PdfReplayRef] = {}
         self._payload_family = payload_family
         self.restored_pages: set[int] = set()
         self.preparation_identities = set()
@@ -109,11 +108,15 @@ class PdfStreamSpool:
             self._payload_family = prepare_payload_family()
         return self._payload_family
 
-    @property
+    @cached_property
     def candidate_source(self):
         from .pdf_candidate_source import ReplayCandidatePageSource
 
-        return ReplayCandidatePageSource(self.candidates, self.payload_family)
+        return ReplayCandidatePageSource({}, self.payload_family)
+
+    @property
+    def candidates(self) -> dict[int, PdfReplayRef]:
+        return self.candidate_source.replays
 
     def active(self) -> None:
         if self.check_active:
@@ -139,7 +142,7 @@ class PdfStreamSpool:
         # The same encoded bytes and source-qualified locator cross the ACK boundary.
         if self.on_page:
             self.on_page(replay)
-        self.candidates[value.page_no] = replay
+        self.candidate_source.retain_admission(replay, encoded)
 
     def capture_page(
         self, page: Any, hierarchy: Any, scale: float, *, confidence: Any, errors: Sequence[Any]
@@ -394,15 +397,19 @@ class SealedPdfNative:
             else _own_json(_json_view(document))
         )
         self._validated_policy: bytes | None = None
+        self._document = None
 
     def validate_under(self, policy: Mapping[str, Any]):
+        """Borrow the owner-held typed value for read-only projection under this policy."""
         from corpus_structure.semantic.pdf_records import validate_native_callbacks
 
-        document = validate_native_callbacks(self._values, contract=policy)
-        self._validated_policy = canonical_bytes(policy)
-        return document
+        identity = canonical_bytes(policy)
+        if self._document is None or self._validated_policy != identity:
+            self._document = validate_native_callbacks(self._values, contract=policy)
+            self._validated_policy = identity
+        return self._document
 
-    def publication_value(self, document: Any) -> SealedPdfNative:
+    def _publication_value(self, document: Any) -> SealedPdfNative:
         """Keep the established publication representation across snapshot imports."""
         from corpus_structure.semantic.pdf_records import _difference
 
@@ -411,7 +418,22 @@ class SealedPdfNative:
         published = SealedPdfNative(document)
         if _difference(self._values, published._values) is None:
             published._validated_policy = self._validated_policy
+            published._document = self._document
         return published
+
+    @classmethod
+    def from_publication(cls, document: Any, policy: Mapping[str, Any]) -> SealedPdfNative:
+        from .pdf_hierarchy import NativeSnapshot
+
+        selected = cls(document, callback_policy=policy)
+        native = selected.validate_under(policy)
+        if isinstance(document, NativeSnapshot):
+            if native.version != document.schema_version:
+                raise ValueError("native schema version differs from binding")
+            selected = selected._publication_value(native)
+            if selected._document is None:
+                selected.validate_under(policy)
+        return selected
 
     def iter_records(self, **options):
         from corpus_structure.semantic.pdf_records import iter_native_records
@@ -429,7 +451,6 @@ class SealedPdfNative:
 class PreparedPdfCertificationInput:
     """Exact converted values and the preparation acknowledged by the stream owner."""
 
-    document: Any
     sealed: SealedPdfNative
     spool: PdfStreamSpool
     conversion_status: str
@@ -447,13 +468,12 @@ class StreamingPdfResult:
     errors: tuple[str, ...]
     recipe: bytes
     formula_outcomes: tuple[Any, ...]
-    sealed_input: SealedPdfNative | None = None
 
     @cached_property
     def sealed(self) -> SealedPdfNative:
-        return (
-            self.sealed_input if self.sealed_input is not None else SealedPdfNative(self.document)
-        )
+        if isinstance(self.document, SealedPdfNative):
+            return self.document
+        return SealedPdfNative(self.document)
 
     def iter_records(
         self,
@@ -666,7 +686,6 @@ class StreamingPdfResult:
         )
         on_replay(_ref(request.record_root / "completion.jsonl", "native_completion"))
         prepared = PreparedPdfCertificationInput(
-            self.document,
             self.sealed,
             self.spool,
             self.conversion_status,

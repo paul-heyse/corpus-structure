@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.method import PdfRecordPublicationDraft
+from corpus_structure.ingest.pdf_streaming import SealedPdfNative
 from corpus_structure.orchestrate.pdf_streaming import publish_pdf_record_draft
 from corpus_structure.semantic.pdf_companion_encoding import (
     COMPANION_BATCH_BYTES,
@@ -131,7 +132,7 @@ def test_validation_precedes_visibility_and_failure_never_seals(monkeypatch, tmp
 
     monkeypatch.setattr(pdf_certification, "PdfProducerPayloads", Payloads)
     draft = PdfRecordPublicationDraft(
-        {},
+        SealedPdfNative({}),
         "native",
         b"%PDF-1.7",
         b"{}",
@@ -286,7 +287,12 @@ def test_draft_finishes_matching_immutable_content_without_lowering(
     engine = transaction_engine(transaction)
     claim: Any = SimpleNamespace(task_id=12, attempt=2, release_id="release")
     draft = PdfRecordPublicationDraft(
-        {"changed": "native value"}, "native", original, schema, recipe, {"conversion": "success"}
+        SealedPdfNative({"changed": "native value"}),
+        "native",
+        original,
+        schema,
+        recipe,
+        {"conversion": "success"},
     )
     assert (
         publish_pdf_record_draft(
@@ -302,7 +308,12 @@ def test_draft_finishes_matching_immutable_content_without_lowering(
     assert bool(finished) is (state_name == "frozen")
     assert not (tmp_path / "not-created").exists()
     draft = PdfRecordPublicationDraft(
-        {}, "native", original, b"different schema", recipe, {"conversion": "success"}
+        SealedPdfNative({}),
+        "native",
+        original,
+        b"different schema",
+        recipe,
+        {"conversion": "success"},
     )
     with pytest.raises(ValueError, match="source/release/recipe/schema differs"):
         publish_pdf_record_draft(
