@@ -252,7 +252,7 @@ def _active_connection(native, job):
         while not done.wait(0.05):
             try:
                 job.check_active()
-            except Exception:
+            except (Exception, KeyboardInterrupt):
                 native.interrupt()
                 return
 
