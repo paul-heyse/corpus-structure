@@ -291,6 +291,16 @@ def test_complete_report_bytes_match_independent_question_answers(monkeypatch, s
     actual = discover_relations(
         frame, primary=primary, source_work="actual-parent", inline_equations_enabled=True
     )
+    # Frozen before the acquisition and kernel rewrite at 255badc1f. This checks
+    # shared preparation and emission as well as the independent relational answers.
+    from hashlib import sha256
+
+    incumbent = {
+        "table": "54053d881aa1c740f7ff005c772b6484a9fb3ad5ffede724b40460210b4ee1bd",
+        "formulas": "fe0a537d1a6518d09258a25f421ff68c128aacb2f094486d251da726df992994",
+        "unicode": "3040db1ad2e06da65da0fa699205070e31319fc87119f85ff7984b4448b1b4fc",
+    }
+    assert sha256(canonical_bytes(actual)).hexdigest() == incumbent[shape]
     monkeypatch.setattr(scoped_relations, "ScopedInventory", ReferenceInventory)
     expected = discover_relations(
         frame, primary=primary, source_work="actual-parent", inline_equations_enabled=True
