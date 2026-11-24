@@ -379,7 +379,7 @@ class PreparedCanonicalProfile:
         from .data_operation_partitions import partition_commitment_header
         from .data_operation_population import population_layout
         from .native_source_view import thaw_native
-        from .sentence_partitions import COLLECTION, SentenceBlock, produce_sentence_partition
+        from .sentence_partitions import COLLECTION, SentenceBlock, produce_sentence_partitions
 
         metadata = dict(table.schema.metadata or {})
         control = json.loads(metadata.pop(_CANONICAL_REPLY, b"null"))
@@ -407,14 +407,14 @@ class PreparedCanonicalProfile:
             table.validate(full=True)
             with connection() as engine:
                 offset = 0
+                blocks, populations = [], []
                 for key, ordinal, start, end, count in expected:
-                    part = AcquiredPopulation._from_table(layout, table.slice(offset, count))
-                    owned.append(
-                        produce_sentence_partition(
-                            SentenceBlock(key, ordinal, start, end, ()), part, engine=engine
-                        )
+                    blocks.append(SentenceBlock(key, ordinal, start, end, ()))
+                    populations.append(
+                        AcquiredPopulation._from_table(layout, table.slice(offset, count))
                     )
                     offset += count
+                owned = produce_sentence_partitions(blocks, populations, engine=engine)
         elif table.num_columns or metadata:
             raise ValueError("empty canonical reply has undeclared columns")
         body = control["header"] | {
@@ -495,7 +495,7 @@ _RESULT_HELPERS = {
         "_write_reference_key_part",
     ),
     "identity": ("canonical_bytes",),
-    "sentence_partitions": ("typed_sentence_role", "produce_sentence_partition"),
+    "sentence_partitions": ("typed_sentence_role", "produce_sentence_partitions"),
     "source_products": ("source_subject",),
     "value_codec": ("decimal_digit_limit", "decimal_text"),
     "value_codec_core": ("value_meaning", "decimal_text"),

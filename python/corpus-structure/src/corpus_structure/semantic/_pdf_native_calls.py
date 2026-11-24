@@ -3042,13 +3042,14 @@ def read_published_item_ancestors(
 
 
 READ_PDF_RECORD_ROWS_CONTRACT_DIGEST = (
-    "946525868a55e437946380ce99723ca238b0a2b08ca3f2b6ff7e9691488d03c6"
+    "100b80fbf4b4cf5ecabfaae5abdd6c7d639fd2e8324d3c1ea2465e727e8d4403"
 )
 
 
-class NativeJsonEnvelope(NativeRowResult):
+class PdfBinaryRowEnvelope(NativeRowResult):
     __json_fields__ = ("body",)
     body: str
+    part_body: bytes | None
 
 
 class _read_pdf_record_rowsRequest(OperationResult):
@@ -3071,9 +3072,30 @@ _read_pdf_record_rows_function = func.ops.read_pdf_record_rows(
     bindparam("filters", type_=JSONB(astext_type=Text())),
     bindparam("after", type_=JSONB(none_as_null=True)),
     bindparam("limit", type_=Integer()),
-    type_=JSONB(astext_type=Text()),
+).table_valued(
+    column("body", JSONB(astext_type=Text())),
+    column("part_body", BYTEA()),
 )
-_read_pdf_record_rows_statement = select(_read_pdf_record_rows_function.cast(Text()))
+
+
+class _read_pdf_record_rowsColumns(Protocol):
+    body: Column[JsonValue]
+    part_body: Column[bytes | None]
+
+
+_read_pdf_record_rows_columns = cast(_read_pdf_record_rowsColumns, _read_pdf_record_rows_function.c)
+_read_pdf_record_rows_statement = select(
+    _read_pdf_record_rows_columns.body.cast(Text()).label("body"),
+    _read_pdf_record_rows_columns.part_body,
+)
+
+
+def _read_pdf_record_rows_result(row: tuple[str, bytes | None]) -> PdfBinaryRowEnvelope:
+    with native_result_scope("read_native_source", "PdfBinaryRowEnvelope"):
+        return PdfBinaryRowEnvelope(
+            body=row[0],
+            part_body=row[1],
+        )
 
 
 def prepare_read_pdf_record_rows(
@@ -3086,7 +3108,7 @@ def prepare_read_pdf_record_rows(
     after: JsonValue | None,
     limit: int,
     projection_context: PreparedRelease | None = None,
-) -> Select[str]:
+) -> Select[str, bytes | None]:
     _request = _read_pdf_record_rowsRequest(
         task_id=task_id,
         product_key=product_key,
@@ -3116,13 +3138,7 @@ def prepare_read_pdf_record_rows(
     )
 
 
-_read_pdf_record_rows_adapter = TypeAdapter(str)
-
-
-def materialize_read_pdf_record_rows(row: tuple[str]) -> NativeJsonEnvelope:
-    with native_result_scope("read_native_source", "NativeJsonEnvelope", "body"):
-        checked = _read_pdf_record_rows_adapter.validate_python(row[0], strict=True)
-        return NativeJsonEnvelope(body=checked)
+materialize_read_pdf_record_rows = _read_pdf_record_rows_result
 
 
 def read_pdf_record_rows(
@@ -3136,7 +3152,7 @@ def read_pdf_record_rows(
     after: JsonValue | None,
     limit: int,
     projection_context: PreparedRelease | None = None,
-) -> tuple[NativeJsonEnvelope, ...]:
+) -> tuple[PdfBinaryRowEnvelope, ...]:
     _statement = prepare_read_pdf_record_rows(
         task_id=task_id,
         product_key=product_key,
@@ -3148,13 +3164,18 @@ def read_pdf_record_rows(
         projection_context=projection_context,
     )
     _native_result = conn.execute(_statement)
-    with native_result_scope("read_native_source", "NativeJsonEnvelope"):
-        return tuple(materialize_read_pdf_record_rows(row) for row in _native_result)
+    with native_result_scope("read_native_source", "PdfBinaryRowEnvelope"):
+        return tuple(_read_pdf_record_rows_result(row) for row in _native_result)
 
 
 READ_PDF_RECORD_CONTEXT_ROWS_CONTRACT_DIGEST = (
     "95bfd5a6f28480cc3ca7414be1bcf3584700f8ea9fa6fcff750139a305927e17"
 )
+
+
+class NativeJsonEnvelope(NativeRowResult):
+    __json_fields__ = ("body",)
+    body: str
 
 
 class _read_pdf_record_context_rowsRequest(OperationResult):
@@ -3268,7 +3289,7 @@ def read_pdf_record_context_rows(
 
 
 READ_PDF_COMPANION_EXPORT_EVENTS_CONTRACT_DIGEST = (
-    "f55cd761179f84d9b9458b3b95444f54de1667d2cdf77e9fb99dac95be3023ce"
+    "d2afe7b935035772df832f68fdebe9c4679fcdbf0276fe7e9426bb98bc8ba6b4"
 )
 
 
@@ -3286,11 +3307,32 @@ _read_pdf_companion_export_events_function = func.ops.read_pdf_companion_export_
     bindparam("product_key", type_=Text()),
     bindparam("content_digest", type_=Text()),
     bindparam("family", type_=Text()),
-    type_=JSONB(astext_type=Text()),
+).table_valued(
+    column("body", JSONB(astext_type=Text())),
+    column("part_body", BYTEA()),
+)
+
+
+class _read_pdf_companion_export_eventsColumns(Protocol):
+    body: Column[JsonValue]
+    part_body: Column[bytes | None]
+
+
+_read_pdf_companion_export_events_columns = cast(
+    _read_pdf_companion_export_eventsColumns, _read_pdf_companion_export_events_function.c
 )
 _read_pdf_companion_export_events_statement = select(
-    _read_pdf_companion_export_events_function.cast(Text())
+    _read_pdf_companion_export_events_columns.body.cast(Text()).label("body"),
+    _read_pdf_companion_export_events_columns.part_body,
 )
+
+
+def _read_pdf_companion_export_events_result(row: tuple[str, bytes | None]) -> PdfBinaryRowEnvelope:
+    with native_result_scope("read_native_source", "PdfBinaryRowEnvelope"):
+        return PdfBinaryRowEnvelope(
+            body=row[0],
+            part_body=row[1],
+        )
 
 
 def prepare_read_pdf_companion_export_events(
@@ -3300,7 +3342,7 @@ def prepare_read_pdf_companion_export_events(
     content_digest: ContentDigest,
     family: str,
     projection_context: PreparedRelease | None = None,
-) -> Select[str]:
+) -> Select[str, bytes | None]:
     _request = _read_pdf_companion_export_eventsRequest(
         task_id=task_id,
         product_key=product_key,
@@ -3324,13 +3366,7 @@ def prepare_read_pdf_companion_export_events(
     )
 
 
-_read_pdf_companion_export_events_adapter = TypeAdapter(str)
-
-
-def materialize_read_pdf_companion_export_events(row: tuple[str]) -> NativeJsonEnvelope:
-    with native_result_scope("read_native_source", "NativeJsonEnvelope", "body"):
-        checked = _read_pdf_companion_export_events_adapter.validate_python(row[0], strict=True)
-        return NativeJsonEnvelope(body=checked)
+materialize_read_pdf_companion_export_events = _read_pdf_companion_export_events_result
 
 
 def read_pdf_companion_export_events(
@@ -3341,7 +3377,7 @@ def read_pdf_companion_export_events(
     content_digest: ContentDigest,
     family: str,
     projection_context: PreparedRelease | None = None,
-) -> tuple[NativeJsonEnvelope, ...]:
+) -> tuple[PdfBinaryRowEnvelope, ...]:
     _statement = prepare_read_pdf_companion_export_events(
         task_id=task_id,
         product_key=product_key,
@@ -3350,8 +3386,8 @@ def read_pdf_companion_export_events(
         projection_context=projection_context,
     )
     _native_result = conn.execute(_statement)
-    with native_result_scope("read_native_source", "NativeJsonEnvelope"):
-        return tuple(materialize_read_pdf_companion_export_events(row) for row in _native_result)
+    with native_result_scope("read_native_source", "PdfBinaryRowEnvelope"):
+        return tuple(_read_pdf_companion_export_events_result(row) for row in _native_result)
 
 
 RECORD_INTEGRATED_SOURCE_CONTEXT_CONTRACT_DIGEST = (
@@ -3464,7 +3500,7 @@ def record_integrated_source_context(
 
 
 READ_PDF_SELECTED_SOURCE_EVENTS_CONTRACT_DIGEST = (
-    "64bed282305d990bc38e6dfdff81df2462803edc8db05a00c8d2b67c15136788"
+    "fa9ab0f44d8c5717d55f2210fd1edde9989ffcd3939dcebab8bda48b84bc28fc"
 )
 
 
@@ -3490,11 +3526,32 @@ _read_pdf_selected_source_events_function = func.ops.read_pdf_selected_source_ev
     bindparam("section", type_=Text()),
     bindparam("membership", type_=Text()),
     bindparam("policy", type_=Text()),
-    type_=JSONB(astext_type=Text()),
+).table_valued(
+    column("body", JSONB(astext_type=Text())),
+    column("part_body", BYTEA()),
+)
+
+
+class _read_pdf_selected_source_eventsColumns(Protocol):
+    body: Column[JsonValue]
+    part_body: Column[bytes | None]
+
+
+_read_pdf_selected_source_events_columns = cast(
+    _read_pdf_selected_source_eventsColumns, _read_pdf_selected_source_events_function.c
 )
 _read_pdf_selected_source_events_statement = select(
-    _read_pdf_selected_source_events_function.cast(Text())
+    _read_pdf_selected_source_events_columns.body.cast(Text()).label("body"),
+    _read_pdf_selected_source_events_columns.part_body,
 )
+
+
+def _read_pdf_selected_source_events_result(row: tuple[str, bytes | None]) -> PdfBinaryRowEnvelope:
+    with native_result_scope("read_native_source", "PdfBinaryRowEnvelope"):
+        return PdfBinaryRowEnvelope(
+            body=row[0],
+            part_body=row[1],
+        )
 
 
 def prepare_read_pdf_selected_source_events(
@@ -3509,7 +3566,7 @@ def prepare_read_pdf_selected_source_events(
     membership: str,
     policy: str,
     projection_context: PreparedRelease | None = None,
-) -> Select[str]:
+) -> Select[str, bytes | None]:
     _request = _read_pdf_selected_source_eventsRequest(
         project_id=project_id,
         demand_id=demand_id,
@@ -3543,13 +3600,7 @@ def prepare_read_pdf_selected_source_events(
     )
 
 
-_read_pdf_selected_source_events_adapter = TypeAdapter(str)
-
-
-def materialize_read_pdf_selected_source_events(row: tuple[str]) -> NativeJsonEnvelope:
-    with native_result_scope("read_native_source", "NativeJsonEnvelope", "body"):
-        checked = _read_pdf_selected_source_events_adapter.validate_python(row[0], strict=True)
-        return NativeJsonEnvelope(body=checked)
+materialize_read_pdf_selected_source_events = _read_pdf_selected_source_events_result
 
 
 def read_pdf_selected_source_events(
@@ -3565,7 +3616,7 @@ def read_pdf_selected_source_events(
     membership: str,
     policy: str,
     projection_context: PreparedRelease | None = None,
-) -> tuple[NativeJsonEnvelope, ...]:
+) -> tuple[PdfBinaryRowEnvelope, ...]:
     _statement = prepare_read_pdf_selected_source_events(
         project_id=project_id,
         demand_id=demand_id,
@@ -3579,8 +3630,8 @@ def read_pdf_selected_source_events(
         projection_context=projection_context,
     )
     _native_result = conn.execute(_statement)
-    with native_result_scope("read_native_source", "NativeJsonEnvelope"):
-        return tuple(materialize_read_pdf_selected_source_events(row) for row in _native_result)
+    with native_result_scope("read_native_source", "PdfBinaryRowEnvelope"):
+        return tuple(_read_pdf_selected_source_events_result(row) for row in _native_result)
 
 
 READ_PDF_PUBLISHED_REVISION_CONTRACT_DIGEST = (
@@ -6155,7 +6206,7 @@ def validate_pdf_build(
 
 
 READ_PDF_FROZEN_ROWS_CONTRACT_DIGEST = (
-    "9160db3867f3f58cb90f7592f8ea60e13c7c5a2f4ee0cb0f0f388cc1a218a19a"
+    "683cca7081ce83758603ea5f3c2db18f121ed4b0f6d2fe563ba4baca3573c7b1"
 )
 
 
@@ -6186,9 +6237,30 @@ _read_pdf_frozen_rows_function = func.ops.read_pdf_frozen_rows(
     bindparam("after", type_=JSONB(none_as_null=True)),
     bindparam("limit", type_=Integer()),
     bindparam("filters", type_=JSONB(astext_type=Text())),
-    type_=JSONB(astext_type=Text()),
+).table_valued(
+    column("body", JSONB(astext_type=Text())),
+    column("part_body", BYTEA()),
 )
-_read_pdf_frozen_rows_statement = select(_read_pdf_frozen_rows_function.cast(Text()))
+
+
+class _read_pdf_frozen_rowsColumns(Protocol):
+    body: Column[JsonValue]
+    part_body: Column[bytes | None]
+
+
+_read_pdf_frozen_rows_columns = cast(_read_pdf_frozen_rowsColumns, _read_pdf_frozen_rows_function.c)
+_read_pdf_frozen_rows_statement = select(
+    _read_pdf_frozen_rows_columns.body.cast(Text()).label("body"),
+    _read_pdf_frozen_rows_columns.part_body,
+)
+
+
+def _read_pdf_frozen_rows_result(row: tuple[str, bytes | None]) -> PdfBinaryRowEnvelope:
+    with native_result_scope("validate_pdf_build", "PdfBinaryRowEnvelope"):
+        return PdfBinaryRowEnvelope(
+            body=row[0],
+            part_body=row[1],
+        )
 
 
 def prepare_read_pdf_frozen_rows(
@@ -6203,7 +6275,7 @@ def prepare_read_pdf_frozen_rows(
     limit: int,
     filters: JsonValue,
     projection_context: PreparedRelease | None = None,
-) -> Select[str]:
+) -> Select[str, bytes | None]:
     _request = _read_pdf_frozen_rowsRequest(
         build_id=build_id,
         task_id=task_id,
@@ -6237,13 +6309,7 @@ def prepare_read_pdf_frozen_rows(
     )
 
 
-_read_pdf_frozen_rows_adapter = TypeAdapter(str)
-
-
-def materialize_read_pdf_frozen_rows(row: tuple[str]) -> str:
-    with native_result_scope("validate_pdf_build", "read_pdf_frozen_rows", "body"):
-        checked = _read_pdf_frozen_rows_adapter.validate_python(row[0], strict=True)
-        return checked
+materialize_read_pdf_frozen_rows = _read_pdf_frozen_rows_result
 
 
 def read_pdf_frozen_rows(
@@ -6259,7 +6325,7 @@ def read_pdf_frozen_rows(
     limit: int,
     filters: JsonValue,
     projection_context: PreparedRelease | None = None,
-) -> tuple[str, ...]:
+) -> tuple[PdfBinaryRowEnvelope, ...]:
     _statement = prepare_read_pdf_frozen_rows(
         build_id=build_id,
         task_id=task_id,
@@ -6273,8 +6339,8 @@ def read_pdf_frozen_rows(
         projection_context=projection_context,
     )
     _native_result = conn.execute(_statement)
-    with native_result_scope("validate_pdf_build", "read_pdf_frozen_rows"):
-        return tuple(materialize_read_pdf_frozen_rows(row) for row in _native_result)
+    with native_result_scope("validate_pdf_build", "PdfBinaryRowEnvelope"):
+        return tuple(_read_pdf_frozen_rows_result(row) for row in _native_result)
 
 
-CALL_CONTRACT_DIGEST = "38969d0643f9c7f3fae94f80b412ef74047c5666e58ee0b37210fd5070d975a9"
+CALL_CONTRACT_DIGEST = "a953e9650d75a1f370055ed8f97e43a13a11db22dbd29c778d2c0888eeda88d4"

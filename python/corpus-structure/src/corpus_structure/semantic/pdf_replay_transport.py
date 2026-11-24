@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
 import pyarrow as pa
@@ -35,6 +38,21 @@ def replay_schema(copy_schema: pa.Schema) -> pa.Schema:
     )
 
 
+@contextmanager
+def _replay_source(replay, check_active, *, map_verified):
+    if not map_verified:
+        with pa.BufferReader(replay.read_bytes()) as source:
+            yield source
+        return
+    # Map the authenticated private copy. The original spool path remains
+    # independently checked at adoption and is never rewritten by this read.
+    with TemporaryDirectory(prefix="pdf-verified-ipc-") as directory:
+        packet = Path(directory) / "replay.ipc"
+        replay.clone_to(packet, check_active=check_active)
+        with pa.memory_map(str(packet), "r") as source:
+            yield source
+
+
 def read_replay_batches(
     replay: PdfReplayRef,
     copy_schema: pa.Schema,
@@ -42,11 +60,12 @@ def read_replay_batches(
     check_active: Callable[[], None],
     legacy_binding: PdfReplayBinding | None = None,
     legacy_schema: pa.Schema | None = None,
+    map_verified: bool = False,
 ) -> Generator[pa.RecordBatch]:
     """Verify one bounded IPC packet and keep its exact buffers through consumption."""
     check_active()
     schema = replay_schema(copy_schema)
-    with pa.BufferReader(replay.read_bytes()) as source:
+    with _replay_source(replay, check_active, map_verified=map_verified) as source:
         reader = pa.ipc.open_file(source, options=pa.ipc.IpcReadOptions(use_threads=False))
         legacy = not reader.schema.equals(schema, check_metadata=True)
         original = copy_schema if legacy_schema is None else legacy_schema

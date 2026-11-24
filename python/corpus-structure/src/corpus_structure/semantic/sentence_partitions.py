@@ -26,8 +26,6 @@ from .identity import canonical_bytes
 if TYPE_CHECKING:
     import pyarrow as pa
 
-    from .data_operation_population import AcquiredPopulation
-
 COLLECTION = "rows"
 
 
@@ -54,23 +52,29 @@ class ProducedSentencePartition(AcquiredPopulationPartition):
     canonical_items: pa.Table
 
 
-def produce_sentence_partition(
-    block: SentenceBlock, population: AcquiredPopulation, *, engine
-) -> ProducedSentencePartition:
-    from .population_canonical import canonical_population
+def produce_sentence_partitions(blocks, populations, *, engine):
+    """Commit physical cohorts without combining their semantic partition identities."""
+    from .population_canonical import canonical_populations
 
-    canonical = canonical_population(population, engine=engine)
-    commitment = PartitionCommitment(
-        COLLECTION,
-        block.key,
-        block.ordinal,
-        block.start,
-        block.end,
-        canonical.partition_digest,
-        canonical.items.num_rows,
-    )
-    return ProducedSentencePartition(
-        commitment, MappingProxyType(canonical.group_digests), population, canonical.items
+    blocks, populations = tuple(blocks), tuple(populations)
+    return tuple(
+        ProducedSentencePartition(
+            PartitionCommitment(
+                COLLECTION,
+                block.key,
+                block.ordinal,
+                block.start,
+                block.end,
+                canonical.partition_digest,
+                canonical.items.num_rows,
+            ),
+            MappingProxyType(canonical.group_digests),
+            population,
+            canonical.items,
+        )
+        for block, population, canonical in zip(
+            blocks, populations, canonical_populations(populations, engine=engine), strict=True
+        )
     )
 
 
@@ -83,9 +87,8 @@ def produce_sentence_populations(blocks, prepared, kind):
         return ()
     layout = population_layout(prepared, kind, COLLECTION)
     with connection() as engine:
-        return tuple(
-            produce_sentence_partition(block, layout.from_rows(block.rows), engine=engine)
-            for block in blocks
+        return produce_sentence_partitions(
+            blocks, (layout.from_rows(block.rows) for block in blocks), engine=engine
         )
 
 
@@ -335,7 +338,7 @@ def typed_sentence_role(role, kind_contract, payload: SentenceProductPayload, pr
 
     from .data_operation_population import population_layout
     from .data_operation_ports import RoleValue
-    from .population_canonical import canonical_population
+    from .population_canonical import canonical_populations
     from .population_transfer import PopulationUploadPartition
 
     owned = payload.populations
@@ -351,11 +354,17 @@ def typed_sentence_role(role, kind_contract, payload: SentenceProductPayload, pr
         ]
     else:
         layout = population_layout(prepared, kind, COLLECTION)
+        if any(
+            not item.population.table.schema.equals(layout.schema, check_metadata=True)
+            for item in owned
+        ):
+            raise ValueError("sentence publication requires its nominal output population")
         with connection() as engine:
-            for item in owned:
-                if not item.population.table.schema.equals(layout.schema, check_metadata=True):
-                    raise ValueError("sentence publication requires its nominal output population")
-                canonical = canonical_population(item.population, engine=engine)
+            for item, canonical in zip(
+                owned,
+                canonical_populations((item.population for item in owned), engine=engine),
+                strict=True,
+            ):
                 if (
                     canonical.partition_digest != item.commitment.digest
                     or canonical.group_digests != item.group_digests

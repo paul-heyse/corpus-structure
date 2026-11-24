@@ -10,18 +10,29 @@ from pydantic import ValidationError
 
 from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
 from corpus_structure.semantic.pdf_ocr_contracts import (
-    validate_pdf_cell_coverage,
     validate_pdf_ocr_pages,
     validate_pdf_page_payloads,
 )
 from corpus_structure.semantic.pdf_payloads import PayloadContractError, prepare_payload_family
+from corpus_structure.semantic.pdf_report_validation import validate_pdf_report_metadata
 
 
 @pytest.mark.parametrize("declaration", ["scoped", "health"])
 @pytest.mark.parametrize("failure", ["unknown", "failed_math", "missing"])
 def test_complete_cell_scope_requires_resolved_assessment(declaration, failure):
     value: dict[str, Any] = dict(
-        document={"tables": [{"data": {"table_cells": [{"text": "x"}]}}]},
+        source_scope="whole_document",
+        document={
+            "groups": [{"label": "section"}, {"label": "section"}],
+            "tables": [
+                {
+                    "label": "table",
+                    "data": {"table_cells": [{"text": "x"}]},
+                    "prov": [{"page_no": 1}],
+                }
+            ],
+            "pages": {"1": {}},
+        },
         items=[
             dict(pointer="#/groups/0", label="section"),
             dict(pointer="#/groups/1", label="section", parent_pointer="#/groups/0"),
@@ -32,11 +43,12 @@ def test_complete_cell_scope_requires_resolved_assessment(declaration, failure):
                 section_pointer="#/groups/1",
             ),
         ],
-        health={},
+        health={"inline_coverage": "unknown", "cell_coverage": "unknown"},
         cell_reports=[
             dict(
                 table_pointer="#/tables/0",
                 cell_index=0,
+                page_no=1,
                 classification="prose",
                 outcome="not_requested",
             )
@@ -53,9 +65,12 @@ def test_complete_cell_scope_requires_resolved_assessment(declaration, failure):
         ]
     else:
         value["health"] = dict(
-            cell_coverage="complete", cell_scope=["#/groups/0"], cell_membership="descendants"
+            cell_coverage="complete",
+            cell_scope=["#/groups/0"],
+            cell_membership="descendants",
+            cells_policy="all-nonempty-selected-cells-v1",
         )
-    validate_pdf_cell_coverage(value)
+    validate_pdf_report_metadata(value)
     if failure == "missing":
         value["cell_reports"] = []
         diagnostic = "omits a native cell assessment"
@@ -65,13 +80,13 @@ def test_complete_cell_scope_requires_resolved_assessment(declaration, failure):
         )
         diagnostic = "unresolved recognition/classification"
     with pytest.raises(ValueError, match=diagnostic):
-        validate_pdf_cell_coverage(value)
+        validate_pdf_report_metadata(value)
     # A direct scope does not silently include a child section's table.
     if declaration == "scoped":
         value["recognition_coverage"][0]["membership"] = "direct"
     else:
         value["health"]["cell_membership"] = "direct"
-    validate_pdf_cell_coverage(value)
+    validate_pdf_report_metadata(value)
 
 
 def example():

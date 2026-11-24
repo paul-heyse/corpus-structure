@@ -5,15 +5,22 @@ from types import SimpleNamespace
 
 import pytest
 
+from corpus_structure.analytics import AnalyticalAllocation, current_allocation
 from corpus_structure.core.work import PreparedWork, ReadyGroup
 from corpus_structure.orchestrate.data_operations import _RequestExecution
+from corpus_structure.settings import AnalyticsSettings
 
 
 def request_owner():
     owner = object.__new__(_RequestExecution)
     owner.handles, owner.claims, owner.claim = [], (), None
     owner.invocation = SimpleNamespace(
-        executor=SimpleNamespace(demand="demand"), physical_retired=False
+        executor=SimpleNamespace(
+            demand="demand",
+            analytical_allocation=AnalyticalAllocation(1, 4096, 4096),
+            analytics_settings=AnalyticsSettings(),
+        ),
+        physical_retired=False,
     )
     owner.uncertain_submission = False
     owner.cpu = SimpleNamespace(reservation_retired=lambda _: True)
@@ -45,7 +52,9 @@ def test_ready_group_relay_retains_all_handles_after_out_of_order_reduction():
 
     def child(index):
         try:
+            assert current_allocation() is owner.invocation.executor.analytical_allocation
             (reply,) = yield (PreparedWork(lambda: handles[index]),)
+            assert current_allocation() is owner.invocation.executor.analytical_allocation
             return (index, reply)
         finally:
             closed.append(index)
@@ -53,12 +62,13 @@ def test_ready_group_relay_retains_all_handles_after_out_of_order_reduction():
     def parent():
         return (yield ReadyGroup((child(0), child(1)), max_active=2))
 
-    relay = owner.relay(parent())
+    relay = owner.relay(parent(), check_active=lambda: None)
     group = next(relay)
     assert isinstance(group, ReadyGroup) and group.max_active == 2
     children = group.plans
     for index, plan in enumerate(children):
         (work,) = next(plan)
+        assert current_allocation() is None
         assert work.try_submit() is handles[index]
     assert owner.handles == list(handles) and not owner.retired()
     values = {}
@@ -91,7 +101,7 @@ def test_closing_ready_group_child_preserves_unretired_submitted_handle():
     def parent():
         yield ReadyGroup((child(),), max_active=1)
 
-    relay = owner.relay(parent())
+    relay = owner.relay(parent(), check_active=lambda: None)
     group = next(relay)
     assert isinstance(group, ReadyGroup)
     (nested,) = group.plans

@@ -94,7 +94,7 @@ def _export_program(model, name, product_parameter, query_builder, *, family=Fal
     published = select(publication.c.build_id).cte("published").prefix_with("MATERIALIZED")
     if family:
         parameters += (Parameter("p_family", pg_type("text")),)
-    returns = pg_type("jsonb")
+    returns = pg_type("record")
     returns.setof = True
     query = query_builder(model, published)
     definition = NativeRoutine(
@@ -102,6 +102,7 @@ def _export_program(model, name, product_parameter, query_builder, *, family=Fal
         name,
         parameters=parameters,
         returns=returns,
+        table_columns=(("body", pg_type("jsonb")), ("part_body", pg_type("bytea"))),
         body=query,
         security_definer=True,
         search_path=("pg_catalog", "pg_temp"),

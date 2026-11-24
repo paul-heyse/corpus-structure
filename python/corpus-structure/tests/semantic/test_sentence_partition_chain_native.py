@@ -313,9 +313,11 @@ def test_actual_population_readback_binds_moved_renamed_and_split_occurrences(
 def test_actual_annotation_partition_proof_and_canonical_chain(
     commit_db_engine, native_settings, tmp_path, monkeypatch
 ):
+    from corpus_structure.semantic.completion_drafts import CompletionDraftStore
     from corpus_structure.semantic.selected_population_archive import POPULATION_ITEMS
     from corpus_structure.serve.demand_export import export_demand_result, verified_demand_export
     from semantic import structural_admission_native_support as native_fixture
+    from semantic.data_operation_kernel_support import captured_kernel_executor
 
     text = "Ada acts. Bob waits."
     target = "segment.sentences/canonical-projection"
@@ -336,14 +338,26 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
 
         monkeypatch.setattr(DemandPlanner, "resume", observe_resume)
         initial_cuts = {}
-        run_demand = native_fixture.execute_captured_kernel_demand
+        population_drafts = []
 
-        def run_after_initial_read(kernel, demand, **options):
+        class ObservedDrafts(CompletionDraftStore):
+            def acknowledge(self, *args, **kwargs):
+                draft = super().acknowledge(*args, **kwargs)
+                if draft.population_upload is not None:
+                    assert draft.population_upload.path.is_file()
+                    population_drafts.append(draft)
+                return draft
+
+        drafts = ObservedDrafts(tmp_path / "completion-drafts", max_bytes=64 * 1024**2)
+
+        def run_after_initial_read(kernel, demand, *, purpose):
             with kernel.purpose("read").begin() as connection:
                 initial_cuts[demand] = read_demand_result(
                     connection, demand, project_id=PROJECT, view="frontier"
                 ).cut
-            return run_demand(kernel, demand, **options)
+            executor = captured_kernel_executor(kernel, purpose=purpose)
+            executor.completion_drafts = drafts
+            return executor.run(demand, max_rounds=100)
 
         monkeypatch.setattr(
             native_fixture, "execute_captured_kernel_demand", run_after_initial_read
@@ -351,6 +365,8 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
         retained, original, products, _ = produce_source_reports(
             source, kernel, target, text=text, selection_name="canonical-sentences"
         )
+        assert len(population_drafts) == 1
+        assert population_drafts[0].operation == "segment.sentences/source-native"
         (annotation,) = selected_for_source(
             kernel, products, namespace + "DdoSourceAnnotations", original
         )

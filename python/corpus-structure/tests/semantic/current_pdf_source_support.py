@@ -93,7 +93,7 @@ def compose_current_pdf_recipe(
     )
 
 
-def current_pdf_recipe(directory, *, math_context=False):
+def current_pdf_recipe(directory, *, math_context=False, capture_profile=None):
     from corpus_structure.semantic.native_requests import (
         pdf_region_inputs,
         pdf_region_operation_sources,
@@ -145,6 +145,7 @@ def current_pdf_recipe(directory, *, math_context=False):
         bundle=bundle,
         operation_sources=operation_sources,
         declarations=(visual_external_declaration(), source_profile_declarations()),
+        capture_profile=capture_profile,
     )
 
 

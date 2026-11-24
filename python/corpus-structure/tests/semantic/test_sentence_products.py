@@ -535,7 +535,8 @@ def test_prepared_sentence_plan_uses_invocation_work_and_host_owner(profile, mon
     )
     pending = []
     owner = SimpleNamespace(
-        native_hosts=object(), submit_python=lambda callback: pending.append(callback)
+        native_hosts=object(),
+        submit_python=lambda callback, *, check_active: pending.append(callback),
     )
     from semantic.source_test_support import hydrated_source
 

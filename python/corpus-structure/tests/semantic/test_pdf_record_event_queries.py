@@ -209,7 +209,8 @@ $$
         companions.c.product_id == "b", companions.c.revision_id == "b"
     )
     events = companion_event_relation(get_metadata(), chosen.subquery("chosen"), prefix="selected_")
-    actual = conn.execute(companion_event_query(events)).scalars().all()
+    rows = conn.execute(companion_event_query(events)).all()
+    actual = [event for event, _ in rows]
     assert [event["kind"] for event in actual] == [
         "row",
         "field",
@@ -220,9 +221,7 @@ $$
         "close",
     ]
     assert [event["part"]["ordinal"] for event in actual if event["kind"] == "part"] == [0, 1]
-    assert [event["part"]["body"] for event in actual if event["kind"] == "part"] == [
-        "\\x61",
-        "\\x62",
-    ]
+    assert all("body" not in event["part"] for event in actual if event["kind"] == "part")
+    assert [part for event, part in rows if event["kind"] == "part"] == [b"a", b"b"]
     assert actual[1]["field"]["field_name"] == "text"
     assert actual[1]["field"]["scalar_kind"] == "s"

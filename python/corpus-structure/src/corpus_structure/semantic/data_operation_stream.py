@@ -159,7 +159,10 @@ def plan_cpu_stream(descriptor, bound, signature, *, verify, execution_owner, ch
         verify()
         check_active()
         admission = cpu.try_admit(
-            check_active, reservation=execution_owner.reservation, packet_bytes=len(packet)
+            check_active,
+            reservation=execution_owner.reservation,
+            packet_bytes=len(packet),
+            analytical=True,
         )
         if admission is None:
             return None
@@ -238,7 +241,14 @@ class OwnedCPUCoroutine(OwnedCPUStream):
 
 
 def plan_cpu_coroutine(
-    descriptor, bound, signature, *, verify, execution_owner, check_active, answer_plan,
+    descriptor,
+    bound,
+    signature,
+    *,
+    verify,
+    execution_owner,
+    check_active,
+    answer_plan,
     population_inputs=None,
 ):
     """Keep one original CPU generator alive across typed provider exchanges.
@@ -262,8 +272,10 @@ def plan_cpu_coroutine(
         verify()
         check_active()
         admission = cpu.try_admit(
-            check_active, reservation=execution_owner.reservation,
+            check_active,
+            reservation=execution_owner.reservation,
             packet_bytes=None if transfers else len(packet),
+            analytical=True,
         )
         if admission is None:
             return None

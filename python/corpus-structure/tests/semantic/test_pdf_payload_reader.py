@@ -184,7 +184,7 @@ def test_streamed_export_decodes_ipc_to_logical_json_with_same_custody_pin():
                     "ordinal": 0,
                     "byte_offset": 0,
                     "byte_length": length,
-                    "body": payload.hex(),
+                    "body": payload,
                     "sha256_digest": sha256(payload).hexdigest(),
                 },
             },

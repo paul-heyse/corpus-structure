@@ -6,6 +6,7 @@ import yaml
 from sqlalchemy import (
     BigInteger,
     Integer,
+    LargeBinary,
     MetaData,
     Table,
     Text,
@@ -197,8 +198,13 @@ def _qualified_target(task, key, digest, **attributes):
     )
 
 
-def _output(phase, path, event, *, source=None):
-    query = select(literal(phase).label("phase"), path.label("path"), event.label("event"))
+def _output(phase, path, event, *, source=None, part_body=None):
+    query = select(
+        literal(phase).label("phase"),
+        path.label("path"),
+        event.label("event"),
+        (cast(literal(None), LargeBinary()) if part_body is None else part_body).label("part_body"),
+    )
     return query if source is None else query.select_from(source)
 
 
@@ -554,6 +560,7 @@ def _selected_events(model, revision, section, part_bytes):
                 ),
             ),
             _event("companion_native_fragment", fragment=metadata_events.c.event),
+            part_body=metadata_events.c.part_body,
             source=metadata_events.join(
                 ordered,
                 and_(~ordinary, ordered.c.local_id == metadata_events.c.local_id),
@@ -569,7 +576,7 @@ def _selected_events(model, revision, section, part_bytes):
             ),
         ),
     ).subquery("output")
-    return select(output.c.event).order_by(output.c.phase, output.c.path)
+    return select(output.c.event, output.c.part_body).order_by(output.c.phase, output.c.path)
 
 
 def selected_source_reader_programs(
@@ -605,13 +612,14 @@ def selected_source_reader_programs(
     access = model.tables["kb.pdf_record_access"]
     build = core_variable("revision", placement.c.build_id.type, "build_id")
     name = "read_pdf_selected_source_events"
-    result = pg_type("jsonb")
+    result = pg_type("record")
     result.setof = True
     routine = NativeRoutine(
         "ops",
         name,
         parameters=tuple(Parameter(key, pg_type("text")) for key in names),
         returns=result,
+        table_columns=(("body", pg_type("jsonb")), ("part_body", pg_type("bytea"))),
         security_definer=True,
         search_path=("pg_catalog", "pg_temp"),
         volatility="volatile",

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import (
     BigInteger,
+    LargeBinary,
     Text,
     and_,
     case,
@@ -313,6 +314,7 @@ def companion_event_relation(model, companions, *, prefix=""):
             literal(0).label("subphase"),
             cast(literal(0), BigInteger()).label("part_ordinal"),
             payload.label("event"),
+            cast(literal(None), LargeBinary()).label("part_body"),
         )
 
     stream_payload = func.to_jsonb(streams.table_valued(), type_=JSONB()).op("||")(
@@ -330,6 +332,7 @@ def companion_event_relation(model, companions, *, prefix=""):
             literal(0),
             cast(literal(0), BigInteger()),
             func.jsonb_build_object("kind", "field", "field", stream_payload),
+            cast(literal(None), LargeBinary()),
         ).select_from(fields.join(streams, stream_match)),
         select(
             fields.c.row_ordinal,
@@ -338,14 +341,28 @@ def companion_event_relation(model, companions, *, prefix=""):
             fields.c.field_name,
             literal(1),
             parts.c.ordinal,
-            func.jsonb_build_object("kind", "part", "part", func.to_jsonb(parts.table_valued())),
+            func.jsonb_build_object(
+                "kind",
+                "part",
+                "part",
+                func.jsonb_build_object(
+                    *(
+                        element
+                        for field in parts.c
+                        if field.name != "body"
+                        for element in (literal(field.name, type_=Text()), field)
+                    ),
+                    type_=JSONB(),
+                ),
+            ),
+            parts.c.body,
         ).select_from(fields.join(parts, part_match)),
         row_event(2, func.jsonb_build_object("kind", "close")),
     ).cte(prefix + "events")
 
 
 def companion_event_query(events):
-    return select(events.c.event).order_by(
+    return select(events.c.event, events.c.part_body).order_by(
         events.c.ordinal,
         events.c.local_id,
         events.c.phase,

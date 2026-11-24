@@ -36,7 +36,9 @@ from .pdf_companion_encoding import COMPANION_STAGE_TARGETS
 from .pdf_staging import PdfBuildRef
 
 if TYPE_CHECKING:
+    from corpus_structure.analytics import AnalyticalAllocation
     from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
+    from corpus_structure.settings import AnalyticsSettings
 
     from .pdf_contracts import PreparedPdfContext
     from .pdf_record_reader import PublishedPdfReader
@@ -244,21 +246,26 @@ def adopt_prepared_pdf_companion_batches(
     )
 
 
-_CAPTURE_SCHEMA = pa.schema(
-    [
-        pa.field("family", pa.string(), nullable=False),
-        pa.field("body", pa.large_string(), nullable=False),
-    ]
-)
-_FAMILIES = (
-    "header",
-    "native",
-    "membership",
-    "artifact_stream",
-    "artifact_part",
-    "companion",
-    "companion_field",
-)
+_ORACLE_SCHEMAS = {
+    "header": "stage:header",
+    "native": "stage:native",
+    "membership": "stage:membership",
+    "artifact_stream": "stage:artifact_stream",
+    "artifact_part": "stage:artifact_part",
+    "companion": "companion:companion",
+    "companion_field": "companion:field",
+}
+_ORACLE_CAPTURE_PROFILE = "pdf-typed-oracle-v1"
+
+
+def _oracle_schema(lowering, family):
+    from .pdf_replay_transport import replay_schema
+
+    return replay_schema(lowering.schema(_ORACLE_SCHEMAS[family]))
+
+
+def _oracle_family_path(capture: Path, family: str) -> Path:
+    return capture.with_name(f"{capture.name}.{family}.ipc")
 
 
 def _native_validation_streams(family: str, row: Mapping[str, Any]) -> Iterable[str]:
@@ -279,43 +286,67 @@ def _native_validation_streams(family: str, row: Mapping[str, Any]) -> Iterable[
         yield row["stream_id"]
 
 
-def _native_validation_child(capture: str, projection: str, result: Any) -> None:
+def _native_validation_child(
+    capture: str,
+    projection: str,
+    result: Any,
+    *,
+    allocation: AnalyticalAllocation | None = None,
+    analytics_settings: AnalyticsSettings | None = None,
+) -> None:
     """One explicitly materialized native oracle, no database handles or credentials."""
+    from contextlib import ExitStack
+
+    with ExitStack() as stack:
+        if allocation is not None:
+            from corpus_structure.analytics import analytical_job, configure
+
+            if analytics_settings is None:
+                raise ValueError("allocated PDF child requires analytical settings")
+            configure(analytics_settings)
+            pa.set_cpu_count(allocation.threads)
+            pa.set_io_thread_count(allocation.threads)
+            stack.enter_context(analytical_job(allocation, check_active=lambda: None))
+        _verify_native_capture(capture, projection, result)
+
+
+def _verify_native_capture(capture: str, projection: str, result: Any) -> None:
     store = None
     outcome: tuple[bool, str | None] = (True, None)
     try:
         from .pdf_access_projection import project_pdf_access
         from .pdf_lowering_context import CapturedPdfLowering
         from .pdf_payload_validation import FrozenPayloadStore
-        from .pdf_records import (
-            AcquiredNativeDocumentRows,
-            reconstruct_native_document,
-            validate_native_callbacks,
-        )
+        from .pdf_records import reconstruct_native_document, validate_native_callbacks
 
-        store = FrozenPayloadStore(Path(projection).with_suffix(".sqlite"))
-        rows: dict[str, list[dict[str, Any]]] = {name: [] for name in _FAMILIES}
-        lowering = None
-        with pa.memory_map(capture, "r") as source:
-            reader = pa.ipc.open_file(source)
-            for index in range(reader.num_record_batches):
-                batch = reader.get_batch(index)
-                for family, body in zip(
-                    batch.column("family").to_pylist(),
-                    batch.column("body").to_pylist(),
-                    strict=True,
-                ):
-                    value = json.loads(body)
-                    store.add(family, value)
-                    if family == "validation_contract":
-                        if lowering is not None:
-                            raise ValueError("duplicate captured PDF validation contract")
-                        lowering = CapturedPdfLowering.from_document(value["lowering"])
-                    if family in {"header", "native", "membership"}:
-                        rows[family].append(value)
-        if lowering is None or len(rows["header"]) != 1:
-            raise ValueError("captured PDF validation contract or document header is absent")
-        header = rows["header"][0]
+        manifest = json.loads(Path(capture).read_bytes())
+        if manifest["profile"] != _ORACLE_CAPTURE_PROFILE:
+            raise ValueError("unsupported typed PDF oracle capture")
+        contract = manifest["contract"]
+        lowering = CapturedPdfLowering.from_document(contract["lowering"])
+        store = FrozenPayloadStore(contract)
+        from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
+
+        from .pdf_replay_transport import read_replay_batches
+
+        if set(manifest["families"]) != set(_ORACLE_SCHEMAS):
+            raise ValueError("PDF oracle capture has an inexact family inventory")
+        for family, fields in manifest["families"].items():
+            replay = PdfReplayRef(
+                _oracle_family_path(Path(capture), family), family=family, **fields
+            )
+            for batch in read_replay_batches(
+                replay,
+                lowering.schema(_ORACLE_SCHEMAS[family]),
+                check_active=lambda: None,
+                map_verified=True,
+            ):
+                store.add_batch(family, batch)
+
+        headers = tuple(store.entries("header"))
+        if len(headers) != 1:
+            raise ValueError("captured PDF document header is absent or ambiguous")
+        (header,) = headers
         if (
             header["native_schema_digest"] != lowering.native_mapping.digest
             or (header["contract_version"], header["mapping_profile"]) != lowering.record_header
@@ -323,13 +354,19 @@ def _native_validation_child(capture: str, projection: str, result: Any) -> None
             raise ValueError("native document header differs from captured PDF lowering")
         profiles = {}
         for descriptor in store.stream_descriptors():
+            store.verify_stream(descriptor)
             profiles[descriptor["stream_id"]] = descriptor["encoding_profile"]
+        from corpus_structure.analytics import connection
+
+        with connection() as analytical:
+            store.check_artifact_coordinates(analytical)
+            store.check_membership(analytical)
         document = reconstruct_native_document(
-            AcquiredNativeDocumentRows(rows["native"], rows["membership"], store.parts),
+            store,
             header["root_id"],
             scalar_profiles=profiles,
             mapping=lowering.native_mapping,
-            json_fields="decoded",
+            json_fields="text",
         )
         validate_native_callbacks(document, contract=lowering.callback_policy())
         items, regions = project_pdf_access(document)
@@ -368,10 +405,20 @@ def _run_native_validation(
     capture: Path, projection: Path, check_active: Callable[[], None]
 ) -> None:
     """Settle this DB-free child before returning, including failed/cancelled validation."""
+    from corpus_structure.analytics import configured, current_allocation
+
+    allocation = current_allocation()
+    resources = (
+        {"allocation": allocation, "analytics_settings": configured()}
+        if allocation is not None
+        else {}
+    )
     context = multiprocessing.get_context("spawn")
     parent, child = context.Pipe(duplex=False)
     process = context.Process(
-        target=_native_validation_child, args=(str(capture), str(projection), child)
+        target=_native_validation_child,
+        args=(str(capture), str(projection), child),
+        kwargs=resources,
     )
     primary: BaseException | None = None
     errors: list[BaseException] = []
@@ -568,9 +615,9 @@ def validate_pdf_build(
                                 limit=64 if family == "artifact_part" else 1000,
                                 filters=filters,
                             )
-                            from .operation_value_types import decode_json_text
+                            from .pdf_record_reader import _record_envelope
 
-                            values = [decode_json_text(value) for value in encoded]
+                            values = [_record_envelope(row) for row in encoded]
                         if not values:
                             return
                         for value in values:
@@ -824,69 +871,74 @@ def write_pdf_oracle_capture(
     check_active: Callable[[], None],
 ) -> None:
     """Capture exact callback dependencies through one authenticated row owner."""
+    from contextlib import ExitStack
+
+    from corpus_structure.ingest.pdf_streaming import _atomic_bytes, _ref
+
     from .pdf_contracts import integrated_metadata_policy
     from .pdf_lowering_context import capture_pdf_lowering
     from .pdf_payload_validation import metadata_classes
     from .pdf_payloads import schema_dump
 
+    lowering = capture_pdf_lowering(context, allow_archived_default=True)
+    contract = {
+        "lowering": lowering.document(),
+        "schemas": {
+            key: context.boundary.json_schema(cls)
+            for key, cls in metadata_classes(context.staging.content).items()
+        },
+        "publication_kind": kind,
+        "integrated_metadata_policy": integrated_metadata_policy(context)
+        if kind == "integrated"
+        else None,
+    }
     required_streams = set()
-    with (
-        pa.OSFile(str(destination), "wb") as sink,
-        pa.ipc.new_file(sink, _CAPTURE_SCHEMA) as writer,
-    ):
+    counts = dict.fromkeys(_ORACLE_SCHEMAS, 0)
+    schemas = {family: _oracle_schema(lowering, family) for family in _ORACLE_SCHEMAS}
+    with ExitStack() as stack:
+        writers = {}
+        for family, schema in schemas.items():
+            sink = stack.enter_context(
+                pa.OSFile(str(_oracle_family_path(destination, family)), "wb")
+            )
+            writers[family] = stack.enter_context(pa.ipc.new_file(sink, schema))
 
         def write(family, values):
             if not values:
                 return
-            prepared = []
-            for value in values:
-                value = dict(value)
-                for name in ("scalars_json", "structure_json", "scalar_json"):
-                    if json_fields == "text" and isinstance(value.get(name), str):
-                        value[name] = json.loads(value[name])
-                if family == "artifact_part" and isinstance(value["body"], bytes):
-                    value["body"] = "\\x" + value["body"].hex()
-                required_streams.update(_native_validation_streams(family, value))
-                prepared.append(value)
-            writer.write_batch(
-                pa.RecordBatch.from_arrays(
-                    [
-                        pa.array([family] * len(prepared)),
-                        pa.array(
-                            [json.dumps(value, ensure_ascii=False) for value in prepared],
-                            type=pa.large_string(),
-                        ),
-                    ],
-                    schema=_CAPTURE_SCHEMA,
-                )
-            )
+            counts[family] += len(values)
+            writers[family].write_batch(pa.RecordBatch.from_pylist(values, schema=schemas[family]))
 
-        contract = {
-            "lowering": capture_pdf_lowering(context, allow_archived_default=True).document(),
-            "schemas": {
-                key: context.boundary.json_schema(cls)
-                for key, cls in metadata_classes(context.staging.content).items()
-            },
-            "publication_kind": kind,
-            "integrated_metadata_policy": integrated_metadata_policy(context)
-            if kind == "integrated"
-            else None,
-        }
-        writer.write_batch(
-            pa.RecordBatch.from_arrays(
-                [
-                    pa.array(["validation_contract"]),
-                    pa.array([schema_dump(contract).decode()], type=pa.large_string()),
-                ],
-                schema=_CAPTURE_SCHEMA,
-            )
-        )
+        def prepare(family, row):
+            value = dict(row)
+            if family == "native":
+                structure = value["structure_json"]
+                if json_fields == "text":
+                    structure = json.loads(structure)
+                required_streams.update(
+                    _native_validation_streams(family, {"structure_json": structure})
+                )
+            elif family in {"membership", "companion_field"}:
+                required_streams.update(_native_validation_streams(family, value))
+            if json_fields == "decoded":
+                names = (
+                    ("scalars_json", "structure_json")
+                    if family == "native"
+                    else ("scalar_json",)
+                    if family == "membership" and value["value_kind"] == "scalar"
+                    else ()
+                )
+                for name in names:
+                    value[name] = json.dumps(value.get(name), ensure_ascii=False, allow_nan=False)
+            if family == "companion":
+                value["body"] = json.dumps(value["body"], ensure_ascii=False, allow_nan=False)
+            return value
 
         def capture(family, filters=None):
             pending = []
             for row in rows(family, dict(filters or {})):
                 check_active()
-                pending.append(row)
+                pending.append(prepare(family, row))
                 if len(pending) >= (64 if family == "artifact_part" else 1000):
                     write(family, pending)
                     pending.clear()
@@ -907,19 +959,14 @@ def write_pdf_oracle_capture(
             fields = []
             for row in rows("companion", {"family": companion_family}):
                 check_active()
-                row = dict(row)
-                descriptors = row.pop("_fields", [])
+                pending.append(prepare("companion", row))
                 fields.extend(
-                    {
-                        "product_id": row["product_id"],
-                        "revision_id": row["revision_id"],
-                        "family": row["family"],
-                        "local_id": row["local_id"],
-                        **descriptor,
-                    }
-                    for descriptor in descriptors
+                    prepare(
+                        "companion_field",
+                        {"family": row["family"], "local_id": row["local_id"], **descriptor},
+                    )
+                    for descriptor in row.get("_fields", ())
                 )
-                pending.append(row)
                 if len(pending) >= 1000:
                     write("companion", pending)
                     write("companion_field", fields)
@@ -932,6 +979,19 @@ def write_pdf_oracle_capture(
             filters = {"stream_ids": streams[offset : offset + 512]}
             capture("artifact_stream", filters)
             capture("artifact_part", filters)
+    descriptors = {}
+    for family, count in counts.items():
+        path = _oracle_family_path(destination, family)
+        path.chmod(0o400)
+        replay = _ref(path, family, count)
+        descriptors[family] = dict(digest=replay.digest, byte_length=replay.byte_length, rows=count)
+    _atomic_bytes(
+        destination,
+        schema_dump(
+            {"profile": _ORACLE_CAPTURE_PROFILE, "contract": contract, "families": descriptors}
+        ),
+        "pdf_oracle_capture",
+    )
 
 
 def verify_pdf_oracle_capture(

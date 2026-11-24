@@ -38,7 +38,7 @@ def test_prepared_stream_call_binds_and_validates_without_executing_or_collectin
         "after": None,
         "limit": 32,
     }
-    row = calls.materialize_read_pdf_record_rows(('{"_cursor":[],"x":null}',))
+    row = calls.materialize_read_pdf_record_rows(('{"_cursor":[],"x":null}', None))
     assert row.body == '{"_cursor":[],"x":null}'
     assert row.decoded_json_fields(operation="read_native_source")["body"] == {
         "_cursor": [],
@@ -46,7 +46,7 @@ def test_prepared_stream_call_binds_and_validates_without_executing_or_collectin
     }
     materialize = vars(calls)["materialize_read_pdf_record_rows"]
     with pytest.raises(NativeResultViolation) as invalid:
-        materialize((None,))
+        materialize((None, None))
     assert invalid.value.locations == (("body",),)
 
 
@@ -267,9 +267,12 @@ def test_published_validation_reader_preserves_producer_and_oracle_receipt():
 
 
 def test_current_native_integer_widths_refuse_inputs_outside_the_actual_abi():
-    from sqlalchemy import BigInteger, Integer
+    from typing import cast
 
-    function = calls._read_pdf_frozen_rows_function
+    from sqlalchemy import BigInteger, Integer
+    from sqlalchemy.sql.functions import FunctionElement
+
+    function = cast(FunctionElement, calls._read_pdf_frozen_rows_function.element)
     types = {parameter.key: type(parameter.type) for parameter in function.clauses}
     assert types["task_id"] is BigInteger
     assert types["limit"] is Integer

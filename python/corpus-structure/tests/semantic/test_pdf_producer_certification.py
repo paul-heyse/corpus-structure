@@ -70,7 +70,7 @@ def prepared(tmp_path, *, candidate=None):
         payload_family=prepare_payload_family(context),
         check_active=lambda: None,
     )
-    payloads = PdfProducerPayloads(tmp_path / "payloads.sqlite", contract)
+    payloads = PdfProducerPayloads(contract)
     payloads.add_replays(replays)
     payloads.add_companion_replays(sets)
     basis: ProducerBasis = {
@@ -195,53 +195,34 @@ def test_independent_oracle_refuses_lossy_but_callback_valid_lowering(tmp_path):
 
     payloads, document, basis = prepared(tmp_path)
     try:
-        for key, raw in payloads.db.exec_driver_sql(
-            "SELECT key,body FROM native_entry WHERE family='native'"
-        ):
-            row = json.loads(raw)
-            scalars = json.loads(row["scalars_json"])
-            if scalars.get("name") == "producer source":
-                scalars["name"] = "lossy source"
-                row["scalars_json"] = json.dumps(scalars)
-                payloads.db.exec_driver_sql(
-                    "UPDATE native_entry SET body=? WHERE family='native' AND key=?",
-                    (json.dumps(row), key),
-                )
-                break
-        else:
-            raise AssertionError("independent native name witness is absent")
         certification = payloads.certify(document, tmp_path / "producer-access.jsonl", **basis)
+        substituted = []
 
         def rows(family, filters):
             if family in {"header", "native", "membership"}:
-                for (raw,) in payloads.db.exec_driver_sql(
-                    "SELECT body FROM native_entry WHERE family=?", (family,)
-                ):
-                    yield json.loads(raw)
+                for row in payloads.entries(family):
+                    if family == "native":
+                        scalars = json.loads(row["scalars_json"])
+                        if scalars.get("name") == "producer source":
+                            scalars["name"] = "lossy source"
+                            row["scalars_json"] = json.dumps(scalars)
+                            substituted.append(row["record_id"])
+                    yield row
             elif family == "companion":
                 for row in payloads.companions(filters["family"]):
                     row["_fields"] = [
-                        json.loads(raw)
-                        for (raw,) in payloads.db.exec_driver_sql(
-                            "SELECT body FROM entry WHERE family='companion_field'"
-                        )
-                        if (json.loads(raw)["family"], json.loads(raw)["local_id"])
-                        == (row["family"], row["local_id"])
+                        field
+                        for field in payloads.entries("companion_field")
+                        if (field["family"], field["local_id"]) == (row["family"], row["local_id"])
                     ]
-                    yield {"product_id": "oracle-fixture", "revision_id": "oracle-fixture", **row}
+                    yield row
             elif family == "artifact_stream":
-                for (raw,) in payloads.db.exec_driver_sql(
-                    "SELECT body FROM entry WHERE family='artifact_stream'"
-                ):
-                    row = json.loads(raw)
+                for row in payloads.stream_descriptors():
                     if row["stream_id"] in filters["stream_ids"]:
                         yield row
             elif family == "artifact_part":
                 for stream in filters["stream_ids"]:
-                    for ordinal, body in payloads.db.exec_driver_sql(
-                        "SELECT ordinal,body FROM part WHERE stream=? ORDER BY ordinal", (stream,)
-                    ):
-                        yield {"stream_id": stream, "ordinal": ordinal, "body": body}
+                    yield from payloads.part_rows(stream)
 
         capture = tmp_path / "oracle.arrow"
         write_pdf_oracle_capture(
@@ -252,6 +233,7 @@ def test_independent_oracle_refuses_lossy_but_callback_valid_lowering(tmp_path):
             json_fields="text",
             check_active=lambda: None,
         )
+        assert len(substituted) == 1
         with pytest.raises(ValueError, match="differs from the certified producer document"):
             verify_pdf_oracle_capture(
                 capture,
@@ -271,7 +253,10 @@ def test_independent_oracle_refuses_lossy_but_callback_valid_lowering(tmp_path):
 def test_oracle_capture_preserves_json_looking_native_strings(tmp_path, representation, value):
     import pyarrow as pa
 
-    from corpus_structure.semantic.pdf_publication import write_pdf_oracle_capture
+    from corpus_structure.semantic.pdf_publication import (
+        _oracle_family_path,
+        write_pdf_oracle_capture,
+    )
 
     def rows(family, filters):
         if family == "membership":
@@ -286,19 +271,11 @@ def test_oracle_capture_preserves_json_looking_native_strings(tmp_path, represen
         json_fields=representation,
         check_active=lambda: None,
     )
-    with pa.memory_map(str(path), "r") as source:
+    with pa.memory_map(str(_oracle_family_path(path, "membership")), "r") as source:
         reader = pa.ipc.open_file(source)
-        actual = [
-            json.loads(body)
-            for index in range(reader.num_record_batches)
-            for family, body in zip(
-                reader.get_batch(index).column("family").to_pylist(),
-                reader.get_batch(index).column("body").to_pylist(),
-                strict=True,
-            )
-            if family == "membership"
-        ]
-    assert actual == [{"value_kind": "scalar", "scalar_json": "null"}]
+        batch = reader.get_batch(0)
+        assert batch.column("value_kind").to_pylist() == ["scalar"]
+        assert batch.column("scalar_json").to_pylist() == ['"null"']
 
 
 def test_acquired_record_schemas_do_not_rebuild_ambient_metadata(tmp_path, monkeypatch):

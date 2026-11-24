@@ -330,42 +330,6 @@ def _validate_inline_coverage(product, unresolved, index):
             raise ValueError("complete inline coverage contains unresolved source correspondence")
 
 
-def validate_pdf_cell_coverage(product: Mapping[str, Any]) -> None:
-    """Complete cell scopes require every meaningful cell to be assessed and resolved."""
-    scopes = [
-        row
-        for row in product.get("recognition_coverage", ())
-        if row["universe"] == "cell" and row["outcome"] == "complete"
-    ]
-    health = product["health"]
-    if health.get("cell_coverage") == "complete":
-        scopes += [
-            dict(section_pointer=pointer, membership=health["cell_membership"])
-            for pointer in health.get("cell_scope", ())
-        ]
-    if not scopes:
-        return
-    index = _SourceIndex(product)
-    reports = {
-        (row["table_pointer"], row["cell_index"]): row for row in product.get("cell_reports", ())
-    }
-    for pointer, item in index.items.items():
-        if item["label"] != "table" or not any(index.selected(pointer, scope) for scope in scopes):
-            continue
-        cells = index.native(pointer).get("data", {}).get("table_cells", ())
-        for cell_index, cell in enumerate(cells):
-            report = reports.get((pointer, cell_index))
-            if report is None:
-                if cell.get("text", "").strip() or (cell.get("ref") or {}).get("$ref"):
-                    raise ValueError("complete scoped cell coverage omits a native cell assessment")
-            elif report["classification"] == "unknown" or (
-                report["classification"] == "math" and report["outcome"] != "succeeded"
-            ):
-                raise ValueError(
-                    "complete scoped cell coverage contains unresolved recognition/classification"
-                )
-
-
 def validate_pdf_ocr_pages(product: Mapping[str, Any]) -> None:
     """Validate observed raster/PDF transforms without claiming original glyph positions."""
     pages = {}
@@ -399,7 +363,9 @@ def validate_pdf_inline_reports(
     _validate_inline_coverage(product, unresolved, index)
 
 
-def validate_pdf_page_payloads(product: Mapping[str, Any]) -> None:
+def validate_pdf_page_payloads(
+    product: Mapping[str, Any], *, source: _SourceIndex | None = None
+) -> None:
     """Validate each streamed page once, fusing its OCR and inline-report work.
 
     Only availability and unresolved-pointer summaries survive a page; complete-set
@@ -409,7 +375,7 @@ def validate_pdf_page_payloads(product: Mapping[str, Any]) -> None:
     for report in product.get("inline_alignment_reports", ()):
         reports_by_page[report["page_no"]].append(report)
     _require_inline_parent(product, reports_by_page)
-    index = _SourceIndex(product)
+    index = _SourceIndex(product) if source is None else source
     pages, seen, unresolved = {}, set(), set()
     for page in product.get("inline_candidate_pages", ()):
         number = page["page_no"]

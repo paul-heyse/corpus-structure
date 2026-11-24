@@ -346,6 +346,7 @@ def _private_build_factory(
     admission_engine,
     kernel_recipe=None,
     source_kind=None,
+    original_path=None,
 ):
     recipe = current_pdf_recipe(tmp_path) if kernel_recipe is None else kernel_recipe
     preparation = prepare_kernel(recipe, directory=tmp_path / "kernel-preparation")
@@ -359,9 +360,11 @@ def _private_build_factory(
         if asset.name == "pdf-capture/profile-assets"
     )
     recipe_bytes = bytes.fromhex(json.loads(profile.content)["recipe"])
-    path = tmp_path / "source.pdf"
+    path = tmp_path / "source.pdf" if original_path is None else original_path
     source_kind = getattr(request, "param", None) if source_kind is None else source_kind
-    if source_kind in {
+    if original_path is not None:
+        original = path.read_bytes()
+    elif source_kind in {
         "renderable_pdf",
         "characterization_pdf",
         "characterization_finalizable_pdf",

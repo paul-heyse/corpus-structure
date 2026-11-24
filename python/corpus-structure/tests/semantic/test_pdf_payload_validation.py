@@ -2,14 +2,19 @@
 
 import json
 from copy import deepcopy
+from itertools import pairwise
+from typing import Any
 
 import pytest
 from pdf_acceptance_support import inventory
 
-from corpus_structure.semantic.pdf_payload_validation import FrozenPayloadStore
 from corpus_structure.semantic.pdf_record_identity import byte_root
+from semantic.pdf_payload_validation_support import (
+    add_row,
+    typed_store,
+    validate_projection_fixture,
+)
 from semantic.pdf_payload_validation_support import captured as captured
-from semantic.pdf_payload_validation_support import validate_projection_fixture
 
 from . import pdf_native_source_support as integrated_examples
 
@@ -92,7 +97,7 @@ def test_frozen_selected_companions_retain_complete_meaning(
     defect = None if change == "segmented" else change
     if defect is not None:
         integrated_examples.mutate_selected(value, defect.removeprefix("segmented_"))
-    store = FrozenPayloadStore(tmp_path / "meaning.sqlite")
+    store = typed_store()
     try:
         for family, key in (
             ("input", "inputs"),
@@ -119,7 +124,8 @@ def test_frozen_selected_companions_retain_complete_meaning(
                         ),
                     ):
                         length, root = byte_root((payload,))
-                        store.add(
+                        add_row(
+                            store,
                             "companion_field",
                             dict(
                                 family=family,
@@ -129,7 +135,8 @@ def test_frozen_selected_companions_retain_complete_meaning(
                                 scalar_kind=kind,
                             ),
                         )
-                        store.add(
+                        add_row(
+                            store,
                             "artifact_stream",
                             dict(
                                 stream_id=name,
@@ -138,10 +145,11 @@ def test_frozen_selected_companions_retain_complete_meaning(
                                 encoding_profile=profile,
                             ),
                         )
-                        store.add(
-                            "artifact_part", dict(stream_id=name, ordinal=0, body=payload.hex())
+                        add_row(
+                            store, "artifact_part", dict(stream_id=name, ordinal=0, body=payload)
                         )
-                store.add(
+                add_row(
+                    store,
                     "companion",
                     dict(family=family, local_id=str(ordinal), ordinal=ordinal, body=body),
                 )
@@ -178,7 +186,7 @@ def test_raw_frozen_coverage_distinguishes_absent_empty_and_null_supports(
     else:
         coverage["supports"] = [] if state == "empty" else None
     original = deepcopy(coverage)
-    store = FrozenPayloadStore(tmp_path / "optional-supports.sqlite")
+    store = typed_store()
     try:
         for family, key in (
             ("input", "inputs"),
@@ -187,7 +195,7 @@ def test_raw_frozen_coverage_distinguishes_absent_empty_and_null_supports(
             ("coverage", "coverage"),
         ):
             for ordinal, body in enumerate(value[key]):
-                store.add("companion", dict(family=family, local_id=str(ordinal), body=body))
+                add_row(store, "companion", dict(family=family, local_id=str(ordinal), body=body))
         if accepted:
             store.validate_integrated_meaning(value["content"]["document"])
         else:
@@ -207,13 +215,14 @@ def test_raw_frozen_coverage_distinguishes_absent_empty_and_null_supports(
 
 
 def test_frozen_occurrence_text_uses_lossless_checked_byte_field(tmp_path):
-    store = FrozenPayloadStore(tmp_path / "text.sqlite")
+    store = typed_store()
     spelling = "equal\x00Ω"
     payload = spelling.encode()
     length, root = byte_root((payload,))
     row = dict(family="occurrence", local_id="o", body={"occurrence_id": "o"})
     try:
-        store.add(
+        add_row(
+            store,
             "companion_field",
             dict(
                 family="occurrence",
@@ -223,7 +232,8 @@ def test_frozen_occurrence_text_uses_lossless_checked_byte_field(tmp_path):
                 scalar_kind="s",
             ),
         )
-        store.add(
+        add_row(
+            store,
             "artifact_stream",
             dict(
                 stream_id="text",
@@ -232,11 +242,17 @@ def test_frozen_occurrence_text_uses_lossless_checked_byte_field(tmp_path):
                 encoding_profile="pdf-record-scalar-v1:s",
             ),
         )
-        store.add("artifact_part", dict(stream_id="text", ordinal=0, body=payload.hex()))
+        add_row(store, "artifact_part", dict(stream_id="text", ordinal=0, body=payload))
         assert store.companion_value(row)["text"] == spelling
-        store.db.exec_driver_sql("UPDATE part SET body=? WHERE stream='text'", (b"changed",))
-        with pytest.raises(ValueError):
-            store.companion_value(row)
+        invalid = typed_store()
+        try:
+            add_row(invalid, "companion_field", store.field("occurrence", row["local_id"], "text"))
+            add_row(invalid, "artifact_stream", store.descriptor("text"))
+            add_row(invalid, "artifact_part", dict(stream_id="text", ordinal=0, body=b"changed"))
+            with pytest.raises(ValueError, match="bytes differ"):
+                invalid.companion_value(row)
+        finally:
+            invalid.close()
     finally:
         store.close()
 
@@ -297,7 +313,8 @@ def test_runtime_report_is_not_omitted_from_frozen_semantics(tmp_path):
     store.schemas["runtime_report"] = {"type": "object"}
     payload = json.dumps(value).encode()
     length, root = byte_root((payload,))
-    store.add(
+    add_row(
+        store,
         "companion",
         dict(
             family="native_metadata",
@@ -306,13 +323,15 @@ def test_runtime_report_is_not_omitted_from_frozen_semantics(tmp_path):
             body=dict(kind="runtime_report", ordinal=0),
         ),
     )
-    store.add(
+    add_row(
+        store,
         "companion_field",
         dict(
             family="native_metadata", local_id="runtime:0", field_name="value", stream_id="runtime"
         ),
     )
-    store.add(
+    add_row(
+        store,
         "artifact_stream",
         dict(
             stream_id="runtime",
@@ -321,7 +340,7 @@ def test_runtime_report_is_not_omitted_from_frozen_semantics(tmp_path):
             encoding_profile="pdf-companion-json-field-v1",
         ),
     )
-    store.add("artifact_part", dict(stream_id="runtime", ordinal=0, body=payload.hex()))
+    add_row(store, "artifact_part", dict(stream_id="runtime", ordinal=0, body=payload))
     try:
         with pytest.raises(ValueError, match="upstream option object"):
             validate_projection_fixture(store, document, projection)
@@ -332,9 +351,6 @@ def test_runtime_report_is_not_omitted_from_frozen_semantics(tmp_path):
 def test_false_complete_coverage_fails_over_captured_page_inventory(tmp_path):
     page = inventory()
     page["ocr_regions"][0]["outcome"] = "partial"
-    store, _, document, projection = captured(tmp_path, page)
-    document["groups"] = [dict(self_ref="#/groups/0", label="section")]
-    document["texts"] = [dict(self_ref="#/texts/0", label="text", text="x", children=[])]
     health = dict(
         source_scope="whole_document",
         inline_coverage="complete",
@@ -342,13 +358,9 @@ def test_false_complete_coverage_fails_over_captured_page_inventory(tmp_path):
         inline_membership="direct",
         candidate_policy="native-font-token-vector-ocr-word-v3",
     )
-    store.db.exec_driver_sql(
-        "UPDATE entry SET body=? WHERE family='companion' AND key=?",
-        (
-            json.dumps(dict(family="health", local_id="health", body=health)),
-            json.dumps(["health", "health"]),
-        ),
-    )
+    store, _, document, projection = captured(tmp_path, page, health=health)
+    document["groups"] = [dict(self_ref="#/groups/0", label="section")]
+    document["texts"] = [dict(self_ref="#/texts/0", label="text", text="x", children=[])]
     projection.write_text(
         "\n".join(
             json.dumps(dict(family=family, body=body))
@@ -377,7 +389,7 @@ def test_false_complete_coverage_fails_over_captured_page_inventory(tmp_path):
         store.close()
 
 
-def test_family_kind_page_and_exists_selectors_do_not_decode_unrelated_rows(tmp_path):
+def test_family_kind_page_and_exists_selectors_do_not_decode_unrelated_rows(tmp_path, monkeypatch):
     store, row, _, _ = captured(tmp_path, inventory())
     try:
         for family, local, body in (
@@ -385,31 +397,20 @@ def test_family_kind_page_and_exists_selectors_do_not_decode_unrelated_rows(tmp_
             ("native_metadata", "runtime:9", {"kind": "runtime_report"}),
             ("native_metadata", "page:2", {"kind": "inline_candidate_pages", "page_no": 2}),
         ):
-            store.add("companion", dict(family=family, local_id=local, body=body))
-            # A selector for the real page must not even parse these payloads.
-            store.db.exec_driver_sql(
-                "UPDATE entry SET body='not JSON' WHERE family='companion' AND key=?",
-                (json.dumps([family, local]),),
-            )
+            add_row(store, "companion", dict(family=family, local_id=local, body=body))
+        decode = store._companion
+
+        def selected_only(value):
+            assert value["local_id"] == "page:0"
+            return decode(value)
+
+        monkeypatch.setattr(store, "_companion", selected_only)
         assert list(
             store.companions("native_metadata", kind="inline_candidate_pages", page_nos=[1])
         ) == [row]
         assert list(store.companions("native_metadata", page_nos=[])) == []
         assert store.has_companions("native_metadata", kind="runtime_report")
         assert not store.has_companions("coverage")
-        from sqlalchemy import select
-
-        from corpus_structure.semantic.pdf_payload_validation import _ENTRY
-
-        statement = select(_ENTRY.c.body).where(
-            *store._selection("native_metadata", "inline_candidate_pages", [1])
-        )
-        compiled = statement.compile(store.db, compile_kwargs={"render_postcompile": True})
-        plan = store.db.exec_driver_sql(
-            "EXPLAIN QUERY PLAN " + str(compiled),
-            tuple(compiled.params[name] for name in (compiled.positiontup or ())),
-        ).fetchall()
-        assert any("SEARCH entry USING INDEX" in detail for *_, detail in plan)
     finally:
         store.close()
 
@@ -417,15 +418,24 @@ def test_family_kind_page_and_exists_selectors_do_not_decode_unrelated_rows(tmp_
 def test_stream_verifies_and_consumes_actual_parts_once_with_canonical_blocking(
     tmp_path, monkeypatch
 ):
-    store = FrozenPayloadStore(tmp_path / "parts.sqlite")
+    store = typed_store()
     payload = bytes(range(256)) * 800
-    chunks = [payload[:13], payload[13:70001], payload[70001:]]
+    cuts = (0, 13, 58_000, 112_000, 170_000, len(payload))
+    chunks = [payload[start:end] for start, end in pairwise(cuts)]
     length, root = byte_root((payload,))
-    store.add(
-        "artifact_stream", dict(stream_id="fragmented", byte_length=length, byte_root=root.hex())
+    add_row(
+        store,
+        "artifact_stream",
+        dict(stream_id="fragmented", byte_length=length, byte_root=root.hex()),
     )
+    offset = 0
     for ordinal, chunk in enumerate(chunks):
-        store.add("artifact_part", dict(stream_id="fragmented", ordinal=ordinal, body=chunk.hex()))
+        add_row(
+            store,
+            "artifact_part",
+            dict(stream_id="fragmented", ordinal=ordinal, byte_offset=offset, body=chunk),
+        )
+        offset += len(chunk)
     original = store.parts
     calls = []
 
@@ -454,7 +464,8 @@ def add_report(store, index):
     payload = json.dumps(value).encode()
     length, root = byte_root((payload,))
     local = f"inline:{index}"
-    store.add(
+    add_row(
+        store,
         "companion",
         dict(
             family="native_metadata",
@@ -463,11 +474,13 @@ def add_report(store, index):
             body=dict(kind="inline_alignment_reports", ordinal=index),
         ),
     )
-    store.add(
+    add_row(
+        store,
         "companion_field",
         dict(family="native_metadata", local_id=local, field_name="value", stream_id=local),
     )
-    store.add(
+    add_row(
+        store,
         "artifact_stream",
         dict(
             stream_id=local,
@@ -476,7 +489,7 @@ def add_report(store, index):
             encoding_profile="pdf-companion-json-field-v1",
         ),
     )
-    store.add("artifact_part", dict(stream_id=local, ordinal=0, body=payload.hex()))
+    add_row(store, "artifact_part", dict(stream_id=local, ordinal=0, body=payload))
 
 
 def test_frozen_page_decodes_once_across_multiple_original_candidate_reports(tmp_path, monkeypatch):
@@ -487,7 +500,8 @@ def test_frozen_page_decodes_once_across_multiple_original_candidate_reports(tmp
     store, _, document, projection = captured(tmp_path, page)
     for index in (0, 1):
         add_report(store, index)
-    store.add(
+    add_row(
+        store,
         "companion",
         dict(
             family="input",
@@ -532,35 +546,15 @@ def test_frozen_page_decodes_once_across_multiple_original_candidate_reports(tmp
 
 @pytest.mark.parametrize("defect", ["schema", "logical", "locator", "bytes", "encoding"])
 def test_a_previous_success_never_authorizes_changed_frozen_payload(tmp_path, defect):
-    store, row, document, projection = captured(tmp_path, inventory())
+    page = inventory()
+    store, _, document, projection = captured(tmp_path, page)
+    altered, _, _, _ = captured(tmp_path, page, defect=defect)
     try:
         validate_projection_fixture(store, document, projection)
-        if defect == "bytes":
-            store.db.exec_driver_sql("UPDATE part SET body=? WHERE stream='page'", (b"changed",))
-        elif defect == "encoding":
-            raw = store.db.exec_driver_sql(
-                "SELECT body FROM entry WHERE family='artifact_stream' AND key='page'"
-            ).scalar_one()
-            descriptor = json.loads(raw)
-            descriptor["encoding_profile"] = "pdf-companion-json-field-v1"
-            store.db.exec_driver_sql(
-                "UPDATE entry SET body=? WHERE family='artifact_stream' AND key='page'",
-                (json.dumps(descriptor),),
-            )
-        else:
-            field = {
-                "schema": "payload_schema_digest",
-                "logical": "payload_logical_digest",
-                "locator": "page_no",
-            }[defect]
-            row["body"][field] = 2 if defect == "locator" else "0" * 64
-            store.db.exec_driver_sql(
-                "UPDATE entry SET body=? WHERE family='companion' AND key=?",
-                (json.dumps(row), json.dumps(["native_metadata", "page:0"])),
-            )
         with pytest.raises(ValueError):
-            validate_projection_fixture(store, document, projection)
+            validate_projection_fixture(altered, document, projection)
     finally:
+        altered.close()
         store.close()
 
 
@@ -568,22 +562,9 @@ def test_captured_publication_policy_and_actual_metadata_kind_inventory_are_used
     tmp_path, monkeypatch
 ):
     from corpus_structure.semantic import pdf_contracts
-    from corpus_structure.semantic.pdf_payloads import schema_dump
 
-    store, _, document, projection = captured(tmp_path, inventory())
     policy = pdf_contracts.integrated_metadata_policy()
-    store.add(
-        "validation_contract",
-        json.loads(
-            schema_dump(
-                dict(
-                    schemas=store.schemas,
-                    publication_kind="integrated",
-                    integrated_metadata_policy=policy,
-                )
-            )
-        ),
-    )
+    store, _, document, projection = captured(tmp_path, inventory(), integrated_policy=policy)
 
     def no_installed_policy():
         raise AssertionError("the exact captured publication policy must be reused")
@@ -592,7 +573,8 @@ def test_captured_publication_policy_and_actual_metadata_kind_inventory_are_used
     # This policy-only example has no content items; it still declares its selected
     # input roles and partial coverage instead of bypassing integrated meaning.
     for ordinal, role in enumerate(("structural", "recognition")):
-        store.add(
+        add_row(
+            store,
             "companion",
             dict(
                 family="input",
@@ -602,7 +584,8 @@ def test_captured_publication_policy_and_actual_metadata_kind_inventory_are_used
                 ),
             ),
         )
-    store.add(
+    add_row(
+        store,
         "companion",
         dict(
             family="coverage",
@@ -621,7 +604,8 @@ def test_captured_publication_policy_and_actual_metadata_kind_inventory_are_used
     for ordinal, family in enumerate(("body", "furniture")):
         pointer = f"#/{family}"
         document[family] = dict(self_ref=pointer, children=[])
-        store.add(
+        add_row(
+            store,
             "companion",
             dict(
                 family="occurrence",
@@ -635,7 +619,8 @@ def test_captured_publication_policy_and_actual_metadata_kind_inventory_are_used
                 ),
             ),
         )
-        store.add(
+        add_row(
+            store,
             "companion",
             dict(
                 family="relation",
@@ -657,7 +642,8 @@ def test_captured_publication_policy_and_actual_metadata_kind_inventory_are_used
         validate_projection_fixture(store, document, projection)
         payload = b'{"effective_options":"{}"}'
         length, root = byte_root((payload,))
-        store.add(
+        add_row(
+            store,
             "companion",
             dict(
                 family="native_metadata",
@@ -665,7 +651,8 @@ def test_captured_publication_policy_and_actual_metadata_kind_inventory_are_used
                 body=dict(kind="runtime_report", ordinal=0),
             ),
         )
-        store.add(
+        add_row(
+            store,
             "companion_field",
             dict(
                 family="native_metadata",
@@ -674,7 +661,8 @@ def test_captured_publication_policy_and_actual_metadata_kind_inventory_are_used
                 stream_id="runtime",
             ),
         )
-        store.add(
+        add_row(
+            store,
             "artifact_stream",
             dict(
                 stream_id="runtime",
@@ -683,8 +671,73 @@ def test_captured_publication_policy_and_actual_metadata_kind_inventory_are_used
                 encoding_profile="pdf-companion-json-field-v1",
             ),
         )
-        store.add("artifact_part", dict(stream_id="runtime", ordinal=0, body=payload.hex()))
+        add_row(store, "artifact_part", dict(stream_id="runtime", ordinal=0, body=payload))
         with pytest.raises(ValueError, match="qualified input graph"):
             validate_projection_fixture(store, document, projection)
     finally:
         store.close()
+
+
+@pytest.mark.parametrize(
+    "defect, diagnostic",
+    [
+        ("duplicate_formula", "duplicate formula recognition outcome"),
+        ("foreign_formula", "has no native occurrence"),
+        ("wrong_cell_page", "cell report page differs from its native table"),
+        ("runtime_name", "runtime report repeats a named binding"),
+    ],
+)
+def test_typed_report_relationships_refuse_independent_corruption(defect, diagnostic):
+    from corpus_structure.semantic.pdf_report_validation import validate_pdf_report_metadata
+
+    formula = "#/texts/0"
+    table = "#/tables/0"
+    value: dict[str, Any] = {
+        "source_scope": "whole_document",
+        "document": {
+            "pages": {"1": {}, "2": {}},
+            "texts": [{"label": "formula"}],
+            "tables": [
+                {
+                    "label": "table",
+                    "prov": [{"page_no": 1}],
+                    "data": {"table_cells": [{"ref": {"$ref": formula}}]},
+                }
+            ],
+        },
+        "items": [
+            {"pointer": formula, "label": "formula", "parent_pointer": table},
+            {"pointer": table, "label": "table"},
+        ],
+        "health": {
+            "inline_coverage": "unknown",
+            "cell_coverage": "unknown",
+            "formula_outcomes": [{"pointer": formula, "outcome": "succeeded"}],
+        },
+        "cell_reports": [
+            {
+                "table_pointer": table,
+                "cell_index": 0,
+                "page_no": 1,
+                "classification": "math",
+                "outcome": "succeeded",
+                "formula_pointer": formula,
+            }
+        ],
+        "runtime_report": {
+            "effective_options": "{}",
+            "packages": [{"name": "shared", "version": "1"}],
+            "bindings": [{"name": "shared", "value": "fixture"}],
+        },
+    }
+    validate_pdf_report_metadata(value)
+    if defect == "duplicate_formula":
+        value["health"]["formula_outcomes"] *= 2
+    elif defect == "foreign_formula":
+        value["health"]["formula_outcomes"][0]["pointer"] = "#/texts/1"
+    elif defect == "wrong_cell_page":
+        value["cell_reports"][0]["page_no"] = 2
+    else:
+        value["runtime_report"]["bindings"] *= 2
+    with pytest.raises(ValueError, match=diagnostic):
+        validate_pdf_report_metadata(value)

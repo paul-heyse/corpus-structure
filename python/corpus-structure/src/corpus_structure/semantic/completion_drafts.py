@@ -10,11 +10,12 @@ import fcntl
 import os
 import re
 import stat
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
+from tempfile import TemporaryFile
 from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import uuid4
 
@@ -22,15 +23,72 @@ from .data_operation_json import finite_json_loads, json_bytes, native_json_load
 from .data_operation_wire import validate_wire_schema
 
 if TYPE_CHECKING:
+    import pyarrow as pa
+
     from ._data_operation_wire import (
         WireInspectDataCompletionDraftRequest,
         WireInspectDataCompletionDraftResult,
         WireRetainDataCompletionIntentRequest,
     )
+    from .arrow_transfer import ArrowWriteProfile
     from .storage_target import StorageTarget
 
 
 SUPPORTED_OPERATIONS = frozenset({"source.pdf/capture", "segment.sentences/source-native"})
+
+
+@dataclass(frozen=True)
+class PopulationUploadFile:
+    """Acknowledged durable IPC acquired into private bytes before COPY consumption."""
+
+    path: Path
+    byte_length: int
+    digest: str
+
+    def _copy(self, output=None):
+        descriptor = os.open(self.path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        try:
+            before = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_uid != os.getuid()
+                or before.st_size != self.byte_length
+            ):
+                raise ValueError("completion draft differs from its acknowledged population upload")
+            digest = sha256()
+            remaining = self.byte_length
+            with os.fdopen(descriptor, "rb", closefd=False) as source:
+                while remaining:
+                    chunk = source.read(min(remaining, 1024 * 1024))
+                    if not chunk:
+                        raise ValueError(
+                            "completion population upload changed while acquiring custody"
+                        )
+                    digest.update(chunk)
+                    if output is not None:
+                        output.write(chunk)
+                    remaining -= len(chunk)
+            after = os.fstat(descriptor)
+            if digest.hexdigest() != self.digest or (
+                before.st_size,
+                before.st_mtime_ns,
+                before.st_ctime_ns,
+            ) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns):
+                raise ValueError("completion draft differs from its acknowledged population upload")
+        finally:
+            os.close(descriptor)
+
+    @contextmanager
+    def open_reader(self):
+        import pyarrow as pa
+
+        # The private anonymous file is the exact copy authenticated above. Subsequent
+        # changes to the durable pathname cannot change the batches sent to COPY.
+        with TemporaryFile(dir=self.path.parent) as owned:
+            self._copy(owned)
+            owned.seek(0)
+            with pa.ipc.open_stream(owned) as reader:
+                yield reader
 
 
 @dataclass(frozen=True)
@@ -40,7 +98,7 @@ class CompletionDraft:
     operation: str
     basis: bytes
     request: bytes
-    population_upload: bytes | None = None
+    population_upload: PopulationUploadFile | None = None
 
     def native_request(self) -> WireRetainDataCompletionIntentRequest:
         """Return the exact original native intake request under its captured fence."""
@@ -183,19 +241,20 @@ class CompletionDraftStore:
         basis: bytes,
         check_active: Callable[[], None],
         writer_schema: bytes,
-        population_upload: bytes | None = None,
+        population_upload_batches: Iterable[pa.RecordBatch] | None = None,
+        population_upload_profile: ArrowWriteProfile | None = None,
+        max_population_upload_bytes: int | None = None,
     ) -> CompletionDraft:
         """Persist the original complete request before acknowledging it to its caller."""
         if not release_id or operation not in SUPPORTED_OPERATIONS:
             raise ValueError(
                 "completion draft requires its original release and supported operation"
             )
+        if (population_upload_batches is None) != (population_upload_profile is None):
+            raise ValueError("completion upload requires both its batches and write profile")
         validate_wire_schema(writer_schema, request)
         content = json_bytes(dict(request))
-        if (
-            len(content) + len(population_upload or b"") > self.max_bytes
-            or len(basis) > self.max_bytes
-        ):
+        if len(content) > self.max_bytes or len(basis) > self.max_bytes:
             raise ValueError("completion draft exceeds its byte bound")
         # Canonical bytes retain every supplied producing determinant without narrowing it.
         basis = json_bytes(native_json_loads(basis))
@@ -209,30 +268,50 @@ class CompletionDraftStore:
             request_sha256=sha256(content).hexdigest(),
             request_bytes=len(content),
         )
-        if population_upload is not None:
-            metadata.update(
-                format="ddo-completion-draft-v3",
-                upload_bytes=len(population_upload),
-                upload_sha256=sha256(population_upload).hexdigest(),
-            )
-        envelope = json_bytes(metadata)
-        if len(envelope) > self.max_bytes:
-            raise ValueError("completion draft envelope exceeds its byte bound")
-        identity = sha256(envelope).hexdigest()
-        with self._owner():
-            check_active()
-            if (self.root / (identity + ".retired")).exists():
-                raise ValueError("completion draft is already retired")
-            if (self.root / (identity + ".ack")).exists():
+        temporary = self.root / ("pending-" + uuid4().hex)
+        try:
+            if population_upload_batches is not None:
+                from .population_transfer import write_population_upload
+
+                assert population_upload_profile is not None
+                maximum = self.max_bytes - len(content)
+                if max_population_upload_bytes is not None:
+                    maximum = min(maximum, max_population_upload_bytes)
+                descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(descriptor, "wb") as stream:
+                    size, digest = write_population_upload(
+                        population_upload_profile,
+                        population_upload_batches,
+                        stream,
+                        max_bytes=maximum,
+                        check_active=check_active,
+                    )
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                metadata.update(
+                    format="ddo-completion-draft-v3", upload_bytes=size, upload_sha256=digest
+                )
+            envelope = json_bytes(metadata)
+            if len(envelope) > self.max_bytes:
+                raise ValueError("completion draft envelope exceeds its byte bound")
+            identity = sha256(envelope).hexdigest()
+            with self._owner():
+                check_active()
+                if (self.root / (identity + ".retired")).exists():
+                    raise ValueError("completion draft is already retired")
+                if (self.root / (identity + ".ack")).exists():
+                    return self._open(identity)
+                self._atomic(identity + ".body", content)
+                if population_upload_batches is not None:
+                    temporary.replace(self.root / (identity + ".arrow"))
+                    _sync_directory(self.root)
+                lookup = _candidate_key(request["request_id"], request["generation"])
+                self._atomic(lookup + "." + identity + ".candidate", b"")
+                check_active()
+                self._atomic(identity + ".ack", envelope)
                 return self._open(identity)
-            self._atomic(identity + ".body", content)
-            if population_upload is not None:
-                self._atomic(identity + ".arrow", population_upload)
-            lookup = _candidate_key(request["request_id"], request["generation"])
-            self._atomic(lookup + "." + identity + ".candidate", b"")
-            check_active()
-            self._atomic(identity + ".ack", envelope)
-            return self._open(identity)
+        finally:
+            temporary.unlink(missing_ok=True)
 
     def _open(self, identity: str) -> CompletionDraft:
         identity = _identity(identity)
@@ -281,13 +360,14 @@ class CompletionDraftStore:
         validate_wire_schema(writer_schema, native_json_loads(request))
         upload = None
         if has_population:
-            upload = _read(
-                self.root / (identity + ".arrow"),
-                max_bytes=self.max_bytes - len(request),
-                expected_bytes=value["upload_bytes"],
+            if type(value["upload_bytes"]) is not int or not 0 < value[
+                "upload_bytes"
+            ] <= self.max_bytes - len(request):
+                raise ValueError("completion population upload exceeds its acknowledged byte bound")
+            upload = PopulationUploadFile(
+                self.root / (identity + ".arrow"), value["upload_bytes"], value["upload_sha256"]
             )
-            if sha256(upload).hexdigest() != value["upload_sha256"]:
-                raise ValueError("completion draft differs from its acknowledged population upload")
+            upload._copy()
         return CompletionDraft(
             identity,
             value["release_id"],

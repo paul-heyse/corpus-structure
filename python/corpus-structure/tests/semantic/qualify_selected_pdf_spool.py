@@ -1,4 +1,4 @@
-"""Opt-in selected-contract Docling qualification; no native DDO publication claim.
+"""Opt-in selected-contract Docling recovery and native PDF adoption.
 
 This file is intentionally outside default pytest filename discovery. Select it
 explicitly through ci test --providers-only for the experimental v3 boundary.
@@ -69,14 +69,35 @@ def _records(reply):
     return dict(result)
 
 
-def test_actual_selected_missing_page_resume_and_same_spool_rebuild(tmp_path, request):
+def test_actual_selected_missing_page_resume_and_same_spool_rebuild(
+    tmp_path,
+    request,
+    commit_db_engine,
+    commit_writer_engine,
+    commit_admitter_engine,
+):
     from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
     from corpus_structure.semantic.pdf_certification import prepare_pdf_producer_contract
-    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+    from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
+    from corpus_structure.semantic.pdf_lowering import CAPTURE_OPERATION
+    from semantic.current_pdf_source_support import current_pdf_recipe
+    from semantic.pdf_staging_support import _private_build_factory
 
     recipe, assets = prepared_pdf_resume_assets()
     selected = standard_pdf_contract()
-    contract = prepare_pdf_producer_contract(trusted_pdf_context(), kind="native")
+    factory = _private_build_factory(
+        commit_db_engine,
+        commit_writer_engine,
+        tmp_path,
+        request,
+        admission_engine=commit_admitter_engine,
+        original_path=ORIGINAL,
+        kernel_recipe=current_pdf_recipe(tmp_path, capture_profile=(recipe, assets, selected)),
+    )
+    original = factory()
+    with commit_writer_engine.begin() as conn:
+        context = pdf_context_for_task(conn, original.task_id, operation=CAPTURE_OPERATION)
+    contract = prepare_pdf_producer_contract(context, kind="native")
     bindings = dict(
         validation_contract=contract.validation_contract,
         lowering_identity=contract.lowering_identity,
@@ -91,7 +112,10 @@ def test_actual_selected_missing_page_resume_and_same_spool_rebuild(tmp_path, re
         if replay.family == "page":
             raise InterruptedAfterDurablePage()
 
-    with OwnedPdfSource.acquire(ORIGINAL, tmp_path / "owned") as source:
+    with (
+        factory.maintained(original) as active,
+        OwnedPdfSource.acquire(ORIGINAL, tmp_path / "owned") as source,
+    ):
         with (
             closing(PdfWorker(recipe, assets=assets)) as worker,
             pytest.raises(InterruptedAfterDurablePage),
@@ -101,11 +125,12 @@ def test_actual_selected_missing_page_resume_and_same_spool_rebuild(tmp_path, re
                     source,
                     spool_root=tmp_path / "interrupted",
                     record_root=tmp_path / "discarded-records",
-                    release_id="controlled-release",
+                    release_id=original.release_id,
                     page_range=PAGE_RANGE,
                     **bindings,
                 ),
                 on_replay=stop_after_page,
+                check_active=active,
             )
         first = _recoveries(interrupted)
         assert len(first) == 1
@@ -121,12 +146,13 @@ def test_actual_selected_missing_page_resume_and_same_spool_rebuild(tmp_path, re
                     source,
                     spool_root=tmp_path / "resumed",
                     record_root=tmp_path / "resumed-records",
-                    release_id="controlled-release",
+                    release_id=original.release_id,
                     page_range=PAGE_RANGE,
                     recovery_pages=first,
                     **bindings,
                 ),
                 on_replay=resumed_replays.append,
+                check_active=active,
             )
         expected = set(range(PAGE_RANGE[0], PAGE_RANGE[1] + 1))
         computed = {item.page_no for item in resumed_replays if item.family == "page"}
@@ -140,16 +166,18 @@ def test_actual_selected_missing_page_resume_and_same_spool_rebuild(tmp_path, re
                     source,
                     spool_root=tmp_path / "rebuilt",
                     record_root=tmp_path / "rebuilt-records",
-                    release_id="controlled-release",
+                    release_id=original.release_id,
                     page_range=PAGE_RANGE,
                     recovery_pages=all_pages,
                     **bindings,
                 ),
                 on_replay=replayed.append,
+                check_active=active,
             )
         assert not any(item.family in {"page", "candidate_payload"} for item in replayed)
         assert rebuilt.conversion_status == resumed.conversion_status == "success"
         assert _records(rebuilt) == _records(resumed)
+    _adopt_recovered_panel(factory, original, resumed, contract, tmp_path, expected)
     request.node.user_properties.append(
         (
             "provider_panel_scope",
@@ -162,9 +190,82 @@ def test_actual_selected_missing_page_resume_and_same_spool_rebuild(tmp_path, re
                     "restored": [first[0].page_no],
                     "computed": sorted(number for number in computed if number is not None),
                     "comparison": "exact emitted records from the same completed page spool",
-                    "limits": "no uninterrupted-versus-resumed GPU equality or native DDO publication claim",
+                    "adoption": "new build recertified and sealed the selected pages",
+                    "limits": "three selected pages, no full-book publication or GPU repeatability claim",
                 },
                 sort_keys=True,
             ),
         )
     )
+
+
+def _adopt_recovered_panel(factory, original, reply, original_contract, root, expected):
+    from corpus_structure.core.db.lifetime import BorrowerCancellation
+    from corpus_structure.orchestrate.pdf_streaming import _adopt_pdf_document, _finish_frozen_pdf
+    from corpus_structure.semantic.pdf_certification import prepare_pdf_producer_contract
+    from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
+    from corpus_structure.semantic.pdf_lowering import CAPTURE_OPERATION
+    from corpus_structure.semantic.pdf_lowering_context import CapturedPdfLowering
+    from corpus_structure.semantic.pdf_publication import freeze_pdf_build
+    from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader, PublishedReadBudget
+    from corpus_structure.semantic.pdf_replay_transport import PdfReplayBinding
+    from corpus_structure.semantic.pdf_spool_recertification import recertify_pdf_recovery
+    from corpus_structure.semantic.product_reference import ProductReference
+
+    adopter = factory(case="unknown-cell-coverage")
+    assert adopter.build_id != original.build_id
+    with factory.writer.begin() as conn:
+        context = pdf_context_for_task(conn, adopter.task_id, operation=CAPTURE_OPERATION)
+    contract = prepare_pdf_producer_contract(context, kind="native")
+    lowering = CapturedPdfLowering.from_document(
+        json.loads(original_contract.validation_contract)["lowering"]
+    )
+    binding = PdfReplayBinding(original.build_id, original.release_id)
+    assert reply.certification is not None and reply.access_replay is not None
+    cancellation = BorrowerCancellation()
+    with factory.maintained(adopter) as active:
+        certificate = recertify_pdf_recovery(
+            reply,
+            root / "recertified",
+            original=binding,
+            original_lowering=lowering,
+            original_lowering_identity=original_contract.lowering_identity,
+            validation_contract=contract.validation_contract,
+            lowering_identity=contract.lowering_identity,
+            source_digest=adopter.source_digest,
+            recipe_digest=adopter.recipe_digest,
+            schema_digest=adopter.schema_digest,
+            check_active=active,
+        )
+        original_values = json.loads(reply.certification.read_bytes())
+        assert certificate.logical_digest == original_values["logical_digest"]
+        assert certificate.stream_inventory_digest == original_values["stream_inventory_digest"]
+        _adopt_pdf_document(
+            factory.writer,
+            adopter,
+            reply.record_replays,
+            reply.companion_sets,
+            reply.access_replay,
+            certificate,
+            cancellation=cancellation,
+            check_active=active,
+            legacy_binding=binding,
+            legacy_lowering=lowering,
+        )
+        with factory.writer.begin() as conn:
+            frozen = freeze_pdf_build(conn, adopter, kind="native")
+        publication = _finish_frozen_pdf(
+            factory.writer, frozen, "native", active, cancellation=cancellation
+        )
+        assert publication.logical_digest == certificate.logical_digest
+        factory.complete(adopter, publication)
+    with factory.writer.begin() as conn:
+        reader = PublishedPdfReader(
+            conn,
+            ProductReference(
+                publication.task_id, publication.product_key, publication.logical_digest
+            ),
+            projection_context=factory.kernel.prepared,
+            read_budget=PublishedReadBudget(100, 64 * 1024 * 1024),
+        )
+        assert {page.page_no for page in reader.iter_candidate_payloads()} == expected

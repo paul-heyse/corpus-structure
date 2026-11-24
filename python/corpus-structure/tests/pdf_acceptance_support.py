@@ -85,9 +85,7 @@ def prepare_pdf_document(
         check_active=lambda: None,
     )
     projection = directory / "producer-access.jsonl"
-    payloads = PdfProducerPayloads(
-        directory / "producer-payloads.sqlite", json.loads(contract.validation_contract)
-    )
+    payloads = PdfProducerPayloads(json.loads(contract.validation_contract))
     try:
         payloads.add_replays(replays)
         payloads.add_companion_replays(prepared)

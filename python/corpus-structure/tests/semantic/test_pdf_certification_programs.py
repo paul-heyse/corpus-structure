@@ -27,7 +27,9 @@ class StreamFixture(TypedDict):
     serialization_sha256: str | None
 
 
-def _revalidate_with_changed_defaults(capture, projection, result, *, authored, count_path):
+def _revalidate_with_changed_defaults(
+    capture, projection, result, *, authored, count_path, **resources
+):
     """Discriminate both captured defaults inside the actual spawned oracle."""
     import json
 
@@ -53,7 +55,7 @@ def _revalidate_with_changed_defaults(capture, projection, result, *, authored, 
         with pytest.raises(pdf_records.NativeMappingError, match="is too long"):
             pdf_records.prepare_native_schema_mapping().validate(authored)
         patch.setattr(pdf_records, "validate_native_callbacks", observe)
-        pdf_publication._native_validation_child(capture, projection, result)
+        pdf_publication._native_validation_child(capture, projection, result, **resources)
         count_path.write_text(json.dumps(policies))
 
 

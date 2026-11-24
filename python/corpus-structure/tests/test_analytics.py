@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pyarrow as pa
 import pytest
-from duckdb import col
+from duckdb import col, fn, lit
 
 from corpus_structure.analytics import connection
 from corpus_structure.settings import AnalyticsSettings
@@ -32,6 +32,203 @@ def test_invocation_uses_settings_and_releases_private_spill(tmp_path):
     assert not scratch.exists()
 
 
+def test_parent_job_uses_its_captured_settings(tmp_path, monkeypatch):
+    from corpus_structure import analytics
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+
+    ambient = AnalyticsSettings(threads=4, memory_limit="2GB")
+    captured = AnalyticsSettings(
+        threads=2,
+        memory_limit="32MB",
+        batch_size=23,
+        scratch_path=tmp_path,
+        job_workspace_bytes=64 * 1024**2,
+        job_spill_bytes=128 * 1024**2,
+    )
+    monkeypatch.setattr(analytics, "_settings", ambient)
+    allocation = analytics.AnalyticalAllocation.for_policy(
+        CharacterizationExecutionPolicy(cpu_native_threads=1), captured
+    )
+    with analytics.analytical_job(allocation, check_active=lambda: None, settings=captured):
+        assert analytics.configured().batch_size == 23
+        with connection() as db:
+            assert db.native.sql("SELECT current_setting('memory_limit')").fetchall() == [
+                ("30.5 MiB",)
+            ]
+    assert analytics.configured() is ambient
+
+
+def test_fresh_standard_pdf_child_can_acquire_analytics_before_docling(tmp_path):
+    """A primitive handoff leaves the generated-helper factories visible to custody."""
+    from dataclasses import replace
+    from pickle import dumps
+    from subprocess import run
+    from sys import executable
+    from textwrap import dedent
+
+    from corpus_structure.analytics import AnalyticalAllocation
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+
+    settings = AnalyticsSettings(threads=2, memory_limit="32MB")
+    allocation = replace(
+        AnalyticalAllocation.for_policy(CharacterizationExecutionPolicy(), settings),
+        scratch_root=tmp_path,
+    )
+    child = run(
+        [
+            executable,
+            "-c",
+            dedent("""
+                import os
+                import pickle
+                import sys
+
+                os.environ["PYDANTIC_DISABLE_PLUGINS"] = "__all__"
+                allocation = pickle.load(sys.stdin.buffer)
+                import pyarrow as pa
+                from corpus_structure.analytics import analytical_job, connection
+                from corpus_structure.ingest.pdf_producer_contract import (
+                    standard_pdf_contract,
+                    standard_pdf_execution,
+                )
+
+                contract = standard_pdf_contract()
+                assert "pydantic" not in sys.modules
+                with analytical_job(allocation, check_active=tuple), standard_pdf_execution(contract):
+                    from docling_core.types.doc import DoclingDocument
+
+                    assert DoclingDocument(name="generated-helper custody").name == "generated-helper custody"
+                    with connection() as db:
+                        assert db.from_arrow(pa.table({"x": [1, 2]})).fetchall() == [(1,), (2,)]
+                """),
+        ],
+        input=dumps(allocation),
+        capture_output=True,
+        timeout=90,
+    )
+    assert child.returncode == 0, child.stderr.decode()
+    assert not list(tmp_path.iterdir())
+
+
+def _analytical_worker(permit, allocation, ready, proceed, *, long_query):
+    from functools import partial
+    from time import sleep
+
+    import numpy as np
+
+    from corpus_structure.analytics import analytical_job
+    from corpus_structure.semantic.cpu_execution import _worker_active
+
+    check_active = partial(_worker_active, *permit)
+    reader = None
+    with analytical_job(allocation, check_active=check_active), connection() as db:
+        actual = db.native.sql(
+            "SELECT current_setting('threads'), current_setting('memory_limit'), "
+            "current_setting('max_temp_directory_size'), current_setting('temp_directory')"
+        ).fetchall()[0]
+        if long_query:
+            ready.touch()
+            db.native.sql("SELECT sum(hash(i)) FROM range(100000000000) t(i)").fetchall()
+        else:
+            relation = db.from_arrow(pa.table({"id": np.arange(1_000_000)})).sort(
+                fn("hash", col("id")).asc().nulls_last()
+            )
+            reader = relation.to_arrow_reader(batch_size=50)
+            assert reader.read_next_batch().num_rows == 50
+            spill = sum(path.stat().st_size for path in Path(actual[3]).iterdir())
+            assert 1024**2 <= spill <= allocation.spill_bytes
+            ready.touch()
+            for _ in range(1000):
+                if proceed.exists():
+                    break
+                check_active()
+                sleep(0.01)
+            else:
+                raise TimeoutError("second analytical worker never settled")
+    if reader is not None:
+        with pytest.raises(pa.ArrowInvalid, match="already been closed"):
+            reader.read_next_batch()
+    return actual
+
+
+def test_two_admitted_analytical_workers_drain_readers_and_interrupted_engine(tmp_path):
+    from dataclasses import replace
+    from time import monotonic, sleep
+    from types import SimpleNamespace
+    from typing import cast
+
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.semantic.cpu_execution import CPUExecutionScope, CPURequestCancelled
+    from corpus_structure.semantic.types import PreparedRelease
+
+    workspace = 32 * 1024**2
+    settings = AnalyticsSettings(
+        scratch_path=tmp_path / "spill",
+        threads=2,
+        job_workspace_bytes=workspace,
+        job_spill_bytes=64 * 1024**2,
+    )
+    policy = replace(
+        CharacterizationExecutionPolicy(),
+        max_packet_bytes=1024,
+        max_reply_bytes=1024,
+        max_owned_bytes=2 * (workspace + 1024),
+    )
+    scope = CPUExecutionScope(
+        cast(PreparedRelease, SimpleNamespace(release_id="unused")),
+        policy,
+        retain_schema=False,
+        analytics_settings=settings,
+    )
+    first = second = None
+    proceed = tmp_path / "proceed"
+    try:
+        first = scope.try_admit(packet_bytes=0, analytical=True)
+        second = scope.try_admit(packet_bytes=0, analytical=True)
+        assert first is not None and second is not None
+        assert scope.budget.used_bytes == policy.max_owned_bytes
+        assert scope.try_admit(packet_bytes=0, analytical=True) is None
+        workers = scope._executor()
+        first_ready, second_ready = tmp_path / "reader-open", tmp_path / "engine-active"
+        held = workers.submit(
+            _analytical_worker,
+            (first.slot, first.generation),
+            first.allocation,
+            first_ready,
+            proceed,
+            long_query=False,
+        )
+        active = workers.submit(
+            _analytical_worker,
+            (second.slot, second.generation),
+            second.allocation,
+            second_ready,
+            proceed,
+            long_query=True,
+        )
+        deadline = monotonic() + 8
+        while not (first_ready.exists() and second_ready.exists()):
+            assert monotonic() < deadline
+            sleep(0.01)
+        assert len(list(settings.scratch_path.iterdir())) == 2
+        with scope._cancellation.get_lock():
+            scope._cancellation[second.slot * 2 + 1] = 1
+        with pytest.raises(CPURequestCancelled):
+            active.result(timeout=5)
+        scope.release_admission(second)
+        assert scope.budget.used_bytes == workspace + 1024
+        proceed.touch()
+        threads, memory, spill, scratch = held.result(timeout=5)
+        assert (threads, memory, spill) == (1, "24.0 MiB", "64.0 MiB")
+        assert not Path(scratch).exists()
+        scope.release_admission(first)
+        assert scope.budget.used_bytes == 0
+        assert list(settings.scratch_path.iterdir()) == []
+    finally:
+        proceed.touch()
+        scope.close()
+
+
 @pytest.mark.parametrize("operation", ("filter", "select", "sort", "aggregate", "join"))
 def test_expression_entries_refuse_sql_text(tmp_path, operation):
     with connection(AnalyticsSettings(scratch_path=tmp_path)) as db:
@@ -55,6 +252,42 @@ def test_bag_and_set_operations_preserve_their_declared_multiplicity(tmp_path):
         assert left.intersect(left).sort(col("id")).fetchall() == [(1,), (2,)]
         with pytest.raises(TypeError, match="columns or types"):
             left.union_all(db.from_arrow(pa.table({"id": ["1"]})))
+
+
+def test_named_window_comparison_keeps_occurrences_and_explicit_null_order(tmp_path):
+    table = pa.table(
+        {
+            "scope": ["p", "q", "p", "p"],
+            "ordinal": [None, 0, 0, 0],
+            "occurrence": ["last", "sibling", "β", "a"],
+        }
+    )
+    ordinal = col("ordinal").asc().nulls_last()
+    occurrence = col("occurrence").asc()
+    with connection(AnalyticsSettings(scratch_path=tmp_path)) as db:
+        typed = (
+            db.from_arrow(table)
+            .filter(col("scope") == lit("p"))
+            .select(
+                col("occurrence"),
+                fn("row_number")
+                .over(
+                    partition_by=[col("scope")],
+                    order_by=[ordinal, occurrence],
+                )
+                .alias("position"),
+            )
+            .sort(col("position").asc())
+            .fetchall()
+        )
+        db.native.register("occurrences", table)
+        comparison = db.native.sql(
+            "SELECT occurrence, row_number() OVER (PARTITION BY scope "
+            "ORDER BY ordinal ASC NULLS LAST, occurrence ASC) AS position "
+            "FROM occurrences WHERE scope = ? ORDER BY position",
+            params=["p"],
+        ).fetchall()
+    assert typed == comparison == [("a", 1), ("β", 2), ("last", 3)]
 
 
 def test_bad_scratch_refuses_before_connection(tmp_path):

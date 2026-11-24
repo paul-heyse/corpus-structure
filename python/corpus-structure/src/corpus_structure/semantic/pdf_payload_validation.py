@@ -1,57 +1,38 @@
-"""Disk-backed frozen companion inputs for the existing finite validation child."""
+"""Keyed typed PDF validation inputs under the captured publication policy."""
 
 from __future__ import annotations
 
 import json
-from collections.abc import Collection, Iterator, Mapping
+from collections.abc import Collection, Iterable, Iterator, Mapping
+from dataclasses import dataclass
 from functools import lru_cache
-from pathlib import Path
+from hashlib import sha256
 from typing import Any
 
-from sqlalchemy import Column, Index, Integer, LargeBinary, MetaData, Table, Text, func, select
-from sqlalchemy.exc import IntegrityError
+import pyarrow as pa
 
-from .sqlite_scratch import open_scratch
+from .pdf_record_identity import BLOCK_BYTES, byte_root
 
-_METADATA = MetaData()
-_ENTRY = Table(
-    "entry",
-    _METADATA,
-    Column("family", Text, primary_key=True),
-    Column("key", Text, primary_key=True),
-    Column("body", Text),
-    Column("companion_family", Text),
-    Column("metadata_kind", Text),
-    Column("page_no", Integer),
-)
-Index(
-    "companion_kind",
-    _ENTRY.c.family,
-    _ENTRY.c.companion_family,
-    _ENTRY.c.metadata_kind,
-    _ENTRY.c.key,
-)
-Index(
-    "companion_page",
-    _ENTRY.c.family,
-    _ENTRY.c.companion_family,
-    _ENTRY.c.metadata_kind,
-    _ENTRY.c.page_no,
-    _ENTRY.c.key,
-)
-_PART = Table(
-    "part",
-    _METADATA,
-    Column("stream", Text, primary_key=True),
-    Column("ordinal", Integer, primary_key=True),
-    Column("body", LargeBinary),
-)
-_PAGE = Table(
-    "page",
-    _METADATA,
-    Column("number", Integer, primary_key=True),
-    Column("local", Text, unique=True),
-)
+
+@dataclass(frozen=True, slots=True)
+class _Row:
+    batch: pa.RecordBatch
+    index: int
+
+    def __getitem__(self, name: str) -> Any:
+        return self.batch.column(name)[self.index].as_py()
+
+    def values(self) -> dict[str, Any]:
+        return {name: self[name] for name in self.batch.schema.names}
+
+
+_KEYS = {
+    "header": ("root_id",),
+    "native": ("record_id",),
+    "membership": ("parent_id", "field_name", "ordinal"),
+    "artifact_stream": ("stream_id",),
+    "companion_field": ("family", "local_id", "field_name"),
+}
 
 
 def metadata_classes(staging_source: bytes) -> dict[str, str]:
@@ -62,13 +43,11 @@ def metadata_classes(staging_source: bytes) -> dict[str, str]:
 
 
 class _FrozenCompanions:
-    """Repeatable disk view; only indexed input-pin metadata receives bounded decoded reuse."""
+    """Repeatable ordered view over the exact frozen companion family."""
 
     def __init__(self, store: FrozenPayloadStore, family: str):
         self.store, self.family = store, family
-        self.count = store.db.execute(
-            select(func.count()).select_from(_ENTRY).where(*store._selection(family, None, None))
-        ).scalar_one()
+        self.count = len(store._companions.get(family, ()))
         self._indexed = lru_cache(maxsize=256)(self._one)
 
     def __len__(self):
@@ -79,137 +58,325 @@ class _FrozenCompanions:
             yield self.store.companion_value(row)
 
     def _one(self, index: int):
-        key = json.dumps([self.family, str(index)])
-        row = self.store._entry_body("companion", key)
+        row = self.store._companions.get(self.family, {}).get(str(index))
         if row is None:
             raise ValueError("frozen companion input index is absent")
-        return self.store.companion_value(json.loads(row))
+        return self.store.companion_value(self.store._companion(row))
 
     def __getitem__(self, index: int):
         return self._indexed(index)
 
 
 class FrozenPayloadStore:
-    """Own immutable captured bytes on disk; hydrate only a requested metadata value."""
+    """Index typed rows by compact coordinates and borrow their original binary buffers."""
 
-    def __init__(self, path: Path):
-        self.db = open_scratch(path)
-        try:
-            _METADATA.create_all(self.db)
-        except BaseException:
-            self.db.close()
-            raise
-        self.schemas: dict[str, Any] = {}
-        self.publication_kind = "native"
-        self.integrated_metadata_policy: dict[str, Any] | None = None
+    def __init__(self, validation_contract: Mapping[str, Any]):
+        from .pdf_payloads import schema_load
+
+        self._rows: dict[str, dict[tuple[Any, ...], _Row]] = {family: {} for family in _KEYS}
+        self._members: dict[tuple[str, str], list[tuple[int, _Row]]] = {}
+        self._parts: dict[str, dict[int, _Row]] = {}
+        self._part_coordinates: list[pa.RecordBatch] = []
+        self._descriptors: list[pa.RecordBatch] = []
+        self._companions: dict[str, dict[str, _Row]] = {}
+        self._metadata: dict[str, list[tuple[int | None, str]]] = {}
+        self._verified_streams: set[str] = set()
+        self.schemas = schema_load(json.dumps(validation_contract["schemas"]))
+        self.publication_kind = validation_contract["publication_kind"]
+        if self.publication_kind not in {"native", "integrated"}:
+            raise ValueError("unsupported frozen publication kind")
+        self.integrated_metadata_policy = validation_contract.get("integrated_metadata_policy")
 
     def close(self) -> None:
-        self.db.close()
+        self._rows.clear()
+        self._members.clear()
+        self._parts.clear()
+        self._part_coordinates.clear()
+        self._descriptors.clear()
+        self._companions.clear()
+        self._metadata.clear()
+        self._verified_streams.clear()
 
-    def add(self, family: str, row: dict[str, Any]) -> None:
-        if family == "validation_contract":
-            from .pdf_payloads import schema_load
+    @staticmethod
+    def _insert(rows, key, row, family):
+        if key in rows:
+            raise ValueError(f"duplicate PDF {family} key: {key!r}")
+        rows[key] = row
 
-            self.schemas = schema_load(json.dumps(row["schemas"]))
-            self.publication_kind = row.get("publication_kind", "native")
-            if self.publication_kind not in {"native", "integrated"}:
-                raise ValueError("unsupported frozen publication kind")
-            self.integrated_metadata_policy = row.get("integrated_metadata_policy")
-        elif family == "artifact_part":
-            self.db.execute(
-                _PART.insert().values(
-                    stream=row["stream_id"],
-                    ordinal=row["ordinal"],
-                    body=bytes.fromhex(row["body"].removeprefix("\\x")),
-                )
+    def add_batch(self, family: str, batch: pa.RecordBatch) -> None:
+        if family == "reference":
+            # Native references are represented in the canonical document and
+            # checked independently against the native reference relation on adoption.
+            return
+        if family == "artifact_part":
+            self._part_coordinates.append(
+                batch.select(("stream_id", "ordinal", "byte_offset", "byte_length"))
             )
-        elif family in {"artifact_stream", "companion", "companion_field", "endpoint"}:
-            if family == "artifact_stream":
-                key = row["stream_id"]
-            elif family == "companion_field":
-                key = json.dumps([row["family"], row["local_id"], row["field_name"]])
-            elif family == "companion":
-                key = json.dumps([row["family"], row["local_id"]])
-            else:
-                key = (
-                    str(row.get("local_id", row.get("relation_id", "")))
-                    + ":"
-                    + str(row.get("ordinal", ""))
+            for index, (stream, ordinal) in enumerate(
+                zip(
+                    batch.column("stream_id").to_pylist(),
+                    batch.column("ordinal").to_pylist(),
+                    strict=True,
                 )
-            body = row.get("body", {}) if family == "companion" else {}
-            self.db.execute(
-                _ENTRY.insert().values(
-                    family=family,
-                    key=key,
-                    body=json.dumps(row),
-                    companion_family=row["family"] if family == "companion" else None,
-                    metadata_kind=body.get("kind"),
-                    page_no=body.get("page_no"),
+            ):
+                rows = self._parts.setdefault(stream, {})
+                self._insert(rows, ordinal, _Row(batch, index), "artifact part")
+                self._verified_streams.discard(stream)
+            return
+        if family == "companion":
+            for index, (kind, local) in enumerate(
+                zip(
+                    batch.column("family").to_pylist(),
+                    batch.column("local_id").to_pylist(),
+                    strict=True,
                 )
-            )
-
-    def _entry_body(self, family: str, key: str) -> str | None:
-        return self.db.execute(
-            select(_ENTRY.c.body).where(_ENTRY.c.family == family, _ENTRY.c.key == key)
-        ).scalar_one_or_none()
-
-    def _entries(self, family: str) -> Iterator[dict[str, Any]]:
-        for (body,) in self.db.execute(
-            select(_ENTRY.c.body)
-            .where(_ENTRY.c.family == family)
-            .order_by(_ENTRY.c.key.collate("BINARY"))
+            ):
+                row = _Row(batch, index)
+                self._insert(self._companions.setdefault(kind, {}), local, row, kind)
+                if kind == "native_metadata":
+                    projection = json.loads(row["body"])
+                    self._metadata.setdefault(projection["kind"], []).append(
+                        (projection.get("page_no"), local)
+                    )
+            return
+        if family == "artifact_stream":
+            self._descriptors.append(batch.select(("stream_id", "byte_length")))
+        key_fields = _KEYS[family]
+        for index, key in enumerate(
+            zip(*(batch.column(name).to_pylist() for name in key_fields), strict=True)
         ):
-            yield json.loads(body)
+            row = _Row(batch, index)
+            self._insert(self._rows[family], key, row, family)
+            if family == "membership":
+                parent, field, ordinal = key
+                self._members.setdefault((parent, field), []).append((ordinal, row))
+
+    def entries(self, family: str) -> Iterator[dict[str, Any]]:
+        for row in self._rows[family].values():
+            yield row.values()
+
+    def record(self, record_id: str) -> dict[str, Any]:
+        return self._rows["native"][(record_id,)].values()
+
+    def members(self, parent_id: str, field_name: str) -> Iterator[dict[str, Any]]:
+        for _, row in sorted(
+            self._members.get((parent_id, field_name), ()), key=lambda value: value[0]
+        ):
+            yield row.values()
+
+    def check_artifact_coordinates(self, analytical) -> None:
+        """Prove stream correspondence using compact coordinates, excluding part bodies."""
+        from duckdb import coalesce, col, fn, lit
+
+        if not self._part_coordinates:
+            if any(row["byte_length"] for row in self.stream_descriptors()):
+                raise ValueError("frozen metadata bytes differ from their descriptor")
+            return
+        parts = analytical.from_arrow(pa.Table.from_batches(self._part_coordinates))
+        position = [col("ordinal").asc().nulls_last()]
+        stream = [col("stream_id")]
+        ordered = parts.select(
+            col("ordinal"),
+            col("byte_offset"),
+            fn("row_number").over(partition_by=stream, order_by=position).alias("rank"),
+            coalesce(
+                fn("lag", col("byte_offset") + col("byte_length")).over(
+                    partition_by=stream, order_by=position
+                ),
+                lit(0),
+            ).alias("expected_offset"),
+        )
+        if (
+            ordered.filter(
+                (col("ordinal") != col("rank") - lit(1))
+                | (col("byte_offset") != col("expected_offset"))
+            )
+            .limit(1)
+            .fetchall()
+        ):
+            raise ValueError("artifact parts must be one contiguous ordered stream")
+        if not self._descriptors:
+            raise ValueError("PDF artifact parts have no stream descriptor")
+        lengths = parts.aggregate(
+            [col("stream_id"), fn("sum", col("byte_length")).alias("actual_length")]
+        ).set_alias("observed")
+        declared = analytical.from_arrow(pa.Table.from_batches(self._descriptors)).set_alias(
+            "declared"
+        )
+        invalid = declared.join(
+            lengths, col("declared", "stream_id") == col("observed", "stream_id"), how="full"
+        ).filter(
+            (col("declared", "stream_id").isnull())
+            | (col("declared", "byte_length") != coalesce(col("actual_length"), lit(0)))
+        )
+        if invalid.limit(1).fetchall():
+            raise ValueError("frozen metadata bytes differ from their descriptor")
+
+    def check_membership(self, analytical) -> None:
+        """Require closed keyed memberships before the nominal tree traversal."""
+        from duckdb import col, count_all, fn, lit
+
+        expected = []
+        actual = []
+        for (record_id,), row in self._rows["native"].items():
+            structure = json.loads(row["structure_json"])
+            for field, descriptor in structure["fields"].items():
+                kind = descriptor["kind"]
+                if kind not in {"array", "map"}:
+                    continue
+                count = descriptor["length"]
+                if count:
+                    expected.append(
+                        dict(parent=record_id, field=field, length=count, lo=0, hi=count - 1)
+                    )
+                if kind == "map":
+                    keys = set()
+                    for _, member in self._members.get((record_id, field), ()):
+                        key = member["member_key"]
+                        if key is None:
+                            key = b"".join(self.scalar(member["member_key_stream_id"])).decode()
+                        if key in keys:
+                            raise ValueError("duplicate native map key")
+                        keys.add(key)
+        for (parent, field), members in self._members.items():
+            actual.extend(
+                dict(parent=parent, field=field, ordinal=ordinal) for ordinal, _ in members
+            )
+        shape = [("parent", pa.string()), ("field", pa.string())]
+        members = analytical.from_arrow(
+            pa.Table.from_pylist(actual, schema=pa.schema([*shape, ("ordinal", pa.int64())]))
+        ).aggregate(
+            [
+                col("parent"),
+                col("field"),
+                count_all().alias("length"),
+                fn("min", col("ordinal")).alias("lo"),
+                fn("max", col("ordinal")).alias("hi"),
+            ]
+        )
+        requested = analytical.from_arrow(
+            pa.Table.from_pylist(
+                expected,
+                schema=pa.schema(
+                    [*shape, ("length", pa.int64()), ("lo", pa.int64()), ("hi", pa.int64())]
+                ),
+            )
+        )
+        if (
+            members.except_all(requested).select(lit(1)).limit(1).fetchall()
+            or requested.except_all(members).select(lit(1)).limit(1).fetchall()
+        ):
+            raise ValueError("native membership inventory differs")
+
+    def part_rows(self, stream: str) -> Iterator[dict[str, Any]]:
+        rows = self._parts.get(stream, {})
+        for ordinal in sorted(rows):
+            yield rows[ordinal].values()
+
+    def field(self, family: str, local: str, name: str):
+        row = self._rows["companion_field"].get((family, local, name))
+        return None if row is None else row.values()
 
     def stream_descriptors(self) -> Iterator[dict[str, Any]]:
-        return self._entries("artifact_stream")
+        rows = self._rows["artifact_stream"]
+        unexpected = self._parts.keys() - {stream for (stream,) in rows}
+        if unexpected:
+            raise ValueError("PDF artifact parts have no stream descriptor")
+        for key in sorted(rows):
+            yield rows[key].values()
+
+    def descriptor(self, stream: str) -> dict[str, Any]:
+        row = self._rows["artifact_stream"].get((stream,))
+        if row is None:
+            raise ValueError("frozen metadata stream is missing")
+        return row.values()
 
     def parts(self, stream: str) -> Iterator[bytes]:
-        for (body,) in self.db.execute(
-            select(_PART.c.body).where(_PART.c.stream == stream).order_by(_PART.c.ordinal)
-        ):
+        rows = self._parts.get(stream, {})
+        offset = 0
+        verify = stream not in self._verified_streams
+        for expected, ordinal in enumerate(sorted(rows)):
+            row = rows[ordinal]
+            body = row["body"]
+            if verify:
+                if ordinal != expected or row["byte_offset"] != offset:
+                    raise ValueError("artifact parts must be one contiguous ordered stream")
+                if (
+                    not 0 < len(body) <= BLOCK_BYTES
+                    or len(body) != row["byte_length"]
+                    or sha256(body).hexdigest() != row["sha256_digest"]
+                ):
+                    raise ValueError("artifact part actual bytes differ from length/digest")
+                offset += len(body)
             yield body
 
-    def stream(self, stream: str) -> tuple[dict[str, Any], bytes]:
-        from .pdf_record_identity import byte_root
+    def scalar(self, stream_id: str, /) -> Iterable[bytes]:
+        self.verify_stream(self.descriptor(stream_id))
+        return self.parts(stream_id)
 
-        raw = self._entry_body("artifact_stream", stream)
-        if raw is None:
-            raise ValueError("frozen metadata stream is missing")
-        descriptor = json.loads(raw)
-        chunks = []
+    def _verify(self, descriptor: Mapping[str, Any], chunks, *, check_active=lambda: None) -> None:
+        digest = sha256()
 
         def consume():
-            for chunk in self.parts(stream):
-                chunks.append(chunk)
+            for chunk in chunks:
+                check_active()
+                digest.update(chunk)
                 yield chunk
 
         length, root = byte_root(consume())
-        if (length, root.hex()) != (descriptor["byte_length"], descriptor["byte_root"]):
+        if (length, root.hex()) != (descriptor["byte_length"], descriptor["byte_root"]) or (
+            descriptor.get("serialization_sha256") is not None
+            and descriptor["serialization_sha256"] != digest.hexdigest()
+        ):
             raise ValueError("frozen metadata bytes differ from their descriptor")
+        self._verified_streams.add(descriptor["stream_id"])
+
+    def verify_stream(self, descriptor: Mapping[str, Any], *, check_active=lambda: None) -> None:
+        if descriptor["stream_id"] not in self._verified_streams:
+            self._verify(descriptor, self.parts(descriptor["stream_id"]), check_active=check_active)
+
+    def stream(self, stream: str) -> tuple[dict[str, Any], bytes]:
+        descriptor = self.descriptor(stream)
+        if stream in self._verified_streams:
+            return descriptor, b"".join(self.parts(stream))
+        chunks = []
+
+        def collect():
+            for body in self.parts(stream):
+                chunks.append(body)
+                yield body
+
+        self._verify(descriptor, collect())
         return descriptor, b"".join(chunks)
 
-    def _selection(self, family: str, kind: str | None, page_nos: Collection[int] | None):
-        predicates = [_ENTRY.c.family == "companion", _ENTRY.c.companion_family == family]
-        if kind is not None:
-            predicates.append(_ENTRY.c.metadata_kind == kind)
-        if page_nos is not None:
-            predicates.append(_ENTRY.c.page_no.in_(tuple(page_nos)))
-        return predicates
+    @staticmethod
+    def _companion(row: _Row) -> dict[str, Any]:
+        values = row.values()
+        values["body"] = json.loads(values["body"])
+        return values
 
     def companions(
         self, family: str, *, kind: str | None = None, page_nos: Collection[int] | None = None
     ) -> Iterator[dict[str, Any]]:
-        for (raw,) in self.db.execute(
-            select(_ENTRY.c.body)
-            .where(*self._selection(family, kind, page_nos))
-            .order_by(_ENTRY.c.key)
-        ):
-            yield json.loads(raw)
+        rows = self._companions.get(family, {})
+        keys = (
+            rows.keys()
+            if kind is None
+            else (
+                local
+                for page_no, local in self._metadata.get(kind, ())
+                if page_nos is None or page_no in page_nos
+            )
+        )
+        if page_nos is not None and not page_nos:
+            return
+        for key in sorted(keys):
+            value = self._companion(rows[key])
+            if page_nos is None or kind is not None or value["body"].get("page_no") in page_nos:
+                yield value
 
     def has_companions(self, family: str, *, kind: str | None = None) -> bool:
-        matching = select(_ENTRY.c.key).where(*self._selection(family, kind, None))
-        return self.db.execute(select(matching.exists())).scalar_one()
+        return bool(self._companions.get(family) if kind is None else self._metadata.get(kind))
 
     def companion_value(self, row: Mapping[str, Any]) -> dict[str, Any]:
         """Decode declared overflow fields from their frozen bytes."""
@@ -226,13 +393,11 @@ class FrozenPayloadStore:
         else:
             return body
         for name, kind, profile in expected:
-            key = json.dumps([row["family"], row["local_id"], name])
-            raw = self._entry_body("companion_field", key)
-            if raw is None:
+            field = self.field(row["family"], row["local_id"], name)
+            if field is None:
                 continue
             if name in body:
                 raise ValueError(f"{row['family']} {name} has both inline and byte-owned values")
-            field = json.loads(raw)
             descriptor, payload = self.stream(field["stream_id"])
             if field["scalar_kind"] != kind or descriptor["encoding_profile"] != profile:
                 raise ValueError(f"frozen {row['family']} {name} encoding differs")
@@ -255,11 +420,9 @@ class FrozenPayloadStore:
         from .pdf_payloads import PROFILE
 
         body = row["body"]
-        key = json.dumps([row["family"], row["local_id"], "value"])
-        raw = self._entry_body("companion_field", key)
-        if raw is None:
+        field = self.field(row["family"], row["local_id"], "value")
+        if field is None:
             raise ValueError("frozen metadata field is missing")
-        field = json.loads(raw)
         descriptor, payload = self.stream(field["stream_id"])
         kind = body["kind"]
         codec, validator = prepared
@@ -316,7 +479,7 @@ class FrozenPayloadStore:
             yield self._value(row, prepared)
 
     def validate(self, document: Mapping[str, Any], *, items, regions) -> None:
-        from .pdf_ocr_contracts import validate_pdf_page_payloads
+        from .pdf_ocr_contracts import _SourceIndex, validate_pdf_page_payloads
         from .pdf_payloads import FAMILY
         from .pdf_report_validation import validate_pdf_report_metadata
 
@@ -338,40 +501,29 @@ class FrozenPayloadStore:
             "runtime_report",
         }
         metadata = {kind: [] for kind in needed}
-        self.db.execute(_PAGE.delete())
+        page_rows = {}
         for row in self.companions("native_metadata"):
             kind = row["body"]["kind"]
             if kind == FAMILY:
-                try:
-                    self.db.execute(
-                        _PAGE.insert().values(number=row["body"]["page_no"], local=json.dumps(row))
-                    )
-                except IntegrityError as error:
-                    raise ValueError(
-                        "inline candidate page is duplicate or outside native scope"
-                    ) from error
+                number = row["body"]["page_no"]
+                if type(number) is not int or number < 1 or number in page_rows:
+                    raise ValueError("inline candidate page is duplicate or outside native scope")
+                page_rows[number] = row
             else:
                 value = decode(row)
                 if kind in metadata:
                     metadata[kind].append(value)
 
         def pages():
-            for (raw,) in self.db.execute(select(_PAGE.c.local).order_by(_PAGE.c.number)):
-                yield decode(json.loads(raw))
+            for number in sorted(page_rows):
+                yield decode(page_rows[number])
 
         health = [r["body"] for r in self.companions("health") if "source_scope" in r["body"]]
         if len(health) != 1:
             raise ValueError("native health/source scope is absent or ambiguous")
         product = dict(
             kind=self.publication_kind,
-            metadata_kinds=frozenset(
-                row[0]
-                for row in self.db.execute(
-                    select(_ENTRY.c.metadata_kind)
-                    .where(*self._selection("native_metadata", None, None))
-                    .distinct()
-                )
-            ),
+            metadata_kinds=frozenset(self._metadata),
             document=document,
             items=items,
             regions=regions,
@@ -400,13 +552,16 @@ class FrozenPayloadStore:
                 parent_product_key=parent["product_key"],
                 parent_digest=parent["content_digest"],
             )
-        validate_pdf_report_metadata(product, integrated_policy=self.integrated_metadata_policy)
-        validate_pdf_page_payloads(product)
+        source = _SourceIndex(product)
+        validate_pdf_report_metadata(
+            product, integrated_policy=self.integrated_metadata_policy, source=source
+        )
+        validate_pdf_page_payloads(product, source=source)
         if self.publication_kind == "integrated":
             self.validate_integrated_meaning(document)
 
     def validate_integrated_meaning(self, document: Mapping[str, Any]) -> None:
-        """Apply the shared selected-content rules over disk-backed companion families."""
+        """Apply the shared selected-content rules over typed companion families."""
         from .pdf_integrated import validate_pdf_product_meaning
 
         validate_pdf_product_meaning(

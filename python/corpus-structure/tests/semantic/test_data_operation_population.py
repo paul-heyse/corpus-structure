@@ -22,7 +22,10 @@ from corpus_structure.semantic.data_operation_population import (
 )
 from corpus_structure.semantic.data_operation_values import CollectionValue, OptionalValue
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.population_canonical import canonical_population
+from corpus_structure.semantic.population_canonical import (
+    canonical_population,
+    canonical_populations,
+)
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
@@ -226,6 +229,54 @@ def test_engine_item_and_group_commitments_match_the_canonical_reference():
             ]
             assert result.partition_digest == expected["partition_digest"]
             assert result.group_digests == partition_group_digests(items, groups)
+
+
+def test_canonical_cohorts_preserve_empty_repeated_and_reordered_partition_commitments():
+    selected = layout()
+    rows = [
+        [],
+        [{"ordinal": 7, "number": 10**100, "label": "é 😀"}],
+        [{"ordinal": 4, "number": 2}, {"ordinal": 1, "number": -3}],
+        [],
+        [{"ordinal": 7, "number": 10**100, "label": "é 😀"}],
+    ]
+    populations = [selected.from_rows(partition) for partition in rows]
+    groups = {"note": ["context.note"], "value": ["number", "label", "magnitude"]}
+    with connection() as engine:
+        for batch_size, cohort_bytes in ((1, 1), (2, 1_000_000), (99, 1_000_000)):
+            results = list(
+                canonical_populations(
+                    populations,
+                    engine=engine,
+                    batch_size=batch_size,
+                    cohort_bytes=cohort_bytes,
+                    fold_bytes=256,
+                )
+            )
+            assert len(results) == len(rows)
+            for index, (partition, result) in enumerate(zip(rows, results, strict=True)):
+                expected = partition_packet("rows", str(index), index, 0, 1, partition)
+                assert result.partition_digest == expected["partition_digest"]
+                assert result.group_digests == partition_group_digests(partition, groups)
+                assert result.items.column("item_ordinal").to_pylist() == list(
+                    range(len(partition))
+                )
+                body = expected["body"]
+                assert isinstance(body, list) and isinstance(body[1], list)
+                assert result.items.column("canonical_text").to_pylist() == [
+                    canonical_bytes(value).decode() for value in body[1]
+                ]
+
+
+def test_canonical_fold_hashes_an_oversized_item_without_joining_it():
+    rows = [{"ordinal": 0, "number": 1, "label": "é" * 100}]
+    population = layout().from_rows(rows)
+    with connection() as engine:
+        (result,) = canonical_populations([population], engine=engine, fold_bytes=100)
+    assert (
+        result.partition_digest
+        == partition_packet("rows", "one", 0, 0, 1, rows)["partition_digest"]
+    )
 
 
 def test_engine_preserves_lexical_bag_and_set_payloads_from_typed_acquisition():

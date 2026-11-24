@@ -1553,7 +1553,9 @@ class PreparedSentencePort:
             self._verify()
             return self._completion(product, source, binding)
 
-        (completion,) = yield (PreparedWork(lambda: execution_owner.submit_python(compute)),)
+        (completion,) = yield (
+            PreparedWork(lambda: execution_owner.submit_python(compute, check_active=check_active)),
+        )
         check_active()
         return completion
 

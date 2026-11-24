@@ -990,7 +990,7 @@ def publish_pdf_record_draft(
             on_replay=draft_spool.append,
         )
         projection = owner / "producer-access.jsonl"
-        payloads = PdfProducerPayloads(owner / "producer-payloads.sqlite", validation_contract)
+        payloads = PdfProducerPayloads(validation_contract)
         try:
             payloads.add_replays(native_replays, check_active=check_active)
             payloads.add_companion_replays(prepared_sets, check_active=check_active)
@@ -1025,6 +1025,7 @@ def publish_pdf_record_draft(
                 kind=draft.kind,
                 lowering_identity=lowering_identity,
                 target_meanings=target_meanings,
+                check_active=check_active,
             )
         finally:
             payloads.close()

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pglast import ast
 from sqlalchemy import (
     Integer,
+    LargeBinary,
     MetaData,
     Table,
     Text,
@@ -205,9 +206,21 @@ def _page(model: MetaData, spec: RecordPageFamily, build, filters, after, limit,
     keys = tuple(row.c[name] for name in spec.key)
     bound = tuple(cast(after[i].astext, field.type) for i, field in enumerate(keys))
     seek = tuple_(*keys) > tuple_(*bound)
-    output = func.to_jsonb(row.table_valued(), type_=JSONB()).op("||")(
-        func.jsonb_build_object("_cursor", func.jsonb_build_array(*keys))
-    )
+    if spec.name == "artifact_part":
+        projected = func.jsonb_build_object(
+            *(
+                element
+                for field in row.c
+                if field.name != "body"
+                for element in (literal(field.name, type_=Text()), field)
+            ),
+            type_=JSONB(),
+        )
+        part_body = row.c.body
+    else:
+        projected = func.to_jsonb(row.table_valued(), type_=JSONB())
+        part_body = cast(literal(None), LargeBinary())
+    output = projected.op("||")(func.jsonb_build_object("_cursor", func.jsonb_build_array(*keys)))
     conditions = [
         or_(~filters.has_key(name), row.c[name] == filters[name].astext) for name in spec.filters
     ]
@@ -252,7 +265,7 @@ def _page(model: MetaData, spec: RecordPageFamily, build, filters, after, limit,
     if spec.name in {"companion", "item_report"}:
         output = output.op("||")(func.jsonb_build_object("_fields", _companion_fields(model, row)))
     return (
-        select(output)
+        select(output, part_body)
         .select_from(source)
         .where(
             row.c.product_id == build,
@@ -457,7 +470,7 @@ def pdf_record_page_programs(
                 ),
             )
         )
-    result = pg_type("jsonb")
+    result = pg_type("record")
     result.setof = True
     text_array = pg_type("text")
     text_array.arrayBounds = (ast.Integer(ival=-1),)
@@ -466,6 +479,7 @@ def pdf_record_page_programs(
         name,
         parameters=parameters,
         returns=result,
+        table_columns=(("body", pg_type("jsonb")), ("part_body", pg_type("bytea"))),
         security_definer=True,
         search_path=("pg_catalog", "pg_temp"),
         body=Block(

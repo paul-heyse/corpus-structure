@@ -360,6 +360,7 @@ def plan_cpu_call(
             check_active,
             reservation=execution_owner.reservation,
             packet_bytes=None if transfers else len(packet),
+            analytical=True,
         )
         if admission is None:
             return None

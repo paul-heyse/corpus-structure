@@ -83,7 +83,6 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.population_transfer import (
     population_item_write_profile,
     population_upload_batches,
-    write_population_upload,
 )
 from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
 from corpus_structure.semantic.types import PreparedRelease, SourceArtifact, SourceBundle
@@ -371,9 +370,18 @@ class _RequestExecution:
             for member in members
         )
         packet_bytes = policy.max_packet_bytes if uses_populations else hydrated_bytes
-        self.reservation.reduce_to(hydrated_bytes + packet_bytes + 3 * policy.max_reply_bytes)
+        self.reservation.reduce_to(
+            hydrated_bytes
+            + packet_bytes
+            + 3 * policy.max_reply_bytes
+            + self.invocation.executor.analytical_allocation.workspace_bytes
+        )
 
-    def submit_python(self, callback):
+    def submit_python(self, callback, *, check_active=lambda: None):
+        from tempfile import TemporaryDirectory
+
+        from corpus_structure.analytics import analytical_job
+
         if getattr(self.invocation.pool, "failed", False):
             raise RuntimeError("provider transport executor is unavailable before submission")
         share = self.reservation.share()
@@ -382,7 +390,17 @@ class _RequestExecution:
 
         def owned():
             try:
-                return callback()
+                executor = self.invocation.executor
+                root = executor.analytics_settings.scratch_path.resolve()
+                root.mkdir(parents=True, exist_ok=True)
+                with TemporaryDirectory(prefix="request-job-", dir=root) as directory:
+                    allocation = replace(
+                        executor.analytical_allocation, scratch_root=Path(directory)
+                    )
+                    with analytical_job(
+                        allocation, check_active=check_active, settings=executor.analytics_settings
+                    ):
+                        return callback()
             finally:
                 completed.set()
 
@@ -399,13 +417,25 @@ class _RequestExecution:
         self.invocation.python_work.add(work)
         return work
 
-    def relay(self, plan):
+    def relay(self, plan, *, check_active):
         """Retain exact submitted handles without inventing a second scheduler."""
+        from corpus_structure.analytics import analytical_job
+
+        executor = self.invocation.executor
+
+        def admitted():
+            return analytical_job(
+                executor.analytical_allocation,
+                check_active=check_active,
+                settings=executor.analytics_settings,
+            )
+
         value, failure = None, None
         try:
             while True:
                 try:
-                    work = plan.throw(failure) if failure is not None else plan.send(value)
+                    with admitted():
+                        work = plan.throw(failure) if failure is not None else plan.send(value)
                 except StopIteration as result:
                     return result.value
                 if not isinstance(work, ReadyGroup) and (
@@ -449,7 +479,9 @@ class _RequestExecution:
                 try:
                     value = yield (
                         ReadyGroup(
-                            tuple(self.relay(child) for child in work.plans),
+                            tuple(
+                                self.relay(child, check_active=check_active) for child in work.plans
+                            ),
                             max_active=work.max_active,
                         )
                         if isinstance(work, ReadyGroup)
@@ -459,7 +491,8 @@ class _RequestExecution:
                 except BaseException as error:
                     value, failure = None, error
         finally:
-            plan.close()
+            with admitted():
+                plan.close()
 
     def release_retired_inputs(self):
         """Drop decoded bodies and physical replies after retirement and reduction."""
@@ -809,7 +842,7 @@ class NativeDemandExecutor:
             execution_host.context(basis) if execution_host is not None else _BasisExecution(basis)
         )
         self._contexts = {basis.key: self._target_context}
-        from corpus_structure.analytics import configured
+        from corpus_structure.analytics import AnalyticalAllocation, configured
 
         self.analytics_settings = configured() if analytics_settings is None else analytics_settings
         self.source_root = source_root
@@ -826,6 +859,9 @@ class NativeDemandExecutor:
             if self.model.operation(operation).capabilities.preparation == "none":
                 raise PortRefusal("prepared capability supplied for an unprepared operation")
         self.policy = policy or CharacterizationExecutionPolicy()
+        self.analytical_allocation = AnalyticalAllocation.for_policy(
+            self.policy, self.analytics_settings
+        )
         self.database_capacity = _database_capacity(engine, database_capacity)
         # Renewal is established before work starts; the driver remains able to
         # plan/settle while bounded port workers borrow through the same owner.
@@ -834,7 +870,11 @@ class NativeDemandExecutor:
             raise ValueError("native demand needs capacity for renewal, driver and one port worker")
         # Parent input + encoded child packet, retained reply + decoded output +
         # publication draft. One transferable charge covers all physical owners.
-        self.reservation = 2 * self.policy.max_packet_bytes + 3 * self.policy.max_reply_bytes
+        self.reservation = (
+            2 * self.policy.max_packet_bytes
+            + 3 * self.policy.max_reply_bytes
+            + self.analytical_allocation.workspace_bytes
+        )
         if self.reservation > self.policy.max_owned_bytes:
             raise ValueError("native input, reply and publication draft exceed owned capacity")
         self.budget = OwnedByteBudget(self.policy.max_owned_bytes)
@@ -1293,15 +1333,11 @@ class NativeDemandExecutor:
                     )
                 ),
                 check_active=lambda: _check_claim_active(owner, claim),
-                population_upload=(
-                    write_population_upload(
-                        profile,
-                        population_upload_batches(profile, populations),
-                        max_bytes=self.policy.max_reply_bytes - draft_bytes,
-                    )
-                    if profile is not None
-                    else None
+                population_upload_batches=(
+                    population_upload_batches(profile, populations) if profile is not None else None
                 ),
+                population_upload_profile=profile,
+                max_population_upload_bytes=self.policy.max_reply_bytes - draft_bytes,
             )
             request = draft.native_request()
 
@@ -1419,10 +1455,8 @@ class NativeDemandExecutor:
 
     @staticmethod
     def _upload_draft(calls, claim, draft):
-        import pyarrow as pa
-
         profile = population_item_write_profile(release_id=draft.release_id)
-        with pa.ipc.open_stream(draft.population_upload) as reader:
+        with draft.population_upload.open_reader() as reader:
             if not reader.schema.equals(profile.schema, check_metadata=True):
                 raise PortRefusal("durable draft population differs from its captured upload shape")
             calls.prepare_population_upload(
@@ -1745,7 +1779,8 @@ class NativeDemandExecutor:
                         binding=ready.binding_result,
                         check_active=lambda: _check_claim_active(owner, claim),
                         execution_owner=physical,
-                    )
+                    ),
+                    check_active=lambda: _check_claim_active(owner, claim),
                 )
                 phase = "settlement"
                 retained = self._retain_answer(ready, claim, answer, port, owner, physical=physical)
@@ -1894,6 +1929,10 @@ class NativeDemandExecutor:
                             )
                         )
                     if pending:
+
+                        def check_batch_active():
+                            _check_batch_active(owner, tuple(row[2] for row in pending))
+
                         # One original batch remains useful while any member has
                         # authority. Each logical result settles under its own fence.
                         answer = yield from physical.relay(
@@ -1902,11 +1941,10 @@ class NativeDemandExecutor:
                                     self._batch_member(item, claim, inputs)
                                     for member, item, claim, inputs, _ in pending
                                 ),
-                                check_active=lambda: _check_batch_active(
-                                    owner, tuple(row[2] for row in pending)
-                                ),
+                                check_active=check_batch_active,
                                 execution_owner=physical,
-                            )
+                            ),
+                            check_active=check_batch_active,
                         )
                     if answer is not None and tuple(
                         member for member, _ in answer.members

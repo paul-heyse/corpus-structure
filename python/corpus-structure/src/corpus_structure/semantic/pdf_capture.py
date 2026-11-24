@@ -521,7 +521,9 @@ class PreparedPdfCapturePort:
             self._verify()
             return completion
 
-        (result,) = yield (PreparedWork(lambda: execution_owner.submit_python(compute)),)
+        (result,) = yield (
+            PreparedWork(lambda: execution_owner.submit_python(compute, check_active=check_active)),
+        )
         check_active()
         return result
 

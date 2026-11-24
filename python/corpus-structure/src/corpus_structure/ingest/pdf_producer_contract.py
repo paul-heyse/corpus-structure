@@ -26,6 +26,7 @@ from corpus_structure.semantic.file_custody import observed_file
 STANDARD_MODULES = (
     "__init__",
     "_query_custody",
+    "analytics",
     "core/work",
     "semantic/file_custody",
     "semantic/identity",
@@ -44,7 +45,6 @@ STANDARD_MODULES = (
     "semantic/pdf_ocr_contracts",
     "semantic/pdf_payload_validation",
     "semantic/pdf_payloads",
-    "semantic/sqlite_scratch",
     "ingest/_pdf_producer_profiles",
     "ingest/pdf",
     "ingest/pdf_assets",
@@ -193,6 +193,7 @@ def standard_pdf_contract() -> StandardPdfContract:
         for name in (
             *PDF_PACKAGE_FAMILY,
             "pyarrow",
+            "duckdb",
             "cloudpickle",
             "wcwidth",
             "nvidia-ml-py",

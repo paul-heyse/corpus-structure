@@ -63,7 +63,6 @@ def test_population_upload_is_owned_by_the_durable_acknowledgment(tmp_path):
         PopulationUploadPartition,
         population_item_write_profile,
         population_upload_batches,
-        write_population_upload,
     )
 
     profile = population_item_write_profile(release_id="release:original")
@@ -72,15 +71,17 @@ def test_population_upload_is_owned_by_the_durable_acknowledgment(tmp_path):
         {},
         pa.table({"item_ordinal": [0], "canonical_text": ['["mapping",[]]']}),
     )
-    upload = write_population_upload(
-        profile, population_upload_batches(profile, [("result", 0, partition)]), max_bytes=65536
-    )
     store = CompletionDraftStore(tmp_path, max_bytes=65536)
-    draft = acknowledge(store, population_upload=upload)
+    draft = acknowledge(
+        store,
+        population_upload_batches=population_upload_batches(profile, [("result", 0, partition)]),
+        population_upload_profile=profile,
+        max_population_upload_bytes=65536,
+    )
     assert draft.identity != acknowledge(store).identity
     reopened = store.open(draft.identity)
     assert reopened.population_upload is not None
-    with pa.ipc.open_stream(reopened.population_upload) as reader:
+    with reopened.population_upload.open_reader() as reader:
         assert reader.schema.equals(profile.schema, check_metadata=True)
         assert reader.read_all().to_pylist() == [
             {
@@ -92,9 +93,48 @@ def test_population_upload_is_owned_by_the_durable_acknowledgment(tmp_path):
                 "canonical_text": '["mapping",[]]',
             }
         ]
-    (tmp_path / (draft.identity + ".arrow")).write_bytes(upload[:-1] + b"0")
+    path = tmp_path / (draft.identity + ".arrow")
+    upload = path.read_bytes()
+    with reopened.population_upload.open_reader() as reader:
+        # The COPY reader consumes an authenticated private copy, even if the
+        # durable pathname is changed after acquisition.
+        path.write_bytes(upload[:-1] + b"0")
+        assert reader.read_all().num_rows == 1
     with pytest.raises(ValueError, match="acknowledged population upload"):
         store.open(draft.identity)
+
+
+def test_population_upload_failures_never_acknowledge_partial_streams(tmp_path):
+    import pyarrow as pa
+
+    from corpus_structure.semantic.population_transfer import population_item_write_profile
+
+    profile = population_item_write_profile(release_id="release:original")
+    empty = pa.RecordBatch.from_arrays(
+        [pa.array([], type=field.type) for field in profile.schema], schema=profile.schema
+    )
+    store = CompletionDraftStore(tmp_path, max_bytes=65536)
+
+    def interrupted():
+        yield empty
+        raise RuntimeError("producer stopped before seal")
+
+    with pytest.raises(RuntimeError, match="before seal"):
+        acknowledge(
+            store,
+            population_upload_batches=interrupted(),
+            population_upload_profile=profile,
+        )
+    with pytest.raises(ValueError, match="draft byte limit"):
+        acknowledge(
+            store,
+            population_upload_batches=iter([empty]),
+            population_upload_profile=profile,
+            max_population_upload_bytes=1,
+        )
+    assert not tuple(tmp_path.glob("*.ack"))
+    assert not tuple(tmp_path.glob("*.arrow"))
+    assert not tuple(tmp_path.glob("pending-*"))
 
 
 def test_concurrent_acknowledgment_converges_on_one_exact_body(tmp_path):

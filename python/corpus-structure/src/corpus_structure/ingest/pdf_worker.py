@@ -6,9 +6,11 @@ import multiprocessing
 import os
 from collections.abc import Callable
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from threading import Lock
 from typing import TYPE_CHECKING
 
@@ -26,6 +28,8 @@ from .pdf_stream_types import (
 )
 
 if TYPE_CHECKING:
+    from corpus_structure.analytics import AnalyticalAllocation
+
     from .pdf_enrichment import PdfEnrichmentRequest, PdfEnrichmentResult
 
 
@@ -59,6 +63,8 @@ def _native_child(
     recipe: PdfRecipe,
     assets: PreparedPdfAssets | None,
     writer_lease: PdfSpoolWriterLease | None = None,
+    *,
+    allocation: AnalyticalAllocation | None = None,
 ) -> None:
     # Replies have their own Pipe; inherited stdout belongs to the parent CLI's
     # structured output. Redirect the descriptor so prebound logging handlers and
@@ -73,6 +79,24 @@ def _native_child(
         # Do not close this raw descriptor in request/finally cleanup. Docling
         # may have abandoned a model thread; only OS death ends its writer lease.
         _ = writer_lease.identity
+    from contextlib import nullcontext
+
+    job = nullcontext()
+    if allocation is not None:
+        import pyarrow as pa
+
+        from corpus_structure.analytics import analytical_job
+
+        if allocation.scratch_root is None:
+            raise ValueError("allocated PDF child requires its owned analytical scratch root")
+        pa.set_cpu_count(allocation.threads)
+        pa.set_io_thread_count(allocation.threads)
+        job = analytical_job(allocation, check_active=lambda: None)
+    with job:
+        _serve_native(connection, recipe, assets)
+
+
+def _serve_native(connection: Connection, recipe: PdfRecipe, assets: PreparedPdfAssets | None):
     converter = PdfConverter(recipe, assets=assets)
     try:
         while True:
@@ -166,6 +190,7 @@ class PdfWorker:
         self.writer_lease = writer_lease
         self._process: BaseProcess | None = None
         self._connection: Connection | None = None
+        self._analytical_scratch: TemporaryDirectory | None = None
         self._lock = Lock()
         self._closed = False
 
@@ -182,6 +207,18 @@ class PdfWorker:
             raise PdfWorkerError("native PDF owner is closed")
         if self._process is not None:
             return
+        from corpus_structure.analytics import AnalyticalAllocation, configured, current_allocation
+        from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+
+        settings = configured()
+        allocation = current_allocation() or AnalyticalAllocation.for_policy(
+            CharacterizationExecutionPolicy(cpu_native_threads=settings.threads), settings
+        )
+        if allocation.scratch_root is None:
+            root = settings.scratch_path.resolve()
+            root.mkdir(parents=True, exist_ok=True)
+            self._analytical_scratch = TemporaryDirectory(prefix="pdf-job-", dir=root)
+            allocation = replace(allocation, scratch_root=Path(self._analytical_scratch.name))
         context = multiprocessing.get_context("spawn")
         parent, child = context.Pipe(duplex=True)
         process = context.Process(
@@ -192,6 +229,7 @@ class PdfWorker:
                 self.assets.with_custody() if self.assets is not None else None,
                 self.writer_lease,
             ),
+            kwargs={"allocation": allocation},
             name="native-pdf",
             daemon=True,
         )
@@ -320,6 +358,9 @@ class PdfWorker:
                         "native PDF child retirement remains unproven"
                     ) from error
             raise
+        if self._analytical_scratch is not None:
+            self._analytical_scratch.cleanup()
+            self._analytical_scratch = None
 
     def _retire_process(self, *, graceful: bool) -> None:
         self._closed = True

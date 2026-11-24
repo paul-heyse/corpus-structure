@@ -18,6 +18,7 @@ def _blocked_child(
     recipe: PdfRecipe,
     assets: PreparedPdfAssets | None,
     writer_lease: PdfSpoolWriterLease | None = None,
+    **_analytics,
 ):
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
     request = connection.recv()
@@ -36,6 +37,7 @@ def _partial_child(
     recipe: PdfRecipe,
     assets: PreparedPdfAssets | None,
     writer_lease: PdfSpoolWriterLease | None = None,
+    **_analytics,
 ):
     connection.recv()
     connection.send(
@@ -65,6 +67,7 @@ def fake_stream_child(
     recipe: PdfRecipe,
     assets: PreparedPdfAssets | None,
     writer_lease: PdfSpoolWriterLease | None = None,
+    **_analytics,
 ):
     from corpus_structure.ingest.pdf_stream_types import (
         PdfReplayReady,
@@ -90,6 +93,7 @@ def partial_stream_child(
     recipe: PdfRecipe,
     assets: PreparedPdfAssets | None,
     writer_lease: PdfSpoolWriterLease | None = None,
+    **_analytics,
 ):
     from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
     from corpus_structure.ingest.pdf_worker import NativeReply

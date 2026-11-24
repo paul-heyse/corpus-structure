@@ -198,7 +198,7 @@ def controlled_pdf_converter(content):
             _preparation_reports.clear()
 
 
-def controlled_native_child(connection, recipe, assets, writer_lease=None):
+def controlled_native_child(connection, recipe, assets, writer_lease=None, **resources):
     """Scripted peer for IPC tests, deliberately outside actual producer custody."""
     from corpus_structure.ingest.pdf_health import error_summary
     from corpus_structure.ingest.pdf_stream_types import PdfReplayReady, PdfStreamRequest

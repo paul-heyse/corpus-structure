@@ -150,6 +150,10 @@ def test_preparation_that_cannot_hold_one_request_refuses_before_claim(monkeypat
 
 
 def test_reduced_credit_allows_progress_while_an_old_physical_share_retires(monkeypatch, prepared):
+    from dataclasses import replace
+
+    from corpus_structure.settings import AnalyticsSettings
+
     third_started = Event()
     retired = Future()
 
@@ -197,12 +201,18 @@ def test_reduced_credit_allows_progress_while_an_old_physical_share_retires(monk
         )
         return result
 
+    analytics = AnalyticsSettings(job_workspace_bytes=4096)
+    policy = policy_for(prepared)
+    credit = (
+        2 * policy.max_packet_bytes + 3 * policy.max_reply_bytes + analytics.job_workspace_bytes
+    )
     executor, observed = execution_case(
         monkeypatch,
         prepared,
-        policy_for(prepared),
+        replace(policy, max_owned_bytes=2 * credit),
         ("scalar",) * 3,
         {"scalar": SimpleNamespace(native_selections=(), plan_python=plan)},
+        analytics_settings=analytics,
     )
     result = executor.advance("controlled-demand")
     assert result.receipt_count == 3 and third_started.is_set()
@@ -558,14 +568,22 @@ def test_reservation_formula_has_one_literal_contract(prepared):
 
     from orchestrate.executor_support import executor_case
 
+    from corpus_structure.settings import AnalyticsSettings
+
+    analytics = AnalyticsSettings(job_workspace_bytes=65536)
+
     policy = replace(
-        policy_for(prepared), max_packet_bytes=65536, max_reply_bytes=4096, max_owned_bytes=143360
+        policy_for(prepared), max_packet_bytes=65536, max_reply_bytes=4096, max_owned_bytes=208896
     )
-    executor = executor_case(prepared=prepared, policy=policy)
+    executor = executor_case(prepared=prepared, policy=policy, analytics_settings=analytics)
     assert policy.max_packet_bytes == 65536 and policy.max_reply_bytes == 4096
-    assert executor.reservation == 143360
+    assert executor.reservation == 208896
     with pytest.raises(ValueError, match="exceed owned capacity"):
-        executor_case(prepared=prepared, policy=replace(policy, max_owned_bytes=143359))
+        executor_case(
+            prepared=prepared,
+            policy=replace(policy, max_owned_bytes=208895),
+            analytics_settings=analytics,
+        )
 
 
 @pytest.mark.parametrize("form", ["scalar", "batch"])

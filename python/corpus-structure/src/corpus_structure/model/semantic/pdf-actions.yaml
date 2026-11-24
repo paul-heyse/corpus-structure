@@ -596,12 +596,17 @@ actions:
       native_type: integer
       nullable: false
       source: primitive:integer
-    result_class: NativeJsonEnvelope
+    result_class: PdfBinaryRowEnvelope
     result_fields:
     - name: body
+      native_field: body
       nullable: false
       source: primitive:json_payload
-    result_mode: scalar
+    - name: part_body
+      native_field: part_body
+      nullable: true
+      source: primitive:bytes
+    result_mode: table
     symbol: ops.read_pdf_record_rows
   - cardinality: many
     id: read_pdf_record_context_rows
@@ -678,12 +683,17 @@ actions:
       native_parameter: p_family
       nullable: false
       source: primitive:string
-    result_class: NativeJsonEnvelope
+    result_class: PdfBinaryRowEnvelope
     result_fields:
     - name: body
+      native_field: body
       nullable: false
       source: primitive:json_payload
-    result_mode: scalar
+    - name: part_body
+      native_field: part_body
+      nullable: true
+      source: primitive:bytes
+    result_mode: table
     symbol: ops.read_pdf_companion_export_events
   - cardinality: one
     id: record_integrated_source_context
@@ -772,12 +782,17 @@ actions:
       native_parameter: p_policy
       nullable: false
       source: primitive:string
-    result_class: NativeJsonEnvelope
+    result_class: PdfBinaryRowEnvelope
     result_fields:
     - name: body
+      native_field: body
       nullable: false
       source: primitive:json_payload
-    result_mode: scalar
+    - name: part_body
+      native_field: part_body
+      nullable: true
+      source: primitive:bytes
+    result_mode: table
     symbol: ops.read_pdf_selected_source_events
   id: read_native_source
   implementation:
@@ -1426,11 +1441,17 @@ actions:
       native_parameter: p_filters
       nullable: false
       source: primitive:json_payload
+    result_class: PdfBinaryRowEnvelope
     result_fields:
     - name: body
+      native_field: body
       nullable: false
       source: primitive:json_payload
-    result_mode: scalar
+    - name: part_body
+      native_field: part_body
+      nullable: true
+      source: primitive:bytes
+    result_mode: table
     symbol: ops.read_pdf_frozen_rows
   id: validate_pdf_build
   implementation:

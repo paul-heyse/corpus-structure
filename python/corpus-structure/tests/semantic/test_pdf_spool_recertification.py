@@ -124,9 +124,7 @@ def test_authorized_original_records_supply_current_copy_carriers_and_recertify(
         check_active=lambda: None,
     )
     access_path = tmp_path / "access.jsonl"
-    payloads = PdfProducerPayloads(
-        tmp_path / "original.sqlite", json.loads(contract.validation_contract)
-    )
+    payloads = PdfProducerPayloads(json.loads(contract.validation_contract))
     try:
         payloads.add_replays(replays)
         payloads.add_companion_replays(companions)

@@ -10,10 +10,12 @@ import threading
 from collections.abc import Callable, Generator
 from concurrent.futures import Future, ProcessPoolExecutor, TimeoutError
 from concurrent.futures.process import BrokenProcessPool
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager, nullcontext, suppress
 from dataclasses import dataclass, field, replace
 from functools import partial
 from hashlib import sha256
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from time import monotonic
 from typing import TYPE_CHECKING, Any, Literal, cast
 
@@ -27,6 +29,8 @@ from .identity import canonical_bytes
 from .types import PreparationProfile, PreparedArtifact, PreparedRelease, SourceBundle
 
 if TYPE_CHECKING:
+    from corpus_structure.analytics import AnalyticalAllocation
+
     from .population_ipc import (
         PopulationIpcSeal,
         PopulationIpcTarget,
@@ -42,6 +46,7 @@ class _SealedPacket:
     digest: str
     populations: tuple[PopulationIpcTransfer, ...] = ()
     reply_target: PopulationIpcTargetOffer | None = None
+    allocation: AnalyticalAllocation | None = None
 
     @classmethod
     def seal(cls, content: bytes):
@@ -408,6 +413,23 @@ def _dispatch(
     stream_connection=None,
     capsule: _CapsuleReference | None = None,
 ) -> CPUReply:
+    from corpus_structure.analytics import analytical_job
+
+    allocation = packet.allocation
+    scope = (
+        analytical_job(allocation, check_active=partial(_worker_active, slot, generation))
+        if allocation is not None
+        else nullcontext()
+    )
+    with scope:
+        return _dispatch_active(
+            packet, max_reply_bytes, slot, generation, profile, stream_connection, capsule
+        )
+
+
+def _dispatch_active(
+    packet, max_reply_bytes, slot, generation, profile, stream_connection, capsule
+):
     import os
 
     content, request_digest = packet.content, packet.digest
@@ -453,7 +475,9 @@ def _dispatch(
                 )
             from .population_ipc import PopulationIpcSeal
 
-            seal, content = (result, b"") if isinstance(result, PopulationIpcSeal) else (None, result)
+            seal, content = (
+                (result, b"") if isinstance(result, PopulationIpcSeal) else (None, result)
+            )
             if len(content) > max_reply_bytes:
                 raise CapacityExceeded("CPU Python result exceeds admitted reply byte capacity")
             return CPUReply(
@@ -489,6 +513,8 @@ class _InputAdmission:
     retired: bool = False
     submitted: bool = False
     reservation: OwnedByteReservation | None = None
+    allocation: AnalyticalAllocation | None = None
+    scratch: TemporaryDirectory | None = None
     population_files: list[tuple[SealedPopulationIpc, PopulationIpcTransfer]] = field(
         default_factory=list
     )
@@ -773,7 +799,9 @@ class _ReleaseCPUView:
             population_reply=population_reply,
         )
 
-    def submit_closed_python_stream(self, admission, content, connection, check_active, *, populations=()):
+    def submit_closed_python_stream(
+        self, admission, content, connection, check_active, *, populations=()
+    ):
         return self.scope._submit(
             admission,
             content,
@@ -795,12 +823,15 @@ class CPUExecutionScope:
         retain_schema: bool = True,
         analytics_settings: AnalyticsSettings | None = None,
     ):
-        from corpus_structure.analytics import configured
+        from corpus_structure.analytics import AnalyticalAllocation, configured
 
         self.analytics_settings = configured() if analytics_settings is None else analytics_settings
         self.prepared = prepared
         self.retain_schema = retain_schema
         self.policy = policy or CharacterizationExecutionPolicy()
+        self.analytical_allocation = AnalyticalAllocation.for_policy(
+            self.policy, self.analytics_settings
+        )
         self.budget = budget or OwnedByteBudget(self.policy.max_owned_bytes)
         self._pool: ProcessPoolExecutor | None = None
         self._pool_ownership: _PoolOwnership | None = None
@@ -936,6 +967,7 @@ class CPUExecutionScope:
         *,
         reservation: OwnedByteReservation | None = None,
         packet_bytes: int | None = None,
+        analytical: bool = False,
     ) -> _InputAdmission | None:
         if packet_bytes is None:
             packet_bytes = self.policy.max_packet_bytes
@@ -952,18 +984,20 @@ class CPUExecutionScope:
                 return None
             self._executor()
             size = packet_bytes + self.policy.max_reply_bytes
-            if size + self._capsule_bytes > self.policy.max_owned_bytes:
+            allocation = self.analytical_allocation if analytical else None
+            charge = size + (allocation.workspace_bytes if allocation is not None else 0)
+            if charge + self._capsule_bytes > self.policy.max_owned_bytes:
                 raise CapacityExceeded(
                     "CPU policy cannot hold preparation and one complete request"
                 )
             shared = None
             if reservation is None:
                 try:
-                    self.budget.reserve(size)
+                    self.budget.reserve(charge)
                 except CapacityExceeded:
                     return None
             else:
-                if reservation.budget is not self.budget or reservation.size < size:
+                if reservation.budget is not self.budget or reservation.size < charge:
                     raise ValueError(
                         "CPU request requires its existing complete shared byte credit"
                     )
@@ -971,7 +1005,7 @@ class CPUExecutionScope:
             lock = self._cancellation.get_lock()
             if not lock.acquire(timeout=0.1):
                 if shared is None:
-                    self.budget.release(size)
+                    self.budget.release(charge)
                 else:
                     shared.release()
                 raise RuntimeError("CPU cancellation state did not become available")
@@ -983,7 +1017,9 @@ class CPUExecutionScope:
                 flags[slot * 2 + 1] = 0
             finally:
                 lock.release()
-            permit = _InputAdmission(self, slot, generation, size, reservation=shared)
+            permit = _InputAdmission(
+                self, slot, generation, charge, reservation=shared, allocation=allocation
+            )
             self._admissions[id(permit)] = permit
             return permit
 
@@ -1016,6 +1052,9 @@ class CPUExecutionScope:
                 offer.retire()
                 target.close()
                 permit.reply_file = None
+            if permit.scratch is not None:
+                permit.scratch.cleanup()
+                permit.scratch = None
             if permit.active:
                 permit.active = False
                 self._free.append(permit.slot)
@@ -1050,9 +1089,15 @@ class CPUExecutionScope:
             population_reply=population_reply,
         )
 
-    def submit_closed_python_stream(self, admission, content, connection, check_active, *, populations=()):
+    def submit_closed_python_stream(
+        self, admission, content, connection, check_active, *, populations=()
+    ):
         return self._submit(
-            admission, content, check_active, "closed-python-stream", connection,
+            admission,
+            content,
+            check_active,
+            "closed-python-stream",
+            connection,
             populations=populations,
         )
 
@@ -1073,7 +1118,8 @@ class CPUExecutionScope:
             raise ValueError("CPU input admission is not active for this invocation")
         if (
             len(content) > self.policy.max_packet_bytes
-            or len(content) + self.policy.max_reply_bytes > admission.reserved
+            or len(content) + self.policy.max_reply_bytes + self._workspace(admission)
+            > admission.reserved
         ):
             self.release_admission(admission)
             raise CapacityExceeded("CPU input exceeds admitted packet byte capacity")
@@ -1089,12 +1135,18 @@ class CPUExecutionScope:
         # a future. Its admission stays owned until physical teardown is proven.
         entering_executor = False
         try:
+            allocation = admission.allocation
+            if allocation is not None:
+                root = self.analytics_settings.scratch_path.resolve()
+                root.mkdir(parents=True, exist_ok=True)
+                admission.scratch = TemporaryDirectory(prefix="cpu-job-", dir=root)
+                allocation = replace(allocation, scratch_root=Path(admission.scratch.name))
             if populations:
                 from .population_ipc import SealedPopulationIpc
 
                 remaining = min(
                     self.policy.max_packet_bytes,
-                    admission.reserved - self.policy.max_reply_bytes,
+                    admission.reserved - self.policy.max_reply_bytes - self._workspace(admission),
                 ) - len(content)
                 for population, projection_digest in populations:
                     check_active()
@@ -1136,7 +1188,7 @@ class CPUExecutionScope:
             entering_executor = True
             future = pool.submit(
                 _dispatch,
-                packet,
+                replace(packet, allocation=allocation),
                 self.policy.max_reply_bytes,
                 admission.slot,
                 admission.generation,
@@ -1165,6 +1217,10 @@ class CPUExecutionScope:
             with self._lock:
                 submitted.set()
                 self._submissions.discard(submitted)
+
+    @staticmethod
+    def _workspace(admission: _InputAdmission) -> int:
+        return admission.allocation.workspace_bytes if admission.allocation is not None else 0
 
     def collect(
         self, handle: CPUHandle, check_active: Callable[[], None] = lambda: None

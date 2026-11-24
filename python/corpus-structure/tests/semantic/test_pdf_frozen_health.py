@@ -8,16 +8,6 @@ from pdf_acceptance_support import inventory
 from semantic.pdf_payload_validation_support import captured, validate_projection_fixture
 
 
-def replace_health(store, health):
-    store.db.exec_driver_sql(
-        "UPDATE entry SET body=? WHERE family='companion' AND key=?",
-        (
-            json.dumps(dict(family="health", local_id="health", body=health)),
-            json.dumps(["health", "health"]),
-        ),
-    )
-
-
 @pytest.mark.parametrize(
     "scope,start,end,diagnostic",
     [
@@ -28,8 +18,9 @@ def replace_health(store, health):
     ],
 )
 def test_frozen_source_bounds_are_not_omitted(tmp_path, scope, start, end, diagnostic):
-    store, _, document, projection = captured(tmp_path, inventory())
-    replace_health(store, dict(source_scope=scope, page_start=start, page_end=end))
+    store, _, document, projection = captured(
+        tmp_path, inventory(), health=dict(source_scope=scope, page_start=start, page_end=end)
+    )
     try:
         with pytest.raises(ValueError, match=diagnostic):
             validate_projection_fixture(store, document, projection)
@@ -38,12 +29,15 @@ def test_frozen_source_bounds_are_not_omitted(tmp_path, scope, start, end, diagn
 
 
 def test_frozen_complete_display_coverage_requires_actual_formula_outcomes(tmp_path):
-    store, _, document, projection = captured(tmp_path, inventory())
+    store, _, document, projection = captured(
+        tmp_path,
+        inventory(),
+        health=dict(source_scope="whole_document", display_coverage="complete"),
+    )
     native = {**document, "texts": [dict(self_ref="#/texts/0", label="formula")]}
     projection.write_text(
         json.dumps(dict(family="access", body=dict(pointer="#/texts/0", label="formula"))) + "\n"
     )
-    replace_health(store, dict(source_scope="whole_document", display_coverage="complete"))
     try:
         with pytest.raises(ValueError, match="lacks attributable recognition"):
             validate_projection_fixture(store, native, projection)

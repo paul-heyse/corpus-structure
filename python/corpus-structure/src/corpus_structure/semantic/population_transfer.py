@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
+from hashlib import sha256
 from typing import TYPE_CHECKING
 
 import pyarrow as pa
@@ -77,18 +78,38 @@ def population_upload_batches(
             yield pa.RecordBatch.from_arrays([*columns, *batch.columns], schema=profile.schema)
 
 
-def write_population_upload(profile: ArrowWriteProfile, batches, *, max_bytes: int) -> bytes:
-    """Encode the admitted upload once for durable draft custody."""
-    with pa.BufferOutputStream() as sink:
-        with pa.ipc.new_stream(sink, profile.schema) as writer:
-            for batch in batches:
-                profile.validate_batch(batch)
-                writer.write_batch(batch)
-                if sink.tell() > max_bytes:
-                    raise ValueError("population upload exceeds the draft byte limit")
-        if sink.tell() > max_bytes:
+class _UploadSink:
+    def __init__(self, stream, max_bytes):
+        self.stream, self.max_bytes = stream, max_bytes
+        self.digest = sha256()
+
+    @property
+    def closed(self):
+        return self.stream.closed
+
+    def tell(self):
+        return self.stream.tell()
+
+    def write(self, content):
+        if len(content) > self.max_bytes - self.tell():
             raise ValueError("population upload exceeds the draft byte limit")
-        return sink.getvalue().to_pybytes()
+        written = self.stream.write(content)
+        self.digest.update(memoryview(content)[:written])
+        return written
+
+
+def write_population_upload(
+    profile: ArrowWriteProfile, batches, sink, *, max_bytes: int, check_active=lambda: None
+) -> tuple[int, str]:
+    """Stream the admitted upload into its owner's file and return its exact seal."""
+    output = _UploadSink(sink, max_bytes)
+    with pa.ipc.new_stream(pa.PythonFile(output, mode="w"), profile.schema) as writer:
+        for batch in batches:
+            check_active()
+            profile.validate_batch(batch)
+            writer.write_batch(batch)
+        check_active()
+    return output.tell(), output.digest.hexdigest()
 
 
 def population_item_write_profile(

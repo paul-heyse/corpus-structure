@@ -24,7 +24,7 @@ def test_db_free_validation_cancellation_reaps_its_actual_spawned_child(tmp_path
         Pipe = staticmethod(context.Pipe)
 
         @staticmethod
-        def Process(*, target, args):
+        def Process(*, target, args, kwargs=None):
             return context.Process(target=hold_validation, args=args)
 
     monkeypatch.setattr(pdf_publication.multiprocessing, "get_context", lambda mode: Context())
@@ -134,7 +134,7 @@ def _select_validation_target(monkeypatch, target):
         Pipe = staticmethod(context.Pipe)
 
         @staticmethod
-        def Process(*, target=None, args=()):
+        def Process(*, target=None, args=(), kwargs=None):
             return context.Process(target=selected, args=args)
 
     selected = target
@@ -195,30 +195,23 @@ def test_program_child_acknowledges_only_after_owned_store_cleanup(
     )
     events = []
     sent = []
-    document = {
+    expected_document = {
         "body": {"self_ref": "#/body", "children": []},
         "furniture": {"self_ref": "#/furniture", "children": []},
         "pages": {},
     }
 
-    class Store:
-        def __init__(self, path):
+    class Store(pdf_payload_validation.FrozenPayloadStore):
+        def __init__(self, contract):
+            super().__init__(contract)
             events.append("store-open")
 
-        def add(self, family, body):
-            pass
-
-        def stream_descriptors(self):
-            return ()
-
-        def parts(self, stream):
-            return ()
-
-        def validate(self, native, *, items, regions):
-            assert native is document and len(items) == 2 and not regions
+        def validate(self, document, *, items, regions):
+            assert document is expected_document and len(items) == 2 and not regions
             events.append("store-validated")
 
         def close(self):
+            super().close()
             events.append("store-closed")
             if close_fails:
                 raise OSError("controlled store cleanup failure")
@@ -234,7 +227,7 @@ def test_program_child_acknowledges_only_after_owned_store_cleanup(
 
     monkeypatch.setattr(pdf_payload_validation, "FrozenPayloadStore", Store)
     monkeypatch.setattr(
-        pdf_records, "reconstruct_native_document", lambda *args, **kwargs: document
+        pdf_records, "reconstruct_native_document", lambda *args, **kwargs: expected_document
     )
     monkeypatch.setattr(
         pdf_records,

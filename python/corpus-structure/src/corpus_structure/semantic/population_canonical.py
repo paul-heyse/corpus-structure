@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from functools import lru_cache
 from hashlib import sha256
 
+import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 from duckdb import CaseExpression, Expression, LambdaExpression
@@ -198,23 +199,153 @@ class _SequenceCommitment:
         self.digest = sha256(prefix)
         self._started = False
 
-    def append(self, values: pa.Array) -> None:
+    def append(self, values: pa.Array, *, max_bytes: int) -> None:
         if not len(values):
             return
         if values.null_count:
             raise ValueError("canonical population emitted an unencoded item")
-        if self._started:
-            self.digest.update(b",")
-        offsets = pa.array([0, len(values)], type=pa.int32())
-        (joined,) = pc.call_function(
-            "binary_join", [pa.ListArray.from_arrays(offsets, values), pa.scalar(",")]
+        offset_type = np.int64 if pa.types.is_large_string(values.type) else np.int32
+        offsets = np.frombuffer(
+            values.buffers()[1],
+            dtype=offset_type,
+            count=len(values) + 1,
+            offset=values.offset * np.dtype(offset_type).itemsize,
         )
-        self.digest.update(joined.as_buffer())
-        self._started = True
+        joined_offsets = offsets.astype(np.int64, copy=False) + np.arange(len(offsets))
+        start = 0
+        while start < len(values):
+            end = (
+                int(
+                    np.searchsorted(
+                        joined_offsets, joined_offsets[start] + max_bytes + 1, side="right"
+                    )
+                )
+                - 1
+            )
+            if end <= start:
+                if self._started:
+                    self.digest.update(b",")
+                payload = values.buffers()[2]
+                for offset in range(int(offsets[start]), int(offsets[start + 1]), max_bytes):
+                    remaining = int(offsets[start + 1]) - offset
+                    self.digest.update(payload.slice(offset, min(max_bytes, remaining)))
+                self._started = True
+                start += 1
+                continue
+            if self._started:
+                self.digest.update(b",")
+            selected = values.slice(start, end - start)
+            bounds = pa.array([0, len(selected)], type=pa.int32())
+            (joined,) = pc.call_function(
+                "binary_join", [pa.ListArray.from_arrays(bounds, selected), pa.scalar(",")]
+            )
+            self.digest.update(joined.as_buffer())
+            self._started = True
+            start = end
 
     def key(self) -> str:
         self.digest.update(b"]]]")
         return f"{self.domain}:{self.digest.hexdigest()}"
+
+
+def _canonical_cohort(
+    populations: list[AcquiredPopulation],
+    *,
+    engine: AnalyticalConnection,
+    batch_size: int,
+    fold_bytes: int,
+) -> Iterator[CanonicalPopulation]:
+    layout = populations[0].layout
+    projections = _projections(layout._shape, layout._field_groups)
+    # Physical cohort coordinates never replace semantic partition identity or placement.
+    ordinal = "_ddo_population_ordinal"
+    partition = "_ddo_population_partition"
+    names = {name.lower() for name in layout.schema.names}
+    while ordinal in names:
+        ordinal += "_"
+    while partition in names or partition == ordinal:
+        partition += "_"
+    tables = [
+        population.table.append_column(
+            ordinal, pa.array(range(population.table.num_rows), type=pa.int32())
+        ).append_column(
+            partition, pa.repeat(pa.scalar(index, type=pa.int32()), population.table.num_rows)
+        )
+        for index, population in enumerate(populations)
+    ]
+    relation = (
+        engine.from_arrow(pa.concat_tables(tables))
+        .select(col(partition), col(ordinal).alias(_ITEM_ORDINAL), *projections)
+        .sort(col(partition).asc(), col(_ITEM_ORDINAL).asc())
+    )
+    commitments = [_SequenceCommitment("partition") for _ in populations]
+    groups = [
+        {name: _SequenceCommitment("partition-group") for name, _ in layout._field_groups}
+        for _ in populations
+    ]
+    item_batches: list[list[pa.RecordBatch]] = [[] for _ in populations]
+    with relation.to_arrow_reader(batch_size=batch_size) as reader:
+        for batch in reader:
+            runs = pc.call_function("run_end_encode", [batch.column(0)])
+            start = 0
+            for index, end in zip(runs.values.to_pylist(), runs.run_ends.to_pylist(), strict=True):
+                selected = batch.slice(start, end - start)
+                commitments[index].append(selected.column(2), max_bytes=fold_bytes)
+                for column, commitment in enumerate(groups[index].values(), start=3):
+                    commitment.append(selected.column(column), max_bytes=fold_bytes)
+                item_batches[index].append(selected.select([1, 2]))
+                start = end
+    for batches, commitment, field_groups in zip(item_batches, commitments, groups, strict=True):
+        items = (
+            pa.Table.from_batches(batches).cast(_ITEM_SCHEMA)
+            if batches
+            else _ITEM_SCHEMA.empty_table()
+        )
+        yield CanonicalPopulation(
+            items,
+            commitment.key(),
+            {name: group.key() for name, group in field_groups.items()},
+        )
+
+
+def canonical_populations(
+    populations: Iterable[AcquiredPopulation],
+    *,
+    engine: AnalyticalConnection,
+    batch_size: int | None = None,
+    cohort_bytes: int | None = None,
+    fold_bytes: int | None = None,
+) -> Iterator[CanonicalPopulation]:
+    """Encode compatible physical cohorts while retaining independent partition commitments."""
+    settings = configured()
+    selected_batch_size = settings.batch_size if batch_size is None else batch_size
+    selected_cohort_bytes = settings.batch_size_hint_bytes if cohort_bytes is None else cohort_bytes
+    selected_fold_bytes = settings.batch_size_hint_bytes if fold_bytes is None else fold_bytes
+    if min(selected_batch_size, selected_cohort_bytes, selected_fold_bytes) < 1:
+        raise ValueError("canonical population batch and byte limits must be positive")
+    cohort: list[AcquiredPopulation] = []
+    size = 0
+    for population in populations:
+        if cohort and (
+            len(cohort) >= selected_batch_size
+            or size + population.table.nbytes > selected_cohort_bytes
+            or not population.layout.schema.equals(cohort[0].layout.schema, check_metadata=True)
+            or population.layout._shape != cohort[0].layout._shape
+            or population.layout._field_groups != cohort[0].layout._field_groups
+        ):
+            yield from _canonical_cohort(
+                cohort,
+                engine=engine,
+                batch_size=selected_batch_size,
+                fold_bytes=selected_fold_bytes,
+            )
+            cohort, size = [], 0
+        cohort.append(population)
+        size += population.table.nbytes
+    if cohort:
+        yield from _canonical_cohort(
+            cohort, engine=engine, batch_size=selected_batch_size, fold_bytes=selected_fold_bytes
+        )
 
 
 def canonical_population(
@@ -223,39 +354,5 @@ def canonical_population(
     engine: AnalyticalConnection,
     batch_size: int | None = None,
 ) -> CanonicalPopulation:
-    """Encode a partition in acquired item order and fold its declared field groups."""
-    layout = population.layout
-    projections = _projections(layout._shape, layout._field_groups)
-    # Statement-scoped ordering key, distinct from any nominal field or business address.
-    ordinal = "_ddo_population_ordinal"
-    names = {name.lower() for name in layout.schema.names}
-    while ordinal in names:
-        ordinal += "_"
-    table = population.table.append_column(
-        ordinal, pa.array(range(population.table.num_rows), type=pa.int32())
-    )
-    selected_batch_size = configured().batch_size if batch_size is None else batch_size
-    relation = (
-        engine.from_arrow(table)
-        .select(col(ordinal).alias(_ITEM_ORDINAL), *projections)
-        .sort(col(_ITEM_ORDINAL).asc())
-    )
-    partition = _SequenceCommitment("partition")
-    groups = {name: _SequenceCommitment("partition-group") for name, _ in layout._field_groups}
-    item_batches = []
-    with relation.to_arrow_reader(batch_size=selected_batch_size) as reader:
-        for batch in reader:
-            partition.append(batch.column(1))
-            for index, commitment in enumerate(groups.values(), start=2):
-                commitment.append(batch.column(index))
-            item_batches.append(batch.select([0, 1]))
-    items = (
-        pa.Table.from_batches(item_batches).cast(_ITEM_SCHEMA)
-        if item_batches
-        else _ITEM_SCHEMA.empty_table()
-    )
-    return CanonicalPopulation(
-        items,
-        partition.key(),
-        {name: commitment.key() for name, commitment in groups.items()},
-    )
+    """Encode one partition using the same bounded cohort and fidelity contract."""
+    return next(canonical_populations((population,), engine=engine, batch_size=batch_size))

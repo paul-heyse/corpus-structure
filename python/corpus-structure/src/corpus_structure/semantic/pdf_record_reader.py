@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, BinaryIO, TypedDict
 
 import pyarrow as pa
 import pyarrow.compute as pc
-from sqlalchemy import Connection, Text, and_, any_, func, literal, select
+from sqlalchemy import Connection, LargeBinary, Text, and_, any_, func, literal, select
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.core.db.store import (
@@ -61,7 +61,12 @@ class PublishedReadBudget:
     def _summary(selected, *, ordinal=None):
         size = sum(
             (
-                func.coalesce(func.octet_length(column.cast(Text)), 0)
+                func.coalesce(
+                    func.octet_length(
+                        column if isinstance(column.type, LargeBinary) else column.cast(Text)
+                    ),
+                    0,
+                )
                 for column in selected.c
                 if column is not ordinal
             ),
@@ -194,9 +199,18 @@ def _record_parameters(reference: ProductReference) -> _RecordParameters:
 
 
 def _record_envelope(row: NativeRowResult) -> dict[str, Any]:
-    body = row.decoded_json_fields(operation="read_native_source")["body"]
+    values = row.decoded_json_fields(operation="read_native_source")
+    body = values["body"]
     if not isinstance(body, dict):
         raise ValueError("published record envelope requires an object")
+    part = values.get("part_body")
+    if part is not None:
+        if body.get("event") == "companion_native_fragment":
+            body["fragment"]["part"]["body"] = part
+        elif body.get("kind") == "part":
+            body["part"]["body"] = part
+        else:
+            body["body"] = part
     return body
 
 
@@ -416,11 +430,15 @@ class PublishedPdfReader:
                 for row in self._raw_rows(statement, payload_reserved=_payload_reserved)
             ]
             for row in rows:
-                self._admit_value(
-                    {key: value for key, value in row.items() if key != "body"}
-                    if family == "artifact_part" and _payload_reserved
-                    else row
-                )
+                if family == "artifact_part":
+                    self._admit_value({key: value for key, value in row.items() if key != "body"})
+                    if (
+                        not _payload_reserved
+                        and (budget := getattr(self, "read_budget", None)) is not None
+                    ):
+                        budget.reserve(len(row["body"]))
+                else:
+                    self._admit_value(row)
             if not rows:
                 return
             for row in rows:
@@ -429,8 +447,6 @@ class PublishedPdfReader:
                 for name in ("scalars_json", "structure_json", "scalar_json"):
                     if name in row and row[name] is not None:
                         row[name] = json.dumps(row[name], ensure_ascii=False, allow_nan=False)
-                if family == "artifact_part":
-                    row["body"] = bytes.fromhex(row["body"].removeprefix("\\x"))
                 yield row
             if len(rows) < batch_size:
                 return
@@ -1360,7 +1376,7 @@ class PublishedPdfReader:
                                 part["ordinal"],
                                 part["byte_offset"],
                                 part["byte_length"],
-                                bytes.fromhex(part["body"].removeprefix("\\x")),
+                                part["body"],
                                 part["sha256_digest"],
                             )
 

@@ -40,7 +40,7 @@ def recertify_pdf_recovery(
     ) != (original_lowering_identity, "native", source_digest, recipe_digest, schema_digest):
         raise ValueError("original PDF certification differs from its material premises")
     root.mkdir(parents=True, exist_ok=False)
-    payloads = PdfProducerPayloads(root / "payloads.sqlite", json.loads(validation_contract))
+    payloads = PdfProducerPayloads(json.loads(validation_contract))
     try:
         payloads.add_replays(
             reply.record_replays,
@@ -62,6 +62,7 @@ def recertify_pdf_recovery(
             schema_digest=schema_digest,
             kind="native",
             target_meanings={},
+            check_active=check_active,
         )
         if (
             digest != certificate.logical_digest

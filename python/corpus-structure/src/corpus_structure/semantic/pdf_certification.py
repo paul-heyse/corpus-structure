@@ -1,8 +1,8 @@
 """Producer certification over actual output and exact prepared record bytes.
 
-The existing disk-backed payload validator owns payload interiors and integrated
-meaning. This owner supplies its producer-side bytes; it never reads staged rows
-or reconstructs the producer's native document.
+The typed payload validator owns payload interiors and integrated meaning. This
+owner reads the producer's actual replay buffers and folds the canonical frames
+without reconstructing its native document.
 """
 
 from __future__ import annotations
@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Any, Literal
 
 import pyarrow as pa
-from sqlalchemy import Column, LargeBinary, MetaData, Table, Text, select
 
 from .identity import canonical_bytes
 from .pdf_lowering_context import CapturedPdfLowering
@@ -26,7 +25,6 @@ from .pdf_record_identity import (
     IdentityFold,
     LogicalIdentity,
     ScalarDescriptor,
-    byte_root,
     record_frame,
     structured_payload_scalar,
 )
@@ -110,55 +108,37 @@ def jsonb_canonical_text(value: Any) -> str:
     return encode(value)
 
 
-_PRODUCER = MetaData()
-_NATIVE_ENTRY = Table(
-    "native_entry",
-    _PRODUCER,
-    Column("family", Text, primary_key=True),
-    Column("key", Text, primary_key=True),
-    Column("body", Text),
-)
-_IDENTITY_FRAME = Table(
-    "identity_frame",
-    _PRODUCER,
-    Column("family", Text, primary_key=True),
-    Column("key", Text, primary_key=True),
-    Column("frame", LargeBinary),
+_FRAME_SCHEMA = pa.schema(
+    [("family", pa.string()), ("record_key", pa.string()), ("frame", pa.binary())]
 )
 
 
 class PdfProducerPayloads(FrozenPayloadStore):
-    """Exact prepared producer rows, with disk ordering for the existing frame fold."""
+    """Certify ordered, typed producer rows beneath their captured lowering."""
 
-    def __init__(self, path: Path, validation_contract: Mapping[str, Any]):
+    def __init__(self, validation_contract: Mapping[str, Any]):
         self.lowering = CapturedPdfLowering.from_document(validation_contract.get("lowering"))
-        super().__init__(path)
-        try:
-            _PRODUCER.create_all(self.db)
-            self.add("validation_contract", dict(validation_contract))
-        except BaseException:
-            self.close()
-            raise
+        super().__init__(validation_contract)
 
-    def add_batch(self, family: str, batch: pa.RecordBatch) -> None:
-        for row in batch.to_pylist():
-            if family in {"header", "native", "membership"}:
-                key = (
-                    row["root_id"]
-                    if family == "header"
-                    else row["record_id"]
-                    if family == "native"
-                    else json.dumps([row["parent_id"], row["field_name"], row["ordinal"]])
+    def _verify_stream_inventory(self, schema_digest: str, *, check_active) -> None:
+        streams = IdentityFold("pdf-producer-streams-v1")
+        for descriptor in self.stream_descriptors():
+            check_active()
+            self.verify_stream(descriptor, check_active=check_active)
+            streams.add(
+                record_frame(
+                    schema_digest,
+                    "producer-stream",
+                    descriptor["stream_id"],
+                    (
+                        ("byte_length", descriptor["byte_length"]),
+                        ("byte_root", descriptor["byte_root"]),
+                        ("encoding_profile", descriptor["encoding_profile"]),
+                        ("serialization_sha256", descriptor.get("serialization_sha256")),
+                    ),
                 )
-                self.db.execute(
-                    _NATIVE_ENTRY.insert().values(family=family, key=key, body=json.dumps(row))
-                )
-            elif family in {"artifact_stream", "artifact_part", "companion", "companion_field"}:
-                if family == "artifact_part":
-                    row["body"] = "\\x" + row["body"].hex()
-                elif family == "companion" and isinstance(row["body"], str):
-                    row["body"] = json.loads(row["body"])
-                self.add(family, row)
+            )
+        self.stream_inventory_digest = streams.digest().hex()
 
     def add_replays(
         self,
@@ -176,6 +156,7 @@ class PdfProducerPayloads(FrozenPayloadStore):
                 check_active=check_active,
                 legacy_binding=legacy_binding,
                 legacy_schema=None if legacy_lowering is None else legacy_lowering.schema(name),
+                map_verified=True,
             ):
                 self.add_batch(replay.family, batch)
 
@@ -203,14 +184,12 @@ class PdfProducerPayloads(FrozenPayloadStore):
                     check_active=check_active,
                     legacy_binding=legacy_binding,
                     legacy_schema=None if legacy_lowering is None else legacy_lowering.schema(name),
+                    map_verified=True,
                 ):
                     self.add_batch(families[target], batch)
 
     def _descriptor(self, stream: str) -> ScalarDescriptor:
-        raw = self._entry_body("artifact_stream", stream)
-        if raw is None:
-            raise ValueError("producer scalar has no exact stream descriptor")
-        descriptor = json.loads(raw)
+        descriptor = self.descriptor(stream)
         profile = descriptor["encoding_profile"]
         kind = (
             b"y"
@@ -222,16 +201,14 @@ class PdfProducerPayloads(FrozenPayloadStore):
         )
 
     def _field_scalar(self, row, name):
-        raw = self._entry_body(
-            "companion_field", json.dumps([row["family"], row["local_id"], name])
-        )
-        if raw is not None:
+        field = self.field(row["family"], row["local_id"], name)
+        if field is not None:
             if (
                 row["family"] == "native_metadata"
                 and row["body"]["kind"] == "inline_candidate_pages"
             ):
                 return structured_payload_scalar(row["body"]["payload_logical_digest"])
-            return self._descriptor(json.loads(raw)["stream_id"])
+            return self._descriptor(field["stream_id"])
         return row["body"].get(name, ABSENT)
 
     def target_pins(self) -> tuple[tuple[int, str, str], ...]:
@@ -248,6 +225,68 @@ class PdfProducerPayloads(FrozenPayloadStore):
             )
         )
 
+    def _identity_fields(self, kind, recipe_digest, target_meanings):
+        from .pdf_records import NativeRow, native_record_identity_fields
+
+        for family in ("header", "native", "membership"):
+            for values in self.entries(family):
+                row = {name: value for name, value in values.items() if value is not None}
+                result = native_record_identity_fields(
+                    NativeRow("document" if family == "header" else family, row),
+                    scalar_descriptor=self._descriptor,
+                )
+                if result is not None:
+                    yield result
+        inputs = {row["local_id"]: row["body"] for row in self.companions("input")}
+        for family in self._companions:
+            for row in self.companions(family):
+                yield from self._companion_frames(row, inputs, target_meanings)
+        yield "publication", "root", (("kind", kind), ("recipe_digest", recipe_digest))
+
+    def _companion_frames(self, row, inputs, target_meanings):
+        family, body = row["family"], dict(row["body"])
+        if family == "native_metadata":
+            for key in (
+                ("value", "payload_codec", "payload_schema_digest")
+                if body["kind"] == "inline_candidate_pages"
+                else ("value", "item_pointers")
+            ):
+                body.pop(key, None)
+        elif family == "occurrence":
+            body.pop("text", None)
+        elif family == "relation":
+            body = self.companion_value(row)
+        elif family == "input":
+            pin = (body["task_id"], body["product_key"], body["content_digest"])
+            body = {"role": body["role"], "target_meaning": target_meanings[pin]}
+        fields = [("body", jsonb_canonical_text(body)), ("ordinal", row["ordinal"])]
+        if family in {"native_metadata", "occurrence"}:
+            field = "value" if family == "native_metadata" else "text"
+            fields.append((field, self._field_scalar(row, field)))
+        yield "companion/" + family, row["local_id"], fields
+        if family == "relation":
+            for ordinal, endpoint in enumerate(body["endpoints"]):
+                if "input_index" in endpoint:
+                    target = inputs[str(endpoint["input_index"])]
+                    meaning = jsonb_canonical_text(
+                        target_meanings[
+                            (target["task_id"], target["product_key"], target["content_digest"])
+                        ]
+                    )
+                else:
+                    meaning = "@self"
+                yield (
+                    "endpoint",
+                    json.dumps([row["local_id"], ordinal], separators=(",", ":")),
+                    (
+                        ("relation_id", row["local_id"]),
+                        ("ordinal", ordinal),
+                        ("target_meaning", meaning),
+                        ("occurrence_id", endpoint["occurrence_id"]),
+                        ("role", endpoint["role"]),
+                    ),
+                )
+
     def logical_digest(
         self,
         *,
@@ -257,110 +296,48 @@ class PdfProducerPayloads(FrozenPayloadStore):
         schema_digest: str,
         kind: str,
         target_meanings: Mapping[tuple[int, str, str], Any],
+        check_active: Callable[[], None] = lambda: None,
     ) -> str:
-        from .pdf_records import NativeRow, native_record_identity_fields
+        from duckdb import col
 
-        self.db.execute(_IDENTITY_FRAME.delete())
+        from corpus_structure.analytics import connection
 
-        def add(family, key, fields):
-            encoded = record_frame(schema_digest, family, key, fields)
-            self.db.execute(_IDENTITY_FRAME.insert().values(family=family, key=key, frame=encoded))
-
-        # Validate every actual stream, including shared and unreferenced streams.
-        streams = IdentityFold("pdf-producer-streams-v1")
-        for descriptor in self.stream_descriptors():
-            digest = sha256()
-
-            def chunks(descriptor=descriptor, digest=digest):
-                for body in self.parts(descriptor["stream_id"]):
-                    digest.update(body)
-                    yield body
-
-            length, root = byte_root(chunks())
-            if (length, root.hex()) != (descriptor["byte_length"], descriptor["byte_root"]) or (
-                descriptor.get("serialization_sha256") is not None
-                and descriptor["serialization_sha256"] != digest.hexdigest()
-            ):
-                raise ValueError("producer actual bytes differ from their stream descriptor")
-            streams.add(
-                record_frame(
-                    schema_digest,
-                    "producer-stream",
-                    descriptor["stream_id"],
-                    (
-                        ("byte_length", length),
-                        ("byte_root", root.hex()),
-                        ("encoding_profile", descriptor["encoding_profile"]),
-                        ("serialization_sha256", descriptor.get("serialization_sha256")),
-                    ),
-                )
-            )
-        self.stream_inventory_digest = streams.digest().hex()
-        for family, raw in self.db.execute(select(_NATIVE_ENTRY.c.family, _NATIVE_ENTRY.c.body)):
-            row = {key: value for key, value in json.loads(raw).items() if value is not None}
-            for name in ("scalars_json", "structure_json", "scalar_json"):
-                if name in row and not isinstance(row[name], str):
-                    row[name] = json.dumps(row[name])
-            result = native_record_identity_fields(
-                NativeRow("document" if family == "header" else family, row),
-                scalar_descriptor=self._descriptor,
-            )
-            if result is not None:
-                add(*result)
-        inputs = {row["local_id"]: row["body"] for row in self.companions("input")}
-        for row in self._entries("companion"):
-            family, body = row["family"], dict(row["body"])
-            if family == "native_metadata":
-                for key in (
-                    ("value", "payload_codec", "payload_schema_digest")
-                    if body["kind"] == "inline_candidate_pages"
-                    else ("value", "item_pointers")
-                ):
-                    body.pop(key, None)
-            elif family == "occurrence":
-                body.pop("text", None)
-            elif family == "relation":
-                body = self.companion_value(row)
-            elif family == "input":
-                pin = (body["task_id"], body["product_key"], body["content_digest"])
-                body = {"role": body["role"], "target_meaning": target_meanings[pin]}
-            fields = [("body", jsonb_canonical_text(body)), ("ordinal", row["ordinal"])]
-            if family in {"native_metadata", "occurrence"}:
-                field = "value" if family == "native_metadata" else "text"
-                fields.append((field, self._field_scalar(row, field)))
-            add("companion/" + family, row["local_id"], fields)
-            if family == "relation":
-                for ordinal, endpoint in enumerate(body["endpoints"]):
-                    if "input_index" in endpoint:
-                        target = inputs[str(endpoint["input_index"])]
-                        meaning = jsonb_canonical_text(
-                            target_meanings[
-                                (target["task_id"], target["product_key"], target["content_digest"])
-                            ]
-                        )
-                    else:
-                        meaning = "@self"
-                    add(
-                        "endpoint",
-                        json.dumps([row["local_id"], ordinal], separators=(",", ":")),
-                        (
-                            ("relation_id", row["local_id"]),
-                            ("ordinal", ordinal),
-                            ("target_meaning", meaning),
-                            ("occurrence_id", endpoint["occurrence_id"]),
-                            ("role", endpoint["role"]),
-                        ),
-                    )
-        add("publication", "root", (("kind", kind), ("recipe_digest", recipe_digest)))
+        self._verify_stream_inventory(schema_digest, check_active=check_active)
         logical = LogicalIdentity(schema_digest, release_id, source_digest)
-        for family, key, encoded in self.db.execute(
-            select(
-                _IDENTITY_FRAME.c.family, _IDENTITY_FRAME.c.key, _IDENTITY_FRAME.c.frame
-            ).order_by(
-                _IDENTITY_FRAME.c.family.collate("BINARY"), _IDENTITY_FRAME.c.key.collate("BINARY")
-            )
+
+        def batches():
+            pending = []
+            size = 0
+            for family, key, fields in self._identity_fields(kind, recipe_digest, target_meanings):
+                check_active()
+                encoded = record_frame(schema_digest, family, key, fields)
+                size += len(encoded)
+                pending.append({"family": family, "record_key": key, "frame": encoded})
+                if len(pending) >= 512 or size >= 4 * 1024 * 1024:
+                    yield pa.RecordBatch.from_pylist(pending, schema=_FRAME_SCHEMA)
+                    pending.clear()
+                    size = 0
+            if pending:
+                yield pa.RecordBatch.from_pylist(pending, schema=_FRAME_SCHEMA)
+
+        with (
+            connection() as analytical,
+            pa.RecordBatchReader.from_batches(_FRAME_SCHEMA, batches()) as source,
         ):
-            logical.add_encoded_record(family, key, encoded)
+            self.check_artifact_coordinates(analytical)
+            ordered = analytical.from_arrow(source).sort(
+                col("family").asc().nulls_last(), col("record_key").asc().nulls_last()
+            )
+            with ordered.to_arrow_reader(batch_size=512) as output:
+                for batch in output:
+                    check_active()
+                    for family, key, frame in zip(
+                        batch.column("family").to_pylist(),
+                        batch.column("record_key").to_pylist(),
+                        batch.column("frame").to_pylist(),
+                        strict=True,
+                    ):
+                        logical.add_encoded_record(family, key, frame)
         return logical.pin().logical_digest
 
     def certify(self, document: Any, projection: Path, **options) -> PdfProducerCertification:
@@ -381,9 +358,11 @@ class PdfProducerPayloads(FrozenPayloadStore):
         kind: Literal["native", "integrated"],
         lowering_identity: str,
         target_meanings: Mapping[tuple[int, str, str], Any],
+        check_active: Callable[[], None] = lambda: None,
     ) -> PdfProducerCertification:
         from .pdf_access_projection import project_pdf_access, write_pdf_access_projection
 
+        self._verify_stream_inventory(schema_digest, check_active=check_active)
         items, regions = project_pdf_access(actual)
         self.validate(actual, items=items, regions=regions)
         write_pdf_access_projection(actual, projection, items=items)
@@ -394,6 +373,7 @@ class PdfProducerPayloads(FrozenPayloadStore):
             schema_digest=schema_digest,
             kind=kind,
             target_meanings=target_meanings,
+            check_active=check_active,
         )
         return PdfProducerCertification(
             lowering_identity,
@@ -551,7 +531,7 @@ def certify_native_stream(streamed, request, replays, *, on_replay):
         on_replay=on_replay,
     )
     projection = request.record_root / "producer-access.jsonl"
-    payloads = PdfProducerPayloads(request.record_root / "producer-payloads.sqlite", contract)
+    payloads = PdfProducerPayloads(contract)
     try:
         payloads.add_replays(replays, check_active=streamed.spool.active)
         payloads.add_companion_replays(sets, check_active=streamed.spool.active)
