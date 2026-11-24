@@ -809,3 +809,31 @@ def test_private_principal_inventory_needs_no_shell_tool_path(monkeypatch):
         "fit": "corpus_sem_fitter",
         "admit": "corpus_sem_admitter",
     }
+
+
+@pytest.mark.parametrize("foreign", (False, True))
+def test_recovery_recognizes_only_the_exact_synthetic_kernel_sources(
+    owned_private_residue, monkeypatch, foreign
+):
+    from native_private_cohort import recover_private_temporary
+
+    receipt, temporary = owned_private_residue
+    scratch = temporary / "ddo-storage-lcnvqq8k"
+    scratch.mkdir(mode=0o700)
+    for name in ("schema.yaml", "operations.yaml", "target.yaml"):
+        (scratch / name).write_text("name: synthetic-fixture\n")
+    if foreign:
+        (scratch / "other.yaml").write_text("unexpected data\n")
+    _interrupted_private_receipts(receipt)
+
+    def absent(group, sig):
+        raise ProcessLookupError()
+
+    monkeypatch.setattr(os, "killpg", absent)
+    if foreign:
+        with pytest.raises(ValueError, match="remains nonempty"):
+            recover_private_temporary(receipt)
+        assert (scratch / "other.yaml").is_file()
+    else:
+        assert recover_private_temporary(receipt)["cleanup"] == {"state": "removed"}
+        assert not temporary.exists()

@@ -221,7 +221,7 @@ def finish_private_temporary(directory: Path, process: dict[str, Any]) -> dict[s
                 if original["private-cohort.process.json"] != process:
                     raise ValueError("private cohort process receipt changed")
                 _require_private_process_drain(original)
-            except (OSError, ValueError):
+            except OSError, ValueError:
                 pass  # Preserve the original retained outcome for managed recovery.
             else:
                 outcome = _remove_owned_empty_tree(owner, recover_selected_scratch=True)
@@ -255,6 +255,7 @@ def _remove_owned_empty_tree(
             fd: int,
             *,
             selected_scratch: bool = False,
+            kernel_scratch: bool = False,
             multiprocessing_scratch: bool = False,
             top: bool = False,
         ) -> _OwnedTree:
@@ -302,6 +303,17 @@ def _remove_owned_empty_tree(
                     children.append((name, found, None))
                     continue
                 if (
+                    kernel_scratch
+                    and name in {"schema.yaml", "operations.yaml", "target.yaml"}
+                    and stat.S_ISREG(found.st_mode)
+                    and found.st_uid == owner["uid"]
+                    and found.st_dev == identity.st_dev
+                    and found.st_nlink == 1
+                    and found.st_size <= 1024 * 1024
+                ):
+                    children.append((name, found, None))
+                    continue
+                if (
                     selected_scratch
                     and name in {"support.sqlite", "support.sqlite-journal"}
                     and stat.S_ISREG(found.st_mode)
@@ -328,6 +340,14 @@ def _remove_owned_empty_tree(
                         and top
                         and re.fullmatch(r"selected-read-[a-z0-9_]{8}", name)
                     )
+                    kernel = bool(
+                        recover_selected_scratch
+                        and top
+                        and re.fullmatch(r"ddo-[a-z0-9-]+-[a-z0-9_]{8}", name)
+                        and stat.S_IMODE(found.st_mode) == 0o700
+                        and set(os.listdir(child))
+                        == {"schema.yaml", "operations.yaml", "target.yaml"}
+                    )
                     multiprocessing = bool(
                         recover_selected_scratch
                         and top
@@ -341,6 +361,7 @@ def _remove_owned_empty_tree(
                             inspect_tree(
                                 child,
                                 selected_scratch=scratch,
+                                kernel_scratch=kernel,
                                 multiprocessing_scratch=multiprocessing,
                             ),
                         )
