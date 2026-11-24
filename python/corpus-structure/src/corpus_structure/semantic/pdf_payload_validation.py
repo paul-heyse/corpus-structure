@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from struct import unpack_from
 from collections.abc import Collection, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
@@ -21,6 +22,20 @@ class _Row:
 
     def __getitem__(self, name: str) -> Any:
         return self.batch.column(name)[self.index].as_py()
+
+    def binary(self, name: str) -> memoryview:
+        column = self.batch.column(name)
+        validity, offsets, values = column.buffers()
+        position = column.offset + self.index
+        if validity is not None and not (memoryview(validity)[position // 8] & (1 << (position % 8))):
+            raise ValueError("artifact part body is null")
+        if pa.types.is_binary(column.type):
+            start, end = unpack_from("<ii", offsets, position * 4)
+        elif pa.types.is_large_binary(column.type):
+            start, end = unpack_from("<qq", offsets, position * 8)
+        else:
+            raise ValueError("artifact part body requires a binary Arrow column")
+        return memoryview(values).cast("B")[start:end]
 
     def values(self) -> dict[str, Any]:
         return {name: self[name] for name in self.batch.schema.names}
@@ -305,7 +320,7 @@ class FrozenPayloadStore:
         verify = stream not in self._verified_streams
         for expected, ordinal in enumerate(sorted(rows)):
             row = rows[ordinal]
-            body = memoryview(row.batch.column("body")[row.index].as_buffer()).cast("B")
+            body = row.binary("body")
             if verify:
                 if ordinal != expected or row["byte_offset"] != offset:
                     raise ValueError("artifact parts must be one contiguous ordered stream")
