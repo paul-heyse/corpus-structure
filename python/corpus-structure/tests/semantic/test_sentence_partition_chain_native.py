@@ -350,6 +350,44 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
 
         drafts = ObservedDrafts(tmp_path / "completion-drafts", max_bytes=64 * 1024**2)
 
+        from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
+        from corpus_structure.orchestrate.native_demand_io import NativeDemandClaims
+        from corpus_structure.semantic import arrow_transfer
+
+        native_copy = arrow_transfer.copy_arrow_stream
+        native_retain = NativeDemandClaims.retain
+        interrupted_uploads = []
+        uploaded_rows = []
+
+        def interrupt_first_copy(connection, profile, *, batches, cancellation=None, **options):
+            def observed_batches():
+                rows = []
+                for batch in batches:
+                    rows.extend(batch.to_pylist())
+                    yield batch
+                    if not interrupted_uploads:
+                        interrupted_uploads.append(True)
+                        cancellation.request_cancel()
+                uploaded_rows.append(rows)
+
+            return native_copy(
+                connection, profile, batches=observed_batches(), cancellation=cancellation, **options
+            )
+
+        def retry_cancelled_upload(owner, claim, callback):
+            try:
+                return native_retain(owner, claim, callback)
+            except DatabaseOperationCancelled:
+                # A known rollback retries the exact callback and its already sealed draft.
+                (draft,) = population_drafts
+                original = draft.population_upload.path.read_bytes()
+                result = native_retain(owner, claim, callback)
+                assert draft.population_upload.path.read_bytes() == original
+                return result
+
+        monkeypatch.setattr(arrow_transfer, "copy_arrow_stream", interrupt_first_copy)
+        monkeypatch.setattr(NativeDemandClaims, "retain", retry_cancelled_upload)
+
         def run_after_initial_read(kernel, demand, *, purpose):
             with kernel.purpose("read").begin() as connection:
                 initial_cuts[demand] = read_demand_result(
@@ -366,6 +404,8 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
             source, kernel, target, text=text, selection_name="canonical-sentences"
         )
         assert len(population_drafts) == 1
+        assert interrupted_uploads == [True]
+        assert uploaded_rows and uploaded_rows[-1]
         assert population_drafts[0].operation == "segment.sentences/source-native"
         (annotation,) = selected_for_source(
             kernel, products, namespace + "DdoSourceAnnotations", original

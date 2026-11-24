@@ -167,7 +167,7 @@ def test_draft_basis_retains_numeric_tokens_without_inferring_scope_from_field_n
     assert reopened.native_request() == request()
 
 
-def test_lost_claim_before_ack_keeps_body_inert(tmp_path):
+def test_lost_claim_before_ack_removes_unpublished_body(tmp_path):
     calls = 0
 
     def check_active():
@@ -179,7 +179,8 @@ def test_lost_claim_before_ack_keeps_body_inert(tmp_path):
     store = CompletionDraftStore(tmp_path, max_bytes=65536)
     with pytest.raises(RuntimeError, match="claim lost"):
         acknowledge(store, check_active=check_active)
-    assert len(tuple(tmp_path.glob("*.body"))) == 1
+    assert tuple(tmp_path.glob("*.body")) == ()
+    assert tuple(tmp_path.glob("*.candidate")) == ()
     assert tuple(tmp_path.glob("*.ack")) == ()
     assert tuple(store.candidates("request:original", 2)) == ()
     draft = acknowledge(store)
@@ -431,3 +432,115 @@ def test_legacy_draft_requires_authenticated_writer_basis(tmp_path):
     reopened = CompletionDraftStore(tmp_path, max_bytes=65536, writer_schema_for_release=writer)
     assert reopened.open(identity).native_request() == request()
     assert acquired == ["release:original"]
+
+
+@pytest.fixture
+def upload_arguments():
+    import pyarrow as pa
+
+    from corpus_structure.semantic.data_operation_partitions import PartitionCommitment
+    from corpus_structure.semantic.population_transfer import (
+        PopulationUploadPartition,
+        population_item_write_profile,
+        population_upload_batches,
+    )
+
+    profile = population_item_write_profile(release_id="release:original")
+    partition = PopulationUploadPartition(
+        PartitionCommitment("rows", "one", 0, 1, 4, "digest:one", 1),
+        {},
+        pa.table({"item_ordinal": [0], "canonical_text": ['["mapping",[]]']}),
+    )
+
+    def arguments():
+        return dict(
+            population_upload_batches=population_upload_batches(profile, [("result", 0, partition)]),
+            population_upload_profile=profile,
+        )
+
+    return arguments
+
+
+@pytest.mark.parametrize("suffix", [".body", ".candidate", ".ack"])
+def test_seal_failure_preserves_only_acknowledged_population(
+    tmp_path, monkeypatch, upload_arguments, suffix
+):
+    from corpus_structure.core.execution_control import ExecutionStopped
+
+    store = CompletionDraftStore(tmp_path, max_bytes=65536)
+    atomic = store._atomic
+
+    def fail_after_install(name, content):
+        atomic(name, content)
+        if name.endswith(suffix):
+            raise ExecutionStopped()
+
+    monkeypatch.setattr(store, "_atomic", fail_after_install)
+    with pytest.raises(ExecutionStopped):
+        acknowledge(store, **upload_arguments())
+    if suffix == ".ack":
+        (draft,) = store.candidates("request:original", 2)
+        assert draft.population_upload is not None
+        original = draft.population_upload.path.read_bytes()
+        reopened = CompletionDraftStore(tmp_path, max_bytes=65536).open(draft.identity)
+        with reopened.population_upload.open_reader() as reader:
+            assert reader.read_all().num_rows == 1
+        assert reopened.population_upload.path.read_bytes() == original
+    else:
+        assert not tuple(tmp_path.glob("*.body"))
+        assert not tuple(tmp_path.glob("*.arrow"))
+        assert not tuple(tmp_path.glob("*.candidate"))
+    assert not tuple(tmp_path.glob("pending-*"))
+
+
+def test_population_stop_after_installed_arrow_removes_unsealed_files(
+    tmp_path, upload_arguments
+):
+    from corpus_structure.core.execution_control import ExecutionStopped
+
+    store = CompletionDraftStore(tmp_path, max_bytes=65536)
+
+    def active():
+        if tuple(tmp_path.glob("*.arrow")):
+            raise ExecutionStopped()
+
+    with pytest.raises(ExecutionStopped):
+        acknowledge(store, check_active=active, **upload_arguments())
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["OWNER"]
+
+
+def test_reopening_store_retires_abandoned_staging_and_keeps_live_writer(tmp_path):
+    import fcntl
+
+    CompletionDraftStore(tmp_path, max_bytes=65536)
+    identity = "a" * 64
+    (tmp_path / (identity + ".body")).write_bytes(b"unsealed")
+    (tmp_path / (identity + ".arrow")).write_bytes(b"unsealed")
+    (tmp_path / ("b" * 64 + "." + identity + ".candidate")).touch()
+    (tmp_path / "pending-abandoned").write_bytes(b"incomplete")
+    live = tmp_path / "pending-live"
+    with live.open("wb") as writer:
+        fcntl.flock(writer.fileno(), fcntl.LOCK_EX)
+        CompletionDraftStore(tmp_path, max_bytes=65536)
+        assert sorted(path.name for path in tmp_path.iterdir()) == ["OWNER", "pending-live"]
+    CompletionDraftStore(tmp_path, max_bytes=65536)
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["OWNER"]
+
+
+def test_population_private_copy_observes_stop_and_preserves_original(
+    tmp_path, upload_arguments
+):
+    from corpus_structure.core.execution_control import ExecutionStopped
+
+    store = CompletionDraftStore(tmp_path, max_bytes=65536)
+    draft = acknowledge(store, **upload_arguments())
+    original = draft.population_upload.path.read_bytes()
+
+    def stopped():
+        raise ExecutionStopped()
+
+    with pytest.raises(ExecutionStopped), draft.population_upload.open_reader(check_active=stopped):
+        pytest.fail("stopped reader must not acquire its private copy")
+    assert draft.population_upload.path.read_bytes() == original
+    with store.open(draft.identity).population_upload.open_reader() as reader:
+        assert reader.read_all().num_rows == 1

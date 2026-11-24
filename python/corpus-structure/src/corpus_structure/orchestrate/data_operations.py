@@ -1343,7 +1343,7 @@ class NativeDemandExecutor:
 
         def retain(calls):
             if draft is not None and draft.population_upload is not None:
-                self._upload_draft(calls, claim, draft)
+                self._upload_draft(calls, claim, draft, check_active=lambda: _check_claim_active(owner, claim))
             elif profile is not None:
                 calls.prepare_population_upload(
                     claim.fence,
@@ -1425,7 +1425,7 @@ class NativeDemandExecutor:
 
                 def consume(calls, *, candidate=candidate, draft=draft, original=original):
                     if draft.population_upload is not None:
-                        self._upload_draft(calls, claim, draft)
+                        self._upload_draft(calls, claim, draft, check_active=lambda: _check_claim_active(owner, claim))
                     return calls.consume_data_completion_draft(
                         {
                             **claim.fence,
@@ -1454,9 +1454,15 @@ class NativeDemandExecutor:
         return None
 
     @staticmethod
-    def _upload_draft(calls, claim, draft):
+    def _upload_draft(calls, claim, draft, *, check_active=lambda: None):
         profile = population_item_write_profile(release_id=draft.release_id)
-        with draft.population_upload.open_reader() as reader:
+        def active():
+            check_active()
+            cancellation = getattr(calls, "cancellation", None)
+            if cancellation is not None:
+                cancellation.check_active()
+
+        with draft.population_upload.open_reader(check_active=active) as reader:
             if not reader.schema.equals(profile.schema, check_metadata=True):
                 raise PortRefusal("durable draft population differs from its captured upload shape")
             calls.prepare_population_upload(

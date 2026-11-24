@@ -1,6 +1,8 @@
 """Native transactions, admission and claim custody for demand execution."""
 
 from contextlib import contextmanager
+from contextvars import copy_context
+from threading import Event, Thread
 from typing import Literal, overload
 
 from corpus_structure.semantic.claim_lifetime import ClaimFenceLost, maintained_claims
@@ -52,9 +54,40 @@ class NativeDemandClaims:
         )
 
     def retain(self, claim, callback):
-        return self.owner.retain(
-            claim, lambda connection: callback(DataOperationStorage(connection))
-        )
+        from corpus_structure.core.db.lifetime import BorrowerCancellation
+        from corpus_structure.core.execution_control import check_execution_active
+
+        cancellation = BorrowerCancellation()
+        done = Event()
+        failures = []
+
+        def watch_stop():
+            while not done.wait(0.05):
+                try:
+                    check_execution_active()
+                    self.owner()
+                except BaseException as error:
+                    failures.append(error)
+                    cancellation.request_cancel()
+                    return
+
+        context = copy_context()
+        watcher = Thread(target=context.run, args=(watch_stop,), name="native-retain-stop", daemon=True)
+        watcher.start()
+        try:
+            return self.owner.retain(
+                claim,
+                lambda connection: callback(DataOperationStorage(connection, cancellation=cancellation)),
+                cancellation=cancellation,
+            )
+        except BaseException:
+            if failures:
+                raise failures[0]
+            raise
+        finally:
+            done.set()
+            watcher.join()
+
 
     def retain_pdf_adoption(self, claim, callback, cancellation):
         """Serialize document adoption and lease maintenance on the same claim."""

@@ -45,7 +45,8 @@ class PopulationUploadFile:
     byte_length: int
     digest: str
 
-    def _copy(self, output=None):
+    def _copy(self, output=None, *, check_active=lambda: None):
+        check_active()
         descriptor = os.open(self.path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         try:
             before = os.fstat(descriptor)
@@ -59,6 +60,7 @@ class PopulationUploadFile:
             remaining = self.byte_length
             with os.fdopen(descriptor, "rb", closefd=False) as source:
                 while remaining:
+                    check_active()
                     chunk = source.read(min(remaining, 1024 * 1024))
                     if not chunk:
                         raise ValueError(
@@ -68,6 +70,7 @@ class PopulationUploadFile:
                     if output is not None:
                         output.write(chunk)
                     remaining -= len(chunk)
+            check_active()
             after = os.fstat(descriptor)
             if digest.hexdigest() != self.digest or (
                 before.st_size,
@@ -79,13 +82,13 @@ class PopulationUploadFile:
             os.close(descriptor)
 
     @contextmanager
-    def open_reader(self):
+    def open_reader(self, *, check_active=lambda: None):
         import pyarrow as pa
 
         # The private anonymous file is the exact copy authenticated above. Subsequent
         # changes to the durable pathname cannot change the batches sent to COPY.
         with TemporaryFile(dir=self.path.parent) as owned:
-            self._copy(owned)
+            self._copy(owned, check_active=check_active)
             owned.seek(0)
             with pa.ipc.open_stream(owned) as reader:
                 yield reader
@@ -204,6 +207,8 @@ class CompletionDraftStore:
         if root.is_symlink() or info.st_uid != os.getuid() or info.st_mode & 0o077:
             raise ValueError("completion draft root has foreign file custody")
         _sync_directory(root.parent)
+        with self._owner():
+            self._recover_unacknowledged()
 
     @contextmanager
     def _owner(self):
@@ -219,11 +224,40 @@ class CompletionDraftStore:
         finally:
             os.close(fd)
 
+    def _recover_unacknowledged(self) -> None:
+        """Recover abandoned local staging while holding the draft owner lock."""
+        changed = False
+        for path in self.root.glob("pending-*"):
+            descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            try:
+                try:
+                    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    continue
+                info = os.fstat(descriptor)
+                if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+                    raise ValueError("completion staging has foreign file custody")
+                path.unlink()
+                changed = True
+            finally:
+                os.close(descriptor)
+        for path in self.root.iterdir():
+            matched = re.fullmatch(r"(?:[0-9a-f]{64}\.)?([0-9a-f]{64})\.(body|arrow|candidate)", path.name)
+            if matched is None:
+                continue
+            identity = matched[1]
+            if not any((self.root / (identity + suffix)).exists() for suffix in (".ack", ".retired")):
+                path.unlink()
+                changed = True
+        if changed:
+            _sync_directory(self.root)
+
     def _atomic(self, name: str, content: bytes) -> None:
         temporary = self.root / ("pending-" + uuid4().hex)
         try:
             fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
             with os.fdopen(fd, "wb") as sink:
+                fcntl.flock(fd, fcntl.LOCK_EX)
                 sink.write(content)
                 sink.flush()
                 os.fsync(sink.fileno())
@@ -269,6 +303,7 @@ class CompletionDraftStore:
             request_bytes=len(content),
         )
         temporary = self.root / ("pending-" + uuid4().hex)
+        staging_owner = None
         try:
             if population_upload_batches is not None:
                 from .population_transfer import write_population_upload
@@ -277,7 +312,10 @@ class CompletionDraftStore:
                 maximum = self.max_bytes - len(content)
                 if max_population_upload_bytes is not None:
                     maximum = min(maximum, max_population_upload_bytes)
-                descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with self._owner():
+                    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+                    fcntl.flock(descriptor, fcntl.LOCK_EX)
+                    staging_owner = os.dup(descriptor)
                 with os.fdopen(descriptor, "wb") as stream:
                     size, digest = write_population_upload(
                         population_upload_profile,
@@ -301,19 +339,31 @@ class CompletionDraftStore:
                     raise ValueError("completion draft is already retired")
                 if (self.root / (identity + ".ack")).exists():
                     return self._open(identity)
-                self._atomic(identity + ".body", content)
-                if population_upload_batches is not None:
-                    temporary.replace(self.root / (identity + ".arrow"))
-                    _sync_directory(self.root)
-                lookup = _candidate_key(request["request_id"], request["generation"])
-                self._atomic(lookup + "." + identity + ".candidate", b"")
-                check_active()
-                self._atomic(identity + ".ack", envelope)
-                return self._open(identity)
+                try:
+                    self._atomic(identity + ".body", content)
+                    if population_upload_batches is not None:
+                        temporary.replace(self.root / (identity + ".arrow"))
+                        _sync_directory(self.root)
+                    lookup = _candidate_key(request["request_id"], request["generation"])
+                    self._atomic(lookup + "." + identity + ".candidate", b"")
+                    check_active()
+                    self._atomic(identity + ".ack", envelope)
+                    return self._open(identity, check_active=check_active)
+                except BaseException:
+                    if not (self.root / (identity + ".ack")).exists():
+                        for suffix in (".body", ".arrow"):
+                            (self.root / (identity + suffix)).unlink(missing_ok=True)
+                        for path in self.root.glob("*." + identity + ".candidate"):
+                            path.unlink()
+                        _sync_directory(self.root)
+                    raise
+
         finally:
             temporary.unlink(missing_ok=True)
+            if staging_owner is not None:
+                os.close(staging_owner)
 
-    def _open(self, identity: str) -> CompletionDraft:
+    def _open(self, identity: str, *, check_active=lambda: None) -> CompletionDraft:
         identity = _identity(identity)
         envelope = _read(self.root / (identity + ".ack"), max_bytes=self.max_bytes)
         if sha256(envelope).hexdigest() != identity:
@@ -367,7 +417,7 @@ class CompletionDraftStore:
             upload = PopulationUploadFile(
                 self.root / (identity + ".arrow"), value["upload_bytes"], value["upload_sha256"]
             )
-            upload._copy()
+            upload._copy(check_active=check_active)
         return CompletionDraft(
             identity,
             value["release_id"],
