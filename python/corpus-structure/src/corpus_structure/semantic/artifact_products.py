@@ -23,6 +23,7 @@ _PATHS = (
     "semantic/artifact_products.py",
     "methods/artifact_identity.py",
     "methods/scoped_relations.py",
+    "methods/scoped_inventory.py",
     "methods/witnessed_source_links.py",
     "semantic/artifact_identity.py",
     "semantic/contribution_input_references.py",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Any
 
 from pydantic import BaseModel
@@ -21,9 +22,68 @@ class DeclaredFormalInventory:
     reference: DataProductReference
     inventory_content: bytes
 
-    @property
+    @cached_property
     def payload(self) -> dict[str, Any]:
         return json_loads(self.inventory_content)
+
+
+class PreparedFormalLayers(Mapping):
+    """Original product occurrences and their reusable positioned formal indexes."""
+
+    def __init__(self, layers):
+        self.layers = layers
+        self.occurrences = {}
+        self.nodes = {}
+        self.symbols = {}
+        self.inputs = []
+        self._captured = {}
+        self._inline = {}
+        for pin, report in layers.items():
+            body = report.payload
+            self.occurrences[pin] = {row["local_id"]: row for row in body["occurrences"]}
+            nodes = self.nodes[pin] = {row["local_id"]: row for row in body["annotations"]}
+            for annotation in nodes.values():
+                formal = annotation.get("formal")
+                if annotation["kind"] == "formal.symbol" and formal is not None:
+                    self.symbols.setdefault((pin, formal["input_id"]), []).append(annotation)
+                value = annotation.get("formal_input")
+                if value is None:
+                    continue
+                row = pin, body, annotation, value
+                self.inputs.append(row)
+                extents = self.occurrences[pin][value["parent_occurrence"]]["extents"]
+                if extents:
+                    self._captured.setdefault(
+                        (value["text"], value["representation"], extents[0].get("start")), []
+                    ).append(row)
+                if len(extents) == 1:
+                    extent = extents[0]
+                    self._inline.setdefault(
+                        (extent.get("native_pointer"), extent.get("start"), extent.get("end")), []
+                    ).append(row)
+
+    def __getitem__(self, key):
+        return self.layers[key]
+
+    def __iter__(self):
+        return iter(self.layers)
+
+    def __len__(self):
+        return len(self.layers)
+
+    def captured_inputs(self, text, representation, source_start):
+        return self._captured.get((text, representation, source_start), ())
+
+    def inline_inputs(self, pointer=None, start=None, end=None):
+        if pointer is not None and start is not None and end is not None:
+            return self._inline.get((pointer, start, end), ())
+        return self.inputs
+
+
+def prepare_formal_layers(layers):
+    if isinstance(layers, PreparedFormalLayers):
+        return layers
+    return PreparedFormalLayers(layers)
 
 
 def declared_formal_layers(products, source):
@@ -63,7 +123,7 @@ def declared_formal_layers(products, source):
                 }
             ),
         )
-    return result
+    return PreparedFormalLayers(result)
 
 
 def formal_member_reference(product: DataProductReference, identifier):

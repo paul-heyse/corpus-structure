@@ -155,23 +155,17 @@ def procedure_artifact_bindings(contributions):
     }
 
 
-def procedure_artifact_endpoint(rows, link, annotation, artifact_id, *, verb_extent=None):
+def procedure_artifact_endpoint(
+    rows, link, annotation, artifact_id, *, verb_extent=None, action_index
+):
     """Bind the recipe's exact action token to the original caption relationship."""
-    from corpus_structure.semantic.observations import source_python
 
     if verb_extent is None:
         if annotation is None:
             return None
         verb = annotation.tokens[link.witness.tokens["verb"]]
         verb_extent = verb.start, verb.end
-    actions = [
-        row
-        for row in rows.values()
-        if row.get("semantic_type") == "structural.located_participant"
-        and (value := source_python(row["value"])).get("role") == "procedure_action"
-        and (value["source_pointer"], value["start"], value["end"]) == (link.pointer, *verb_extent)
-        and link.witness.annotation in row["computation_dependencies"]
-    ]
+    actions = action_index.get((link.pointer, *verb_extent, link.witness.annotation), ())
     if len(actions) != 1:
         return None
     artifact = rows[artifact_id]
@@ -243,24 +237,69 @@ def match_named_source_links(
     annotation_errors=(),
     version=NAMED_PIECE_VERSION,
     navigation: NativeNavigationIndex,
+    inventory=None,
 ):
     """Project primary named roles under the caller's source selection; never match a Doc."""
     if version != NAMED_PIECE_VERSION:
         raise ValueError("current named navigation requires the retained primary recipe")
+    if inventory is None:
+        from .scoped_inventory import ScopedInventory
+
+        pieces = tuple(pieces)
+        with ScopedInventory(pieces, ((0, len(text)),)) as prepared:
+            return match_named_source_links(
+                text,
+                pieces,
+                items,
+                passages,
+                annotation_errors=annotation_errors,
+                version=version,
+                navigation=navigation,
+                inventory=prepared,
+            )
     index = navigation
     matches, inspected = [], set()
     passages = tuple(passages or ())
     incomplete = bool(passages) and (not index.complete or bool(annotation_errors))
     by_pointer = {p["item_ref"]: p for p in pieces if p["kind"] == "native_text"}
-    for passage in passages or ():
-        for record in index.select("named_availability"):
-            extent = record.span("source")
-            if extent is not None and extent[0] < passage.end and passage.start < extent[1]:
-                if record.payload["status"] == "complete":
-                    inspected.add(record.payload["pointer"])
-                else:
-                    incomplete = True
-        for record in index.select("named_link"):
+    availability = tuple(
+        (record, extent)
+        for record in index.select("named_availability")
+        if (extent := record.span("source")) is not None
+    )
+    selected_availability = inventory.contained_pairs(
+        [(passage.start, passage.end) for passage in passages],
+        [extent for _, extent in availability],
+        overlap=True,
+    )
+    links = tuple(index.select("named_link")) if passages else ()
+    link_bounds = []
+    for record in links:
+        left, cue = record.span("subject"), record.span("cue")
+        piece = by_pointer.get(record.payload["pointer"])
+        if piece is None:
+            raise ValueError("retained navigation has no selected native piece")
+        link_bounds.append(
+            (min(left[0], cue[0]), max(left[1], cue[1]))
+            if left is not None
+            and cue is not None
+            and piece["start"] <= left[0] < left[1] <= piece["end"]
+            and piece["start"] <= cue[0] < cue[1] <= piece["end"]
+            else (0, 0)
+        )
+    selected_links = inventory.contained_pairs(
+        [(passage.start, passage.end) for passage in passages],
+        link_bounds,
+    )
+    for passage_index, passage in enumerate(passages):
+        for record_index in selected_availability[passage_index]:
+            record, _extent = availability[record_index]
+            if record.payload["status"] == "complete":
+                inspected.add(record.payload["pointer"])
+            else:
+                incomplete = True
+        for record_index in selected_links[passage_index]:
+            record = links[record_index]
             nav = record.payload
             piece = by_pointer.get(nav["pointer"])
             if piece is None:
@@ -541,6 +580,7 @@ def recapped_declarations(
     passages,
     *,
     navigation: NativeNavigationIndex,
+    inventory,
 ):
     """Resolve a named recap only within one complete selected passage and parent."""
     index = navigation.require()
@@ -552,61 +592,80 @@ def recapped_declarations(
         and "cell_index" not in p
         and items.get(p.get("item_ref"), {}).get("content_layer") == "body"
     ]
-    for passage in passages or ():
-        rows = [
-            (p, items[p["item_ref"]], text[p["start"] : p["end"]])
-            for p in physical
-            if passage.start <= p["start"] < p["end"] <= passage.end
-        ]
-        for i, (piece, node, _literal) in enumerate(rows):
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    passages = tuple(passages or ())
+    selected = inventory.contained_pairs(
+        [(passage.start, passage.end) for passage in passages],
+        [(piece["start"], piece["end"]) for piece in physical],
+    )
+    questions, declarations, uses = [], [], []
+    for passage_index, passage in enumerate(passages):
+        for piece_index in selected[passage_index]:
+            piece = physical[piece_index]
+            parent = items[piece["item_ref"]].get("parent")
+            if parent is None:
+                continue
+            parent_key = canonical_bytes(parent).decode()
+            cues = Counter(
+                record.text("symbol")
+                for record in index.select("declaration_cue", piece["item_ref"])
+                if record.payload.get("variant") == "simple_let"
+            )
+            for symbol, count in cues.items():
+                declarations.append(
+                    dict(
+                        ordinal=len(declarations),
+                        passage=passage_index,
+                        piece=piece_index,
+                        parent=parent_key,
+                        symbol=symbol,
+                        record_count=count,
+                    )
+                )
             use = _retained_match(index, "recap", piece["item_ref"], piece["start"], piece["end"])
-            parent = node.get("parent")
-            if use is None or parent is None:
-                continue
-            symbol, name = use["symbol"], use["name"]
-            earlier = [
-                (p, block)
-                for p, other, block in rows[:i]
-                if other.get("parent") == parent
-                and any(
-                    r.payload.get("variant") == "simple_let" and r.text("symbol") == symbol
-                    for r in index.select("declaration_cue", p["item_ref"])
+            if use is not None:
+                questions.append(
+                    dict(
+                        ordinal=len(questions),
+                        passage=passage_index,
+                        piece=piece_index,
+                        parent=parent_key,
+                        symbol=use["symbol"],
+                        record_count=0,
+                    )
                 )
-            ]
-            if (
-                len(earlier) != 1
-                or sum(
-                    r.payload.get("variant") == "simple_let" and r.text("symbol") == symbol
-                    for r in index.select("declaration_cue", earlier[0][0]["item_ref"])
-                )
-                != 1
-            ):
-                continue
-            declaration, _declaration_text = earlier[0]
-            binding = _retained_match(
-                index,
-                "declaration_template",
-                declaration["item_ref"],
-                declaration["start"],
-                declaration["end"],
-            )
-            if binding is None or binding["symbol"] != symbol or binding["name"] != name:
-                continue
+                uses.append((passage, piece, use))
+    for question_index, declaration_index in inventory.preceding_matches(
+        questions, declarations
+    ).items():
+        passage, piece, use = uses[question_index]
+        symbol, name = use["symbol"], use["name"]
+        declaration = physical[declarations[declaration_index]["piece"]]
+        binding = _retained_match(
+            index,
+            "declaration_template",
+            declaration["item_ref"],
+            declaration["start"],
+            declaration["end"],
+        )
+        if binding is None or binding["symbol"] != symbol or binding["name"] != name:
+            continue
 
-            def extent(start, match, group):
-                return start + match.start(group), start + match.end(group)
+        def extent(start, match, group):
+            return start + match.start(group), start + match.end(group)
 
-            yield RecappedDeclaration(
-                declaration["item_ref"],
-                piece["item_ref"],
-                symbol,
-                extent(declaration["start"], binding, "name"),
-                extent(declaration["start"], binding, "description"),
-                (piece["start"], piece["start"] + use.end("symbol")),
-                extent(piece["start"], use, "equation"),
-                passage.scope,
-                passage.passage_id,
-                passage.effective_version,
-                primary_node=use.primary_node,
-                declaration_node=binding.primary_node,
-            )
+        yield RecappedDeclaration(
+            declaration["item_ref"],
+            piece["item_ref"],
+            symbol,
+            extent(declaration["start"], binding, "name"),
+            extent(declaration["start"], binding, "description"),
+            (piece["start"], piece["start"] + use.end("symbol")),
+            extent(piece["start"], use, "equation"),
+            passage.scope,
+            passage.passage_id,
+            passage.effective_version,
+            primary_node=use.primary_node,
+            declaration_node=binding.primary_node,
+        )

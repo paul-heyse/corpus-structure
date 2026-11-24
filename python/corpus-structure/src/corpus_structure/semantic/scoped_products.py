@@ -22,6 +22,8 @@ _PATHS = (
     "methods/scoped_relations_declared.py",
     "semantic/scoped_products.py",
     "methods/scoped_relations.py",
+    "methods/scoped_inventory.py",
+    "analytics.py",
     "methods/structural_roles.py",
     "methods/inline_formula_occurrences.py",
     "methods/witnessed_source_links.py",

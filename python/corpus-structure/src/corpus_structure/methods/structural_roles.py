@@ -145,40 +145,31 @@ def captured_formula_symbols(
     """
     if primary_layers is None or projection is None or source_start is None:
         return (), "unsupported"
-    from corpus_structure.semantic.declared_formal_readings import formal_member_reference
+    from corpus_structure.semantic.declared_formal_readings import (
+        formal_member_reference,
+        prepare_formal_layers,
+    )
 
+    layers = prepare_formal_layers(primary_layers)
     roots = []
-    for pin, report in primary_layers.items():
-        body = report.payload
-        occurrences = {o["local_id"]: o for o in body["occurrences"]}
-        for annotation in body["annotations"]:
-            value = annotation.get("formal_input")
-            if (
-                value is None
-                or annotation["family"] != "formal.math"
-                or value["text"] != text
-                or value["representation"] != representation
-            ):
-                continue
-            parent = value["parent_occurrence"]
-            if parent_occurrence is not None and parent != parent_occurrence:
-                continue
-            extents = occurrences[parent]["extents"]
-            if (
-                not extents
-                or extents[0].get("start") != source_start
-                or any(
-                    e["projection"] != projection
-                    or (source_view_id is not None and e["source_view_id"] != source_view_id)
-                    for e in extents
-                )
-            ):
-                continue
-            if native_pointer is not None and any(
-                e["native_pointer"] != native_pointer for e in extents
-            ):
-                continue
-            roots.append((pin, body, annotation, value))
+    for pin, body, annotation, value in layers.captured_inputs(text, representation, source_start):
+        if annotation["family"] != "formal.math":
+            continue
+        parent = value["parent_occurrence"]
+        if parent_occurrence is not None and parent != parent_occurrence:
+            continue
+        extents = layers.occurrences[pin][parent]["extents"]
+        if any(
+            extent["projection"] != projection
+            or (source_view_id is not None and extent["source_view_id"] != source_view_id)
+            for extent in extents
+        ):
+            continue
+        if native_pointer is not None and any(
+            extent["native_pointer"] != native_pointer for extent in extents
+        ):
+            continue
+        roots.append((pin, body, annotation, value))
     if len(roots) != 1:
         return (), "ambiguous" if roots else "unsupported"
     pin, body, root, value = roots[0]
@@ -186,9 +177,9 @@ def captured_formula_symbols(
         return (), "ambiguous" if value["syntax_outcome"] == "ambiguous" else "unsupported"
     if value.get("symbol_outcome") != "complete":
         return (), "unsupported"
-    nodes = {a["local_id"]: a for a in body["annotations"]}
+    nodes = layers.nodes[pin]
     symbols = []
-    for annotation in nodes.values():
+    for annotation in layers.symbols.get((pin, root["local_id"]), ()):
         formal = annotation.get("formal")
         if (
             annotation["kind"] != "formal.symbol"

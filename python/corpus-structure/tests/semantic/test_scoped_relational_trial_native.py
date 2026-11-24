@@ -1,0 +1,234 @@
+"""Current scoped production supplies an exact nomination to its artifact consumer.
+
+The PDF decoder is controlled. Native source acquisition, linguistic and formal producers,
+scoped execution, publication, artifact consumption and authenticated reopen are real.
+"""
+
+from corpus_structure.semantic.data_operation_service import DemandOperationSelection
+from corpus_structure.semantic.data_operation_source_sets import (
+    FrozenSourceSet,
+    SelectedSourceSetEntry,
+)
+from corpus_structure.semantic.declared_candidate_products import candidate_member_values
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.observations import source_python
+from corpus_structure.semantic.source_products import selected_source_ranges
+from corpus_structure.serve.demand_export import export_demand_result, verified_demand_export
+from corpus_structure.serve.structural_products import (
+    SelectedStructuralRequest,
+    inspect_selected_structures,
+)
+from semantic.current_artifact_support import ARTIFACT, artifact_recipe
+from semantic.current_pdf_source_support import (
+    PROJECT,
+    _current_pdf_source,
+    admit_current_target,
+    current_consumer_request,
+)
+from semantic.structural_admission_native_support import execute, request, selected
+
+SCOPED = "structure.scoped_relations/declared"
+SCOPED_KIND = "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoScopedRelationsReport"
+SOURCE_KIND = "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource"
+CONSTRUCTION_KIND = "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct"
+
+
+def scoped_artifact_content():
+    from docling_core.types.doc import (
+        BoundingBox,
+        DocItemLabel,
+        DoclingDocument,
+        GroupLabel,
+        ProvenanceItem,
+        Size,
+        TableCell,
+        TableData,
+    )
+    from pdf_controlled_support import ControlledPdfContent
+
+    document = DoclingDocument(name="Scoped nomination source")
+    document.add_page(page_no=1, size=Size(width=200, height=300))
+    group = document.add_group(label=GroupLabel.SECTION, name="Exact scoped table")
+    literal = "See Table 2.1."
+    document.add_text(
+        label=DocItemLabel.TEXT,
+        text=literal,
+        orig=literal,
+        parent=group,
+        prov=ProvenanceItem(
+            page_no=1, bbox=BoundingBox(l=10, t=20, r=150, b=40), charspan=(0, len(literal))
+        ),
+    )
+    table = document.add_table(
+        parent=group,
+        data=TableData(
+            num_rows=1,
+            num_cols=1,
+            table_cells=[
+                TableCell(
+                    text="1.0000000000000000000000000001",
+                    start_row_offset_idx=0,
+                    end_row_offset_idx=1,
+                    start_col_offset_idx=0,
+                    end_col_offset_idx=1,
+                )
+            ],
+        ),
+        prov=ProvenanceItem(page_no=1, bbox=BoundingBox(l=10, t=60, r=150, b=140), charspan=(0, 0)),
+    )
+    literal = "Table 2.1 Exact values"
+    caption = document.add_text(
+        label=DocItemLabel.CAPTION,
+        text=literal,
+        orig=literal,
+        parent=table,
+        prov=ProvenanceItem(
+            page_no=1, bbox=BoundingBox(l=10, t=45, r=150, b=60), charspan=(0, len(literal))
+        ),
+    )
+    table.captions.append(caption.get_ref())
+    return ControlledPdfContent.from_document(document)
+
+
+def test_current_scoped_relations_publish_nomination_and_reopen_exact_artifact_consumer(
+    scenario_seeds, tmp_path
+):
+    with _current_pdf_source(
+        scenario_seeds, tmp_path, content=scoped_artifact_content(), sections=("#/groups/0",)
+    ) as source:
+        kernel = admit_current_target(
+            source, artifact_recipe(tmp_path / "recipe"), tmp_path / "consumer"
+        )
+        pending = current_consumer_request(source, kernel, (SCOPED,), discover=True)
+        selections = {value.operation: value for value in pending.selections}
+        selections[SCOPED] = DemandOperationSelection(
+            operation=SCOPED, parameters={"source_work": "controlled-book"}
+        )
+        pending = pending.model_copy(update={"selections": tuple(selections.values())})
+        scoped_demand, execution = execute(kernel, pending)
+        assert execution.receipt_count > 0
+        (scoped,) = selected(kernel, scoped_demand["demand_id"], kind=SCOPED_KIND)
+        (original,) = selected(kernel, scoped_demand["demand_id"], kind=SOURCE_KIND)
+        (construction,) = selected(kernel, scoped_demand["demand_id"], kind=CONSTRUCTION_KIND)
+        contributions = candidate_member_values(scoped.body, candidate_type="contribution")
+        (nomination,) = [
+            row
+            for row in contributions
+            if row.get("component", {}).get("attachment_kind") == "artifact_reference_target"
+        ]
+        assert nomination["pin"]["source_product"] == original.row["product_id"]
+        by_id = {row["contribution_id"]: row for row in contributions}
+        mention, caption = [source_python(by_id[key]["value"]) for key in nomination["members"]]
+        assert mention["text"] == "Table 2.1" and caption["text"] == "Table 2.1"
+        assert mention["source_pointer"] != caption["source_pointer"]
+        source_entry = original.entry()
+        source_reference = canonical_bytes(
+            [original.row["product_id"], original.row["member_id"]]
+        ).decode()
+        assert (
+            source_reference
+            == canonical_bytes([source_entry.entry.product, source_entry.entry.member]).decode()
+        )
+        assert scoped.body["source_pin"]["source"] == source_reference
+        assert nomination["pin"]["source"] == source_reference
+        assert all(by_id[key]["pin"]["source"] == source_reference for key in nomination["members"])
+        assert original.body["text"][mention["start"] : mention["end"]] == "Table 2.1"
+        assert original.body["text"][caption["start"] : caption["end"]] == "Table 2.1"
+        assert selected_source_ranges(original.body, original.body["selectors"]) == (
+            (0, len(original.body["text"])),
+        )
+        occurrence = "scoped:actual-report"
+        report_entry = SelectedSourceSetEntry.from_selected_header(
+            scoped.row, scoped.read, occurrence_label=occurrence
+        )
+        assert report_entry.entry.occurrence_label == occurrence
+        parameters = dict(
+            selections=[
+                dict(
+                    source_reference=source_reference,
+                    passage_id="controlled-book",
+                    start=0,
+                    end=len(original.body["text"]),
+                    scope="controlled scoped source",
+                    source_work="controlled-book",
+                    mapping_provenance="explicit native trial source",
+                )
+            ],
+            nomination_selections=[
+                dict(report_occurrence=occurrence, contribution_id=nomination["contribution_id"])
+            ],
+            title_threshold=70.5,
+            policy=dict(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05),
+        )
+        consumer = request(
+            kernel,
+            (ARTIFACT,),
+            original.context,
+            source_sets=(
+                FrozenSourceSet.from_selected("artifact-sources", (source_entry,)),
+                FrozenSourceSet.from_selected("artifact-constructions", (construction.entry(),)),
+                FrozenSourceSet.from_selected("artifact-nominations", (report_entry,)),
+            ),
+            selections=(DemandOperationSelection(operation=ARTIFACT, parameters=parameters),),
+            inference="complete-scoped-relational-trial",
+        )
+        artifact_demand, _execution = execute(kernel, consumer)
+        (artifact,) = selected(
+            kernel,
+            artifact_demand["demand_id"],
+            kind="urn:corpus:structural:DeclaredArtifactReport",
+        )
+        assert artifact.body["inputs"]["dependencies"] == [nomination["contribution_id"]]
+        product = artifact.body["artifact_identity"]
+        assert product["policy"] == parameters["policy"]
+        (external,) = product["external_nominations"]
+        assert external["relationship"] == dict(
+            variant="member",
+            role="nominations",
+            occurrence=occurrence,
+            member_id="contribution:" + nomination["contribution_id"],
+        )
+        assert {endpoint["origin_source"] for endpoint in external["endpoints"]} == {
+            parameters["selections"][0]["source_reference"]
+        }
+        with kernel.purpose("read").begin() as connection:
+            observed = inspect_selected_structures(
+                connection,
+                SelectedStructuralRequest(
+                    project_id=PROJECT,
+                    demand_id=artifact_demand["demand_id"],
+                    roots=(artifact.root,),
+                    max_graph_bytes=32 * 1024**2,
+                ),
+            )
+            exported = export_demand_result(
+                connection,
+                artifact_demand["demand_id"],
+                project_id=PROJECT,
+                destination=tmp_path / "scoped-artifact-export",
+                format="parquet",
+                scope={"product_ids": [artifact.row["product_id"]]},
+            )
+        assert observed["reports"][0]["availability"] == "observed"
+        assert canonical_bytes(
+            observed["reports"][0]["report"]["artifact_identity"]
+        ) == canonical_bytes(product)
+        with verified_demand_export(
+            tmp_path / "scoped-artifact-export", manifest_digest=exported.manifest_digest
+        ) as (_, _, _, index):
+            products = index.mapping("kb.data_product", ("id",))
+            assert {
+                scoped.row["product_id"],
+                original.row["product_id"],
+                artifact.row["product_id"],
+            } <= set(products)
+            actual_inputs = [
+                row
+                for row in index.rows("ops.data_derivation_input")
+                if row["derivation_id"] == artifact.row["derivation_id"]
+                and row["role"] == "nominations"
+            ]
+            assert (
+                len(actual_inputs) == 1
+                and actual_inputs[0]["product_id"] == scoped.row["product_id"]
+            )

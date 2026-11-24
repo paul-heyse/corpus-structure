@@ -2,10 +2,11 @@
 
 import json
 import re
+from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, NotRequired, TypedDict
 
-from corpus_structure.methods.source_preparation import native_table_geometry
+from corpus_structure.methods.scoped_inventory import ScopedInventory
 from corpus_structure.semantic.artifact_identity import normalized_code
 from corpus_structure.semantic.contributions import (
     contribution_identity,
@@ -109,49 +110,13 @@ def _measure_table_geometry(node: Mapping[str, Any], *, navigation) -> Mapping[s
     }
 
 
-def _note_scope(note, cells, targets, *, navigation, pointer):
-    facts = navigation.select("note_scope", pointer)
-    if len(facts) != 1:
-        return ()
-    fact = facts[0]
-    if fact.payload["axis"] == "all":
-        return targets
-    label, axis = fact.payload["label"], fact.payload["axis"]
-    paths = "row_path" if axis == "row" else "header_path"
-    qualified = {
-        i
-        for target in targets
-        for i in getattr(target, paths)
-        if cells[i].get("text", "").strip().casefold() == label
-    }
-    if len(qualified) != 1:
-        return ()
-    index = next(iter(qualified))
-    return tuple(target for target in targets if index in getattr(target, paths))
-
-
-def _table_schematics(items, text, *, navigation, pointer):
+def _table_schematics(caption_tables, *, navigation, pointer):
     facts = navigation.select("table_schematic", pointer)
     if len(facts) != 1:
         return None
     selected = []
     for role in ("observed", "schematic"):
-        code = facts[0].text(role)
-        pointers = []
-        for target, node in items.items():
-            if node.get("label") != "table":
-                continue
-            for caption in node.get("captions", ()):
-                caption_pointer = caption.get("$ref")
-                if any(
-                    f.payload.get("artifact_kind") == "table"
-                    and f.payload.get("designator") == code
-                    for f in (
-                        *navigation.select("artifact_mention", caption_pointer),
-                        *navigation.select("artifact_reference", caption_pointer),
-                    )
-                ):
-                    pointers.append(target)
+        pointers = caption_tables.get(facts[0].text(role), ())
         if len(pointers) != 1:
             return None
         selected.append(pointers[0])
@@ -176,16 +141,13 @@ class ScalarProcedureReading(TypedDict):
     block: NotRequired[str]
 
 
-def retained_action_extent(contributions, link):
-    matches = []
+def retained_action_extents(contributions):
+    positions = defaultdict(list)
     for row in contributions:
         component = row.get("component", {})
-        if component.get("kind") != "predicate_frame" or (
-            component.get("annotation"),
-            component.get("block"),
-            component.get("predicate_token"),
-        ) != (link.witness.annotation, link.witness.block, link.witness.tokens["verb"]):
+        if component.get("kind") != "predicate_frame":
             continue
+        key = component["annotation"], component["block"], component["predicate_token"]
         for member in component["frame_members"]:
             if (
                 member["role"] == "predicate"
@@ -193,8 +155,8 @@ def retained_action_extent(contributions, link):
                 and len(member["extents"]) == 1
             ):
                 extent = member["extents"][0]
-                matches.append((extent["start"], extent["end"]))
-    return matches[0] if len(matches) == 1 else None
+                positions[key].append((extent["start"], extent["end"]))
+    return {key: rows[0] for key, rows in positions.items() if len(rows) == 1}
 
 
 def retained_procedure_readings(contributions, passages) -> Iterable[ScalarProcedureReading]:
@@ -434,6 +396,58 @@ def discover_relations(
     retained_predicate_operations=(),
     retained_coordinate_texts=(),
 ):
+    """Discover one source's relations with invocation-owned analytical inventories."""
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+
+    if not isinstance(frame, DeclaredNativeFrameSource):
+        raise TypeError("scoped relations require the actual declared native source")
+    from corpus_structure.semantic.declared_formal_readings import prepare_formal_layers
+
+    native = json.loads(frame.native_context)
+    if formal_layers is not None:
+        formal_layers = prepare_formal_layers(formal_layers)
+    with ScopedInventory(native["pieces"], frame.selected_ranges) as inventory:
+        return _discover_relations(
+            frame,
+            inventory=inventory,
+            native=native,
+            source_work=source_work,
+            annotation_errors=annotation_errors,
+            passages=passages,
+            formula_seconds=formula_seconds,
+            max_formula_chars=max_formula_chars,
+            inline_equations_enabled=inline_equations_enabled,
+            witnessed_links_enabled=witnessed_links_enabled,
+            ordered_formula_witness=ordered_formula_witness,
+            qualifier_preflight=qualifier_preflight,
+            navigation=navigation,
+            formal_layers=formal_layers,
+            retained_predicates=retained_predicates,
+            retained_predicate_operations=retained_predicate_operations,
+            retained_coordinate_texts=retained_coordinate_texts,
+        )
+
+
+def _discover_relations(
+    frame,
+    *,
+    inventory,
+    native,
+    source_work=None,
+    annotation_errors=(),
+    passages=None,
+    formula_seconds=0.5,
+    max_formula_chars=2048,
+    inline_equations_enabled=False,
+    witnessed_links_enabled=False,
+    ordered_formula_witness=None,
+    qualifier_preflight=None,
+    navigation=None,
+    formal_layers=None,
+    retained_predicates=None,
+    retained_predicate_operations=(),
+    retained_coordinate_texts=(),
+):
     """Return participants and relation candidates against actual detached source pieces.
 
     Geometry determines candidates/containment, never independent semantic support. No
@@ -447,7 +461,6 @@ def discover_relations(
 
     if not isinstance(frame, DeclaredNativeFrameSource):
         raise TypeError("scoped relations require the actual declared native source")
-    native = json.loads(frame.native_context)
     if (
         not isinstance(navigation, NativeNavigationIndex)
         or formal_layers is None
@@ -465,11 +478,7 @@ def discover_relations(
     navigation.require()
     if not frame.text:
         raise ValueError("structural joins require a nonempty source projection")
-    source_pieces = tuple(
-        piece
-        for piece in native["pieces"]
-        if (any(a <= piece["start"] < piece["end"] <= b for a, b in frame.selected_ranges))
-    )
+    source_pieces = inventory.pieces
     context = NativeSourceContext(
         frame,
         (),
@@ -655,6 +664,7 @@ def discover_relations(
         products.append(row)
         return row
 
+    table_targets = inventory.table_targets(geometry)
     cell_rows = {}
     text_rows = []
     artifact_captions = {}
@@ -746,17 +756,47 @@ def discover_relations(
 
     # Contextual nominations add source roles and explicit local caption custody.
     # This private edge does not authorize a canonical identity merge.
-    for key, mention, region in artifact_mentions:
-        targets = artifact_captions.get(key, ())
-        if len(targets) == 1:
-            relation(mention, targets[0], "artifact_reference_target", region, "matched_cue")
+    caption_rows = tuple(
+        (key, item) for key, values in artifact_captions.items() for item in values
+    )
+    for mention_index, caption_index in inventory.unique_matches(
+        [key for key, _, _ in artifact_mentions], [key for key, _ in caption_rows]
+    ):
+        _key, mention, region = artifact_mentions[mention_index]
+        relation(
+            mention,
+            caption_rows[caption_index][1],
+            "artifact_reference_target",
+            region,
+            "matched_cue",
+        )
 
+    text_by_pointer = defaultdict(list)
+    for row in text_rows:
+        text_by_pointer[row[0]["item_ref"]].append(row)
+    table_roles = defaultdict(list)
+    for fact in navigation.select("table_role"):
+        table_roles[fact.payload["pointer"], fact.payload.get("cell_index")].append(fact)
+    caption_tables = defaultdict(list)
+    for table_pointer, node in items.items():
+        if node.get("label") != "table":
+            continue
+        for caption in node.get("captions", ()):
+            caption_pointer = caption.get("$ref")
+            codes = {
+                fact.payload.get("designator")
+                for family in ("artifact_mention", "artifact_reference")
+                for fact in navigation.select(family, caption_pointer)
+                if fact.payload.get("artifact_kind") == "table"
+            }
+            for code in codes:
+                caption_tables[code].append(table_pointer)
     for pointer, node in items.items():
         if node.get("label") != "table":
             continue
         table = geometry[pointer]
         cells = table.get("data", {}).get("table_cells", ())
-        targets = native_table_geometry(table)
+        targets = table_targets[pointer]
         for target in targets:
             subject = cell_rows.get((pointer, target.cell_index))
             if subject is None:
@@ -766,10 +806,8 @@ def discover_relations(
                     header = cell_rows.get((pointer, index))
                     if header is not None:
                         relation(subject, header, kind, pointer)
-                        for fact in navigation.select("table_role", pointer):
-                            if fact.payload.get("cell_index") == index and fact.payload[
-                                "measure_role"
-                            ] in {"value_role", "unit"}:
+                        for fact in table_roles[pointer, index]:
+                            if fact.payload["measure_role"] in {"value_role", "unit"}:
                                 relation(
                                     subject,
                                     header,
@@ -778,13 +816,30 @@ def discover_relations(
                                     "matched_cue",
                                     primary_node=fact.reference.values(),
                                 )
+        path_labels = defaultdict(set)
+        targets_by_path = defaultdict(list)
+        for target in targets:
+            for axis, path in (("row", target.row_path), ("column", target.header_path)):
+                for index in path:
+                    path_labels[axis, cells[index].get("text", "").strip().casefold()].add(index)
+                    targets_by_path[axis, index].append(target)
         # A native footnote pointer establishes the table association. Applicability
         # inside the table requires its own exact scope cue.
         for ref in node.get("footnotes", ()):
             target_pointer = ref.get("$ref") if isinstance(ref, dict) else None
-            for piece, _note, note_text in text_rows:
-                if piece["item_ref"] != target_pointer:
-                    continue
+            facts = navigation.select("note_scope", target_pointer)
+            note_targets = ()
+            if len(facts) == 1:
+                axis = facts[0].payload["axis"]
+                indices = path_labels[axis, facts[0].payload.get("label")]
+                note_targets = (
+                    targets
+                    if axis == "all"
+                    else targets_by_path[axis, next(iter(indices))]
+                    if len(indices) == 1
+                    else ()
+                )
+            for piece, _note, _note_text in text_by_pointer[target_pointer]:
                 note_row = participant(
                     piece["start"],
                     piece["end"],
@@ -794,19 +849,11 @@ def discover_relations(
                     extra={
                         "table_association": pointer,
                         **(
-                            {
-                                "primary_node": navigation.select("note_scope", target_pointer)[
-                                    0
-                                ].reference.values()
-                            }
-                            if len(navigation.select("note_scope", target_pointer)) == 1
-                            else {}
+                            {"primary_node": facts[0].reference.values()} if len(facts) == 1 else {}
                         ),
                     },
                 )
-                for target in _note_scope(
-                    note_text, cells, targets, navigation=navigation, pointer=target_pointer
-                ):
+                for target in note_targets:
                     cell = cell_rows.get((pointer, target.cell_index))
                     if cell is not None:
                         relation(cell, note_row, "note", pointer, "matched_cue")
@@ -820,10 +867,8 @@ def discover_relations(
         "start_col_offset_idx",
         "end_col_offset_idx",
     )
-    for piece, _node, source_text in text_rows:
-        tables = _table_schematics(
-            items, source_text, navigation=navigation, pointer=piece["item_ref"]
-        )
+    for piece, _node, _source_text in text_rows:
+        tables = _table_schematics(caption_tables, navigation=navigation, pointer=piece["item_ref"])
         if tables is None:
             continue
         cues = [
@@ -1060,18 +1105,34 @@ def discover_relations(
             canonical_bytes({key: value for key, value in coordinate.items() if key != "text"})
         ] = coordinate
     readings = list(retained_procedure_readings(retained_predicates, passages))
+    requested_extents = []
+    object_extents = []
+    for reading in readings:
+        requested_extents.append(reading["action"])
+        for field in ("actor", "object", "modality", "conditions", "exceptions"):
+            requested_extents.extend(reading[field])
+        for earlier, later in reading["orders"]:
+            requested_extents.extend((earlier, later))
+        object_extents.extend(reading["object"])
+    located_pieces = inventory.containing_pieces(requested_extents)
+    artifact_rows = tuple(
+        (a, b, pointer, artifact)
+        for (a, b, role, pointer, _operation, _reading_key), artifact in participants.items()
+        if role == "artifact_reference"
+    )
+    distinct_objects = tuple(dict.fromkeys(object_extents))
+    object_artifacts = inventory.contained_pairs(
+        distinct_objects, [(a, b) for a, b, _, _ in artifact_rows]
+    )
+    artifacts_by_object = {
+        extent: tuple(artifact_rows[index] for index in object_artifacts[i])
+        for i, extent in enumerate(distinct_objects)
+    }
     for reading in readings:
 
         def located(extent, role, reading=reading):
             start, end = extent
-            original = next(
-                (
-                    p
-                    for p in source_pieces
-                    if p.get("kind") == "native_text" and p["start"] <= start < end <= p["end"]
-                ),
-                None,
-            )
+            original = located_pieces.get((start, end))
             if original is None:
                 return None
             action_reading = reading
@@ -1130,18 +1191,15 @@ def discover_relations(
                         operation=procedure_op,
                     )
                     if role == "object":
-                        for (a, b, r, _pointer, _operation, _reading_key), artifact in tuple(
-                            participants.items()
-                        ):
-                            if r == "artifact_reference" and extent[0] <= a < b <= extent[1]:
-                                relation(
-                                    action,
-                                    artifact,
-                                    "uses_artifact",
-                                    _pointer,
-                                    "model_reading",
-                                    operation=procedure_op,
-                                )
+                        for _a, _b, artifact_pointer, artifact in artifacts_by_object[extent]:
+                            relation(
+                                action,
+                                artifact,
+                                "uses_artifact",
+                                artifact_pointer,
+                                "model_reading",
+                                operation=procedure_op,
+                            )
         for field, kind, role in (
             ("conditions", "prerequisite", "precondition"),
             ("exceptions", "exception", "exception"),
@@ -1227,6 +1285,7 @@ def discover_relations(
                 max_chars=max_formula_chars,
                 primary_layers=formal_layers,
                 projection=frame.projection_digest,
+                inventory=inventory,
             )
         )
         if equations:
@@ -1323,6 +1382,7 @@ def discover_relations(
                     items,
                     passages,
                     navigation=navigation,
+                    inventory=inventory,
                 )
             )
             inspected = len(links)
@@ -1330,13 +1390,22 @@ def discover_relations(
         witness_op = operation_identity(QUESTION, witness_version, pin, witness_selection)
         prior = len(products)
         linked = 0
-        for link in links:
+        linked_uses = inventory.contained_pairs(
+            [link.equation for link in links],
+            [(start, end) for _pointer, start, end, _row in formula_uses],
+        )
+        declarations_by_target = defaultdict(list)
+        declarations_by_pair = defaultdict(list)
+        for row in products:
+            if row["operation_key"] == op and row["item_key"].startswith("declares:"):
+                declarations_by_target[row["members"][1]].append(row)
+                declarations_by_pair[tuple(row["members"][:2])].append(row)
+        for link_index, link in enumerate(links):
             uses = [
                 row
-                for pointer, start, end, row in formula_uses
-                if pointer == link.use_pointer
-                and link.equation[0] <= start < end <= link.equation[1]
-                and frame.text[start:end] == link.symbol
+                for index in linked_uses[link_index]
+                for pointer, start, end, row in (formula_uses[index],)
+                if pointer == link.use_pointer and frame.text[start:end] == link.symbol
             ]
             declaration = participants.get(
                 (*link.declaration, "declaration", link.declaration_pointer, op, None)
@@ -1352,17 +1421,13 @@ def discover_relations(
                 )
                 if declared_symbol is None:
                     raise ValueError("ordered formula witness lacks its exact prior symbol")
-            declarations = [
-                row
-                for row in products
-                if row["operation_key"] == op
-                and row["item_key"].startswith("declares:")
-                and row["members"][1] == declaration["contribution_id"]
-                and (
-                    declared_symbol is None
-                    or row["members"][0] == declared_symbol["contribution_id"]
-                )
-            ]
+            declarations = (
+                declarations_by_target[declaration["contribution_id"]]
+                if declared_symbol is None
+                else declarations_by_pair[
+                    declared_symbol["contribution_id"], declaration["contribution_id"]
+                ]
+            )
             if len(declarations) != 1:
                 if isinstance(link, OrderedRecappedDeclaration):
                     raise ValueError("ordered formula witness lacks one exact prior binding")
@@ -1465,11 +1530,23 @@ def discover_relations(
                 annotation_errors=annotation_errors,
                 version="4",
                 navigation=navigation,
+                inventory=inventory,
             )
             named_op = operation_identity(NAMED_QUESTION, "4", pin, selection)
             first = len(products)
             artifact_bindings = procedure_artifact_bindings(products)
             procedure_rows = {row["contribution_id"]: row for row in products}
+            procedure_actions = defaultdict(list)
+            for row in products:
+                if row.get("semantic_type") != "structural.located_participant":
+                    continue
+                value = source_python(row["value"])
+                if value.get("role") == "procedure_action":
+                    for annotation in row["computation_dependencies"]:
+                        procedure_actions[
+                            value["source_pointer"], value["start"], value["end"], annotation
+                        ].append(row)
+            action_extents = retained_action_extents(retained_predicates)
             for link in inspection.matches:
                 evidence = link.evidence()
                 extra = dict(
@@ -1479,7 +1556,7 @@ def discover_relations(
                 )
                 deps = (link.witness.annotation,)
                 artifact_deps = (
-                    artifact_bindings.get((link.pointer, *link.left), ())
+                    artifact_bindings.get((link.pointer, link.left[0], link.left[1]), ())
                     if link.kind == "procedure_reference"
                     and link.resolution == "target_selection_required"
                     else ()
@@ -1530,7 +1607,14 @@ def discover_relations(
                         link,
                         (None),
                         artifact_deps[0],
-                        **({"verb_extent": retained_action_extent(retained_predicates, link)}),
+                        verb_extent=action_extents.get(
+                            (
+                                link.witness.annotation,
+                                link.witness.block,
+                                link.witness.tokens["verb"],
+                            )
+                        ),
+                        action_index=procedure_actions,
                     )
                     if binding is not None:
                         action, caption, artifact = binding
