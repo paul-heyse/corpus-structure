@@ -741,3 +741,24 @@ def test_typed_report_relationships_refuse_independent_corruption(defect, diagno
         value["runtime_report"]["bindings"] *= 2
     with pytest.raises(ValueError, match=diagnostic):
         validate_pdf_report_metadata(value)
+
+
+def test_frozen_part_verification_borrows_original_arrow_buffers_after_store_release():
+    import pyarrow as pa
+
+    from corpus_structure.semantic.pdf_record_identity import BLOCK_BYTES, canonical_blocks
+
+    store = typed_store()
+    raw = bytes(range(256)) * 512
+    add_row(store, "artifact_part", dict(stream_id="borrowed", ordinal=0, body=raw[:BLOCK_BYTES]))
+    add_row(store, "artifact_part", dict(stream_id="borrowed", ordinal=1, byte_offset=BLOCK_BYTES, body=raw[BLOCK_BYTES:]))
+    row = store._parts["borrowed"][0]
+    original = row.batch.column("body")[0].as_buffer()
+    parts = list(store.parts("borrowed"))
+    assert all(isinstance(part, memoryview) for part in parts)
+    assert pa.py_buffer(parts[0]).address == original.address
+    blocks = list(canonical_blocks(parts))
+    assert pa.py_buffer(blocks[0]).address == original.address
+    store.close()
+    assert b"".join(parts) == raw
+    assert byte_root(parts) == byte_root((raw,))

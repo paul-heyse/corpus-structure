@@ -387,3 +387,44 @@ def test_native_mapping_and_callback_policy_use_the_acquired_context(tmp_path, m
             payloads.certify(document, tmp_path / "wrong-policy.jsonl", **basis)
     finally:
         payloads.close()
+
+
+def test_batch_native_identity_prepares_captured_columns_with_independent_fields(tmp_path):
+    import pyarrow as pa
+
+    from corpus_structure.semantic.pdf_records import native_record_identity_fields_batch
+
+    batch = pa.RecordBatch.from_pylist([
+        {"record_id": "r", "native_type": "TextItem", "family": "texts", "scalars_json": '{"é":null,"alpha":{"native_float64":"8000000000000000"},"value":1e-20}', "structure_json": '{"fields":{"children":{"kind":"array","length":0}}}'},
+    ])
+    def forbidden(stream):
+        raise AssertionError("inline identity requested an artifact")
+
+    assert list(native_record_identity_fields_batch(batch, kind="native", scalar_descriptor=forbidden)) == [
+        ("native", "r", (("native_type", "TextItem"), ("family", "texts"), ("alpha/value", -0.0), ("children/kind", "array"), ("children/length", 0), ("value/value", 1e-20), ("é/value", None)))
+    ]
+
+
+def test_batch_certification_matches_independent_ordered_record_reference(tmp_path):
+    from corpus_structure.semantic.pdf_record_identity import LogicalIdentity
+    from corpus_structure.semantic.pdf_records import NativeRow, native_record_identity_fields
+
+    payloads, _document, basis = prepared(tmp_path)
+    try:
+        expected = []
+        for family in ("header", "native", "membership"):
+            for values in payloads.entries(family):
+                row = {name: value for name, value in values.items() if value is not None}
+                expected.append(native_record_identity_fields(NativeRow("document" if family == "header" else family, row), scalar_descriptor=payloads._descriptor))
+        inputs = {row["local_id"]: row["body"] for row in payloads.companions("input")}
+        for family in payloads._companions:
+            for row in payloads.companions(family):
+                expected.extend(payloads._companion_frames(row, inputs, {}))
+        expected.append(("publication", "root", (("kind", basis["kind"]), ("recipe_digest", basis["recipe_digest"]))))
+        folded = LogicalIdentity(basis["schema_digest"], basis["release_id"], basis["source_digest"])
+        for family, key, fields in sorted(expected, key=lambda row: (row[0].encode(), row[1].encode())):
+            folded.add_record(family, key, fields)
+        actual = payloads.logical_digest(**{name: basis[name] for name in ("release_id", "source_digest", "recipe_digest", "schema_digest", "kind", "target_meanings")})
+        assert actual == folded.pin().logical_digest
+    finally:
+        payloads.close()
