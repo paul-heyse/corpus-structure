@@ -428,3 +428,46 @@ def test_batch_certification_matches_independent_ordered_record_reference(tmp_pa
         assert actual == folded.pin().logical_digest
     finally:
         payloads.close()
+
+
+@pytest.mark.parametrize("corrupt", [None, "shared", "unreferenced"])
+def test_certifier_checks_shared_and_unreferenced_live_part_buffers(tmp_path, corrupt):
+    import pyarrow as pa
+    from semantic.pdf_payload_validation_support import add_row
+
+    from corpus_structure.semantic.pdf_record_identity import BLOCK_BYTES, byte_root
+
+    payloads, _document, basis = prepared(tmp_path)
+    try:
+        for stream in ("shared", "unreferenced"):
+            raw = (b"a" if stream == "shared" else b"z") * (BLOCK_BYTES + 13)
+            length, root = byte_root((raw,))
+            add_row(payloads, "artifact_stream", {
+                "stream_id": stream, "byte_length": length, "byte_root": root.hex(),
+                "encoding_profile": "pdf-record-scalar-v1:s", "serialization_sha256": sha256(raw).hexdigest(),
+            })
+            offset = 0
+            for ordinal, chunk in enumerate((raw[:17], raw[17:BLOCK_BYTES], raw[BLOCK_BYTES:])):
+                original = chunk
+                if stream == corrupt and ordinal == 0:
+                    chunk = b"!" + chunk[1:]
+                add_row(payloads, "artifact_part", {
+                    "stream_id": stream, "ordinal": ordinal, "byte_offset": offset,
+                    "body": chunk, "sha256_digest": sha256(original).hexdigest(),
+                })
+                offset += len(chunk)
+        schema = next(payloads.batches("native")).schema
+        for identity in ("shared:a", "shared:b"):
+            payloads.add_batch("native", pa.RecordBatch.from_pylist([
+                {"record_id": identity, "native_type": "TextItem", "family": "texts", "scalars_json": "{}", "structure_json": '{"fields":{"text":{"kind":"parts","stream_id":"shared"}}}'},
+            ], schema=schema))
+        options = {name: basis[name] for name in ("release_id", "source_digest", "recipe_digest", "schema_digest", "kind", "target_meanings")}
+        if corrupt is not None:
+            with pytest.raises(ValueError, match="part actual bytes"):
+                payloads.logical_digest(**options)
+        else:
+            digest = payloads.logical_digest(**options)
+            assert len(digest) == 64
+            assert payloads._verified_streams >= {"shared", "unreferenced"}
+    finally:
+        payloads.close()
