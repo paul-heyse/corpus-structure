@@ -28,6 +28,31 @@ def test_native_filtered_outputs_seek_within_one_obligation(characterization_sou
     assert len(expected) > 1
     selected, after, read_id, cut = [], None, None, None
     with source.reader.begin() as connection:
+        parent = read_selected_answer(
+            connection,
+            "read_selected_outputs",
+            demand,
+            project_id=source.factory.project_id,
+            scope={"operation_id": FORMAL, "product_ids": [product["product_id"]]},
+            product_id=product["product_id"],
+            limit=1,
+        )
+        (container,) = parent["rows"]
+        assert container["member_id"] is None
+        assert parent["answer_after"][-1] == ""
+        after_parent = read_selected_answer(
+            connection,
+            "read_selected_outputs",
+            demand,
+            project_id=source.factory.project_id,
+            read_id=parent["cut"]["read_id"],
+            scope={"operation_id": FORMAL, "product_ids": [product["product_id"]]},
+            product_id=product["product_id"],
+            after=parent["answer_after"],
+            limit=1,
+        )
+        (first_member,) = after_parent["rows"]
+        assert first_member["member_id"] == min(member["member_id"] for member in body["members"])
         for ordinal, member_id in enumerate(sorted(expected)):
             answer = read_selected_answer(
                 connection,

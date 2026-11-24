@@ -309,7 +309,7 @@ def characterization_source(
             read_budget=PublishedReadBudget(1000, 8 * 1024**2),
         )
         content = ControlledPdfContent.from_document(
-            DoclingDocument.model_validate(reader.hydrate_document()),
+            DoclingDocument.model_validate(reader.reconstruct_document()),
             formula_outcomes=tuple(
                 FormulaOutcome(item["pointer"], item["outcome"])
                 for item in reader.native_metadata("formula_outcomes")

@@ -205,9 +205,9 @@ def test_discovery_views_require_computational_origin_and_exact_frozen_source_se
     assert role.subject_field == "/source/document_subject"
 
 
-def test_source_hierarchy_preserves_distinct_computational_member_addresses(profile, tmp_path):
+def test_source_hierarchy_preserves_distinct_computational_member_addresses(profile):
+    from corpus_structure.semantic.acquired_selected_relations import LiveSelectedRelations
     from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
-    from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
     from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.demand_results import CutSelection
     from corpus_structure.semantic.source_hierarchy_graph import source_hierarchy_snapshot
@@ -218,7 +218,7 @@ def test_source_hierarchy_preserves_distinct_computational_member_addresses(prof
         if item.domain == "kind"
         and item.owner == profile.prepared.index.definitions["DdoSelectedNativeSource"].iri
     )
-    index = SelectedRecordIndex(tmp_path / "source-members.sqlite")
+    index = LiveSelectedRelations()
     try:
         for member, value in (
             ("first", source(profile, end=2)),

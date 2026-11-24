@@ -12,9 +12,10 @@ from sqlalchemy import (
     null,
     or_,
     select,
+    tuple_,
     union_all,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by, array
 from sqlalchemy.types import NullType
 
 from .data_operation_projections import (
@@ -109,22 +110,248 @@ def _page(records, payload, *, truncated=None):
     return select(result)
 
 
-def outputs_answer(model, payload):
-    uses = _selected_use_rows(model, payload)
+def _output_address_window(model, payload, *, capacity):
+    """Visit output prefixes in index order, retaining at most one shared address window."""
     outputs = model.tables["ops.data_derivation_output"]
+    members = model.tables["kb.data_product_member"]
+    products = model.tables["kb.data_product"]
+    episodes = model.tables["ops.data_derivation"]
+    demand_uses = model.tables["ops.demand_use"]
+    requested_use = payload["use_id"].astext
+    want_members = and_(
+        func.coalesce(payload["include_members"].as_boolean(), True),
+        ~func.coalesce(payload["containers_only"].as_boolean(), False),
+    )
+
+    def requested_kind(kind):
+        return and_(
+            or_(~payload.has_key("kind_contract"), kind == payload["kind_contract"].astext),
+            or_(~payload.has_key("kind_contracts"), payload["kind_contracts"].has_key(kind)),
+        )
+
+    requested_obligation = (
+        select(demand_uses.c.obligation_id)
+        .where(demand_uses.c.id == requested_use)
+        .scalar_subquery()
+    )
+    scope = _scoped_read_obligations(model).subquery("answer_seek_scope")
+    after = payload["answer_after"]
+    empty_members = cast(array([]), ARRAY(Text()))
+    steps = select(
+        func.coalesce(after[0].astext, "").label("obligation_id"),
+        func.coalesce(after[1].astext, "").label("use_id"),
+        func.coalesce(after[2].astext, "").label("role"),
+        func.coalesce(cast(after[3].astext, BigInteger()), 0).label("position"),
+        func.coalesce(after[4].astext, "").label("product_id"),
+        cast(null(), Text()).label("output_member_id"),
+        cast(null(), Text()).label("derivation_id"),
+        cast(null(), Text()).label("operation_id"),
+        cast(null(), BigInteger()).label("multiplicity"),
+        literal(False).label("parent"),
+        empty_members.label("member_ids"),
+        literal(capacity).label("remaining"),
+        literal(True).label("initial"),
+    ).cte("answer_address_steps", recursive=True)
+    s = steps.c
+    latest = _latest_read_use(model, scope)
+    same_use = and_(scope.c.id == s.obligation_id, latest.c.id == s.use_id)
+    coordinate = tuple_(outputs.c.role, outputs.c.position)
+    previous = tuple_(s.role, s.position)
+    exact_cursor_output = and_(same_use, coordinate == previous)
+    output = (
+        select(outputs)
+        .where(
+            outputs.c.derivation_id == latest.c.derivation_id,
+            coordinate
+            >= tuple_(
+                case((same_use, s.role), else_=""),
+                case((same_use, s.position), else_=0),
+            ),
+            or_(
+                ~exact_cursor_output,
+                and_(s.initial, outputs.c.product_id >= s.product_id),
+            ),
+            or_(
+                ~payload.has_key("product_id"), outputs.c.product_id == payload["product_id"].astext
+            ),
+            or_(
+                and_(want_members, ~payload.has_key("member_id")),
+                and_(
+                    outputs.c.member_id.is_(None),
+                    or_(
+                        want_members,
+                        select(1)
+                        .where(
+                            products.c.id == outputs.c.product_id,
+                            requested_kind(products.c.kind_contract),
+                        )
+                        .exists(),
+                    ),
+                ),
+                and_(want_members, outputs.c.member_id == payload["member_id"].astext),
+            ),
+        )
+        .order_by(outputs.c.role, outputs.c.position)
+        .limit(1)
+        .correlate(steps, latest, scope)
+        .lateral("answer_next_output")
+    )
+    prefix = (
+        select(
+            scope.c.id.label("obligation_id"),
+            latest.c.id.label("use_id"),
+            scope.c.operation_id,
+            output.c.derivation_id,
+            output.c.role,
+            output.c.position,
+            output.c.multiplicity,
+            output.c.product_id,
+            output.c.member_id.label("output_member_id"),
+        )
+        .select_from(scope.join(latest, literal(True)).join(output, literal(True)))
+        .where(
+            scope.c.id >= s.obligation_id,
+            or_(scope.c.id > s.obligation_id, latest.c.id >= s.use_id),
+            or_(~payload.has_key("use_id"), scope.c.id == requested_obligation),
+            or_(~payload.has_key("use_id"), latest.c.id == requested_use),
+            latest.c.fate == "fulfilled",
+        )
+        .order_by(scope.c.id)
+        .limit(1)
+        .correlate(steps)
+        .lateral("answer_next_prefix")
+    )
+    p = prefix.c
+    resumes_members = and_(
+        s.initial,
+        p.obligation_id == s.obligation_id,
+        p.use_id == s.use_id,
+        p.role == s.role,
+        p.position == s.position,
+        p.product_id == s.product_id,
+    )
+    parent = and_(
+        p.output_member_id.is_(None),
+        ~payload.has_key("member_id"),
+        ~resumes_members,
+        select(1)
+        .where(products.c.id == p.product_id, requested_kind(products.c.kind_contract))
+        .correlate(prefix)
+        .exists(),
+    )
+    member_slots = s.remaining - case((parent, 1), else_=0)
+    lower_member = case((resumes_members, after[5].astext), else_=null())
+    exact_member = func.coalesce(payload["member_id"].astext, p.output_member_id)
+    eligible_member = (
+        select(members.c.member_id)
+        .where(
+            members.c.product_id == p.product_id,
+            members.c.member_id > func.coalesce(lower_member, ""),
+            requested_kind(members.c.kind_contract),
+            want_members,
+        )
+        .correlate(steps, prefix)
+    )
+    point_member = eligible_member.where(members.c.member_id == exact_member, member_slots > 0)
+    member_page = (
+        eligible_member.where(exact_member.is_(None))
+        .order_by(members.c.member_id)
+        .limit(func.greatest(member_slots, 0))
+    )
+    matched_members = union_all(point_member, member_page).subquery("answer_next_members")
+    batch = (
+        select(
+            func.coalesce(
+                func.array_agg(
+                    aggregate_order_by(matched_members.c.member_id, matched_members.c.member_id)
+                ),
+                empty_members,
+            ).label("member_ids")
+        )
+        .select_from(matched_members)
+        .lateral("answer_member_batch")
+    )
+    steps = steps.union_all(
+        select(
+            p.obligation_id,
+            p.use_id,
+            p.role,
+            p.position,
+            p.product_id,
+            p.output_member_id,
+            p.derivation_id,
+            p.operation_id,
+            p.multiplicity,
+            parent,
+            batch.c.member_ids,
+            member_slots - func.cardinality(batch.c.member_ids),
+            literal(False),
+        )
+        .select_from(steps.join(prefix, literal(True)).join(batch, literal(True)))
+        .where(s.remaining > 0)
+    )
+
+    s = steps.c
+    addresses = union_all(
+        select(*s, cast(null(), Text()).label("member_id")).where(s.parent),
+        select(*s, func.unnest(s.member_ids, type_=Text()).label("member_id")).where(~s.initial),
+    ).subquery("answer_sought_addresses")
+    a = addresses.c
+    seek = func.jsonb_build_array(
+        a.obligation_id,
+        a.use_id,
+        a.role,
+        a.position,
+        a.product_id,
+        func.coalesce(a.member_id, ""),
+        type_=JSONB(),
+    )
+    headers = (
+        "kind_contract",
+        "subject",
+        "subject_definition",
+        "original_source",
+        "analyzed_scope",
+    )
+    return (
+        select(
+            a.use_id,
+            a.obligation_id,
+            a.derivation_id,
+            a.operation_id,
+            episodes.c.release_id,
+            a.role,
+            a.position,
+            a.multiplicity,
+            a.product_id,
+            a.output_member_id,
+            a.member_id,
+            products.c.kind_contract.label("parent_kind"),
+            *(
+                case((a.member_id.is_(None), products.c[name]), else_=members.c[name]).label(name)
+                for name in headers
+            ),
+            seek.label("key"),
+        )
+        .select_from(
+            addresses.join(episodes, episodes.c.id == a.derivation_id)
+            .join(products, products.c.id == a.product_id)
+            .outerjoin(
+                members,
+                and_(members.c.product_id == a.product_id, members.c.member_id == a.member_id),
+            )
+        )
+        .cte("answer_candidate_addresses")
+        .prefix_with("MATERIALIZED")
+    )
+
+
+def outputs_answer(model, payload):
+    uses = model.tables["ops.demand_use"]
     products = model.tables["kb.data_product"]
     members = model.tables["kb.data_product_member"]
-    episodes = model.tables["ops.data_derivation"]
     kinds = model.tables["sem.data_kind_contract"].alias("answer_output_kinds")
     select_body = func.coalesce(payload["body"].as_boolean(), False)
-    member_filter = payload["member_id"].astext
-    containers_only = func.coalesce(payload["containers_only"].as_boolean(), False)
-    want_members = func.coalesce(payload["include_members"].as_boolean(), True)
-    base = (
-        uses.join(episodes, episodes.c.id == uses.c.derivation_id)
-        .join(outputs, outputs.c.derivation_id == uses.c.derivation_id)
-        .join(products, products.c.id == outputs.c.product_id)
-    )
     header_names = (
         "kind_contract",
         "subject",
@@ -132,78 +359,10 @@ def outputs_answer(model, payload):
         "original_source",
         "analyzed_scope",
     )
-    common = (
-        uses.c.id.label("use_id"),
-        uses.c.obligation_id,
-        uses.c.derivation_id,
-        uses.c.operation_id,
-        episodes.c.release_id,
-        outputs.c.role,
-        outputs.c.position,
-        outputs.c.multiplicity,
-        outputs.c.product_id,
-        outputs.c.member_id.label("output_member_id"),
-        products.c.kind_contract.label("parent_kind"),
-    )
-    product_filter = or_(
-        ~payload.has_key("product_id"), outputs.c.product_id == payload["product_id"].astext
-    )
-    parents = (
-        select(
-            *common,
-            cast(null(), Text()).label("member_id"),
-            *(products.c[name] for name in header_names),
-        )
-        .select_from(base)
-        .where(product_filter, outputs.c.member_id.is_(None), member_filter.is_(None))
-    )
-    packets = (
-        select(
-            *common,
-            members.c.member_id,
-            *(members.c[name] for name in header_names),
-        )
-        .select_from(base.join(members, members.c.product_id == products.c.id))
-        .where(
-            product_filter,
-            want_members,
-            ~containers_only,
-            or_(outputs.c.member_id.is_(None), outputs.c.member_id == members.c.member_id),
-            or_(member_filter.is_(None), members.c.member_id == member_filter),
-        )
-    )
-    addresses = union_all(parents, packets).subquery("answer_output_addresses")
-    o = addresses.c
-    seek = func.jsonb_build_array(
-        o.obligation_id,
-        o.use_id,
-        o.role,
-        o.position,
-        o.product_id,
-        func.coalesce(o.member_id, ""),
-        type_=JSONB(),
-    )
     # Work bounds and delivery bounds are independent. A cheap extra address
     # proves truncation without opening an unexamined body's classification.
     examined = 4096
-    candidates = (
-        select(addresses, seek.label("key"))
-        .where(
-            or_(~payload.has_key("answer_after"), seek > payload["answer_after"]),
-            or_(
-                ~payload.has_key("kind_contract"),
-                o.kind_contract == payload["kind_contract"].astext,
-            ),
-            or_(
-                ~payload.has_key("kind_contracts"),
-                payload["kind_contracts"].has_key(o.kind_contract),
-            ),
-        )
-        .order_by(seek)
-        .limit(examined + 1)
-        .cte("answer_candidate_addresses")
-        .prefix_with("MATERIALIZED")
-    )
+    candidates = _output_address_window(model, payload, capacity=examined + 1)
     truncated = select(func.count()).select_from(candidates).scalar_subquery() > examined
     window = (
         select(candidates)
@@ -366,17 +525,37 @@ def partitions_answer(model, payload):
         .where(authorized.c.product_id == p.product_id, authorized.c.output_member_id.is_(None))
         .exists()
     )
+    header_key = func.jsonb_build_array(p.ordinal, p.partition_key, type_=JSONB())
+    after = payload["answer_after"]
+    after_ordinal = case(
+        (func.jsonb_typeof(after[0]) == "number", cast(after[0].astext, BigInteger())),
+        else_=-1,
+    )
+    header_window = (
+        select(partitions, header_key.label("key"))
+        .where(
+            p.product_id == payload["product_id"].astext,
+            p.collection == payload["collection"].astext,
+            or_(
+                ~payload.has_key("partition_key"),
+                p.partition_key == payload["partition_key"].astext,
+            ),
+            ~payload.has_key("item_key"),
+            ~func.coalesce(payload["items"].as_boolean(), False),
+            ~payload.has_key("member_id"),
+            tuple_(p.ordinal, p.partition_key)
+            > tuple_(after_ordinal, func.coalesce(after[1].astext, "")),
+            or_(~payload.has_key("answer_after"), header_key > after),
+            visible,
+        )
+        .order_by(p.ordinal, p.partition_key)
+        .limit(_var("lim", BigInteger) + 1)
+        .cte("answer_partition_header_addresses")
+        .prefix_with("MATERIALIZED")
+    )
     records = select(
-        func.jsonb_build_array(p.ordinal, p.partition_key, type_=JSONB()).label("key"),
-        func.to_jsonb(partitions.table_valued(), type_=JSONB()).label("record"),
-    ).where(
-        p.product_id == payload["product_id"].astext,
-        p.collection == payload["collection"].astext,
-        or_(~payload.has_key("partition_key"), p.partition_key == payload["partition_key"].astext),
-        ~payload.has_key("item_key"),
-        ~func.coalesce(payload["items"].as_boolean(), False),
-        ~payload.has_key("member_id"),
-        visible,
+        header_window.c.key,
+        func.to_jsonb(header_window.table_valued(), type_=JSONB()).op("-")("key").label("record"),
     )
     retained, items, _, item_join = _typed_partition_sources(model)
     coordinate = (
@@ -406,7 +585,18 @@ def partitions_answer(model, payload):
                     func.coalesce(payload["items"].as_boolean(), False),
                 ),
             ),
-            or_(~payload.has_key("answer_after"), item_cursor > payload["answer_after"]),
+            retained.c.ordinal >= after_ordinal,
+            items.c.item_ordinal
+            > case(
+                (
+                    and_(
+                        retained.c.ordinal == after_ordinal, func.jsonb_typeof(after[1]) == "number"
+                    ),
+                    cast(after[1].astext, BigInteger()),
+                ),
+                else_=-1,
+            ),
+            or_(~payload.has_key("answer_after"), item_cursor > after),
             select(1)
             .where(
                 authorized.c.product_id == retained.c.product_id,
@@ -488,6 +678,44 @@ def derivation_facts_answer(model, payload):
     admissions = model.tables["ops.original_source_admission"].alias("answer_input_admissions")
     episode = episodes.c
     source = select(1).where(authorized.c.derivation_id == episode.id).exists()
+    input_key = func.jsonb_build_array(inputs.c.role, inputs.c.position, type_=JSONB())
+    after = payload["answer_after"]
+    after_position = case(
+        (func.jsonb_typeof(after[1]) == "number", cast(after[1].astext, BigInteger())),
+        else_=-1,
+    )
+    examined = 4096
+    input_addresses = (
+        select(inputs.c.derivation_id, inputs.c.role, inputs.c.position, input_key.label("key"))
+        .where(
+            inputs.c.derivation_id == payload["derivation_id"].astext,
+            select(1)
+            .where(authorized.c.derivation_id == inputs.c.derivation_id)
+            .correlate(inputs)
+            .exists(),
+            ~_public_authority_leaf(inputs.c.derivation_id),
+            tuple_(inputs.c.role, inputs.c.position)
+            > tuple_(func.coalesce(after[0].astext, ""), after_position),
+            or_(~payload.has_key("answer_after"), input_key > after),
+            or_(
+                ~payload.has_key("input_product_id"),
+                inputs.c.product_id == payload["input_product_id"].astext,
+            ),
+            or_(~payload.has_key("input_role"), inputs.c.role == payload["input_role"].astext),
+        )
+        .order_by(inputs.c.role, inputs.c.position)
+        .limit(examined + 1)
+        .cte("answer_derivation_input_addresses")
+        .prefix_with("MATERIALIZED")
+    )
+    truncated = select(func.count()).select_from(input_addresses).scalar_subquery() > examined
+    input_window = (
+        select(input_addresses)
+        .order_by(input_addresses.c.role, input_addresses.c.position)
+        .limit(examined)
+        .cte("answer_examined_input_addresses")
+        .prefix_with("MATERIALIZED")
+    )
     role_inputs = func.ops.ddo_derivation_input_positions(
         requests.c.binding["inputs"], definitions.c.input_roles
     ).table_valued(column("input_record", JSONB()), column("physical_position", BigInteger()))
@@ -573,11 +801,19 @@ def derivation_facts_answer(model, payload):
     )
     facts = (
         select(
-            func.jsonb_build_array(inputs.c.role, inputs.c.position, type_=JSONB()).label("key"),
+            input_window.c.key,
             input_record.label("record"),
         )
         .select_from(
-            episodes.join(inputs, inputs.c.derivation_id == episode.id)
+            input_window.join(
+                inputs,
+                and_(
+                    inputs.c.derivation_id == input_window.c.derivation_id,
+                    inputs.c.role == input_window.c.role,
+                    inputs.c.position == input_window.c.position,
+                ),
+            )
+            .join(episodes, episode.id == input_window.c.derivation_id)
             .join(requests, requests.c.id == episode.request_id)
             .join(
                 definitions,
@@ -607,11 +843,6 @@ def derivation_facts_answer(model, payload):
             episode.id == payload["derivation_id"].astext,
             source,
             eligible_refs.exists(),
-            or_(
-                ~payload.has_key("input_product_id"),
-                inputs.c.product_id == payload["input_product_id"].astext,
-            ),
-            or_(~payload.has_key("input_role"), inputs.c.role == payload["input_role"].astext),
             ~_public_authority_leaf(episode.id),
             case(
                 (
@@ -653,7 +884,7 @@ def derivation_facts_answer(model, payload):
             ~_public_authority_leaf(episode.id),
         )
     )
-    return _page(union_all(facts, producers), payload)
+    return _page(union_all(facts, producers), payload, truncated=truncated)
 
 
 def proofs_answer(model, payload):
@@ -738,50 +969,52 @@ def proofs_answer(model, payload):
         )
         .exists()
     )
+    proof_match = and_(
+        p.rule_fingerprint == matching.c.rule_fingerprint,
+        p.premise == matching.c.premise,
+        _visible(provenance),
+        ~_public_authority_leaf(p.derivation_id),
+        issuer_is_visible,
+    )
+    key = func.jsonb_build_array(matching.c.rule_fingerprint, matching.c.premise, type_=JSONB())
+    proof_window = (
+        select(matching, key.label("key"))
+        .where(
+            or_(
+                matching.c.checker == "admission",
+                select(1).where(proof_match).correlate(matching).exists(),
+            )
+        )
+        .order_by(key)
+        .limit(_var("lim", BigInteger) + 1)
+        .cte("answer_proof_addresses")
+        .prefix_with("MATERIALIZED")
+    )
     evidence = (
         select(
-            p.rule_fingerprint,
-            p.premise,
             _aggregate(
                 _obj(derivation_id=p.derivation_id, role=p.role, position=p.position),
                 p.derivation_id,
                 p.role,
                 p.position,
-            ).label("provenance"),
-        )
-        .select_from(
-            matching.join(
-                provenance,
-                and_(
-                    p.rule_fingerprint == matching.c.rule_fingerprint,
-                    p.premise == matching.c.premise,
-                ),
             )
         )
-        .where(_visible(provenance), ~_public_authority_leaf(p.derivation_id), issuer_is_visible)
-        .group_by(p.rule_fingerprint, p.premise)
-        .cte("answer_proof_evidence")
+        .where(
+            p.rule_fingerprint == proof_window.c.rule_fingerprint,
+            p.premise == proof_window.c.premise,
+            _visible(provenance),
+            ~_public_authority_leaf(p.derivation_id),
+            issuer_is_visible,
+        )
+        .correlate(proof_window)
+        .scalar_subquery()
     )
-    rows = (
-        select(
-            func.jsonb_build_array(
-                matching.c.rule_fingerprint, matching.c.premise, type_=JSONB()
-            ).label("key"),
-            _obj(
-                rule_fingerprint=matching.c.rule_fingerprint,
-                premise=matching.c.premise,
-                provenance=func.coalesce(evidence.c.provenance, _json([])),
-            ).label("record"),
-        )
-        .select_from(
-            matching.outerjoin(
-                evidence,
-                and_(
-                    evidence.c.rule_fingerprint == matching.c.rule_fingerprint,
-                    evidence.c.premise == matching.c.premise,
-                ),
-            )
-        )
-        .where(or_(matching.c.checker == "admission", evidence.c.provenance.is_not(None)))
+    rows = select(
+        proof_window.c.key,
+        _obj(
+            rule_fingerprint=proof_window.c.rule_fingerprint,
+            premise=proof_window.c.premise,
+            provenance=evidence,
+        ).label("record"),
     )
     return _page(rows, payload)

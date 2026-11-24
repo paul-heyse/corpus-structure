@@ -24,18 +24,19 @@ from .reference_resolution import (
 )
 from .selected_graph_budget import SelectedGraphBudgetExceeded
 
-_NAVIGATION_MEMBERS = pa.schema(
+_ORDERED_REFERENCE_MEMBERS = pa.schema(
     [
         pa.field("ordinal", pa.int64(), nullable=False),
         pa.field("use_id", pa.string(), nullable=False),
         pa.field("input_role", pa.string(), nullable=False),
+        pa.field("slot", pa.string(), nullable=False),
         pa.field("occurrence", pa.string()),
         pa.field("product_id", pa.string(), nullable=False),
         pa.field("target_member_id", pa.string(), nullable=False),
         pa.field("multiplicity", pa.int64(), nullable=False),
     ]
 )
-_NAVIGATION_RESULTS = _NAVIGATION_MEMBERS.append(
+_ORDERED_REFERENCE_RESULTS = _ORDERED_REFERENCE_MEMBERS.append(
     pa.field("target_kind_contract", pa.string(), nullable=False)
 )
 
@@ -516,44 +517,46 @@ class PreparedSelectedOutputReferences:
         return target, resolver, binding
 
     def require_navigation_members(self, references):
-        """Resolve an ordered navigation relation under this producing use's authority."""
+        """Verify cited members in the authored reference order."""
+        for _binding in self.resolve_ordered(references, validate_only=True):
+            pass
+
+    def resolve_ordered(self, references, *, validate_only=False):
+        """Resolve exact reference slots in bounded batches within one producing use."""
         access = self.access
         if not isinstance(access, SelectedNativeReferenceAccess):
             for reference, path in references:
-                self.resolve(reference, path=path)
+                binding, body = self.resolve(reference, path=path, with_binding=True)
+                yield binding if validate_only else (binding, body)
             return
 
-        # The same acquisition owns the original role facts and guarded addresses.
-        # Repeat slots still resolve their own occurrence before sharing its body check.
-        authorized: dict[tuple[str, str], str] = {}
         for chunk in batched(enumerate(references), 64, strict=False):
             if chunk[-1][0] >= access.live.max_records:
                 raise SelectedGraphBudgetExceeded(
-                    "selected navigation exceeds examined reference bound", cut=access.live.cut
+                    "selected outputs exceed examined reference bound", cut=access.live.cut
                 )
-            bindings = [self._resolve_binding(reference, path)[2] for _, (reference, path) in chunk]
-            if any(binding.member_id is not None for binding in bindings):
-                # Pinned input members keep their original derivation body port.
-                for _, (reference, path) in chunk:
-                    self.resolve(reference, path=path)
-                continue
-            entries = []
-            for (ordinal, (reference, _)), binding in zip(chunk, bindings, strict=True):
-                member_id = reference.member_id
-                if member_id is None:
-                    raise ValueError("selected navigation requires its exact member")
+            entries, scalar, bindings = [], {}, []
+            for ordinal, (reference, path) in chunk:
+                binding = self._resolve_binding(reference, path)[2]
+                bindings.append(binding)
+                if reference.variant != "member" or binding.member_id is not None:
+                    scalar[ordinal] = reference, path
+                    continue
+                if reference.member_id is None:
+                    raise ValueError("selected member reference requires its exact member")
                 entries.append(
                     {
                         "ordinal": ordinal,
                         "use_id": access.selected.use_id,
                         "input_role": binding.role,
+                        "slot": path,
                         "occurrence": binding.occurrence,
                         "product_id": binding.product_id,
-                        "target_member_id": member_id,
+                        "target_member_id": reference.member_id,
                         "multiplicity": binding.multiplicity,
                     }
                 )
-            requested = pa.RecordBatch.from_pylist(entries, schema=_NAVIGATION_MEMBERS)
+            requested = pa.RecordBatch.from_pylist(entries, schema=_ORDERED_REFERENCE_MEMBERS)
             addresses = tuple(
                 zip(
                     requested.column("product_id").to_pylist(),
@@ -561,18 +564,29 @@ class PreparedSelectedOutputReferences:
                     strict=True,
                 )
             )
-            pending = dict.fromkeys(address for address in addresses if address not in authorized)
-            for row in access.live.partition_members(access.selected.use_id, pending):
-                # This consumer needs resolution evidence, so only retain the verified
-                # member kind after validating the exact semantic value once.
-                decode_semantic_value(row["meaning_body"])
-                authorized[row["product_id"], row["member_id"]] = row["kind_contract"]
+            bodies, authorized = {}, {}
+            for row in access.live.partition_members(
+                access.selected.use_id, dict.fromkeys(addresses)
+            ):
+                address = row["product_id"], row["member_id"]
+                value = decode_semantic_value(row["meaning_body"])
+                authorized[address] = row["kind_contract"]
+                if not validate_only:
+                    bodies[address] = value
             kinds = pa.array([authorized.get(address) for address in addresses], type=pa.string())
             resolved = pa.RecordBatch.from_arrays(
-                [*requested.columns, kinds], schema=_NAVIGATION_RESULTS
+                [*requested.columns, kinds], schema=_ORDERED_REFERENCE_RESULTS
             )
             if resolved.column("target_kind_contract").null_count:
                 raise ValueError("reference does not resolve its declared target")
+            acquired = dict(zip(resolved.column("ordinal").to_pylist(), addresses, strict=True))
+            for (ordinal, _), binding in zip(chunk, bindings, strict=True):
+                if ordinal in scalar:
+                    reference, path = scalar[ordinal]
+                    binding, value = self.resolve(reference, path=path, with_binding=True)
+                else:
+                    value = None if validate_only else bodies[acquired[ordinal]]
+                yield binding if validate_only else (binding, value)
 
     def resolve(self, reference, *, path, metadata_only=False, with_binding=False):
         target, resolver, binding = self._resolve_binding(reference, path)

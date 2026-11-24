@@ -11,7 +11,7 @@ from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.data_operation_version import MODEL_VERSION
-from corpus_structure.semantic.demand_results import read_demand_result, selected_record_index
+from corpus_structure.semantic.demand_results import acquired_selected_relations, read_demand_result
 from corpus_structure.semantic.formal_evidence import grammar_identity
 from corpus_structure.semantic.formal_products import (
     FormalEvidenceOptions,
@@ -111,7 +111,7 @@ def test_native_selected_formal_members_supply_assessment_graph(ddo_kernel):
         product = page.members()[0]["product_id"]
         term_ids = [row["local_id"] for row in formal.inventory()["terms"]]
         assert term_ids
-        with selected_record_index(
+        with acquired_selected_relations(
             connection,
             demand["demand_id"],
             project_id="ddo-test",

@@ -118,62 +118,45 @@ def _serve(connection, request, implementation):
         cursor = decode_pinned_cursor(request.cursor, version=CURSOR_VERSION, selection=digest)
         require_cursor_implementation(cursor, implementation)
         request = bind_cursor_request(request, cursor)
-    from contextlib import ExitStack
+    from contextlib import closing
     from itertools import chain
 
-    from corpus_structure.semantic.demand_results import recheck_selected_frontier
-    from corpus_structure.semantic.selected_query_cache import (
-        SELECTED_QUERY_CACHE,
-        bounded_rows,
-        served_key,
-        uncached_rows_from,
-    )
+    from corpus_structure.semantic.demand_results import read_selected_operation_frontier
+    from corpus_structure.semantic.selected_query_cache import uncached_rows_from
 
     from .selected_contributions import selected_contribution_selection
 
-    cut, frontier, stamp = recheck_selected_frontier(
-        connection,
-        request.demand_id,
-        project_id=request.project_id,
-        scope=selected_contribution_selection(request),
-        read_id=request.read_id,
-        expected_cut=request.expected_cut,
-        max_bytes=request.max_graph_bytes,
-        max_records=request.max_graph_records,
-    )
-    if cursor is not None:
-        require_cursor_cut(cursor, cut)
-    pinned = request.model_copy(
-        update=dict(
-            read_id=cut.record["read_id"], expected_cut=cut.identity, implementation=implementation
+    frontier = None
+    if request.include_operations:
+        cut, frontier = read_selected_operation_frontier(
+            connection,
+            request.demand_id,
+            project_id=request.project_id,
+            scope=selected_contribution_selection(request),
+            read_id=request.read_id,
+            expected_cut=request.expected_cut,
+            max_bytes=request.max_graph_bytes,
+            max_records=request.max_graph_records,
         )
-    )
-    key = served_key(
-        connection,
-        "facets",
-        implementation=implementation,
-        basis=cut.identity,
-        selection=["facets", cut.identity, implementation, digest, stamp],
-    )
-    remaining = None
-    metadata = None
-    with SELECTED_QUERY_CACHE.loading(key) as entry, ExitStack() as stack:
-        if entry is None:
-            scope = stack.enter_context(selected_contribution_scope(connection, pinned))
-            metadata = dict(records=scope.index.retained_records)
-            source = (row.value for row in contribution_rows(scope, request.projection()))
-            entry, remaining = bounded_rows(source, metadata)
-            if entry is not None:
-                SELECTED_QUERY_CACHE.put(key, entry)
-        metadata = entry.record() if entry is not None else metadata
-        assert metadata is not None
+        request = request.model_copy(
+            update=dict(read_id=cut.record["read_id"], expected_cut=cut.identity)
+        )
+    with selected_contribution_scope(connection, request) as scope:
+        cut = scope.cut
+        if cursor is not None:
+            require_cursor_cut(cursor, cut)
+        pinned = request.model_copy(
+            update=dict(
+                read_id=cut.record["read_id"],
+                expected_cut=cut.identity,
+                implementation=implementation,
+            )
+        )
+        records = scope.index.retained_records
         operations = []
-        if request.include_operations:
+        if frontier is not None:
             uses = {}
             for use in frontier["uses"]:
-                # The existing selected record index deliberately omits product
-                # bodies from native operation rows. Rebuild those authority
-                # observations fresh, preserving that exact projection.
                 value = {key: value for key, value in use.items() if key != "products"}
                 uses.setdefault(use["obligation_id"], []).append(value)
             operations = [
@@ -190,12 +173,9 @@ def _serve(connection, request, implementation):
             ]
         offset = 0 if cursor is None else cursor["position"]
         derived_offset = max(0, offset - len(operations))
-        rows = chain(
-            operations[offset:],
-            entry.rows(derived_offset)
-            if entry is not None
-            else uncached_rows_from(remaining, derived_offset),
-        )
+        source = (row.value for row in contribution_rows(scope, request.projection()))
+        # The selected frontier does not establish the current proof population.
+        rows = chain(operations[offset:], uncached_rows_from(source, derived_offset))
 
         presentation = PageEnvelope(
             reuse_refusal=capture_page_refusal(),
@@ -207,7 +187,7 @@ def _serve(connection, request, implementation):
                 selection=request.selection(),
                 resource_handle=_cursor(pinned.model_dump(mode="python", exclude_unset=True)),
                 examination=dict(
-                    records=metadata["records"],
+                    records=records,
                     scope="exact-native-selected-product-and-disclosed-support-population",
                     global_completeness="unknown",
                     protected_dependencies="undisclosed-where-bounded-authority-leaves-occur",
@@ -222,17 +202,15 @@ def _serve(connection, request, implementation):
         )
 
         try:
-            return byte_bounded_page(
-                rows,
-                offset=offset,
-                limit=request.limit,
-                max_bytes=request.max_bytes,
-                presentation=presentation,
-            )
+            with closing(source):
+                return byte_bounded_page(
+                    rows,
+                    offset=offset,
+                    limit=request.limit,
+                    max_bytes=request.max_bytes,
+                    presentation=presentation,
+                )
         except InvalidContinuation:
             raise
         except ValueError as error:
             raise RichQueryRefused(str(error)) from error
-        finally:
-            if remaining is not None:
-                remaining.close()

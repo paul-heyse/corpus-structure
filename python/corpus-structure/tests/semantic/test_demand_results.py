@@ -1,5 +1,6 @@
 """Independent selected membership, group pagination and actual MCP read contracts."""
 
+from contextlib import closing
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
@@ -58,7 +59,6 @@ def _native_connection(page):
 
 
 def test_acquired_relations_preserve_exact_input_keys_and_multiplicity():
-    from contextlib import closing
 
     from corpus_structure.semantic.acquired_selected_relations import LiveSelectedRelations
 
@@ -631,14 +631,14 @@ def _detached_closure(
     ]
 
 
-def test_detached_verifier_uses_disk_index_and_independent_identity_support_controls(tmp_path):
+def test_detached_verifier_uses_acquired_relations_and_independent_identity_controls():
     from copy import deepcopy
 
-    from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
+    from corpus_structure.semantic.acquired_selected_relations import LiveSelectedRelations
     from corpus_structure.semantic.demand_results import verify_detached_result
 
     native, records = _detached_closure()
-    index = SelectedRecordIndex(tmp_path / "closure.sqlite")
+    index = LiveSelectedRelations()
     try:
         for row in records:
             index.append(json_bytes(row))
@@ -657,12 +657,14 @@ def test_detached_verifier_uses_disk_index_and_independent_identity_support_cont
         wrong["uses"][0]["products"][0]["body"] = semantic_value({"amount": Decimal("12.341")})
         with pytest.raises(ValueError, match="selected body"):
             verify_detached_result(wrong, index=index, wire_schema={})
-        duplicate = {**records[0], "key": "another-product-record"}
-        index.append(json_bytes(duplicate))
-        with pytest.raises(ValueError, match="repeat a nominal identity"):
-            verify_detached_result(native, index=index, wire_schema={})
     finally:
         index.close()
+    duplicate = {**records[0], "key": "another-product-record"}
+    with closing(LiveSelectedRelations()) as duplicated:
+        for row in (*records, duplicate):
+            duplicated.append(json_bytes(row))
+        with pytest.raises(ValueError, match="repeat a nominal identity"):
+            verify_detached_result(native, index=duplicated, wire_schema={})
     with pytest.raises(ValueError, match="repeat a nominal identity"):
         verify_detached_result(native, records=[*records, duplicate], wire_schema={})
     altered = deepcopy(records)
@@ -945,10 +947,10 @@ def test_detached_retained_observation_refuses_unqualified_fresh_replication():
         verify_detached_result(native, records=records, wire_schema={})
 
 
-def test_selected_record_index_counts_unique_support_and_frontier_rows(tmp_path):
-    from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
+def test_acquired_selected_relations_counts_unique_support_and_frontier_rows():
+    from corpus_structure.semantic.acquired_selected_relations import LiveSelectedRelations
 
-    index = SelectedRecordIndex(tmp_path / "bounded.sqlite")
+    index = LiveSelectedRelations()
     payload = json_bytes(
         {"key": "record:A", "relation": "ops.data_derivation", "record": {"id": "A"}}
     )
@@ -979,10 +981,12 @@ def test_selected_record_acquisition_enforces_whole_unique_record_budget(monkeyp
 
     selected = pages()
     monkeypatch.setattr(owner, "read_demand_result", lambda *args, **kwargs: next(selected))
+    monkeypatch.setattr(owner, "_open_selected_archive", lambda *args, **kwargs: "handle")
+    monkeypatch.setattr(owner, "_close_selected_archive", lambda *args: None)
     monkeypatch.setattr(
-        owner, "stream_selected_support", lambda *args, **kwargs: iter((payload, payload))
+        owner, "_stream_selected_archive_records", lambda *args: iter((payload, payload))
     )
-    with owner.selected_record_index(
+    with owner.acquired_selected_relations(
         None,
         "demand:A",
         project_id="project:A",
@@ -997,7 +1001,7 @@ def test_selected_record_acquisition_enforces_whole_unique_record_budget(monkeyp
         pytest.raises(
             SelectedGraphBudgetExceeded, match="closure exceeds record bound"
         ) as captured,
-        owner.selected_record_index(
+        owner.acquired_selected_relations(
             None,
             "demand:A",
             project_id="project:A",
@@ -1021,7 +1025,7 @@ def test_selected_record_acquisition_refuses_invalid_record_bounds_before_read(m
     )
     with (
         pytest.raises(ValueError, match="nonnegative integer"),
-        owner.selected_record_index(
+        owner.acquired_selected_relations(
             None, "demand:A", project_id="project:A", scope={}, max_total_records=bound
         ),
     ):
@@ -1415,7 +1419,7 @@ def test_selected_use_index_reuses_acquired_metadata_and_stops_when_resolved(
 
     monkeypatch.setattr(owner, "read_demand_result", fetch)
     monkeypatch.setattr(owner, "stream_selected_support", support)
-    with owner.selected_record_index(
+    with owner.acquired_selected_relations(
         None,
         "demand:A",
         project_id="project:A",
@@ -1433,7 +1437,7 @@ def test_selected_use_index_reuses_acquired_metadata_and_stops_when_resolved(
     visited.clear()
     with (
         pytest.raises(ValueError, match="absent from its exact frontier cut"),
-        owner.selected_record_index(
+        owner.acquired_selected_relations(
             None,
             "demand:A",
             project_id="project:A",
@@ -1484,7 +1488,7 @@ def test_selected_use_support_excludes_other_obligations_on_the_same_page(monkey
 
     monkeypatch.setattr(owner, "read_demand_result", lambda *args, **kwargs: page)
     monkeypatch.setattr(DataOperationStorage, "read_demand_result", read)
-    with owner.selected_record_index(
+    with owner.acquired_selected_relations(
         None,
         "demand:A",
         project_id="project:A",
@@ -1492,8 +1496,12 @@ def test_selected_use_support_excludes_other_obligations_on_the_same_page(monkey
         read_id="read:A",
         expected_cut=page.cut.identity,
         use_ids={"use:A"},
+        capture_frontier=True,
     ) as (_, index):
         assert list(index.rows("ops.data_derivation")) == [{"id": "selected"}]
+        assert index.frontier_row("uses", "use:A") is not None
+        assert index.frontier_row("uses", "use:other") is None
+        assert index.frontier_row("obligations", "obligation:other") is None
     assert len(support_requests) == 1
 
 
@@ -1515,7 +1523,9 @@ def test_support_obligation_refuses_outside_page_or_whole_cut(
         )
 
 
-def test_selected_record_index_seeds_only_explicit_obligations_under_the_same_cut(monkeypatch):
+def test_acquired_selected_relations_seeds_only_explicit_obligations_under_the_same_cut(
+    monkeypatch,
+):
     from corpus_structure.semantic import demand_results as owner
 
     expected_cut = CutSelection.from_native(demand_result_page())
@@ -1538,7 +1548,7 @@ def test_selected_record_index_seeds_only_explicit_obligations_under_the_same_cu
 
     monkeypatch.setattr(owner, "read_demand_result", read)
     monkeypatch.setattr(owner, "stream_selected_support", witness)
-    with owner.selected_record_index(
+    with owner.acquired_selected_relations(
         None,
         "demand:A",
         project_id="project:A",
@@ -1575,7 +1585,7 @@ def test_selected_support_preserves_the_obligation_selector(monkeypatch):
     assert "support_scope" not in seen[0]
 
 
-def test_selected_record_index_retains_support_from_every_selected_frontier_page(monkeypatch):
+def test_acquired_selected_relations_retains_support_from_every_selected_frontier_page(monkeypatch):
     from corpus_structure.semantic import demand_results as owner
 
     expected_cut = CutSelection.from_native(demand_result_page())
@@ -1604,7 +1614,7 @@ def test_selected_record_index_retains_support_from_every_selected_frontier_page
 
     monkeypatch.setattr(owner, "read_demand_result", read)
     monkeypatch.setattr(owner, "stream_selected_support", support)
-    with owner.selected_record_index(
+    with owner.acquired_selected_relations(
         None,
         "demand:A",
         project_id="project:A",
@@ -1650,7 +1660,7 @@ def test_selected_use_index_refuses_changed_cut_or_live_authority_before_support
     expected = "another cut/trust assessment" if change == "cut" else "authority revoked"
     with (
         pytest.raises(ValueError, match=expected),
-        owner.selected_record_index(
+        owner.acquired_selected_relations(
             None,
             "demand:A",
             project_id="project:A",

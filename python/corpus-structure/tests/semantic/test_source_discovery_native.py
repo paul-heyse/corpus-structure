@@ -16,7 +16,7 @@ from corpus_structure.semantic.data_operation_service import execute_data_demand
 from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
-from corpus_structure.semantic.demand_results import read_demand_result, selected_record_index
+from corpus_structure.semantic.demand_results import acquired_selected_relations, read_demand_result
 from corpus_structure.semantic.original_documents import acquire_original_document_selection
 from semantic.current_pdf_source_support import (
     PROJECT,
@@ -132,7 +132,7 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(
         (population,) = page.record["populations"]
         assert population["complete"] is complete
         assert len(population["members"]) == len(selected)
-        with selected_record_index(
+        with acquired_selected_relations(
             connection,
             demand,
             project_id=PROJECT,

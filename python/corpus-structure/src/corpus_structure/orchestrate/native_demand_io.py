@@ -56,6 +56,19 @@ class NativeDemandClaims:
             claim, lambda connection: callback(DataOperationStorage(connection))
         )
 
+    def retain_pdf_adoption(self, claim, callback, cancellation):
+        """Serialize document adoption and lease maintenance on the same claim."""
+
+        def adopt(connection):
+            renewed = DataOperationStorage(connection).renew_data_request(
+                {**claim.fence, "lease_seconds": 300}
+            )
+            if renewed["state"] == "lost":
+                raise ClaimFenceLost(claim, renewed["reason"])
+            return callback(connection)
+
+        return self.owner.retain(claim, adopt, cancellation=cancellation)
+
 
 class NativeDemandIO:
     def __init__(self, engine, admission_engine):

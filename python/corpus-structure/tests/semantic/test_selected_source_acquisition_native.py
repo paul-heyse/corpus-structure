@@ -185,7 +185,7 @@ def test_native_selected_source_basis_preserves_two_producers_and_refuses_forged
 @SOURCE_PROOF_CASE
 def test_native_source_acquisition_distinguishes_anchor_from_actual_producing_use(ddo_kernel):
     from corpus_structure.semantic.data_operation_source_sets import selected_source_entries
-    from corpus_structure.semantic.demand_results import selected_record_index
+    from corpus_structure.semantic.demand_results import acquired_selected_relations
     from corpus_structure.semantic.selected_support import SelectedReadReference
     from semantic.test_data_operation_pinned_reuse_native import PRODUCER
 
@@ -199,7 +199,7 @@ def test_native_source_acquisition_distinguishes_anchor_from_actual_producing_us
     anchor = selected(ddo_kernel, consumer)
     with (
         ddo_kernel["engine"].begin() as connection,
-        selected_record_index(
+        acquired_selected_relations(
             connection,
             consumer["demand_id"],
             project_id="ddo-test",

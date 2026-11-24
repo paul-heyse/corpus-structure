@@ -231,6 +231,7 @@ def require_selected_contribution_input_support(scope, selected):
     members = check_contribution_input_support(report)
     prepared = PreparedSelectedOutputReferences(scope, selected)
     seen = set()
+    cited = []
     for field in SUPPORT_FIELDS:
         path = "/" + field + "/*/target"
         for slot in report.get(field, ()):
@@ -241,13 +242,18 @@ def require_selected_contribution_input_support(scope, selected):
             if key in seen:
                 raise ValueError("contribution evidence repeats its logical slot")
             seen.add(key)
-            value = prepared.resolve(target, path=path)
-            if field == "inherited_support":
-                if value != members[slot["member_id"]]:
-                    raise ValueError(
-                        "inherited contribution differs from its original predicate member"
-                    )
-            elif slot["field"].split("/")[-1] == "primary_choices":
-                require_contextual_choice_alternative(
-                    target, value, partial(prepared.resolve, path=path)
+            cited.append((field, slot, target, path))
+    for (field, slot, target, path), (_, value) in zip(
+        cited,
+        prepared.resolve_ordered((target, path) for _, _, target, path in cited),
+        strict=True,
+    ):
+        if field == "inherited_support":
+            if value != members[slot["member_id"]]:
+                raise ValueError(
+                    "inherited contribution differs from its original predicate member"
                 )
+        elif slot["field"].split("/")[-1] == "primary_choices":
+            require_contextual_choice_alternative(
+                target, value, partial(prepared.resolve, path=path)
+            )

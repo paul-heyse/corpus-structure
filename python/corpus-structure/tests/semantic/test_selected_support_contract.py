@@ -8,12 +8,12 @@ from typing import Any
 import pytest
 from jsonschema.exceptions import ValidationError
 
+from corpus_structure.semantic.acquired_selected_relations import LiveSelectedRelations
 from corpus_structure.semantic.data_operation_json import json_bytes, native_json_loads
-from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
 from corpus_structure.semantic.selected_support_contract import SelectedSupportReader
 
 
-def test_request_scope_and_product_body_use_distinct_declared_roles(tmp_path):
+def test_request_scope_and_product_body_use_distinct_declared_roles():
     request = {
         "key": "request:A",
         "relation": "ops.data_request",
@@ -28,7 +28,7 @@ def test_request_scope_and_product_body_use_distinct_declared_roles(tmp_path):
             "canonical_body": {"analyzed_scope": Decimal("0.125")},
         },
     }
-    index = SelectedRecordIndex(tmp_path / "support.sqlite")
+    index = LiveSelectedRelations()
     try:
         for row in (request, product):
             index.append(json_bytes(row))

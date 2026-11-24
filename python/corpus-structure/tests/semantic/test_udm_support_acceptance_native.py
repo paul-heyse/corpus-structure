@@ -31,7 +31,10 @@ from semantic.test_structural_admission_native import (
 
 
 def test_protected_authority_is_a_public_leaf_and_keeps_private_scope(structural_native_journey):
-    from corpus_structure.semantic.demand_results import read_demand_result, selected_record_index
+    from corpus_structure.semantic.demand_results import (
+        acquired_selected_relations,
+        read_demand_result,
+    )
     from corpus_structure.semantic.effect_policy import ApprovedEffect, admit_effect_grants
     from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.support_edges import support_edge_queries
@@ -132,7 +135,7 @@ def test_protected_authority_is_a_public_leaf_and_keeps_private_scope(structural
         assert len(public) < len(private)
     with (
         kernel.purpose("read").begin() as connection,
-        selected_record_index(
+        acquired_selected_relations(
             connection, retained["demand_id"], project_id=PROJECT, scope=scope
         ) as (_, index),
     ):

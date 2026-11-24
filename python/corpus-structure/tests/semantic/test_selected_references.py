@@ -15,8 +15,8 @@ from corpus_structure.evaluate.selected_references import (
     _reference_invariants,
     evaluate_selected_references,
 )
+from corpus_structure.semantic.acquired_selected_relations import LiveSelectedRelations
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.observations import source_value
@@ -158,7 +158,7 @@ def test_reference_model_governs_evaluator_universe_and_preserves_independent_so
         _reference_invariants(bad)
 
 
-def selected_fixture(tmp_path, monkeypatch, acquired):
+def selected_fixture(monkeypatch, acquired):
     from dataclasses import replace
 
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
@@ -201,9 +201,9 @@ def selected_fixture(tmp_path, monkeypatch, acquired):
         ],
         dependencies=[],
     )
-    reference_index = SelectedRecordIndex(tmp_path / "reference.sqlite")
-    prediction_index = SelectedRecordIndex(tmp_path / "prediction.sqlite")
-    source_index = SelectedRecordIndex(tmp_path / "source.sqlite")
+    reference_index = LiveSelectedRelations()
+    prediction_index = LiveSelectedRelations()
+    source_index = LiveSelectedRelations()
     source_member = body["source_members"][0]
     source_index.append(
         json_bytes(
@@ -324,7 +324,7 @@ def selected_fixture(tmp_path, monkeypatch, acquired):
             )
 
     monkeypatch.setattr(
-        "corpus_structure.evaluate.selected_references.selected_record_index", selected
+        "corpus_structure.evaluate.selected_references.acquired_selected_relations", selected
     )
     monkeypatch.setattr(
         "corpus_structure.semantic.releases.open_release",
@@ -351,10 +351,10 @@ def selected_fixture(tmp_path, monkeypatch, acquired):
 
 
 def test_current_reference_grade_keeps_source_prediction_releases_and_zero_output_denominator(
-    tmp_path, monkeypatch, acquired
+    monkeypatch, acquired
 ):
     request, reference_index, prediction_index, source_index = selected_fixture(
-        tmp_path, monkeypatch, acquired
+        monkeypatch, acquired
     )
     try:
         result = evaluate_selected_references(None, request)
@@ -522,9 +522,7 @@ def test_native_reference_recipe_prepares_complete_snapshot_witnesses():
     }
 
 
-def test_current_evaluator_tool_and_resource_keep_both_selection_pins(
-    tmp_path, monkeypatch, acquired
-):
+def test_current_evaluator_tool_and_resource_keep_both_selection_pins(monkeypatch, acquired):
     import anyio
     from fastmcp import Client
     from sqlalchemy import create_engine
@@ -532,31 +530,8 @@ def test_current_evaluator_tool_and_resource_keep_both_selection_pins(
     from corpus_structure.intervene.selected_assessment_server import build_evaluator_server
     from corpus_structure.semantic.data_operation_json import json_loads
 
-    request, references, predictions, sources = selected_fixture(tmp_path, monkeypatch, acquired)
+    request, references, predictions, sources = selected_fixture(monkeypatch, acquired)
     engine = create_engine("sqlite://")
-    import corpus_structure.evaluate.selected_references as owner
-
-    selected = owner.selected_record_index
-    frozen = {
-        id(index): tuple(
-            row[0]
-            for row in index.connection.exec_driver_sql("SELECT payload FROM records ORDER BY key")
-        )
-        for index in (references, predictions, sources)
-    }
-
-    @contextmanager
-    def thread_selected(*args, **kwargs):
-        with selected(*args, **kwargs) as (cut, index):
-            local = SelectedRecordIndex(":memory:")
-            try:
-                for payload in frozen[id(index)]:
-                    local.append(payload)
-                yield cut, local
-            finally:
-                local.close()
-
-    monkeypatch.setattr(owner, "selected_record_index", thread_selected)
 
     async def journey():
         async with Client(
@@ -587,9 +562,7 @@ def test_current_evaluator_tool_and_resource_keep_both_selection_pins(
         sources.close()
 
 
-def test_admitted_assessment_snapshot_qualifies_members_and_parallel_occurrences(
-    acquired, tmp_path
-):
+def test_admitted_assessment_snapshot_qualifies_members_and_parallel_occurrences(acquired):
     from corpus_structure.evaluate.assessment_graph import assessment_graph_snapshot
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.graph_inspection import GraphInspectionRequest, inspect_graph
@@ -616,7 +589,7 @@ def test_admitted_assessment_snapshot_qualifies_members_and_parallel_occurrences
             for row in inventory["terms"]
         ],
     )
-    with_index = SelectedRecordIndex(tmp_path / "assessment.sqlite")
+    with_index = LiveSelectedRelations()
     try:
         with_index.append(
             json_bytes(
@@ -643,16 +616,6 @@ def test_admitted_assessment_snapshot_qualifies_members_and_parallel_occurrences
                     )
                 )
             )
-        native = demand_result_page()
-        native["release_id"] = acquired.release_id
-        cut = CutSelection.from_native(native)
-        snapshot = assessment_graph_snapshot(
-            acquired, cut, with_index, members=((product, "root"),)
-        )
-        limited = assessment_graph_snapshot(
-            acquired, cut, with_index, members=((product, "root"),), max_bytes=1
-        )
-        assert limited.standing == "partial" and not limited.nodes
         with_index.append(
             json_bytes(
                 dict(
@@ -677,6 +640,16 @@ def test_admitted_assessment_snapshot_qualifies_members_and_parallel_occurrences
                 )
             )
         )
+        native = demand_result_page()
+        native["release_id"] = acquired.release_id
+        cut = CutSelection.from_native(native)
+        snapshot = assessment_graph_snapshot(
+            acquired, cut, with_index, members=((product, "root"),)
+        )
+        limited = assessment_graph_snapshot(
+            acquired, cut, with_index, members=((product, "root"),), max_bytes=1
+        )
+        assert limited.standing == "partial" and not limited.nodes
         assert (
             assessment_graph_snapshot(
                 acquired, cut, with_index, members=(("product:unrelated", "root"),)
@@ -704,7 +677,7 @@ def test_admitted_assessment_snapshot_qualifies_members_and_parallel_occurrences
         with_index.close()
 
 
-def test_assessment_roots_share_one_container_guard_load(tmp_path, monkeypatch):
+def test_assessment_roots_share_one_container_guard_load(monkeypatch):
     from collections import Counter
     from collections.abc import Mapping
 
@@ -761,7 +734,7 @@ def test_assessment_roots_share_one_container_guard_load(tmp_path, monkeypatch):
 
     monkeypatch.setattr(owner, "decode_semantic_value", counted_decode)
     monkeypatch.setattr(owner, "derive_member_kinds", counted_derive)
-    index = SelectedRecordIndex(tmp_path / "shared-container.sqlite")
+    index = LiveSelectedRelations()
     try:
         index.append(
             json_bytes(

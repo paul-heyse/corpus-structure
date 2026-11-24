@@ -271,7 +271,7 @@ def test_view_catalog_preserves_member_identity_exact_scope_and_unknown_standing
 
     def frontier(connection, demand, **request):
         assert request["view"] == "frontier"
-        assert request["continuation"]["obligation_id"] == "obligation:population"
+        assert request["continuation"]["obligation_ids"] == ["obligation:population"]
         return SimpleNamespace(cut=CutSelection.from_native(page["cut"]), record=page)
 
     monkeypatch.setattr(source_catalog, "read_selected_answer", answer)

@@ -132,6 +132,7 @@ def _read_demand_result(model, *, context_only=False, scheduler=False, answer=No
         "read_selected_derivation_facts": ("use_id",),
         "read_selected_proofs": ("use_id", "product_id", "premises"),
     }
+    answer_after = payload["answer_after"]
     answer_guards = (
         ()
         if answer is None
@@ -145,6 +146,28 @@ def _read_demand_result(model, *, context_only=False, scheduler=False, answer=No
                     ),
                 )
                 if required_selectors[answer[0]]
+                else ()
+            ),
+            *(
+                (
+                    _refusal(
+                        and_(
+                            payload.has_key("answer_after"),
+                            or_(
+                                func.jsonb_array_length(answer_after) != 6,
+                                *(
+                                    func.jsonb_typeof(answer_after[index]).is_distinct_from(kind)
+                                    for index, kind in enumerate(
+                                        ("string", "string", "string", "number", "string", "string")
+                                    )
+                                ),
+                            ),
+                        ),
+                        "selected output continuation requires an exact output address",
+                        "22023",
+                    ),
+                )
+                if answer[0] == "read_selected_outputs"
                 else ()
             ),
             *(
@@ -184,6 +207,28 @@ def _read_demand_result(model, *, context_only=False, scheduler=False, answer=No
         else "read_demand_result",
         (
             *answer_guards,
+            *(
+                (
+                    _refusal(
+                        and_(
+                            payload.has_key("obligation_ids"),
+                            or_(
+                                literal(scheduler),
+                                payload["view"].astext.is_distinct_from("frontier"),
+                                ~payload.has_key("read_id"),
+                                payload.has_key("obligation_id"),
+                                payload.has_key("after"),
+                                func.jsonb_array_length(payload["obligation_ids"])
+                                > func.coalesce(payload["limit"].as_integer(), 100),
+                            ),
+                        ),
+                        "selected obligation batch requires one pinned frontier with sufficient limit",
+                        "22023",
+                    ),
+                )
+                if answer is None and not context_only
+                else ()
+            ),
             *(
                 (
                     _refusal(
@@ -444,10 +489,12 @@ def _read_demand_result(model, *, context_only=False, scheduler=False, answer=No
                     SelectInto(read_page(model, scheduler=scheduler), ("results",)),
                     _refusal(
                         and_(
-                            view.in_(("products", "support")),
+                            or_(
+                                view.in_(("products", "support")), payload.has_key("obligation_ids")
+                            ),
                             func.octet_length(func.data.canonical_json(results)) > max_bytes,
                         ),
-                        "complete native product page envelope exceeds max_bytes; reduce the page limit",
+                        "complete native demand page envelope exceeds max_bytes; reduce the page limit",
                     ),
                     Return(results),
                 )

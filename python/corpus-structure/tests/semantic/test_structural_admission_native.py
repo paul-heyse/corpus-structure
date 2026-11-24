@@ -286,11 +286,11 @@ def structural_native_journey(commit_db_engine, native_settings, tmp_path, monke
         parents = []
         from corpus_structure.evaluate.declared_record_policy import _selected_body
         from corpus_structure.semantic.declared_structural_references import DeclaredProductRef
-        from corpus_structure.semantic.demand_results import selected_record_index
+        from corpus_structure.semantic.demand_results import acquired_selected_relations
 
         with (
             kernel.purpose("evaluate").begin() as connection,
-            selected_record_index(
+            acquired_selected_relations(
                 connection, staged["demand_id"], project_id=PROJECT, scope={}, capture_frontier=True
             ) as (_, index),
         ):
@@ -725,11 +725,11 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
     )
     (copy_header,) = copy_report["authored_admissions"]
     assert copy_header["evidence"]["standing"] == "authored"
-    from corpus_structure.semantic.demand_results import selected_record_index
+    from corpus_structure.semantic.demand_results import acquired_selected_relations
 
     with (
         kernel.purpose("read").begin() as connection,
-        selected_record_index(
+        acquired_selected_relations(
             connection,
             copy_report["demand_id"],
             project_id=PROJECT,

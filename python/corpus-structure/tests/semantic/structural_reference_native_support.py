@@ -15,7 +15,7 @@ def original_passes(kernel, report, expected, *, component_id=None, inference):
     """Admit independent original A/B products before authoring C's actual parents."""
     from corpus_structure.evaluate.declared_record_policy import _selected_body
     from corpus_structure.semantic.data_operation_model import json_context_meaning
-    from corpus_structure.semantic.demand_results import selected_record_index
+    from corpus_structure.semantic.demand_results import acquired_selected_relations
     from corpus_structure.serve.interpretation_authoring import author_interpretations
 
     variant = {
@@ -87,7 +87,7 @@ def original_passes(kernel, report, expected, *, component_id=None, inference):
     parents = []
     with (
         kernel.purpose("evaluate").begin() as connection,
-        selected_record_index(
+        acquired_selected_relations(
             connection,
             staged["demand_id"],
             project_id=PROJECT,

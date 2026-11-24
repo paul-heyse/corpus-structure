@@ -117,7 +117,7 @@ def test_native_large_diagnostics_remain_in_actual_support_without_forcing_publi
     rich_publication,
 ):
     from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
-    from corpus_structure.semantic.demand_results import selected_record_index
+    from corpus_structure.semantic.demand_results import acquired_selected_relations
     from corpus_structure.semantic.selected_graph_budget import SelectedGraphBudgetExceeded
 
     journey = rich_publication
@@ -155,7 +155,7 @@ def test_native_large_diagnostics_remain_in_actual_support_without_forcing_publi
     with (
         journey.kernel.purpose("read").begin() as connection,
         pytest.raises(SelectedGraphBudgetExceeded),
-        selected_record_index(
+        acquired_selected_relations(
             connection,
             readings.demand_id,
             project_id=PROJECT,

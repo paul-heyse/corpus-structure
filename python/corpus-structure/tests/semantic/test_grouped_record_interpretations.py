@@ -254,7 +254,7 @@ def test_group_paging_pins_cut_and_selection_and_never_splits_readings(monkeypat
         return CutSelection(json_bytes(record))
 
     @contextmanager
-    def scope(connection, request, *, product_ids):
+    def scope(connection, request, *, product_ids, require_support=False):
         assert set(product_ids) == {"product:one", "product:other"}
         observed.append(request)
         yield SimpleNamespace(

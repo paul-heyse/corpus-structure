@@ -10,11 +10,11 @@ from pglast import ast, parse_sql
 
 from corpus_structure.semantic.capture_storage import LogicalRows
 from corpus_structure.semantic.refusal_types import SemanticRefusal
+from corpus_structure.serve.archive_custody import publish_archive_directory
 from corpus_structure.serve.companion_export import (
     CompanionExportManifest,
     FamilyFile,
     _export_schema,
-    _publish_directory,
     compare_companion_exports,
     inventory_companion_export,
 )
@@ -199,7 +199,7 @@ def test_publication_refuses_existing_empty_directory(tmp_path):
     destination = tmp_path / "destination"
     destination.mkdir()
     with pytest.raises(FileExistsError):
-        _publish_directory(source, destination)
+        publish_archive_directory(source, destination)
     assert source.exists() and list(destination.iterdir()) == []
 
 

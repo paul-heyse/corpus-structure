@@ -2,8 +2,8 @@
 
 import pytest
 
+from corpus_structure.semantic.acquired_selected_relations import LiveSelectedRelations
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.refusal_types import RichQueryRefused
@@ -81,7 +81,7 @@ def test_live_contributions_use_paged_exact_answers_without_materializing_a_supp
 
 @pytest.mark.parametrize("disclosure", ["matching", "other-use", "other-episode", "absent"])
 def test_selected_products_respect_explicit_authority_disclosure_without_hiding_missing_episodes(
-    tmp_path, disclosure
+    disclosure,
 ):
     from types import SimpleNamespace
     from typing import cast
@@ -90,7 +90,7 @@ def test_selected_products_respect_explicit_authority_disclosure_without_hiding_
     from semantic.test_authority_leaf import disclosure as authority_disclosure
 
     leaf, _ = authority_disclosure()
-    index = SelectedRecordIndex(tmp_path / "authority.sqlite")
+    index = LiveSelectedRelations()
     try:
         index.append_page(
             {
@@ -180,8 +180,8 @@ def product(index, identifier, kind="kind:ordinary", body=None):
     )
 
 
-def test_unpositioned_support_population_resolves_only_actual_product_member_edges(tmp_path):
-    index = SelectedRecordIndex(tmp_path / "scope.sqlite")
+def test_unpositioned_support_population_resolves_only_actual_product_member_edges():
+    index = LiveSelectedRelations()
     try:
         inputs = [
             dict(role="sources", position=None, product_id="A", member_id=None),
@@ -242,8 +242,8 @@ def test_unpositioned_support_population_resolves_only_actual_product_member_edg
         index.close()
 
 
-def test_authored_policy_keeps_distinct_original_admission_support(tmp_path):
-    index = SelectedRecordIndex(tmp_path / "scope.sqlite")
+def test_authored_policy_keeps_distinct_original_admission_support():
+    index = LiveSelectedRelations()
     try:
         request(
             index,
@@ -287,11 +287,11 @@ def test_authored_policy_keeps_distinct_original_admission_support(tmp_path):
     "defect",
     [None, "unavailable", "other-issuer", "protected-kind", "other-use", "parallel-valid-use"],
 )
-def test_actual_bounded_authority_leaf_is_not_reconstructed_as_hidden_edges(tmp_path, defect):
+def test_actual_bounded_authority_leaf_is_not_reconstructed_as_hidden_edges(defect):
     from semantic.test_authority_leaf import disclosure
 
     leaf, contracts = disclosure()
-    index = SelectedRecordIndex(tmp_path / "scope.sqlite")
+    index = LiveSelectedRelations()
     try:
         request(
             index,
@@ -365,13 +365,8 @@ def test_actual_bounded_authority_leaf_is_not_reconstructed_as_hidden_edges(tmp_
         index.close()
 
 
-def test_acquired_support_can_be_sealed_while_retaining_exact_indexed_rows(tmp_path):
-    from sqlalchemy.exc import OperationalError
-
-    from corpus_structure.semantic.data_operation_json import json_bytes
-    from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
-
-    index = SelectedRecordIndex(tmp_path / "selected.sqlite")
+def test_acquired_support_can_be_sealed_while_retaining_exact_indexed_rows():
+    index = LiveSelectedRelations()
     try:
         first = {
             "key": "episode:first",
@@ -382,16 +377,16 @@ def test_acquired_support_can_be_sealed_while_retaining_exact_indexed_rows(tmp_p
         index.freeze()
         assert list(index.rows("ops.data_derivation")) == [{"id": "first"}]
         assert index.mapping("ops.data_derivation", ("id",))["first"] == {"id": "first"}
-        with pytest.raises(OperationalError, match="readonly"):
+        with pytest.raises(ValueError, match="already sealed"):
             index.append(json_bytes({**first, "key": "episode:second", "record": {"id": "second"}}))
     finally:
         index.close()
 
 
-def test_consumed_use_selection_keeps_same_derivation_uses_separate(tmp_path, monkeypatch):
+def test_consumed_use_selection_keeps_same_derivation_uses_separate(monkeypatch):
     from corpus_structure.semantic.selected_contribution_input import selected_use_selection
 
-    index = SelectedRecordIndex(tmp_path / "uses.sqlite")
+    index = LiveSelectedRelations()
     try:
         request(index, [], [])
         index.append_page(

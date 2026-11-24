@@ -6,7 +6,7 @@ import anyio
 import pytest
 from fastmcp import Client
 from methods.contextual_query_support import POINTER, TEXT, primary, source
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 
 from corpus_structure.semantic.contributions import occurrence_identity
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
@@ -14,6 +14,7 @@ from corpus_structure.semantic.data_operation_values import decode_semantic_valu
 from corpus_structure.semantic.demand_results import DemandResult
 from corpus_structure.semantic.record_contracts import anchor_identity
 from corpus_structure.semantic.source_contexts import record_source_pin
+from corpus_structure.serve import demand_context
 from corpus_structure.serve.demand_context import DemandContextRequest, inspect_demand_context
 from semantic.demand_result_support import demand_result_page
 
@@ -115,27 +116,61 @@ def fixture() -> tuple[DemandContextRequest, list[dict[str, Any]]]:
     return request, rows
 
 
+@pytest.fixture
+def read_engine():
+    engine = create_engine("sqlite://")
+    try:
+        yield engine
+    finally:
+        engine.dispose()
+
+
 def install(monkeypatch, rows, *, trust=None):
-    calls = []
+    from corpus_structure.semantic import demand_results
+
+    calls, scratch = [], {}
 
     def read(connection, demand_id, *, project_id, scope, **kwargs):
-        calls.append((demand_id, project_id, scope, kwargs))
+        assert connection.in_transaction()
+        calls.append((demand_id, project_id, scope, kwargs, connection))
         native = demand_result_page(trust=trust)
         native["scope"] = scope
         return DemandResult(json_bytes(native))
 
-    monkeypatch.setattr("corpus_structure.semantic.demand_results.read_demand_result", read)
-    monkeypatch.setattr(
-        "corpus_structure.semantic.demand_results.stream_selected_support",
-        lambda conn, page, **kwargs: iter(rows),
-    )
+    def open_archive(connection, cut, **_options):
+        assert connection.in_transaction()
+        handle = object()
+        scratch[handle] = connection
+        return handle
+
+    def read_archive(connection, handle):
+        assert connection.in_transaction() and scratch[handle] is connection
+        return iter(rows)
+
+    def close_archive(connection, handle):
+        assert connection.in_transaction() and scratch.pop(handle) is connection
+
+    monkeypatch.setattr(demand_results, "read_demand_result", read)
+    monkeypatch.setattr(demand_results, "_open_selected_archive", open_archive)
+    monkeypatch.setattr(demand_results, "_stream_selected_archive_records", read_archive)
+    monkeypatch.setattr(demand_results, "_close_selected_archive", close_archive)
     return calls
 
 
-def test_current_query_context_uses_exact_selected_products_and_source(monkeypatch):
+def test_current_query_context_uses_exact_selected_products_and_source(monkeypatch, read_engine):
     request, rows = fixture()
     calls = install(monkeypatch, rows)
-    result = inspect_demand_context(None, request)
+    committed = []
+    event.listen(read_engine, "commit", committed.append)
+    resolve = demand_context.resolve_query_contexts
+
+    def resolve_after_commit(*args, **kwargs):
+        connection = calls[-1][4]
+        assert connection.closed and connection in committed
+        return resolve(*args, **kwargs)
+
+    monkeypatch.setattr(demand_context, "resolve_query_contexts", resolve_after_commit)
+    result = inspect_demand_context(read_engine.begin, request)
     assert result["availability"] == "available"
     assert result["rendered"] == "Predicate: approves\nArgument direct_object: the request"
     assert result["primary"] == {"product_id": "product:primary", "member_id": "frame"}
@@ -145,30 +180,47 @@ def test_current_query_context_uses_exact_selected_products_and_source(monkeypat
     changed = request.model_copy(update={"read_id": "read:A", "expected_cut": result["cut_id"]})
     install(monkeypatch, rows, trust={"source:A": 1})
     with pytest.raises(ValueError, match="trust assessment"):
-        inspect_demand_context(None, changed)
+        inspect_demand_context(read_engine.begin, changed)
 
 
-def test_current_query_context_missing_focal_is_unavailable_not_absent(monkeypatch):
+def test_current_query_context_missing_focal_is_unavailable_not_absent(monkeypatch, read_engine):
     request, rows = fixture()
     install(monkeypatch, rows[:-1])
-    result = inspect_demand_context(None, request)
+    result = inspect_demand_context(read_engine.begin, request)
     assert result["availability"] == "unavailable"
     assert "absent" not in result.values()
 
 
-def test_actual_query12_tool_and_resource_preserve_pinned_semantic_refs(monkeypatch):
+def test_projection_failure_releases_the_acquired_lookup(monkeypatch, read_engine):
+    request, rows = fixture()
+    calls = install(monkeypatch, rows)
+    held = []
+
+    def refuse(_selection, layers, *_args, **_kwargs):
+        assert calls[-1][4].closed
+        held.append(layers.index)
+        raise ValueError("controlled projection failure")
+
+    monkeypatch.setattr(demand_context, "resolve_query_contexts", refuse)
+    with pytest.raises(ValueError, match="controlled projection failure"):
+        inspect_demand_context(read_engine.begin, request)
+    (index,) = held
+    with pytest.raises(ValueError, match="selected relations are closed"):
+        next(index.rows("kb.data_product"))
+
+
+def test_actual_query12_tool_and_resource_preserve_pinned_semantic_refs(monkeypatch, read_engine):
     from corpus_structure.intervene.server import build_server
     from corpus_structure.semantic.data_operation_external import ExternalDataSession
 
     request, rows = fixture()
     calls = install(monkeypatch, rows)
-    engine = create_engine("sqlite://")
 
     async def journey():
         async with Client(
             build_server(
-                session=ExternalDataSession(engine, "project:A", demand_id="demand:A"),
-                read_engine=engine,
+                session=ExternalDataSession(read_engine, "project:A", demand_id="demand:A"),
+                read_engine=read_engine,
                 project="project:A",
                 demand="demand:A",
             )
@@ -194,7 +246,4 @@ def test_actual_query12_tool_and_resource_preserve_pinned_semantic_refs(monkeypa
             assert replayed["context"] == report["context"]
             assert calls[-1][3]["continuation"]["read_id"] == "read:A"
 
-    try:
-        anyio.run(journey)
-    finally:
-        engine.dispose()
+    anyio.run(journey)

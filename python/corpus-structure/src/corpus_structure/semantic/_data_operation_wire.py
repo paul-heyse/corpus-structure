@@ -1433,6 +1433,7 @@ class WireReadDemandResultRequest(TypedDict):
     limit: NotRequired[int]
     max_bytes: NotRequired[int]
     obligation_id: NotRequired[WireObligationId]
+    obligation_ids: NotRequired[list[WireIdentifier]]
     read_id: NotRequired[WireReadIdentity]
     read_snapshot: NotRequired[WireReadSnapshot]
     recheck_bodies: NotRequired[bool]

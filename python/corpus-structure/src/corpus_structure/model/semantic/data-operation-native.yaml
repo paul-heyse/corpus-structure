@@ -2332,6 +2332,12 @@ definitions:
       support_facts: {type: boolean}
       recheck_bodies: {type: boolean}
       obligation_id: {$ref: '#/definitions/identifier'}
+      obligation_ids:
+        type: array
+        items: {$ref: '#/definitions/identifier'}
+        uniqueItems: true
+        minItems: 1
+        maxItems: 1000
       support_after: {$ref: '#/definitions/identifier'}
       scope: {$ref: '#/definitions/demand_read_scope'}
       demand_id:

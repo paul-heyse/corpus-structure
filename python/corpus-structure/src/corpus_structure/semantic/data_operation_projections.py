@@ -2137,14 +2137,24 @@ def read_page(metadata, *, scheduler=False):
     requests = metadata.tables["ops.data_request"]
     definitions = metadata.tables["sem.data_operation_definition"]
     read_scope = _requested_read_scope()
+    request = _var("p", JSONB)
+    requested_obligations = (
+        func.jsonb_array_elements_text(request["obligation_ids"])
+        .table_valued(column("id", Text()))
+        .render_derived(name="requested_obligations")
+    )
+    selected_obligations = (
+        or_(~request.has_key("obligation_id"), obligations.c.id == request["obligation_id"].astext),
+        or_(
+            ~request.has_key("obligation_ids"),
+            obligations.c.id.in_(select(requested_obligations.c.id)),
+        ),
+    )
     bounded = (
         _scoped_read_obligations(metadata)
         .where(
             obligations.c.id > _var("after_key", Text),
-            or_(
-                ~_var("p", JSONB).op("?")(literal("obligation_id")),
-                obligations.c.id == _var("p", JSONB)["obligation_id"].astext,
-            ),
+            *selected_obligations,
         )
         .order_by(obligations.c.id)
         .limit(_var("lim", BigInteger))
@@ -2572,10 +2582,7 @@ def read_page(metadata, *, scheduler=False):
         exists(
             _scoped_read_obligations(metadata).where(
                 obligations.c.id > next_key,
-                or_(
-                    ~_var("p", JSONB).op("?")(literal("obligation_id")),
-                    obligations.c.id == _var("p", JSONB)["obligation_id"].astext,
-                ),
+                *selected_obligations,
             )
         ),
     )

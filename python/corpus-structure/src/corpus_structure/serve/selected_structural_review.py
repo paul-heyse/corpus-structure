@@ -11,7 +11,7 @@ from corpus_structure.semantic.selected_structural_projection import STRUCTURAL_
 from corpus_structure.semantic.serving_identity import installed_read_implementation
 from corpus_structure.semantic.value_codec import decimal_digit_limit
 
-from .archive_custody import verified_archive_members
+from .archive_custody import publish_archive_directory, verified_archive_members
 from .demand_export import export_demand_result, verified_demand_export
 from .selected_structural import StructuralScope
 from .source_decision_journey import (
@@ -151,7 +151,7 @@ def export_selected_structural_review(
         )
         content = json_bytes(manifest)
         (root / "manifest.json").write_bytes(content)
-        root.rename(destination)
+        publish_archive_directory(root, destination)
         return dict(manifest, manifest_digest=sha256(content).hexdigest(), path=str(destination))
 
 

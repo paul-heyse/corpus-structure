@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Generator, Iterator, Mapping
-from contextlib import contextmanager, nullcontext, suppress
+from contextlib import closing, contextmanager, nullcontext, suppress
 from dataclasses import dataclass, field
 from functools import cached_property
 from hashlib import sha256
@@ -352,7 +352,7 @@ def stream_demand_result(
             break
 
 
-def recheck_selected_frontier(
+def read_selected_operation_frontier(
     connection,
     demand_id,
     *,
@@ -363,7 +363,7 @@ def recheck_selected_frontier(
     max_bytes=8388608,
     max_records=100000,
 ):
-    """Fresh narrow custody and body disclosure, with no reusable authority result."""
+    """Read the lightweight operation headers actually included in a response."""
     request = (
         None
         if read_id is None
@@ -373,8 +373,6 @@ def recheck_selected_frontier(
     identities = {
         "obligations": "obligation_id",
         "uses": "use_id",
-        "populations": "population_id",
-        "original_source_admissions": "admission_id",
     }
     selected = {name: {} for name in identities}
     while True:
@@ -388,7 +386,6 @@ def recheck_selected_frontier(
             view="frontier",
             limit=100,
             max_bytes=max_bytes,
-            recheck_bodies=True,
         )
         cut = page.cut
         if expected_cut is not None and cut.identity != expected_cut:
@@ -417,7 +414,7 @@ def recheck_selected_frontier(
     content = json_bytes(frontier)
     if len(content) > max_bytes:
         raise SelectedGraphBudgetExceeded("selected frontier exceeds examined capacity", cut=cut)
-    return cut, frontier, sha256(content).hexdigest()
+    return cut, frontier
 
 
 def stream_selected_archive(
@@ -614,40 +611,9 @@ def stream_selected_support(
 
 
 @contextmanager
-def _open_selected_sqlite():
-    from pathlib import Path
-    from tempfile import TemporaryDirectory
-
-    from .data_operation_read_index import SelectedRecordIndex
-
-    with TemporaryDirectory(prefix="selected-read-") as scratch:
-        yield SelectedRecordIndex(Path(scratch) / "support.sqlite")
-
-
-def selected_record_index(connection, demand_id, **selection):
-    """Acquire the SQLite backing for evaluator paths."""
-    return _acquire_selected_relations(connection, demand_id, _open_selected_sqlite(), **selection)
-
-
-def acquired_selected_relations(connection, demand_id, **selection):
-    """Acquire the live backing of the selected relation reader."""
-    from .acquired_selected_relations import LiveSelectedRelations
-
-    selection.setdefault("max_total_bytes", 64 * 1024**2)
-    return _acquire_selected_relations(
-        connection,
-        demand_id,
-        nullcontext(LiveSelectedRelations()),
-        staged_support=True,
-        **selection,
-    )
-
-
-@contextmanager
-def _acquire_selected_relations(
+def acquired_selected_relations(
     connection,
     demand_id,
-    relation_store,
     *,
     project_id,
     scope,
@@ -655,15 +621,17 @@ def _acquire_selected_relations(
     expected_cut=None,
     max_bytes=8388608,
     page_rows=100,
-    max_total_bytes=None,
+    max_total_bytes=64 * 1024**2,
     max_total_records=None,
     capture_frontier=False,
     obligation_ids=None,
     use_ids=None,
-    staged_support=False,
     retain_population_items=True,
 ):
-    """Acquire selected support in one pinned native cut."""
+    """Acquire bounded Arrow support in one pinned native cut."""
+    from .acquired_selected_relations import LiveSelectedRelations
+    from .selected_population_archive import LivePopulationArchive
+
     if max_total_records is not None and (
         type(max_total_records) is not int or max_total_records < 0
     ):
@@ -686,7 +654,7 @@ def _acquire_selected_relations(
     ):
         raise ValueError("selected uses or obligations require an authenticated pinned cut")
     cut = None
-    with relation_store as index:
+    with closing(LiveSelectedRelations()) as index:
         populations = None
         try:
             for obligation_id in selected:
@@ -719,23 +687,27 @@ def _acquire_selected_relations(
                         )
                     selected_page = True
                     support_obligations: tuple[str | None, ...] = (None,)
+                    frontier = (
+                        page.record if capture_frontier or remaining_uses is not None else None
+                    )
                     if remaining_uses is not None:
-                        present = {row["use_id"] for row in page.record["uses"]} & remaining_uses
-                        selected_page = bool(present)
-                        remaining_uses.difference_update(present)
-                        support_obligations = tuple(
-                            dict.fromkeys(
-                                row["obligation_id"]
-                                for row in page.record["uses"]
-                                if row["use_id"] in present
-                            )
+                        assert frontier is not None
+                        uses = [row for row in frontier["uses"] if row["use_id"] in remaining_uses]
+                        selected_page = bool(uses)
+                        remaining_uses.difference_update(row["use_id"] for row in uses)
+                        selected_ids = dict.fromkeys(row["obligation_id"] for row in uses)
+                        obligations = frontier["obligations"]
+                        support_obligations = (
+                            (None,)
+                            if selected_ids.keys() == {row["obligation_id"] for row in obligations}
+                            else tuple(selected_ids)
                         )
-                        if set(support_obligations) == {
-                            row["obligation_id"] for row in page.record["obligations"]
-                        }:
-                            support_obligations = (None,)
-                    if capture_frontier and selected_page:
-                        index.append_page(page.record)
+                        frontier["uses"] = uses
+                        frontier["obligations"] = [
+                            row for row in obligations if row["obligation_id"] in selected_ids
+                        ]
+                    if capture_frontier and selected_page and frontier is not None:
+                        index.append_page(frontier)
                     if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
                         raise SelectedGraphBudgetExceeded(
                             "selected graph examined frontier exceeds byte bound", cut=cut
@@ -752,9 +724,7 @@ def _acquire_selected_relations(
                     ):
                         for support_obligation in support_obligations:
                             whole_read = obligation_ids is None and use_ids is None
-                            if staged_support and whole_read:
-                                from .selected_population_archive import LivePopulationArchive
-
+                            if whole_read:
                                 populations = LivePopulationArchive(
                                     connection, index, cut, max_bytes
                                 )
@@ -770,10 +740,7 @@ def _acquire_selected_relations(
                                     obligation_id=support_obligation,
                                 )
                             for record in stream:
-                                if staged_support:
-                                    index.append_record(record, allow_equal=True)
-                                else:
-                                    index.append(json_bytes(record), allow_equal=True)
+                                index.append_record(record, allow_equal=True)
                                 if (
                                     max_total_records is not None
                                     and index.retained_records > max_total_records
@@ -799,8 +766,6 @@ def _acquire_selected_relations(
                     if obligation_id is not None:
                         continuation = {**continuation, "obligation_id": obligation_id}
             assert cut is not None
-            from .selected_population_archive import LivePopulationArchive
-
             if not retain_population_items:
                 if populations is not None:
                     populations.close()
@@ -809,6 +774,7 @@ def _acquire_selected_relations(
             elif populations is None:
                 populations = LivePopulationArchive(connection, index, cut, max_bytes)
                 index.population_archive = populations
+            index.freeze()
             yield cut, index
         except BaseException:
             # An aborted transaction releases its temporary relations on rollback.
@@ -819,8 +785,6 @@ def _acquire_selected_relations(
         else:
             if populations is not None:
                 populations.close()
-        finally:
-            index.close()
 
 
 def verify_detached_result(

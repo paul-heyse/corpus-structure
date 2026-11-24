@@ -12,7 +12,7 @@ from corpus_structure.semantic.data_operation_service import (
 )
 from corpus_structure.semantic.data_operation_support import authored_fact_selection
 from corpus_structure.semantic.data_operation_version import MODEL_VERSION
-from corpus_structure.semantic.demand_results import read_demand_result, selected_record_index
+from corpus_structure.semantic.demand_results import acquired_selected_relations, read_demand_result
 from corpus_structure.semantic.observations import source_value
 from native_test_support import principal_engine
 from semantic.data_operation_declaration_support import source_declaration
@@ -136,7 +136,7 @@ def test_evaluator_snapshot_executes_and_preserves_complete_authored_reference(
             snapshot = selected.members()[0]
             assert snapshot["body"] == json.loads(json.dumps(body))
             assert snapshot["derivation_id"] is not None
-            with selected_record_index(
+            with acquired_selected_relations(
                 connection,
                 authored["demand_id"],
                 project_id="ddo-test",

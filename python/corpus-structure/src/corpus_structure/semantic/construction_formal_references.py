@@ -159,10 +159,13 @@ def expand_selected_construction_formal_support(
                         if binding.member_id is not None or binding.multiplicity != 1:
                             raise ValueError("construction input requires its original whole role")
                         parents[binding.role, binding.occurrence] = binding.product_id
-                for target in targets:
-                    binding, body = prepared.resolve(
-                        target, path="/formal_support/*/target", with_binding=True
-                    )
+                for target, (binding, body) in zip(
+                    targets,
+                    prepared.resolve_ordered(
+                        (target, "/formal_support/*/target") for target in targets
+                    ),
+                    strict=True,
+                ):
                     if not isinstance(body, dict) or "record_type" not in body:
                         raise ValueError(
                             "construction premise did not cite an actual formal member"

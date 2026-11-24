@@ -350,6 +350,7 @@ class _RequestExecution:
         self.engine = invocation.executor.engine
         self.fitter_engine = invocation.executor.fitter_engine
         self.claim: NativeRequestClaim | None = None
+        self.retain_pdf_adoption = None
         self.claims: tuple[NativeRequestClaim, ...] = ()
         self.handles = []
         self.running = True
@@ -1701,6 +1702,9 @@ class NativeDemandExecutor:
                 if claim is None:
                     return _ExecutionResult()
             physical.claim = claim
+            physical.retain_pdf_adoption = lambda callback, cancellation: owner.retain_pdf_adoption(
+                claim, callback, cancellation
+            )
             owner.check_claim(claim)
             disposition = self._recovery_disposition(ready, claimed)
             if disposition.action == "reconcile":

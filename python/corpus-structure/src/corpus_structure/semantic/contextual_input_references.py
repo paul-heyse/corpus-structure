@@ -244,15 +244,20 @@ def expand_selected_contextual_inputs(value, index, cut, product_id, *, with_par
                         metadata_only=True,
                     )
                     parents[role, reference.occurrence] = binding.product_id
+                members = []
                 for path, target in targets:
                     if target.variant == "product":
                         binding = prepared.resolve(target, path=path, metadata_only=True)
+                        parents[target.role, target.occurrence] = binding.product_id
                     else:
-                        binding, body = prepared.resolve(target, path=path, with_binding=True)
-                        if (path, target) in choices:
-                            require_contextual_choice_alternative(
-                                target, body, partial(prepared.resolve, path=path)
-                            )
+                        members.append((target, path))
+                for (target, path), (binding, body) in zip(
+                    members, prepared.resolve_ordered(members), strict=True
+                ):
+                    if (path, target) in choices:
+                        require_contextual_choice_alternative(
+                            target, body, partial(prepared.resolve, path=path)
+                        )
                     parents[target.role, target.occurrence] = binding.product_id
             except (KeyError, PermissionError, ValueError) as error:
                 if first_error is None:

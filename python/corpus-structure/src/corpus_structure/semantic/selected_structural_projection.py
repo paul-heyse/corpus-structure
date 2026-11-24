@@ -82,10 +82,10 @@ def structural_report(scope, selected):
                 metadata_only=True,
             )
         if isinstance(root.structural, DeclaredSyntaxDefinitionComponentsReport):
-            for support in root.structural.syntax_support:
-                body = prepared_references.resolve(
-                    read_semantic_reference(support.target), path="/syntax_support/*/target"
-                )
+            for _, body in prepared_references.resolve_ordered(
+                (read_semantic_reference(support.target), "/syntax_support/*/target")
+                for support in root.structural.syntax_support
+            ):
                 if (
                     not isinstance(body, dict)
                     or body.get("record_type") != "term"

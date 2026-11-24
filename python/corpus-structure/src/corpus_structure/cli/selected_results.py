@@ -368,7 +368,7 @@ def register(root: typer.Typer):
     root.command("definition")(definition)
 
 
-def _inspect(ctx, request, model, operation, *, json):
+def _inspect(ctx, request, model, operation, *, json, owns_read=False):
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.cli.output import read_request_bytes
     from corpus_structure.semantic.data_operation_json import json_loads
@@ -376,13 +376,14 @@ def _inspect(ctx, request, model, operation, *, json):
 
     with failure_boundary(json, expected=(ValueError, KeyError, OSError)):
         parsed = model.model_validate(json_loads(read_request_bytes(request)))
-        with (
-            open_runtime_engine(
-                state(ctx).settings(), "ci-selected-inspection", purpose="read"
-            ) as engine,
-            engine.begin() as connection,
-        ):
-            result = operation(connection, parsed)
+        with open_runtime_engine(
+            state(ctx).settings(), "ci-selected-inspection", purpose="read"
+        ) as engine:
+            if owns_read:
+                result = operation(engine.begin, parsed)
+            else:
+                with engine.begin() as connection:
+                    result = operation(connection, parsed)
     write_report_text(json_bytes(result).decode() + "\n")
 
 
@@ -404,7 +405,9 @@ def query_context(
 ):
     from corpus_structure.serve.demand_context import DemandContextRequest, inspect_demand_context
 
-    return _inspect(ctx, request, DemandContextRequest, inspect_demand_context, json=json)
+    return _inspect(
+        ctx, request, DemandContextRequest, inspect_demand_context, json=json, owns_read=True
+    )
 
 
 def definition(ctx: typer.Context, request: Annotated[Path, typer.Option()], json: JsonOpt = False):

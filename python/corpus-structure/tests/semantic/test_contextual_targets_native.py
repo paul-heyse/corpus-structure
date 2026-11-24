@@ -31,7 +31,7 @@ from corpus_structure.semantic.declared_structural_calls import (
     structural_inputs,
     structural_operation_declarations,
 )
-from corpus_structure.semantic.demand_results import read_demand_result, selected_record_index
+from corpus_structure.semantic.demand_results import acquired_selected_relations, read_demand_result
 from corpus_structure.semantic.native_protocol_authoring import (
     native_operation_declarations,
     native_protocol_sources,
@@ -162,7 +162,7 @@ def _project(kernel, names):
     )
     with (
         kernel.purpose("read").begin() as connection,
-        selected_record_index(
+        acquired_selected_relations(
             connection, demand, project_id=PROJECT, scope={}, capture_frontier=True
         ) as (cut, index),
     ):

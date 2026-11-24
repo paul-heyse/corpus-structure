@@ -167,8 +167,9 @@ def expand_selected_contextual_proxies(value, index, cut, product_id, *, with_pa
             if bound.product_id != parents[role]:
                 raise ValueError("native contextual closure changes its exact original input")
         references = {}
-        for owner, (target, path) in targets.items():
-            body = prepared.resolve(target, path=path)
+        for (owner, (target, _)), (_, body) in zip(
+            targets.items(), prepared.resolve_ordered(targets.values()), strict=True
+        ):
             if (
                 not isinstance(body, dict)
                 or body.get("record_type") not in {"annotation", "term"}

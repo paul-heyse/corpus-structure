@@ -144,107 +144,56 @@ def _compare(connection, request, implementation):
             selection=digest,
             implementation=implementation,
         )
-    from corpus_structure.semantic.demand_results import recheck_selected_frontier
-    from corpus_structure.semantic.selected_query_cache import (
-        SELECTED_QUERY_CACHE,
-        bounded_rows,
-        served_key,
-        uncached_rows_from,
+    from corpus_structure.semantic.selected_query_cache import uncached_rows_from
+
+    # Read the exact dependency and proof populations for both roots on every request.
+    with ExitStack() as stack:
+        before, left = _selected_snapshot(connection, request.before, request, stack)
+        after, right = _selected_snapshot(connection, request.after, request, stack)
+    offset = 0 if cursor is None else cursor["position"]
+    source = (
+        row.value
+        for row in compare_constraint_snapshots(
+            left,
+            right,
+            include_unchanged=request.include_unchanged,
+            max_entries=request.max_declarations,
+        )
+    )
+    rows = uncached_rows_from(source, offset)
+
+    pinned = request.model_copy(update={"implementation": implementation})
+    presentation = PageEnvelope(
+        reuse_refusal=capture_page_refusal(),
+        header=dict(
+            version=VERSION,
+            implementation=implementation,
+            before=before,
+            after=after,
+            resource_handle=_cursor(pinned.model_dump(mode="python")),
+            scope=dict(
+                matching="exact-original-declaration-product/member-address",
+                population="explicit-typed-constraints-in-two-selected-whole-roots",
+                original_source_completeness="unknown",
+                protected_dependencies="undisclosed-where-bounded-authority-leaves-occur",
+                source_change_authority="not-established",
+            ),
+        ),
+        cursor_basis=dict(version=CURSOR_VERSION, implementation=implementation, selection=digest),
+        cursor_field="cursor",
+        position_field="position",
+        arrays=(("changes", None, None, None),),
     )
 
-    cuts = []
-    for pin in (request.before, request.after):
-        cut, _, _ = recheck_selected_frontier(
-            connection,
-            pin.demand_id,
-            project_id=pin.project_id,
-            scope={"product_ids": [pin.product_id]},
-            read_id=pin.read_id,
-            expected_cut=pin.cut_id,
-            max_bytes=request.max_graph_bytes,
-            max_records=request.max_graph_records,
+    try:
+        return byte_bounded_page(
+            rows,
+            offset=offset,
+            limit=request.limit,
+            max_bytes=request.max_bytes,
+            presentation=presentation,
         )
-        cuts.append(cut)
-    # Comparison reads whole support and reports examined records. The frontier
-    # stamp alone does not identify that closure or its disclosure.
-    key = served_key(
-        connection,
-        "exclusions",
-        implementation=implementation,
-        basis=[cut.identity for cut in cuts],
-        selection=digest,
-    )
-    remaining = None
-    metadata = None
-    with SELECTED_QUERY_CACHE.loading(key) as entry, ExitStack() as stack:
-        if entry is None:
-            before, left = _selected_snapshot(connection, request.before, request, stack)
-            after, right = _selected_snapshot(connection, request.after, request, stack)
-            metadata = dict(
-                before={key: value for key, value in before.items() if key not in {"pin", "cut"}},
-                after={key: value for key, value in after.items() if key not in {"pin", "cut"}},
-            )
-            source = (
-                row.value
-                for row in compare_constraint_snapshots(
-                    left,
-                    right,
-                    include_unchanged=request.include_unchanged,
-                    max_entries=request.max_declarations,
-                )
-            )
-            entry, remaining = bounded_rows(source, metadata)
-            if entry is not None:
-                SELECTED_QUERY_CACHE.put(key, entry)
-        if entry is not None:
-            metadata = entry.record()
-        assert metadata is not None
-        before = dict(
-            metadata["before"], pin=request.before.model_dump(mode="python"), cut=cuts[0].record
-        )
-        after = dict(
-            metadata["after"], pin=request.after.model_dump(mode="python"), cut=cuts[1].record
-        )
-        offset = 0 if cursor is None else cursor["position"]
-        rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
-
-        pinned = request.model_copy(update={"implementation": implementation})
-        presentation = PageEnvelope(
-            reuse_refusal=capture_page_refusal(),
-            header=dict(
-                version=VERSION,
-                implementation=implementation,
-                before=before,
-                after=after,
-                resource_handle=_cursor(pinned.model_dump(mode="python")),
-                scope=dict(
-                    matching="exact-original-declaration-product/member-address",
-                    population="explicit-typed-constraints-in-two-selected-whole-roots",
-                    original_source_completeness="unknown",
-                    protected_dependencies="undisclosed-where-bounded-authority-leaves-occur",
-                    source_change_authority="not-established",
-                ),
-            ),
-            cursor_basis=dict(
-                version=CURSOR_VERSION, implementation=implementation, selection=digest
-            ),
-            cursor_field="cursor",
-            position_field="position",
-            arrays=(("changes", None, None, None),),
-        )
-
-        try:
-            return byte_bounded_page(
-                rows,
-                offset=offset,
-                limit=request.limit,
-                max_bytes=request.max_bytes,
-                presentation=presentation,
-            )
-        except InvalidContinuation:
-            raise
-        except ValueError as error:
-            raise RichQueryRefused(str(error)) from error
-        finally:
-            if remaining is not None:
-                remaining.close()
+    except InvalidContinuation:
+        raise
+    except ValueError as error:
+        raise RichQueryRefused(str(error)) from error

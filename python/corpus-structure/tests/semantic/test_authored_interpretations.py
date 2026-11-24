@@ -455,10 +455,10 @@ def test_current_terminology_judgment_keeps_released_candidates_and_source_focus
     assert "selected_value" not in body["decisions"][0]
 
 
-def test_native_valid_original_frontier_is_retained_separately_from_diagnostic_rows(tmp_path):
-    from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
+def test_native_valid_original_frontier_is_retained_separately_from_diagnostic_rows():
+    from corpus_structure.semantic.acquired_selected_relations import LiveSelectedRelations
 
-    index = SelectedRecordIndex(tmp_path / "selected.sqlite")
+    index = LiveSelectedRelations()
     original = dict(
         admission_id="admission:valid",
         product_id="product:judgment",

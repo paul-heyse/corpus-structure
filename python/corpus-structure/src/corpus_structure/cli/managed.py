@@ -994,12 +994,14 @@ class ResultStore:
                         ):
                             continue
                         if apply:
-                            from corpus_structure.serve.companion_export import _publish_directory
+                            from corpus_structure.serve.archive_custody import (
+                                publish_archive_directory,
+                            )
 
                             owner = Owner(id=result_id, identity=_identity(fd))
                             _write_file(root, marker, owner.model_dump_json().encode())
                             anchored = Path(f"/proc/self/fd/{root}")
-                            _publish_directory(anchored / result_id, anchored / retired)
+                            publish_archive_directory(anchored / result_id, anchored / retired)
                             shutil.rmtree(retired, dir_fd=root)
                             os.unlink(marker, dir_fd=root)
                             result.removed.append(result_id)
@@ -1044,9 +1046,9 @@ def _deliver_entry(fd: int, destination: Path) -> None:
         staged = Path(staging) / "artifact"
         _copy_entry(fd, staged)
         if stat.S_ISDIR(os.fstat(fd).st_mode):
-            from corpus_structure.serve.companion_export import _publish_directory
+            from corpus_structure.serve.archive_custody import publish_archive_directory
 
-            _publish_directory(staged, destination)
+            publish_archive_directory(staged, destination)
         else:
             os.link(staged, destination)
 

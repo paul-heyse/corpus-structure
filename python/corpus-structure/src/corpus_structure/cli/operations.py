@@ -403,7 +403,7 @@ def evidence_retain(
     from corpus_evidence.model import FileRef, Record, Result
     from corpus_evidence.store import Folder, finalize, write
     from corpus_structure.cli.managed import Delivery, ResultError
-    from corpus_structure.serve.companion_export import _publish_directory
+    from corpus_structure.serve.archive_custody import publish_archive_directory
 
     with result_boundary(json):
         store = result_store(ctx)
@@ -478,7 +478,7 @@ def evidence_retain(
                     f"Retained `{artifact.name}` at `{relative}`.\n",
                     encoding="utf-8",
                 )
-                _publish_directory(bundle, destination)
+                publish_archive_directory(bundle, destination)
             index = run_recipe("evidence", "index")
             if index.returncode:
                 raise ResultError(f"evidence retained at {destination}; run ci evidence index")

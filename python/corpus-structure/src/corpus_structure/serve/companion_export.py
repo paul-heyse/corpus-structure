@@ -32,6 +32,7 @@ from corpus_structure.semantic.identifiers import ReleaseId
 from corpus_structure.semantic.pdf_publication import PublishedPdfDocumentRef
 from corpus_structure.semantic.refusal_types import SemanticRefusal
 from corpus_structure.semantic.runtime import connection_settings, open_runtime_engine
+from corpus_structure.serve.archive_custody import publish_archive_directory
 from corpus_structure.serve.selected_pdf import (
     SelectedPdfSourceReference,
     acquire_selected_pdf_source,
@@ -235,7 +236,7 @@ def export_companion_parquet(
         )
         (root / "manifest.json").write_text(manifest.model_dump_json(indent=2) + "\n")
         with cancellation.publication():
-            _publish_directory(root, destination)
+            publish_archive_directory(root, destination)
         return manifest
 
 
@@ -316,20 +317,6 @@ def _admit_batch(
             is not True
         ):
             raise SemanticRefusal(f"{spec.family} projected publication binding differs: {name}")
-
-
-def _publish_directory(source: Path, destination: Path) -> None:
-    """Linux atomic no-replace publication; an unrelated empty directory is protected too."""
-    import ctypes
-    import os
-
-    libc = ctypes.CDLL(None, use_errno=True)
-    rename = libc.renameat2
-    rename.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
-    rename.restype = ctypes.c_int
-    if rename(-100, os.fsencode(source), -100, os.fsencode(destination), 1):
-        error = ctypes.get_errno()
-        raise OSError(error, os.strerror(error), destination)
 
 
 def _verified(path: Path):

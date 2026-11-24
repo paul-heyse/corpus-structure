@@ -398,7 +398,7 @@ def test_native_cell_detail_decodes_only_its_exact_retained_record(monkeypatch, 
     def refuse_document():
         raise AssertionError("cell detail must not hydrate the table or document")
 
-    monkeypatch.setattr(reader, "hydrate_document", refuse_document)
+    monkeypatch.setattr(reader, "reconstruct_document", refuse_document)
     body = dict(pointer="#/tables/0", kind="cell", cell_index=0)
     assert _record_occurrence_value(reader, body)["native_value"] == expected
     assert body == dict(pointer="#/tables/0", kind="cell", cell_index=0)

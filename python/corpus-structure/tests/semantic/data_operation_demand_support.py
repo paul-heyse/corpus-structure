@@ -45,6 +45,8 @@ def attach(
     original_source="source:test",
     analyzed_scope=None,
     project_id="ddo-test",
+    additional_roots=(),
+    selection_name=None,
 ):
     from corpus_structure.semantic.data_operation_demands import freeze_demand
 
@@ -53,10 +55,16 @@ def attach(
         "original_source": original_source,
         "analyzed_scope": {"page": 1} if analyzed_scope is None else analyzed_scope,
     }
+    root_contexts = [root, *additional_roots]
     selected = freeze_demand(
         kernel["model"],
-        roots=(
-            root_subject(subject=subject, source=original_source, scope=root["analyzed_scope"]),
+        roots=tuple(
+            root_subject(
+                subject=entry["subject"],
+                source=entry["original_source"],
+                scope=entry["analyzed_scope"],
+            )
+            for entry in root_contexts
         ),
         targets=targets or (operation,),
         inference=inference,
@@ -71,7 +79,7 @@ def attach(
                     "project_id": project_id,
                     "release_id": kernel["prepared"].release_id,
                     "runtime_id": kernel["runtime"],
-                    "root": [root],
+                    "root": selected["roots"],
                     "selection": selected,
                     "strength": "value",
                 },
@@ -83,6 +91,17 @@ def attach(
             "demand_id": registered["demand_id"],
             "selection": registered["selection"],
         }
+        if selection_name is not None:
+            from corpus_structure.semantic.data_operation_service import advance_demand_selection
+
+            advance_demand_selection(
+                connection,
+                project_id,
+                selection_name,
+                demand["demand_id"],
+                expected_demand_id=None,
+                expected_generation=0,
+            )
         acquired = storage.read_demand_result(
             typing_cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"]})
         )

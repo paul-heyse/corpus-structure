@@ -226,17 +226,17 @@ def test_native_whole_block_questions_keep_exact_custody_and_missing_populations
             from corpus_structure.semantic import sentence_products
 
             restored = []
-            restore = sentence_products.restore_selected_annotation_partition
+            restore = sentence_products._restore_selected_annotation_rows
 
-            def count_restoration(source, header, layout, packet):
-                restored.append(packet["partition_key"])
-                return restore(source, header, layout, packet)
+            def count_restoration(source, header, rows):
+                restored.extend((row["block_start"], row["block_end"]) for row in rows)
+                return restore(source, header, rows)
 
             monkeypatch.setattr(
-                sentence_products, "restore_selected_annotation_partition", count_restoration
+                sentence_products, "_restore_selected_annotation_rows", count_restoration
             )
             report = cast(dict[str, Any], evaluate_selected_references(connection, comparison))
-            assert restored == [partition_key]
+            assert restored == [(scope["start"], scope["end"])]
 
             cases = {case["case_id"]: case["native"] for case in report["cases"]}
             assert cases["tokens"]["scores"]["token_f"] == 1.0

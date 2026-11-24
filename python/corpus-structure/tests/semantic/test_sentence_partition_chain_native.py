@@ -4,7 +4,7 @@ import json
 from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from sqlalchemy import func, literal, select
@@ -26,7 +26,11 @@ from corpus_structure.semantic.data_operation_storage import (
     admitted_data_read,
 )
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
-from corpus_structure.semantic.demand_results import read_demand_result, stream_selected_support
+from corpus_structure.semantic.demand_results import (
+    read_demand_result,
+    read_selected_answer,
+    stream_selected_support,
+)
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.primary_operations import combine_primary_sources
 from corpus_structure.semantic.sentence_products import sentence_product_inputs
@@ -311,6 +315,7 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
 ):
     from corpus_structure.semantic.selected_population_archive import POPULATION_ITEMS
     from corpus_structure.serve.demand_export import export_demand_result, verified_demand_export
+    from semantic import structural_admission_native_support as native_fixture
 
     text = "Ada acts. Bob waits."
     target = "segment.sentences/canonical-projection"
@@ -330,6 +335,19 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
             return snapshot
 
         monkeypatch.setattr(DemandPlanner, "resume", observe_resume)
+        initial_cuts = {}
+        run_demand = native_fixture.execute_captured_kernel_demand
+
+        def run_after_initial_read(kernel, demand, **options):
+            with kernel.purpose("read").begin() as connection:
+                initial_cuts[demand] = read_demand_result(
+                    connection, demand, project_id=PROJECT, view="frontier"
+                ).cut
+            return run_demand(kernel, demand, **options)
+
+        monkeypatch.setattr(
+            native_fixture, "execute_captured_kernel_demand", run_after_initial_read
+        )
         retained, original, products, _ = produce_source_reports(
             source, kernel, target, text=text, selection_name="canonical-sentences"
         )
@@ -354,6 +372,98 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
         projected = packets[canonical.row["product_id"], annotated["partition_key"]]
         annotation_rows = decode_semantic_value(annotated["body"])
         canonical_rows = decode_semantic_value(projected["body"])
+        (rule,) = [
+            rule
+            for rule in kernel.model.rules
+            if rule.id == "segment.sentences/token-sentence-membership"
+            and rule.kind_contract == annotation.row["kind_contract"]
+        ]
+        establishment = table("kb.data_validity_establishment")
+        with kernel.engine.connect() as connection:
+            premise = connection.execute(
+                select(establishment.c.premise).where(
+                    establishment.c.rule_fingerprint == rule.fingerprint,
+                    establishment.c.derivation_id == annotation.row["derivation_id"],
+                    establishment.c.role == "result",
+                    establishment.c.position == 0,
+                )
+            ).scalar_one()
+
+        address: dict[str, Any] = dict(
+            project_id=PROJECT,
+            use_id=annotation.row["use_id"],
+            product_id=annotation.row["product_id"],
+            partition_key=annotated["partition_key"],
+        )
+        proof_key = dict(rule_fingerprint=rule.fingerprint, premise=premise)
+        initial = initial_cuts[demand_id]
+        with kernel.purpose("read").begin() as connection:
+            absent = read_selected_answer(
+                connection,
+                "read_selected_proofs",
+                demand_id,
+                read_id=initial.record["read_id"],
+                premises=[proof_key],
+                **address,
+            )
+            assert absent["cut"] == initial.record
+            assert absent["rows"] == [] and absent["answer_after"] is None
+
+            pinned: dict[str, Any] = dict(address, read_id=page.cut.record["read_id"])
+            established = read_selected_answer(
+                connection, "read_selected_proofs", demand_id, premises=[proof_key], **pinned
+            )
+            assert established["cut"] == page.cut.record
+            assert established["rows"] == [
+                dict(
+                    proof_key,
+                    provenance=[
+                        dict(
+                            derivation_id=annotation.row["derivation_id"], role="result", position=0
+                        )
+                    ],
+                )
+            ]
+            assert established["answer_after"] is None
+
+            header = read_selected_answer(
+                connection, "read_selected_partitions", demand_id, collection="rows", **pinned
+            )
+            assert header["rows"] == [
+                {key: value for key, value in annotated.items() if key != "body"}
+            ]
+            first_sentence_ordinal = next(
+                index
+                for index, row in enumerate(annotation_rows)
+                if (row["record_type"], row["ordinal"]) == ("sentence", 0)
+            )
+            exact = read_selected_answer(
+                connection,
+                "read_selected_partitions",
+                demand_id,
+                collection="rows",
+                item_key=["sentence", 0],
+                **pinned,
+            )
+            assert exact["rows"] == [
+                dict(
+                    product_id=address["product_id"],
+                    collection="rows",
+                    partition_key=address["partition_key"],
+                    item_ordinal=first_sentence_ordinal,
+                    meaning_body=annotated["body"][1][first_sentence_ordinal],
+                )
+            ]
+            assert exact["answer_after"] is None
+            missing = read_selected_answer(
+                connection,
+                "read_selected_partitions",
+                demand_id,
+                collection="rows",
+                item_key=["sentence", 2],
+                **pinned,
+            )
+            assert missing["rows"] == [] and missing["answer_after"] is None
         (input_role,) = [
             role for role in kernel.model.operation(target).roles if role.direction == "input"
         ]

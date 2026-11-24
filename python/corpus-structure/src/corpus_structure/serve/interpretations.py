@@ -170,20 +170,15 @@ def _group_selected_interpretations(connection, request, implementation):
     for root in request.roots:
         roots.setdefault(root.product_id, []).append(root)
     from corpus_structure.semantic.authored_interpretations import JUDGMENT_KINDS
-    from corpus_structure.semantic.demand_results import recheck_selected_frontier
-    from corpus_structure.semantic.selected_query_cache import (
-        SELECTED_QUERY_CACHE,
-        bounded_rows,
-        served_key,
-        uncached_rows_from,
-    )
+    from corpus_structure.semantic.demand_results import read_selected_operation_frontier
+    from corpus_structure.semantic.selected_query_cache import uncached_rows_from
 
     from .selected_contributions import selected_contribution_selection
 
     scope = selected_contribution_selection(
         acquired, product_ids=(*roots, *request.authored_products)
     )
-    current_cut, frontier, stamp = recheck_selected_frontier(
+    current_cut, frontier = read_selected_operation_frontier(
         connection,
         request.demand_id,
         project_id=request.project_id,
@@ -193,58 +188,31 @@ def _group_selected_interpretations(connection, request, implementation):
         max_bytes=request.max_graph_bytes,
         max_records=request.max_graph_records,
     )
-    stamps = [stamp]
-    for authored in request.authored_reads:
-        _, _, authored_stamp = recheck_selected_frontier(
-            connection,
-            authored.demand_id,
-            project_id=request.project_id,
-            scope=authored.scope,
-            read_id=authored.read_id,
-            expected_cut=authored.expected_cut,
-            max_bytes=request.max_graph_bytes,
-            max_records=request.max_graph_records,
-        )
-        stamps.append(authored_stamp)
     acquired = acquired.model_copy(
         update=dict(read_id=current_cut.record["read_id"], expected_cut=current_cut.identity)
     )
-    cache_key = served_key(
+    # Acquire each authored cut and the determining bodies before rendering the grouped rows.
+    with selected_contribution_scope(
         connection,
-        "grouped",
-        implementation=implementation,
-        basis=current_cut.identity,
-        selection=["grouped", current_cut.identity, implementation, digest, stamps],
-    )
-    with SELECTED_QUERY_CACHE.loading(cache_key) as entry:
-        remaining = None
-        metadata, items = None, None
-        if entry is None:
-            with selected_contribution_scope(
-                connection, acquired, product_ids=(*roots, *request.authored_products)
-            ) as selected:
-                authored_judgments = []
-                if request.authored_products or request.authored_reads:
-                    from .interpretation_authoring import (
-                        read_authored_judgment_selection,
-                        selected_authored_judgments,
-                    )
+        acquired,
+        product_ids=(*roots, *request.authored_products),
+        require_support=bool(request.authored_products),
+    ) as selected:
+        authored_judgments = []
+        if request.authored_products or request.authored_reads:
+            from .interpretation_authoring import (
+                read_authored_judgment_selection,
+                selected_authored_judgments,
+            )
 
-                    authored_judgments.extend(
-                        selected_authored_judgments(connection, selected, request.authored_products)
-                    )
-                    for authored_read in request.authored_reads:
-                        authored_judgments.extend(
-                            read_authored_judgment_selection(connection, request, authored_read)
-                        )
-                items, metadata = grouped_interpretation_rows(
-                    selected, request, tuple(authored_judgments)
+            authored_judgments.extend(
+                selected_authored_judgments(connection, selected, request.authored_products)
+            )
+            for authored_read in request.authored_reads:
+                authored_judgments.extend(
+                    read_authored_judgment_selection(connection, request, authored_read)
                 )
-            entry, remaining = bounded_rows(items, metadata)
-            if entry is not None:
-                SELECTED_QUERY_CACHE.put(cache_key, entry)
-    metadata = entry.record() if entry is not None else metadata
-    assert metadata is not None
+        items, metadata = grouped_interpretation_rows(selected, request, tuple(authored_judgments))
     universes, finite_universes, judgment_contracts = (
         metadata["universes"],
         metadata["finite_universes"],
@@ -253,14 +221,8 @@ def _group_selected_interpretations(connection, request, implementation):
     cut_id, cut = current_cut.identity, current_cut.record
     obligations = tuple(frontier["obligations"])
     offset = 0 if cursor is None else cursor["offset"]
-    if type(offset) is not int or offset < 0:
-        raise ValueError("grouped cursor exceeds its pinned population")
-    rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
-    if entry is None:
-        assert items is not None
-        total = len(items)
-    else:
-        total = len(entry)
+    rows = uncached_rows_from(iter(items), offset)
+    total = len(items)
 
     presentation = PageEnvelope(
         reuse_refusal=capture_page_refusal(),
@@ -325,6 +287,3 @@ def _group_selected_interpretations(connection, request, implementation):
         raise
     except ValueError as error:
         raise ReadLimit(str(error), reason="oversized_item") from error
-    finally:
-        if remaining is not None:
-            remaining.close()

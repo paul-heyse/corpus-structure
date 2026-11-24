@@ -22,9 +22,9 @@ def control_frontier(monkeypatch, select):
     def acquire(connection, demand_id, **options):
         calls.append((demand_id, options))
         cut, frontier = select(demand_id)
-        return cut, deepcopy(frontier), sha256(json_bytes(frontier)).hexdigest()
+        return cut, deepcopy(frontier)
 
-    monkeypatch.setattr(demand_results, "recheck_selected_frontier", acquire)
+    monkeypatch.setattr(demand_results, "read_selected_operation_frontier", acquire)
     return calls
 
 

@@ -26,7 +26,7 @@ from corpus_structure.semantic.pdf_publication import PublishedPdfDocumentRef
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.sqlite_scratch import open_scratch
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
-from corpus_structure.serve.companion_export import _publish_directory
+from corpus_structure.serve.archive_custody import publish_archive_directory
 from corpus_structure.serve.selected_pdf import (
     SelectedPdfSourceReference,
     acquire_selected_pdf_source,
@@ -455,7 +455,7 @@ def export_selected_source(
                     cancellation=cancellation,
                 )
         cancellation.check_active()
-        _publish_directory(temporary, destination)
+        publish_archive_directory(temporary, destination)
         return receipt
 
 

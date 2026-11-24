@@ -11,6 +11,7 @@ from sqlalchemy import create_engine
 from typer.testing import CliRunner
 
 from corpus_structure.cli.app import build_full_app
+from corpus_structure.semantic.acquired_selected_relations import LiveSelectedRelations
 from corpus_structure.semantic.continuation_codec import (
     decode_rich_cursor,
     encode_cursor,
@@ -18,7 +19,6 @@ from corpus_structure.semantic.continuation_codec import (
 )
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
-from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.math_context import acquire_analysis_context_profile
@@ -67,7 +67,7 @@ def rich_source():
     )
 
 
-def scope(tmp_path, source, *, side="one", left="A"):
+def scope(source, *, side="one", left="A"):
     graph = Graph(
         source, {"A": "DistributionFamily", "B": "DistributionFamily", "C": "DistributionFamily"}
     )
@@ -75,7 +75,7 @@ def scope(tmp_path, source, *, side="one", left="A"):
     graph.bodies[value.exclusion_id] = value
     index = graph.index()
     selected = graph.root_input
-    native = SelectedRecordIndex(tmp_path / (side + ".sqlite"))
+    native = LiveSelectedRelations()
     cut = CutSelection(
         json_bytes(
             dict(
@@ -220,10 +220,8 @@ def controlled_scope(scope, seen, request):
     yield scope
 
 
-def test_current_facet_pages_pin_native_selection_root_and_implementation(
-    monkeypatch, tmp_path, rich_source
-):
-    selected = scope(tmp_path, rich_source)
+def test_current_facet_pages_pin_native_selection_root_and_implementation(monkeypatch, rich_source):
+    selected = scope(rich_source)
     headers = control_frontier(
         monkeypatch, lambda _: (selected.cut, index_frontier(selected.index))
     )
@@ -245,7 +243,7 @@ def test_current_facet_pages_pin_native_selection_root_and_implementation(
         )
         assert second["items"] != first["items"]
         assert (
-            len(seen) == 1
+            len(seen) == 2
             and headers[1][1]["read_id"] == selected.cut.record["read_id"]
             and headers[1][1]["expected_cut"] == selected.cut.identity
         )
@@ -268,23 +266,13 @@ def test_current_facet_pages_pin_native_selection_root_and_implementation(
         with pytest.raises(RichQueryRefused, match="max_bytes"):
             facets.serve_contribution_facets(None, request(selected, max_bytes=1024))
     finally:
-        assert isinstance(selected.index, SelectedRecordIndex)
+        assert isinstance(selected.index, LiveSelectedRelations)
         selected.index.close()
 
 
-def test_current_comparison_uses_exact_two_root_use_and_cut_pins(
-    monkeypatch, tmp_path, rich_source
-):
-    before = scope(tmp_path, rich_source, side="before")
-    after = scope(tmp_path, rich_source, side="after", left="C")
-    control_frontier(
-        monkeypatch,
-        lambda demand: (
-            (before.cut, index_frontier(before.index))
-            if demand == before.cut.record["demand_id"]
-            else (after.cut, index_frontier(after.index))
-        ),
-    )
+def test_current_comparison_uses_exact_two_root_use_and_cut_pins(monkeypatch, rich_source):
+    before = scope(rich_source, side="before")
+    after = scope(rich_source, side="after", left="C")
     seen = []
     monkeypatch.setattr(
         comparison,
@@ -329,8 +317,8 @@ def test_current_comparison_uses_exact_two_root_use_and_cut_pins(
         with pytest.raises(ValueError, match="exactly one actual selected whole"):
             comparison.compare_selected_exclusions(None, bad)
     finally:
-        assert isinstance(before.index, SelectedRecordIndex)
-        assert isinstance(after.index, SelectedRecordIndex)
+        assert isinstance(before.index, LiveSelectedRelations)
+        assert isinstance(after.index, LiveSelectedRelations)
         before.index.close()
         after.index.close()
 

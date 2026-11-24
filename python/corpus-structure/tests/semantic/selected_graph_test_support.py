@@ -8,12 +8,12 @@ from corpus_structure.semantic.selected_graph import selected_graph_snapshot, sn
 
 def _selected_snapshot(reader, prepared, request):
     """Independent full-snapshot view of an actual native cut for export comparison."""
-    from corpus_structure.semantic.demand_results import selected_record_index
+    from corpus_structure.semantic.demand_results import acquired_selected_relations
 
     with ExitStack() as witnesses:
         with reader() as connection:
             cut, index = witnesses.enter_context(
-                selected_record_index(
+                acquired_selected_relations(
                     connection,
                     request.demand_id,
                     project_id=request.project_id,

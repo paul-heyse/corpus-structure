@@ -25,7 +25,7 @@ from corpus_structure.semantic.selected_support_contract import (
     omitted_support_fields,
 )
 
-from .archive_custody import acquire_demand_archive
+from .archive_custody import acquire_demand_archive, publish_archive_directory
 from .demand_export_manifest import (
     PublishedDemandExport,
     checked_export_manifest,
@@ -204,7 +204,7 @@ def export_demand_result(
 
     if format != "parquet":
         raise ValueError("new selected exports require Parquet")
-    if destination.exists():
+    if destination.exists() or destination.is_symlink():
         raise FileExistsError(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix=".demand-export-", dir=destination.parent) as scratch:
@@ -395,7 +395,7 @@ def export_demand_result(
         )
         manifest_bytes = manifest.to_bytes()
         (root / "manifest.json").write_bytes(manifest_bytes)
-        root.rename(destination)
+        publish_archive_directory(root, destination)
         return PublishedDemandExport(manifest, sha256(manifest_bytes).hexdigest())
 
 

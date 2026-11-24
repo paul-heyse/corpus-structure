@@ -70,36 +70,28 @@ def _kind_contracts(prepared, root):
 
 def _catalog_frontier(connection, request, cut, rows):
     """Acquire context from the same pinned frontier without reopening bodies."""
-    obligation_ids = tuple(
+    obligation_ids = list(
         dict.fromkeys(row["obligation_id"] for row in rows if row.get("obligation_id") is not None)
-    ) or (None,)
-    context = {name: {} for name in ("obligations", "uses", "populations")}
-    identities = {"obligations": "obligation_id", "uses": "use_id", "populations": "population_id"}
-    for obligation in obligation_ids:
-        continuation = dict(
-            demand_id=request.demand_id, read_id=cut.record["read_id"], scope={}, view="frontier"
-        )
-        if obligation is not None:
-            continuation["obligation_id"] = obligation
-        page = read_demand_result(
-            connection,
-            request.demand_id,
-            project_id=request.project_id,
-            continuation=continuation,
-            cut=cut,
-            scope={},
-            view="frontier",
-            limit=1,
-            max_bytes=request.max_bytes,
-        )
-        if page.cut.content != cut.content:
-            raise ValueError("source catalog frontier differs from its exact selected read")
-        for name, key in identities.items():
-            for row in page.record[name]:
-                context[name][
-                    json_bytes(row) if name == "populations" else row.get(key, json_bytes(row))
-                ] = row
-    return {name: list(rows.values()) for name, rows in context.items()}
+    )
+    continuation = dict(
+        demand_id=request.demand_id, read_id=cut.record["read_id"], scope={}, view="frontier"
+    )
+    if obligation_ids:
+        continuation["obligation_ids"] = obligation_ids
+    page = read_demand_result(
+        connection,
+        request.demand_id,
+        project_id=request.project_id,
+        continuation=continuation,
+        cut=cut,
+        scope={},
+        view="frontier",
+        limit=len(obligation_ids) or 1,
+        max_bytes=request.max_bytes,
+    )
+    if page.cut.content != cut.content:
+        raise ValueError("source catalog frontier differs from its exact selected read")
+    return {name: page.record[name] for name in ("obligations", "uses", "populations")}
 
 
 def read_source_catalog(connection, request: SourceCatalogRequest, *, cancellation=None):

@@ -5,15 +5,14 @@ from types import SimpleNamespace
 
 import pytest
 
+from corpus_structure.semantic.acquired_selected_relations import LiveSelectedRelations
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.selected_graph import snapshot_from_index
 from semantic.data_operation_declaration_support import model, operation
 
 
-def test_selected_index_binds_unindexed_fields_and_uses_declared_expression_indexes(tmp_path):
-    from corpus_structure.semantic.data_operation_read_index import _selected
+def test_acquired_graph_support_matches_indexed_and_unindexed_values():
     from corpus_structure.semantic.selected_support_contract import SelectedSupportReader
 
     value = "literal '%[0]"
@@ -46,7 +45,8 @@ def test_selected_index_binds_unindexed_fields_and_uses_declared_expression_inde
             }
         }
     )
-    index = SelectedRecordIndex(tmp_path / "expressions.sqlite", reader=reader)
+    index = LiveSelectedRelations()
+    index.reader = reader
     groups = (
         ("id",),
         ("kind_contract",),
@@ -58,23 +58,11 @@ def test_selected_index_binds_unindexed_fields_and_uses_declared_expression_inde
         index.append(json_bytes(dict(relation="sample", key="unique", record=record)))
         for fields in (*groups, ("alternate",)):
             values = (value,) * len(fields)
-            statement = _selected("sample", fields, values)
-            compiled = statement.compile(
-                index.connection, compile_kwargs={"render_postcompile": True}
-            )
-            plan = index.connection.exec_driver_sql(
-                "EXPLAIN QUERY PLAN " + str(compiled),
-                tuple(compiled.params[name] for name in (compiled.positiontup or ())),
-            ).all()
-            if fields in groups:
-                assert any("record_" + "_".join(fields) + " (" in detail for *_, detail in plan)
-                assert any("<expr>=?" in detail for *_, detail in plan)
-            else:
-                assert "alternate" not in str(compiled)
-                assert "$.record.alternate" in compiled.params.values()
-                assert all("<expr>=?" not in detail for *_, detail in plan)
             key = values[0] if len(fields) == 1 else values
-            assert index.mapping("sample", fields)[key] == record
+            lookup = index.mapping("sample", fields)
+            assert lookup[key] == record
+            wrong = value + "other"
+            assert lookup.get(wrong if len(fields) == 1 else (*values[:-1], wrong)) is None
     finally:
         index.close()
 
@@ -115,8 +103,8 @@ def binding(support=()):
     )
 
 
-def selected_index(tmp_path):
-    index = SelectedRecordIndex(tmp_path / "index.sqlite")
+def selected_index(*, omit_support_use=False, opaque_issuer=False):
+    index = LiveSelectedRelations()
     pins = cut_pins()
     selected_binding = binding(
         [
@@ -170,6 +158,11 @@ def selected_index(tmp_path):
             dict(derivation_id="ce", support_derivation_id="old", occurrence=0, role="value")
         ],
     }
+    if omit_support_use or opaque_issuer:
+        rows["ops.demand_use"] = rows["ops.demand_use"][:1]
+    if opaque_issuer:
+        rows["ops.data_derivation"] = rows["ops.data_derivation"][:1]
+        rows["ops.data_request"] = rows["ops.data_request"][:1]
     for relation, records in rows.items():
         for ordinal, row in enumerate(records):
             index.append(
@@ -178,14 +171,14 @@ def selected_index(tmp_path):
     return index, CutSelection(json_bytes(pins))
 
 
-def test_bound_precedence_and_selected_support_are_distinct_projections(tmp_path, monkeypatch):
+def test_bound_precedence_and_selected_support_are_distinct_projections(monkeypatch):
     from corpus_structure.semantic import data_operation_admission
 
     compiled = model(operation("operation"))
     monkeypatch.setattr(
         data_operation_admission, "bound_data_operation_model", lambda prepared: compiled
     )
-    index, cut = selected_index(tmp_path)
+    index, cut = selected_index()
     prepared = SimpleNamespace(release_id="release")
     try:
         requests = snapshot_from_index(prepared, cut, index, "bound-requests")
@@ -215,7 +208,7 @@ def test_bound_precedence_and_selected_support_are_distinct_projections(tmp_path
         index.close()
 
 
-def test_required_selected_reference_cannot_disappear_silently(tmp_path, monkeypatch):
+def test_required_selected_reference_cannot_disappear_silently(monkeypatch):
     from corpus_structure.semantic import data_operation_admission
 
     monkeypatch.setattr(
@@ -223,10 +216,7 @@ def test_required_selected_reference_cannot_disappear_silently(tmp_path, monkeyp
         "bound_data_operation_model",
         lambda prepared: model(operation("operation")),
     )
-    index, cut = selected_index(tmp_path)
-    index.connection.exec_driver_sql(
-        "DELETE FROM records WHERE relation='ops.demand_use' AND json_extract(payload,'$.record.id')='su'"
-    )
+    index, cut = selected_index(omit_support_use=True)
     try:
         with pytest.raises(ValueError, match=r"required.*support use"):
             snapshot_from_index(
@@ -236,8 +226,8 @@ def test_required_selected_reference_cannot_disappear_silently(tmp_path, monkeyp
         index.close()
 
 
-def test_pinned_frontier_rejects_conflicting_pages(tmp_path):
-    index, cut = selected_index(tmp_path)
+def test_pinned_frontier_rejects_conflicting_pages():
+    index, cut = selected_index()
     try:
         with pytest.raises(ValueError, match="different native cuts"):
             index.append_page({**cut.record, "obligations": [], "uses": [], "read_id": "other"})
@@ -245,7 +235,7 @@ def test_pinned_frontier_rejects_conflicting_pages(tmp_path):
         index.close()
 
 
-def test_authored_admission_is_not_relabelled_original_source(tmp_path, monkeypatch):
+def test_authored_admission_is_not_relabelled_original_source(monkeypatch):
     from corpus_structure.semantic import data_operation_admission
 
     monkeypatch.setattr(
@@ -253,7 +243,7 @@ def test_authored_admission_is_not_relabelled_original_source(tmp_path, monkeypa
         "bound_data_operation_model",
         lambda prepared: model(operation("operation")),
     )
-    index, cut = selected_index(tmp_path)
+    index, cut = selected_index()
     try:
         for relation, row in [
             ("kb.data_product", dict(id="authored-product")),
@@ -283,7 +273,7 @@ def test_authored_admission_is_not_relabelled_original_source(tmp_path, monkeypa
 
 
 @pytest.mark.parametrize("fate", ["awaiting-population", "unavailable"])
-def test_requestless_recorded_fate_preserves_obligation_and_use(tmp_path, monkeypatch, fate):
+def test_requestless_recorded_fate_preserves_obligation_and_use(monkeypatch, fate):
     from corpus_structure.semantic import data_operation_admission
 
     monkeypatch.setattr(
@@ -291,7 +281,7 @@ def test_requestless_recorded_fate_preserves_obligation_and_use(tmp_path, monkey
         "bound_data_operation_model",
         lambda prepared: model(operation("operation")),
     )
-    index = SelectedRecordIndex(tmp_path / "requestless.sqlite")
+    index = LiveSelectedRelations()
     pins = cut_pins()
     try:
         index.append_page(
@@ -333,7 +323,7 @@ def test_requestless_recorded_fate_preserves_obligation_and_use(tmp_path, monkey
 
 
 @pytest.mark.parametrize("fate", ["attached", "fulfilled"])
-def test_executable_use_cannot_omit_its_native_request(tmp_path, monkeypatch, fate):
+def test_executable_use_cannot_omit_its_native_request(monkeypatch, fate):
     from corpus_structure.semantic import data_operation_admission
 
     monkeypatch.setattr(
@@ -341,7 +331,7 @@ def test_executable_use_cannot_omit_its_native_request(tmp_path, monkeypatch, fa
         "bound_data_operation_model",
         lambda prepared: model(operation("operation")),
     )
-    index, cut = selected_index(tmp_path)
+    index, cut = selected_index()
     try:
         index.append_page(
             dict(
@@ -366,7 +356,7 @@ def test_executable_use_cannot_omit_its_native_request(tmp_path, monkeypatch, fa
 
 
 @pytest.mark.parametrize("projection", ["bound-requests", "selected-support"])
-def test_native_authority_is_an_explicit_unknown_boundary(tmp_path, monkeypatch, projection):
+def test_native_authority_is_an_explicit_unknown_boundary(monkeypatch, projection):
     from corpus_structure.semantic import data_operation_admission
 
     monkeypatch.setattr(
@@ -374,17 +364,8 @@ def test_native_authority_is_an_explicit_unknown_boundary(tmp_path, monkeypatch,
         "bound_data_operation_model",
         lambda prepared: model(operation("operation")),
     )
-    index, cut = selected_index(tmp_path)
-    # This is a controlled transferred graph, not native admission evidence.
-    index.connection.exec_driver_sql(
-        "DELETE FROM records WHERE relation='ops.demand_use' AND json_extract(payload,'$.record.id')='su'"
-    )
-    index.connection.exec_driver_sql(
-        "DELETE FROM records WHERE relation='ops.data_derivation' AND json_extract(payload,'$.record.id') IN ('new','old')"
-    )
-    index.connection.exec_driver_sql(
-        "DELETE FROM records WHERE relation='ops.data_request' AND json_extract(payload,'$.record.id')='producer'"
-    )
+    # The controlled transferred graph carries the issuer summary only.
+    index, cut = selected_index(opaque_issuer=True)
     leaf = dict(
         format="ddo-native-authority-leaf-v1",
         derivation_id="new",

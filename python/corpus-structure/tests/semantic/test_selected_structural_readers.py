@@ -177,7 +177,7 @@ def test_dossier_reuses_rows_across_fresh_cuts_after_reauthorizing(monkeypatch, 
     monkeypatch.setattr(reader, "structural_report", report)
     monkeypatch.setattr(reader, "dossier_rows", count)
     monkeypatch.setattr(reader, "producer", lambda *args: {"use_id": "use:actual"})
-    monkeypatch.setattr(demand_results, "recheck_selected_frontier", forbidden)
+    monkeypatch.setattr(demand_results, "read_selected_operation_frontier", forbidden)
     request = reader.SelectedDossierRequest(
         demand_id="d", project_id="project", root=ROOT, population="membership"
     )

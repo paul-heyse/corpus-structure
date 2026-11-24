@@ -186,7 +186,7 @@ class AuthoredPublicationJourney:
         from evaluate.declared_record_native_support import PROJECT, selected_product_entries
 
         from corpus_structure.evaluate.declared_record_policy import _selected_body
-        from corpus_structure.semantic.demand_results import selected_record_index
+        from corpus_structure.semantic.demand_results import acquired_selected_relations
         from corpus_structure.semantic.selected_support import SelectedReadReference
 
         names = (kind,) if isinstance(kind, str) else kind
@@ -197,7 +197,7 @@ class AuthoredPublicationJourney:
         }
         with (
             engine.begin() as connection,
-            selected_record_index(
+            acquired_selected_relations(
                 connection,
                 demand,
                 project_id=PROJECT,

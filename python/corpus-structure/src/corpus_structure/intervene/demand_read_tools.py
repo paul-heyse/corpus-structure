@@ -92,31 +92,30 @@ def register_demand_read_tools(
 
     register_structural_read_tools(server, reader, project=project, demand=demand)
 
-    def selected(request, projection=None, *, scheme="selected-result"):
+    def selected(request, projection=None, *, scheme="selected-result", owns_read=False):
         governed = isinstance(request, GovernedDemandQueryRequest)
         if governed:
             scheme = "governed-selected-result"
         if project is not None and request.project_id != project:
             raise ValueError("selected result belongs to another server project")
-        if (
-            demand is not None
-            and isinstance(request, DemandQueryRequest)
-            and request.demand_id != demand
-        ):
+        if demand is not None and not governed and request.demand_id != demand:
             raise ValueError("selected result belongs to another server demand")
-        with reader() as connection:
-            if projection is not None:
-                report = projection(connection, request)
-            elif isinstance(request, GovernedDemandQueryRequest):
-                report = serve_governed_demand_query(connection, request)
-            else:
-                report = serve_demand_query(connection, request)
-            if (
-                demand is not None
-                and governed
-                and report.get("freshness", {}).get("demand_id") != demand
-            ):
-                raise ValueError("governed result belongs to another server demand")
+        if owns_read and projection is not None:
+            report = projection(reader, request)
+        else:
+            with reader() as connection:
+                if projection is not None:
+                    report = projection(connection, request)
+                elif isinstance(request, GovernedDemandQueryRequest):
+                    report = serve_governed_demand_query(connection, request)
+                else:
+                    report = serve_demand_query(connection, request)
+                if (
+                    demand is not None
+                    and governed
+                    and report.get("freshness", {}).get("demand_id") != demand
+                ):
+                    raise ValueError("governed result belongs to another server demand")
         return SelectedResult(
             cut_id=report["cut_id"],
             result=finite_result_record(report),
@@ -176,14 +175,15 @@ def register_demand_read_tools(
     def inspect_query_context(ctx: Context, request: DemandContextRequest):
         """Project one exact frame/referent/discourse recipe; no recognition or inference."""
         return bounded_structured_result(
-            selected(request, inspect_demand_context, scheme="selected-context"), request.max_bytes
+            selected(request, inspect_demand_context, scheme="selected-context", owns_read=True),
+            request.max_bytes,
         )
 
     @server.resource("corpus://selected-context/{handle}")
     def selected_context(handle: str) -> str:
         request = decode_resource_handle(handle, DemandContextRequest)
         content = selected(
-            request, inspect_demand_context, scheme="selected-context"
+            request, inspect_demand_context, scheme="selected-context", owns_read=True
         ).model_dump_json()
         if len(content.encode()) > request.max_bytes:
             raise ValueError("complete selected query context resource exceeds max_bytes")

@@ -354,13 +354,13 @@ def test_native_neighborhood_collapses_equal_semantic_targets_to_first_represent
 
 
 @pytest.fixture
-def selected_neighborhood_read(tmp_path, monkeypatch):
+def selected_neighborhood_read(monkeypatch):
     """Real selected-output proof over controlled native frontier/support records."""
-    from contextlib import contextmanager
     from types import SimpleNamespace
 
+    from corpus_structure.semantic import demand_results
+    from corpus_structure.semantic.acquired_selected_relations import LiveSelectedRelations
     from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
-    from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
     from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.demand_results import CutSelection
     from corpus_structure.serve import selected_contributions
@@ -377,7 +377,7 @@ def selected_neighborhood_read(tmp_path, monkeypatch):
             edges=[],
         ),
     )
-    index = SelectedRecordIndex(tmp_path / "neighborhood.sqlite")
+    index = LiveSelectedRelations()
     nominal = "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualNeighborhoodProduct"
     cut = CutSelection(json_bytes(CUT))
 
@@ -424,16 +424,11 @@ def selected_neighborhood_read(tmp_path, monkeypatch):
         )
     # Upstream episode/output facts are deliberately in the support closure, but
     # only this producing episode is admitted by the selected demand frontier.
-    frontier = dict(
-        CUT,
-        obligations=[],
-        uses=[
-            dict(use_id="selected-use", fate="fulfilled", derivation_id="selected-episode"),
-            dict(use_id="reused-use", fate="fulfilled", derivation_id="selected-episode"),
-        ],
-    )
-    index.append_page(frontier)
-    records = tuple(json_bytes(record) for record in index.records())
+    selected_uses = [
+        dict(use_id="selected-use", fate="fulfilled", derivation_id="selected-episode"),
+        dict(use_id="reused-use", fate="fulfilled", derivation_id="selected-episode"),
+    ]
+    index.append_page(dict(CUT, obligations=[], uses=selected_uses))
     validation_calls = []
     definition = SimpleNamespace(iri=nominal, name="AuthenticatedNeighborhoodAlias")
 
@@ -448,21 +443,38 @@ def selected_neighborhood_read(tmp_path, monkeypatch):
     )
     reads = []
 
-    @contextmanager
-    def read(connection, demand, **kwargs):
+    def read(connection, program, demand, **kwargs):
+        assert program == "read_selected_outputs"
         reads.append(dict(demand=demand, **kwargs))
-        # MCP invokes synchronous readers on its own thread. Give each acquired
-        # read its real local index lifetime rather than sharing a SQLite handle.
-        acquired_index = SelectedRecordIndex(tmp_path / (str(len(reads)) + ".sqlite"))
-        try:
-            for record in records:
-                acquired_index.append(record)
-            acquired_index.append_page(frontier)
-            yield cut, acquired_index
-        finally:
-            acquired_index.close()
+        rows = []
+        if kwargs.get("body") and kwargs["product_id"] == "selected":
+            for use in selected_uses:
+                rows.append(
+                    dict(
+                        product_id="selected",
+                        use_id=use["use_id"],
+                        derivation_id=use["derivation_id"],
+                        operation_id="retrieve.contextual_neighborhood/declared",
+                        role="result",
+                        position=0,
+                        multiplicity=1,
+                        member_id=None,
+                        output_member_id=None,
+                        kind_contract="kind:neighborhood",
+                        kind=nominal,
+                        subject="actual-inventory",
+                        subject_definition="selected-native-source",
+                        original_source="actual-original",
+                        analyzed_scope={},
+                        selection=None,
+                        release_id=CUT["release_id"],
+                        meaning_body=semantic_value(body),
+                    )
+                )
+        return dict(cut=cut.record, rows=rows, answer_after=None, oversized=None)
 
-    monkeypatch.setattr(selected_contributions, "acquired_selected_relations", read)
+    monkeypatch.setattr(selected_contributions, "read_selected_answer", read)
+    monkeypatch.setattr(demand_results, "read_selected_answer", read)
     monkeypatch.setattr(selected_contributions, "open_release", lambda *args: prepared)
     monkeypatch.setattr(selected_contributions, "bound_data_operation_model", lambda *args: model)
     try:
@@ -516,7 +528,7 @@ def test_neighborhood_requires_actual_outputs_and_uses_authenticated_definition_
     from corpus_structure.serve.selected_neighborhood import inspect_demand_neighborhood
 
     read = selected_neighborhood_read
-    request = neighborhood_request(read, max_bytes=16384)
+    request = neighborhood_request(read, max_bytes=65536)
     result = inspect_demand_neighborhood(None, request)
     assert result["availability"] == "available"
     assert read.validation_calls == ["AuthenticatedNeighborhoodAlias"]
@@ -531,19 +543,15 @@ def test_neighborhood_requires_actual_outputs_and_uses_authenticated_definition_
         output["reference"]["support_references"][0]["admission_use_id"] == output["use_id"]
         for output in outputs
     )
-    assert read.reads == [
-        dict(
-            demand=request.demand_id,
-            project_id=request.project_id,
-            scope={"product_ids": ["selected"]},
-            read_id=request.read_id,
-            expected_cut=request.expected_cut,
-            max_bytes=request.max_bytes,
-            max_total_bytes=request.max_bytes,
-            max_total_records=100000,
-            capture_frontier=True,
-        )
-    ]
+    first, output = read.reads
+    for selected in (first, output):
+        assert selected["demand"] == request.demand_id
+        assert selected["project_id"] == request.project_id
+        assert selected["scope"] == {"product_ids": ["selected"]}
+        assert selected["read_id"] == request.read_id
+        assert selected["max_bytes"] == request.max_bytes
+    assert first["limit"] == 1
+    assert output["body"] and output["product_id"] == request.product_id
 
 
 def test_selected_neighborhood_missing_definition_is_refused_not_unavailable(
@@ -560,7 +568,7 @@ def test_selected_neighborhood_missing_definition_is_refused_not_unavailable(
 def test_selected_neighborhood_response_keeps_byte_limit(selected_neighborhood_read):
     from corpus_structure.serve.selected_neighborhood import inspect_demand_neighborhood
 
-    with pytest.raises(ValueError, match="exceeds max_bytes"):
+    with pytest.raises(ValueError, match="selected answers exceed examined bound"):
         inspect_demand_neighborhood(
             None, neighborhood_request(selected_neighborhood_read, max_bytes=1024)
         )
@@ -580,7 +588,7 @@ def test_mcp_neighborhood_uses_same_selected_reader_and_exact_pins(
     from corpus_structure.semantic.data_operation_json import json_loads
 
     read = selected_neighborhood_read
-    request = neighborhood_request(read, max_bytes=16384)
+    request = neighborhood_request(read, max_bytes=65536)
     engine = create_engine("sqlite://")
     server = (
         build_server(project=request.project_id, demand=request.demand_id, read_engine=engine)

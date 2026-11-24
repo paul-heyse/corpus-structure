@@ -80,3 +80,17 @@ def acquire_demand_archive(root, manifest_digest, decode_manifest):
                 if stream.read(1) or digest.hexdigest() != descriptor.sha256:
                     raise ValueError("detached file differs from its pinned manifest: " + name)
         yield owned, manifest
+
+
+def publish_archive_directory(source: Path, destination: Path) -> None:
+    """Linux atomic no-replace publication; an unrelated empty directory is protected too."""
+    import ctypes
+    import os
+
+    libc = ctypes.CDLL(None, use_errno=True)
+    rename = libc.renameat2
+    rename.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    rename.restype = ctypes.c_int
+    if rename(-100, os.fsencode(source), -100, os.fsencode(destination), 1):
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error), destination)

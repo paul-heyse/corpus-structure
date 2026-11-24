@@ -12,7 +12,11 @@ from corpus_structure.semantic.source_interfaces import (
     SOURCE_INTERFACE_ARTIFACT,
     read_source_interfaces,
 )
-from corpus_structure.serve.demand_export import export_demand_result, verify_demand_export
+from corpus_structure.serve.demand_export import (
+    export_demand_result,
+    verified_demand_export,
+    verify_demand_export,
+)
 from semantic.data_operation_kernel_support import EXECUTION
 from semantic.declared_scenarios import declared_serving_case as declared_serving_case
 from semantic.declared_scenarios import declared_serving_seed as declared_serving_seed
@@ -91,6 +95,15 @@ def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
     relation = "ops.data_derivation"
     name = manifest.manifest.relations[relation].file
     closure_path = destination / name
+    original = closure_path.read_bytes()
+    with verified_demand_export(destination, manifest_digest=expected) as (_, _, _, replay):
+        pending = replay.rows_for(relation, id=source_episode)
+        closure_path.write_bytes(bytes(len(original)))
+        (exact_episode,) = pending
+        assert exact_episode["id"] == source_episode
+    with pytest.raises(ValueError, match="pinned manifest"):
+        verify_demand_export(destination, manifest_digest=expected)
+    closure_path.write_bytes(original)
     original_rows = pq.read_table(closure_path)
     retained = original_rows.filter(
         pc.call_function("not_equal", [original_rows["id"], pa.scalar(source_episode)])
@@ -482,3 +495,64 @@ def test_exported_selected_inputs_use_consumed_selection_without_request_binding
         assert {(row.product_id, row.member_id) for row in references} == {
             (row["product_id"], row.get("member_id")) for row in use["selection"]["inputs"]
         }
+
+
+def test_selected_archive_interruption_preserves_only_completed_publication(
+    declared_serving_case, tmp_path, monkeypatch
+):
+    from corpus_structure.serve import demand_export
+    from corpus_structure.serve.archive_custody import publish_archive_directory
+
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
+    destination = tmp_path / "archive"
+    fragments = demand_export.write_support_fragments
+
+    def interrupt_fragments(*args, **kwargs):
+        for fragment in fragments(*args, **kwargs):
+            yield fragment
+            raise InterruptedError("before seal")
+
+    with monkeypatch.context() as controlled:
+        controlled.setattr(demand_export, "write_support_fragments", interrupt_fragments)
+        with (
+            clone.reader.begin() as connection,
+            pytest.raises(InterruptedError, match="before seal"),
+        ):
+            export_demand_result(
+                connection,
+                stage.demand_id,
+                project_id=stage.project_id,
+                destination=destination,
+            )
+    assert not destination.exists()
+    assert not list(tmp_path.glob(".demand-export-*"))
+
+    trusted = {}
+
+    def interrupt_after_publish(source, target):
+        trusted["manifest_digest"] = sha256((source / "manifest.json").read_bytes()).hexdigest()
+        publish_archive_directory(source, target)
+        raise InterruptedError("after publication")
+
+    with monkeypatch.context() as controlled:
+        controlled.setattr(demand_export, "publish_archive_directory", interrupt_after_publish)
+        with (
+            clone.reader.begin() as connection,
+            pytest.raises(InterruptedError, match="after publication"),
+        ):
+            export_demand_result(
+                connection,
+                stage.demand_id,
+                project_id=stage.project_id,
+                destination=destination,
+            )
+    assert not list(tmp_path.glob(".demand-export-*"))
+    assert verify_demand_export(destination, **trusted)["outcome"] == "passed"
+    with clone.reader.begin() as connection, pytest.raises(FileExistsError):
+        export_demand_result(
+            connection, stage.demand_id, project_id=stage.project_id, destination=destination
+        )
+    assert (
+        sha256((destination / "manifest.json").read_bytes()).hexdigest()
+        == trusted["manifest_digest"]
+    )

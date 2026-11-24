@@ -439,6 +439,7 @@ classes:
     annotations:
       ph:frontier_guard: exempt
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:indexes: {"tag":"ph:indexes","value":[["product_id","collection","ordinal","partition_key"]]}
       ph:immutability: intrinsic
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["intent_id"],"target":"ops.data_completion_intent.id"}]}
       ph:checks: {"tag":"ph:checks","value":[{"name":"ck_retained_population_output_position","predicate":{"op":"ge","args":[{"field":"output_position"},{"value":0}]}},{"name":"ck_retained_population_ordinal","predicate":{"op":"ge","args":[{"field":"ordinal"},{"value":0}]}},{"name":"ck_retained_population_item_count","predicate":{"op":"ge","args":[{"field":"item_count"},{"value":0}]}}]}

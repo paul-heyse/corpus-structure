@@ -81,7 +81,7 @@ def authored_product(monkeypatch, spelling, columns):
 def actual_basis(kernel, original, products):
     """Restore only authenticated current products returned by the native selected read."""
     from corpus_structure.semantic.construction_products import CharacterizationSnapshot
-    from corpus_structure.semantic.demand_results import CutSelection, selected_record_index
+    from corpus_structure.semantic.demand_results import CutSelection, acquired_selected_relations
     from corpus_structure.semantic.sentence_products import (
         retained_source_annotation_products,
         validate_source_annotations,
@@ -114,7 +114,7 @@ def actual_basis(kernel, original, products):
     cut = CutSelection(read.cut_canonical_json.encode())
     with (
         kernel.purpose("read").begin() as connection,
-        selected_record_index(
+        acquired_selected_relations(
             connection,
             read.demand_id,
             project_id=read.project_id,

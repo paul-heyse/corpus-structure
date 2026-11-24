@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from contextlib import ExitStack
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.methods.contextual_query import (
@@ -43,101 +45,107 @@ class DemandContextRequest(BaseModel):
     max_bytes: int = Field(default=1048576, strict=True, ge=1024, le=67108864)
 
 
-def inspect_demand_context(connection, request: DemandContextRequest):
-    """Project retained facts under an explicit recipe; perform no recognition or encoding."""
+def inspect_demand_context(reader, request: DemandContextRequest):
+    """Acquire the exact context cut, then interpret its retained facts off-transaction."""
     selected_products = sorted(
         {request.source_product_id, request.primary_product_id, request.focal_product_id}
     )
-    scope = {"product_ids": selected_products}
-    with acquired_selected_relations(
-        connection,
-        request.demand_id,
-        project_id=request.project_id,
-        scope=scope,
-        read_id=request.read_id,
-        expected_cut=request.expected_cut,
-        max_bytes=request.max_bytes,
-    ) as (cut, index):
-        products = index.mapping("kb.data_product", ("id",))
-        members = index.mapping("kb.data_product_member", ("product_id", "member_id"))
-
-        def selected(product, member):
-            row = products.get(product) if member is None else members.get((product, member))
-            if row is None:
-                return None, None
-            return row, decode_semantic_value(row["canonical_body" if member is None else "body"])
-
-        source_row, source_body = selected(request.source_product_id, request.source_member_id)
-        focal_row, focal_body = selected(request.focal_product_id, request.focal_member_id)
-        if source_row is None or focal_row is None or request.primary_product_id not in products:
-            return dict(
-                format="selected-query-context-v1",
-                availability="unavailable",
-                reason="requested semantic references are outside the selected cut closure",
-                cut_id=cut.identity,
-                cut=cut.record,
-                recipe=request.recipe,
-                inference="not_run",
+    with ExitStack() as retained:
+        with reader() as connection:
+            cut, index = retained.enter_context(
+                acquired_selected_relations(
+                    connection,
+                    request.demand_id,
+                    project_id=request.project_id,
+                    scope={"product_ids": selected_products},
+                    read_id=request.read_id,
+                    expected_cut=request.expected_cut,
+                    max_bytes=request.max_bytes,
+                    retain_population_items=False,
+                )
             )
-        if not isinstance(source_body, dict) or "source" not in source_body:
-            raise ValueError("selected source member is not a declared native source body")
-        coordinate = source_body["source"]
-        address = DeclaredRecordSource(
-            coordinate["document"],
-            coordinate["projection"],
-            coordinate["section_pointer"],
-            coordinate["membership"],
-            SubjectContext(
-                request.project_id,
-                source_row["subject"],
-                source_row["original_source"],
-                json_bytes(source_row["analyzed_scope"]),
-                subject_definition=source_row["subject_definition"],
-            ),
-            request.source_product_id,
-            request.source_member_id,
-            source_row["kind_contract"],
-        )
-        source = DeclaredNativeFrameSource.from_retained_record(
-            json_bytes(source_body).decode(), json_bytes(address.pin()).decode()
-        )
-        if (
-            not isinstance(focal_body, dict)
-            or not {"occurrence_id", "anchors"} <= focal_body.keys()
-        ):
-            raise ValueError("focal selected member is not an exact located source contribution")
-        reference = DataProductMemberReference(
-            DataProductReference(request.primary_product_id), request.primary_member_id
-        )
-        selection = DeclaredQueryContextSelection(
-            request.recipe, (DeclaredQueryContextBinding(focal_body["occurrence_id"], reference),)
-        )
-        contexts = resolve_query_contexts(
-            selection,
-            SelectedCharacterizationInventories(products, index=index, cut=cut),
-            (focal_body,),
-            source,
-            preparation=PreparedNativeSources((source,)),
-        )
-        result = contexts[focal_body["occurrence_id"]]
-        pinned = request.model_copy(
-            update=dict(read_id=cut.record["read_id"], expected_cut=cut.identity)
-        )
-        report = dict(
+        return _project_context(cut, index, request)
+
+
+def _project_context(cut, index, request: DemandContextRequest):
+    """Interpret retained source, occurrence and primary-layer facts."""
+    products = index.mapping("kb.data_product", ("id",))
+    members = index.mapping("kb.data_product_member", ("product_id", "member_id"))
+
+    def selected(product, member):
+        row = products.get(product) if member is None else members.get((product, member))
+        if row is None:
+            return None, None
+        return row, decode_semantic_value(row["canonical_body" if member is None else "body"])
+
+    source_row, source_body = selected(request.source_product_id, request.source_member_id)
+    focal_row, focal_body = selected(request.focal_product_id, request.focal_member_id)
+    if source_row is None or focal_row is None or request.primary_product_id not in products:
+        return dict(
             format="selected-query-context-v1",
-            availability="available",
+            availability="unavailable",
+            reason="requested semantic references are outside the selected cut closure",
             cut_id=cut.identity,
             cut=cut.record,
-            source=address.pin(),
-            focal=dict(product_id=request.focal_product_id, member_id=request.focal_member_id),
-            primary=reference.values(),
             recipe=request.recipe,
-            context=result.report(),
-            rendered=result.rendered,
-            representation_digest=result.representation_digest,
             inference="not_run",
-            resource_handle=_cursor(pinned.model_dump(mode="python")),
         )
-        if len(json_bytes(report)) > request.max_bytes:
-            raise ValueError("complete selected context response exceeds max_bytes")
-        return report
+    if not isinstance(source_body, dict) or "source" not in source_body:
+        raise ValueError("selected source member is not a declared native source body")
+    coordinate = source_body["source"]
+    address = DeclaredRecordSource(
+        coordinate["document"],
+        coordinate["projection"],
+        coordinate["section_pointer"],
+        coordinate["membership"],
+        SubjectContext(
+            request.project_id,
+            source_row["subject"],
+            source_row["original_source"],
+            json_bytes(source_row["analyzed_scope"]),
+            subject_definition=source_row["subject_definition"],
+        ),
+        request.source_product_id,
+        request.source_member_id,
+        source_row["kind_contract"],
+    )
+    source = DeclaredNativeFrameSource.from_retained_record(
+        json_bytes(source_body).decode(), json_bytes(address.pin()).decode()
+    )
+    if not isinstance(focal_body, dict) or not {"occurrence_id", "anchors"} <= focal_body.keys():
+        raise ValueError("focal selected member is not an exact located source contribution")
+    reference = DataProductMemberReference(
+        DataProductReference(request.primary_product_id), request.primary_member_id
+    )
+    selection = DeclaredQueryContextSelection(
+        request.recipe, (DeclaredQueryContextBinding(focal_body["occurrence_id"], reference),)
+    )
+    contexts = resolve_query_contexts(
+        selection,
+        SelectedCharacterizationInventories(products, index=index, cut=cut),
+        (focal_body,),
+        source,
+        preparation=PreparedNativeSources((source,)),
+    )
+    result = contexts[focal_body["occurrence_id"]]
+    pinned = request.model_copy(
+        update=dict(read_id=cut.record["read_id"], expected_cut=cut.identity)
+    )
+    report = dict(
+        format="selected-query-context-v1",
+        availability="available",
+        cut_id=cut.identity,
+        cut=cut.record,
+        source=address.pin(),
+        focal=dict(product_id=request.focal_product_id, member_id=request.focal_member_id),
+        primary=reference.values(),
+        recipe=request.recipe,
+        context=result.report(),
+        rendered=result.rendered,
+        representation_digest=result.representation_digest,
+        inference="not_run",
+        resource_handle=_cursor(pinned.model_dump(mode="python")),
+    )
+    if len(json_bytes(report)) > request.max_bytes:
+        raise ValueError("complete selected context response exceeds max_bytes")
+    return report
