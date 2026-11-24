@@ -62,7 +62,7 @@ def test_column_conversion_matches_independent_mixed_type_rows_and_key_boundarie
             ["date32[day]", 1],
             "é",
         ],
-        ["b", None, ["float", 1e-20.hex()], None, None, None, "x"],
+        ["b", None, ["float", (1e-20).hex()], None, None, None, "x"],
     ]
     digest = sha256()
     for row in [header, *expected]:

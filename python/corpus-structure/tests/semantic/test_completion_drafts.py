@@ -485,6 +485,7 @@ def test_seal_failure_preserves_only_acknowledged_population(
         assert draft.population_upload is not None
         original = draft.population_upload.path.read_bytes()
         reopened = CompletionDraftStore(tmp_path, max_bytes=65536).open(draft.identity)
+        assert reopened.population_upload is not None
         with reopened.population_upload.open_reader() as reader:
             assert reader.read_all().num_rows == 1
         assert reopened.population_upload.path.read_bytes() == original
@@ -540,7 +541,9 @@ def test_population_private_copy_observes_stop_and_preserves_original(tmp_path, 
     with pytest.raises(ExecutionStopped), draft.population_upload.open_reader(check_active=stopped):
         pytest.fail("stopped reader must not acquire its private copy")
     assert draft.population_upload.path.read_bytes() == original
-    with store.open(draft.identity).population_upload.open_reader() as reader:
+    reopened = store.open(draft.identity).population_upload
+    assert reopened is not None
+    with reopened.open_reader() as reader:
         assert reader.read_all().num_rows == 1
 
 
@@ -562,8 +565,10 @@ def test_acknowledgment_sync_failure_keeps_exact_population_for_recovery(
         with pytest.raises(OSError, match="synchronization failed"):
             acknowledge(store, **upload_arguments())
     (draft,) = store.candidates("request:original", 2)
+    assert draft.population_upload is not None
     expected = draft.population_upload.path.read_bytes()
     retried = acknowledge(store, **upload_arguments())
     assert retried.identity == draft.identity
+    assert retried.population_upload is not None
     assert retried.population_upload.path.read_bytes() == expected
     assert not tuple(tmp_path.glob("pending-*"))

@@ -126,6 +126,7 @@ def scoped_math_artifact_recipe(directory):
 
     base = artifact_recipe(directory)
     captured = base.captured_inputs
+    assert captured is not None
     dependencies, declarations, sources = split_captured_operations(captured)
     options = DeclaredMathOptions(
         math_scope_binders=load_construction_options(ROOT / "domains/statistics").math_scope_binders

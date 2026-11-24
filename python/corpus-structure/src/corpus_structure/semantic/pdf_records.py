@@ -120,7 +120,7 @@ class AcquiredNativeDocumentRows:
         self,
         records: Iterable[Mapping[str, Any]],
         memberships: Iterable[Mapping[str, Any]],
-        scalar: Callable[[str], Iterable[bytes]],
+        scalar: Callable[[str], Iterable[bytes | memoryview]],
     ):
         self._records: dict[str, Mapping[str, Any]] = {}
         self._memberships: dict[tuple[str, str], list[Mapping[str, Any]]] = {}

@@ -1,6 +1,7 @@
 """Producer checks actual output and encoded payloads without staging or reconstruction."""
 
 import json
+from collections.abc import Sequence
 from hashlib import sha256
 from typing import Any, Literal, TypedDict
 
@@ -20,14 +21,28 @@ from corpus_structure.semantic.pdf_payloads import prepare_payload_family
 from corpus_structure.semantic.pdf_records import native_schema_bytes
 
 
-class ProducerBasis(TypedDict):
+class ProducerDigestBasis(TypedDict):
     release_id: str
     source_digest: str
     recipe_digest: str
     schema_digest: str
     kind: Literal["native"]
-    lowering_identity: str
     target_meanings: dict[tuple[int, str, str], Any]
+
+
+class ProducerBasis(ProducerDigestBasis):
+    lowering_identity: str
+
+
+def digest_basis(basis: ProducerBasis) -> ProducerDigestBasis:
+    return dict(
+        release_id=basis["release_id"],
+        source_digest=basis["source_digest"],
+        recipe_digest=basis["recipe_digest"],
+        schema_digest=basis["schema_digest"],
+        kind=basis["kind"],
+        target_meanings=basis["target_meanings"],
+    )
 
 
 def prepared(tmp_path, *, candidate=None):
@@ -434,16 +449,16 @@ def test_batch_certification_matches_independent_ordered_record_reference(tmp_pa
 
     payloads, _document, basis = prepared(tmp_path)
     try:
-        expected = []
+        expected: list[tuple[str, str, Sequence[tuple[str, Any]]]] = []
         for family in ("header", "native", "membership"):
             for values in payloads.entries(family):
                 row = {name: value for name, value in values.items() if value is not None}
-                expected.append(
-                    native_record_identity_fields(
-                        NativeRow("document" if family == "header" else family, row),
-                        scalar_descriptor=payloads._descriptor,
-                    )
+                fields = native_record_identity_fields(
+                    NativeRow("document" if family == "header" else family, row),
+                    scalar_descriptor=payloads._descriptor,
                 )
+                assert fields is not None
+                expected.append(fields)
         inputs = {row["local_id"]: row["body"] for row in payloads.companions("input")}
         for family in payloads._companions:
             for row in payloads.companions(family):
@@ -462,19 +477,7 @@ def test_batch_certification_matches_independent_ordered_record_reference(tmp_pa
             expected, key=lambda row: (row[0].encode(), row[1].encode())
         ):
             folded.add_record(family, key, fields)
-        actual = payloads.logical_digest(
-            **{
-                name: basis[name]
-                for name in (
-                    "release_id",
-                    "source_digest",
-                    "recipe_digest",
-                    "schema_digest",
-                    "kind",
-                    "target_meanings",
-                )
-            }
-        )
+        actual = payloads.logical_digest(**digest_basis(basis))
         assert actual == folded.pin().logical_digest
     finally:
         payloads.close()
@@ -537,17 +540,7 @@ def test_certifier_checks_shared_and_unreferenced_live_part_buffers(tmp_path, co
                     schema=schema,
                 ),
             )
-        options = {
-            name: basis[name]
-            for name in (
-                "release_id",
-                "source_digest",
-                "recipe_digest",
-                "schema_digest",
-                "kind",
-                "target_meanings",
-            )
-        }
+        options = digest_basis(basis)
         if corrupt is not None:
             with pytest.raises(ValueError, match="part actual bytes"):
                 payloads.logical_digest(**options)

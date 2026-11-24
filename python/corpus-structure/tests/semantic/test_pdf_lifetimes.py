@@ -41,6 +41,7 @@ def test_db_free_validation_cancellation_reaps_its_actual_spawned_child(tmp_path
 
         @staticmethod
         def Process(*, target, args, kwargs=None):
+            assert kwargs is not None
             return context.Process(
                 target=hold_validation, args=args, kwargs={"allocation": kwargs["allocation"]}
             )

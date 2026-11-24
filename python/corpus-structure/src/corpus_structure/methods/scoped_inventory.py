@@ -83,7 +83,9 @@ class ScopedInventory(AbstractContextManager):
                         "pointer": columns["item_ref"],
                         "start": columns["start"],
                         "end": columns["end"],
-                        "native_text": pc.equal(columns["kind"], "native_text"),
+                        "native_text": pc.call_function(
+                            "equal", [columns["kind"], pa.scalar("native_text")]
+                        ),
                     }
                 )
             ).set_alias("piece")

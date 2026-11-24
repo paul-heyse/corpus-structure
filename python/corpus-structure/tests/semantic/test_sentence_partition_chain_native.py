@@ -368,6 +368,7 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
                     yield batch
                     if not interrupted_uploads:
                         interrupted_uploads.append(True)
+                        assert cancellation is not None
                         cancellation.request_cancel()
                 uploaded_rows.append(rows)
 
@@ -385,6 +386,7 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
             except DatabaseOperationCancelled:
                 # A known rollback retries the exact callback and its already sealed draft.
                 (draft,) = population_drafts
+                assert draft.population_upload is not None
                 original = draft.population_upload.path.read_bytes()
                 engine = owner.owner.engine
                 lost_reply = LostCommitResponses(engine, 1)
