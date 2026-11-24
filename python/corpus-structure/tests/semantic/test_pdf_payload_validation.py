@@ -743,22 +743,41 @@ def test_typed_report_relationships_refuse_independent_corruption(defect, diagno
         validate_pdf_report_metadata(value)
 
 
-def test_frozen_part_verification_borrows_original_arrow_buffers_after_store_release():
+@pytest.mark.parametrize("sliced", [False, True])
+def test_frozen_part_verification_borrows_original_arrow_buffers_after_store_release(sliced):
+    from hashlib import sha256
+
     import pyarrow as pa
 
+    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+    from corpus_structure.semantic.pdf_lowering_context import capture_pdf_lowering
     from corpus_structure.semantic.pdf_record_identity import BLOCK_BYTES, canonical_blocks
+    from corpus_structure.semantic.pdf_replay_transport import replay_schema
 
     store = typed_store()
     raw = bytes(range(256)) * 512
-    add_row(store, "artifact_part", dict(stream_id="borrowed", ordinal=0, body=raw[:BLOCK_BYTES]))
-    add_row(store, "artifact_part", dict(stream_id="borrowed", ordinal=1, byte_offset=BLOCK_BYTES, body=raw[BLOCK_BYTES:]))
-    row = store._parts["borrowed"][0]
-    original = row.batch.column("body")[0].as_buffer()
+    prefix = b"prefix outside selected batch"
+    schema = replay_schema(capture_pdf_lowering(trusted_pdf_context()).schema("stage:artifact_part"))
+    originals = []
+    for ordinal in (0, 1):
+        chunk = raw[ordinal * BLOCK_BYTES:(ordinal + 1) * BLOCK_BYTES]
+        actual = dict(stream_id="borrowed", ordinal=ordinal, byte_offset=ordinal * BLOCK_BYTES,
+                      body=chunk, byte_length=len(chunk), sha256_digest=sha256(chunk).hexdigest())
+        rows = [dict(stream_id="prefix", ordinal=0, body=prefix), actual,
+                dict(stream_id="null", ordinal=0, body=None)] if sliced else [actual]
+        batch = pa.RecordBatch.from_pylist(rows, schema=schema)
+        originals.append(batch.column("body").buffers()[2].address + (len(prefix) if sliced else 0))
+        store.add_batch("artifact_part", batch.slice(1, 1) if sliced else batch)
+        if sliced and ordinal == 0:
+            store.add_batch("artifact_part", batch.slice(2, 1))
     parts = list(store.parts("borrowed"))
     assert all(isinstance(part, memoryview) for part in parts)
-    assert pa.py_buffer(parts[0]).address == original.address
+    assert [pa.py_buffer(part).address for part in parts] == originals
     blocks = list(canonical_blocks(parts))
-    assert pa.py_buffer(blocks[0]).address == original.address
+    assert [pa.py_buffer(block).address for block in blocks] == originals
+    if sliced:
+        with pytest.raises(ValueError, match="body is null"):
+            list(store.parts("null"))
     store.close()
     assert b"".join(parts) == raw
     assert byte_root(parts) == byte_root((raw,))
