@@ -100,10 +100,10 @@ def test_generated_lookups_and_access_admission_keep_actual_private_pins(
     )
     with commit_writer_engine.begin() as connection:
         connection.execute(query, {**parameters, "rows": json.dumps(packet)}).one()
-    packet[0]["body"] = {**original, "native_json": {"conflicting": True}}
+    packet[0]["body"] = {"native_json": original["native_json"] | {"conflicting": True}}
     with (
         commit_writer_engine.begin() as connection,
-        pytest.raises(DBAPIError, match="changed access projection") as failure,
+        pytest.raises(DBAPIError, match="changed native projection JSON copy") as failure,
     ):
         connection.execute(query, {**parameters, "rows": json.dumps(packet)}).one()
     assert getattr(failure.value.orig, "sqlstate", None) == "23514"

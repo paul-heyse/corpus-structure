@@ -15,7 +15,6 @@ def prepare_controlled_companions(connection, build, family, records, *, start_o
 
     batches = []
     prepare_pdf_companion_batches(
-        build,
         family,
         records,
         on_batch=lambda name, batch: batches.append((name, batch)),

@@ -1,23 +1,18 @@
 """Actual child settlement and explicitly closed native reader lifetimes."""
 
-import io
-import json
 import multiprocessing
 import os
 
-import pyarrow as pa
 import pytest
 from pdf_validation_support import (
     acknowledge_then_exit_nonzero,
     acknowledge_then_hold,
     hold_validation,
 )
-from sqlalchemy import text
 
 from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
 from corpus_structure.semantic import pdf_publication
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
-from corpus_structure.semantic.product_reference import ProductReference
 
 
 def test_db_free_validation_cancellation_reaps_its_actual_spawned_child(tmp_path, monkeypatch):
@@ -48,38 +43,6 @@ def test_db_free_validation_cancellation_reaps_its_actual_spawned_child(tmp_path
     with pytest.raises(ProcessLookupError):
         os.kill(pids[0], 0)
     assert all(p.pid != pids[0] for p in multiprocessing.active_children())
-
-
-def test_program_stream_close_sink_failure_and_cancel_release_cursor(infrastructure_rollback):
-    conn = infrastructure_rollback
-    conn.exec_driver_sql("CREATE SCHEMA ops")
-    conn.exec_driver_sql("""CREATE FUNCTION ops.read_pdf_native_events(bigint,text,text)
-        RETURNS SETOF jsonb LANGUAGE sql AS $$
-        SELECT jsonb_build_object('kind','literal','value',value)
-        FROM (VALUES ('['),('1'),(']')) AS events(value) $$""")
-    reader = PublishedPdfReader(
-        conn, ProductReference(1, "native", "f" * 64), revision={"release_id": "r"}
-    )
-    chunks = reader.iter_native_json()
-    assert next(chunks) == b"["
-    assert conn.scalar(text("SELECT count(*) FROM pg_cursors")) == 1
-    chunks.close()
-    assert conn.scalar(text("SELECT count(*) FROM pg_cursors")) == 0
-
-    class BrokenSink(io.BytesIO):
-        def write(self, chunk):
-            raise OSError("sink unavailable")
-
-    with pytest.raises(OSError, match="sink unavailable"):
-        reader.write_native_json(BrokenSink())
-    assert conn.scalar(text("SELECT count(*) FROM pg_cursors")) == 0
-    chunks = reader.iter_native_json()
-    assert next(chunks) == b"["
-    reader.cancellation.request_cancel()
-    with pytest.raises(DatabaseOperationCancelled):
-        next(chunks)
-    assert conn.scalar(text("SELECT count(*) FROM pg_cursors")) == 0
-    assert conn.scalar(text("SELECT 37")) == 37
 
 
 def test_borrowed_event_fragments_remain_owned_by_selected_source_caller():
@@ -218,9 +181,18 @@ def test_program_child_acknowledges_only_after_owned_store_cleanup(
     from corpus_structure.semantic import pdf_payload_validation, pdf_records
 
     capture, projection = tmp_path / "capture.arrow", tmp_path / "projection.jsonl"
-    table = pa.Table.from_pylist([{"family": "header", "body": json.dumps({"root_id": "#/body"})}])
-    with pa.OSFile(str(capture), "wb") as sink, pa.ipc.new_file(sink, table.schema) as writer:
-        writer.write_table(table)
+    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+    from semantic.pdf_record_reader_support import NativeRows, native
+
+    lowered = NativeRows(native())
+    pdf_publication.write_pdf_oracle_capture(
+        capture,
+        context=trusted_pdf_context(),
+        kind="native",
+        rows=lambda family, filters: lowered.iter_rows(family, filters),
+        json_fields="text",
+        check_active=lambda: None,
+    )
     events = []
     sent = []
     document = {
@@ -239,12 +211,14 @@ def test_program_child_acknowledges_only_after_owned_store_cleanup(
         def stream_descriptors(self):
             return ()
 
-        def validate(self, native, path):
-            assert native is document and path == projection
+        def parts(self, stream):
+            return ()
+
+        def validate(self, native, *, items, regions):
+            assert native is document and len(items) == 2 and not regions
             events.append("store-validated")
 
         def close(self):
-            assert len(projection.read_text().splitlines()) == 2
             events.append("store-closed")
             if close_fails:
                 raise OSError("controlled store cleanup failure")
@@ -265,7 +239,7 @@ def test_program_child_acknowledges_only_after_owned_store_cleanup(
     monkeypatch.setattr(
         pdf_records,
         "validate_native_callbacks",
-        lambda native: events.append("callbacks-validated"),
+        lambda native, *, contract: events.append("callbacks-validated"),
     )
     pdf_publication._native_validation_child(str(capture), str(projection), Result())
     assert events == [

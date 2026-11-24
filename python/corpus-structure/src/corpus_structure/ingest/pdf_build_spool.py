@@ -12,7 +12,6 @@ import fcntl
 import json
 import os
 import re
-import shutil
 import stat
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, fields, replace
@@ -269,8 +268,7 @@ class VerifiedSpoolRecovery:
         preparation = self.preparation
         if preparation is None:
             return ()
-        preparation.verify()
-        identity = native_preparation_identity(preparation.path.read_bytes())
+        identity = native_preparation_identity(preparation.read_bytes())
         by_family = {}
         for family in ("page", "candidate_payload", "native-raster"):
             pages = {}
@@ -287,7 +285,7 @@ class VerifiedSpoolRecovery:
             page = by_family["page"][number]
             candidate = by_family["candidate_payload"][number]
             raster = by_family["native-raster"][number]
-            value = json.loads(page.path.read_bytes())
+            value = json.loads(page.read_bytes())
             if value.get("serialization_profile") != "pydantic-native-page-envelope-v2" or (
                 value["page"]["page_no"] != number
                 or "confidence" not in value
@@ -325,8 +323,7 @@ class VerifiedSpoolRecovery:
         completions = [entry for entry in self.entries if entry.family == "native_completion"]
         if len(completions) != 1:
             raise ValueError("completed spool has no exact native completion report")
-        with completions[0].path.open() as source:
-            native_completion = json.loads(next(source))
+        native_completion = json.loads(completions[0].read_bytes().split(b"\n", 1)[0])
         if (
             native_completion.get("kind"),
             native_completion.get("status"),
@@ -577,28 +574,24 @@ def clone_recovery_entries(
     # Native records and candidate bytes remain byte-for-byte exact.
     for entry in sorted(entries, key=lambda entry: entry.family == "page"):
         destination.check_active()
-        entry.verify()
         path = mapped[entry.path]
         path.parent.mkdir(parents=True, exist_ok=True)
         if entry.family == "page":
-            value = json.loads(entry.path.read_bytes())
+            value = json.loads(entry.read_bytes())
             old_raster = Path(value["raster"]["path"])
             if old_raster not in mapped:
                 raise ValueError("recovered PDF page has no selected raster custody")
             value["raster"]["path"] = str(mapped[old_raster])
+            content = json.dumps(value, separators=(",", ":")).encode()
             with path.open("xb") as sink:
-                sink.write(json.dumps(value, separators=(",", ":")).encode())
+                sink.write(content)
                 sink.flush()
                 os.fsync(sink.fileno())
-            content = path.read_bytes()
             clone = replace(
                 entry, path=path, digest=sha256(content).hexdigest(), byte_length=len(content)
             )
         else:
-            with entry.path.open("rb") as source, path.open("xb") as sink:
-                shutil.copyfileobj(source, sink, 1024 * 1024)
-                sink.flush()
-                os.fsync(sink.fileno())
+            entry.clone_to(path, check_active=destination.check_active)
             clone = replace(entry, path=path)
         destination.append(clone)
         copied[entry.path] = clone

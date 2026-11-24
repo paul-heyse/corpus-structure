@@ -6,6 +6,9 @@ imports:
 - physical
 default_range: string
 classes:
+  pdf_record_region_view:
+    is_a: PdfRecordRegion
+    in_subset: [kb]
   pdf_selected_product:
     in_subset:
     - ops

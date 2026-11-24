@@ -3,7 +3,6 @@
 import json
 from contextlib import contextmanager
 from hashlib import sha256
-from types import SimpleNamespace
 
 import pytest
 from docling_core.types.doc import (
@@ -33,6 +32,7 @@ def test_deterministic_integration_retains_typed_candidates_and_distinct_health_
     from corpus_structure.ingest.pdf_candidates import CandidatePage, InlineCandidate
     from corpus_structure.ingest.pdf_streaming import PdfStreamSpool
     from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+    from corpus_structure.semantic.pdf_lowering_context import capture_pdf_lowering
     from corpus_structure.semantic.pdf_payloads import EncodedPagePayload, prepare_payload_family
 
     monkeypatch.chdir(tmp_path)
@@ -123,7 +123,10 @@ def test_deterministic_integration_retains_typed_candidates_and_distinct_health_
 
     options = PdfIntegrationOptions(integration_policy={})
     selected = SelectedPdfInput(
-        SimpleNamespace(values=lambda: values, original=original, schema_bytes=b"{}"),
+        values,
+        original,
+        b"{}",
+        capture_pdf_lowering(context).callback_policy(),
         reference,
         capture(reference, tmp_path / "candidate-input"),
         ((section.self_ref, "descendants"),),

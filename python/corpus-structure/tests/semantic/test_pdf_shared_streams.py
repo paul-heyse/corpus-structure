@@ -506,7 +506,6 @@ def test_replay_and_companion_producers_emit_descriptors_before_complete_parts(t
     from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
     from corpus_structure.ingest.pdf_streaming import iter_replay_artifact_batches
     from corpus_structure.semantic.pdf_companion_encoding import (
-        PdfCompanionEncodingBasis,
         prepare_pdf_companion_batches,
     )
 
@@ -532,7 +531,6 @@ def test_replay_and_companion_producers_emit_descriptors_before_complete_parts(t
     )
     prepared = []
     prepare_pdf_companion_batches(
-        PdfCompanionEncodingBasis("build", "release"),
         "occurrence",
         ({"occurrence_id": "o", "kind": "caption", "text": "x" * 100000},),
         on_batch=lambda name, batch: prepared.append((name, batch)),

@@ -36,6 +36,7 @@ if typing.TYPE_CHECKING:
 
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
+    from corpus_structure.ingest.pdf_streaming import SealedPdfNative
     from corpus_structure.semantic.product_reference import ProductReference
 
 
@@ -476,6 +477,7 @@ class PdfRecordPublicationDraft:
     retained_serialization: RetainedPdfSerialization | None = None
     source_scope: Literal["whole_document"] = "whole_document"
     kind: Literal["native", "integrated"] = "native"
+    sealed_document: SealedPdfNative | None = field(default=None, repr=False, compare=False)
 
 
 # --- Configuration references ------------------------------------------------------------------

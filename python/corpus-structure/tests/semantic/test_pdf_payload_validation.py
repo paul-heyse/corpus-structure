@@ -9,6 +9,7 @@ from pdf_acceptance_support import inventory
 from corpus_structure.semantic.pdf_payload_validation import FrozenPayloadStore
 from corpus_structure.semantic.pdf_record_identity import byte_root
 from semantic.pdf_payload_validation_support import captured as captured
+from semantic.pdf_payload_validation_support import validate_projection_fixture
 
 from . import pdf_native_source_support as integrated_examples
 
@@ -245,7 +246,7 @@ def test_valid_frozen_page_checks_actual_bytes_and_semantics(tmp_path):
     store, row, document, projection = captured(tmp_path, page)
     try:
         assert store.value(row) == page
-        store.validate(document, projection)
+        validate_projection_fixture(store, document, projection)
     finally:
         store.close()
 
@@ -274,7 +275,7 @@ def test_structurally_legal_persisted_payload_cannot_bypass_domain_rules(
     store, _, document, projection = captured(tmp_path, page)
     try:
         with pytest.raises(ValueError, match=diagnostic):
-            store.validate(document, projection)
+            validate_projection_fixture(store, document, projection)
     finally:
         store.close()
 
@@ -323,7 +324,7 @@ def test_runtime_report_is_not_omitted_from_frozen_semantics(tmp_path):
     store.add("artifact_part", dict(stream_id="runtime", ordinal=0, body=payload.hex()))
     try:
         with pytest.raises(ValueError, match="upstream option object"):
-            store.validate(document, projection)
+            validate_projection_fixture(store, document, projection)
     finally:
         store.close()
 
@@ -371,7 +372,7 @@ def test_false_complete_coverage_fails_over_captured_page_inventory(tmp_path):
     )
     try:
         with pytest.raises(ValueError, match="complete word inventory"):
-            store.validate(document, projection)
+            validate_projection_fixture(store, document, projection)
     finally:
         store.close()
 
@@ -523,7 +524,7 @@ def test_frozen_page_decodes_once_across_multiple_original_candidate_reports(tmp
 
     monkeypatch.setattr(PreparedPayloadFamily, "decode", decode)
     try:
-        store.validate(document, projection)
+        validate_projection_fixture(store, document, projection)
         assert len(calls) == 1
     finally:
         store.close()
@@ -533,7 +534,7 @@ def test_frozen_page_decodes_once_across_multiple_original_candidate_reports(tmp
 def test_a_previous_success_never_authorizes_changed_frozen_payload(tmp_path, defect):
     store, row, document, projection = captured(tmp_path, inventory())
     try:
-        store.validate(document, projection)
+        validate_projection_fixture(store, document, projection)
         if defect == "bytes":
             store.db.exec_driver_sql("UPDATE part SET body=? WHERE stream='page'", (b"changed",))
         elif defect == "encoding":
@@ -558,7 +559,7 @@ def test_a_previous_success_never_authorizes_changed_frozen_payload(tmp_path, de
                 (json.dumps(row), json.dumps(["native_metadata", "page:0"])),
             )
         with pytest.raises(ValueError):
-            store.validate(document, projection)
+            validate_projection_fixture(store, document, projection)
     finally:
         store.close()
 
@@ -653,7 +654,7 @@ def test_captured_publication_policy_and_actual_metadata_kind_inventory_are_used
             ),
         )
     try:
-        store.validate(document, projection)
+        validate_projection_fixture(store, document, projection)
         payload = b'{"effective_options":"{}"}'
         length, root = byte_root((payload,))
         store.add(
@@ -684,6 +685,6 @@ def test_captured_publication_policy_and_actual_metadata_kind_inventory_are_used
         )
         store.add("artifact_part", dict(stream_id="runtime", ordinal=0, body=payload.hex()))
         with pytest.raises(ValueError, match="qualified input graph"):
-            store.validate(document, projection)
+            validate_projection_fixture(store, document, projection)
     finally:
         store.close()

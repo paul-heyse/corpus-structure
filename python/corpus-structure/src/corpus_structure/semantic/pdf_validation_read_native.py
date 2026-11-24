@@ -199,9 +199,14 @@ def pdf_validation_program_declarations(model, *, pdf_domain=None) -> dict[str, 
         stable=True,
     )
 
+    from .pdf_record_access_native import pdf_region_relation
+
     projections = []
-    for family in ("access", "region"):
-        relation = model.tables["kb.pdf_record_" + family].alias("r")
+    for family, source in (
+        ("access", model.tables["kb.pdf_record_access"]),
+        ("region", pdf_region_relation(model)),
+    ):
+        relation = source.alias("r")
         body = (
             cast(func.to_jsonb(relation.table_valued()), JSONB())
             .op("-")(literal("product_id"))
@@ -311,7 +316,7 @@ def pdf_validation_program_declarations(model, *, pdf_domain=None) -> dict[str, 
         .limit(1)
     )
     access_equal = _equal_rows(
-        model, p_build, prior, "kb.pdf_record_access", "kb.pdf_record_region"
+        model, p_build, prior, "kb.pdf_record_access", "kb.pdf_record_page_access"
     )
     native_equal = _equal_rows(
         model,
@@ -332,7 +337,7 @@ def pdf_validation_program_declarations(model, *, pdf_domain=None) -> dict[str, 
                     model.tables[name].c.revision_id != p_build,
                 )
             )
-            for name in ("kb.pdf_record_access", "kb.pdf_record_region")
+            for name in ("kb.pdf_record_access", "kb.pdf_record_page_access")
         )
     )
     certification = func.ops.read_pdf_certification_requirement(*fence_args).table_valued(

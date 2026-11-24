@@ -151,7 +151,7 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
             encoded = b"".join(reader.iter_native_json())
             assert b"independent expected text" in encoded
             assert bound >= len(encoded) > len(b"independent expected text")
-            assert reader.hydrate_document() == json.loads(encoded)
+            assert reader.reconstruct_document() == json.loads(encoded)
             inventory = reader.recognition_inventory()
             assert inventory.page_nos == (1,)
             assert inventory.source_scope == "whole_document"
@@ -168,4 +168,4 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
 
             monkeypatch.setattr(too_small, "iter_native_json", forbidden_body)
             with pytest.raises(ReadLimit, match="aggregate materialization"):
-                too_small.hydrate_document()
+                too_small.reconstruct_document()

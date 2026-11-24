@@ -161,10 +161,29 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
         original = clone.stage.original.reference
         from psycopg import Error as NativePgError
 
+        from corpus_structure.ingest.pdf_streaming import SealedPdfNative
         from corpus_structure.semantic import _pdf_native_calls as pdf_calls
         from corpus_structure.semantic import pdf_integrated
         from corpus_structure.semantic.identifiers import TaskAttempt, TaskId
         from corpus_structure.semantic.identity import canonical_bytes
+
+        validate_seal = SealedPdfNative.validate_under
+        seal_checks = []
+        prepare_publication = SealedPdfNative.publication_value
+        transform_seals = []
+
+        def observe_seal(seal, policy):
+            seal_checks.append(seal)
+            return validate_seal(seal, policy)
+
+        def observe_publication(seal, document):
+            assert sum(checked is seal for checked in seal_checks) == 1
+            publication = prepare_publication(seal, document)
+            transform_seals.append((publication, len(seal_checks)))
+            return publication
+
+        monkeypatch.setattr(SealedPdfNative, "validate_under", observe_seal)
+        monkeypatch.setattr(SealedPdfNative, "publication_value", observe_publication)
 
         store_observation = pdf_integrated.PreparedPdfObservationPublisher.publish
         rejected_observations = []
@@ -316,6 +335,9 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
             "recognize",
             "enrich",
         ]
+        assert len(transform_seals) == 2
+        for seal, prepared_at in transform_seals:
+            assert all(checked is not seal for checked in seal_checks[prepared_at:])
         assert not tuple((kernel.preparation.directory / "owned").rglob("selected-*"))
         effects = (
             "source.pdf_sections/organize",

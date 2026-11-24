@@ -644,28 +644,18 @@ def test_derived_record_roles_keep_unbounded_numeric_in_exact_core_boundary():
     from sqlalchemy import Numeric
 
     derived = derived_record_tables()
-    assert set(derived) == {"kb.pdf_record_access", "kb.pdf_record_region"}
+    assert set(derived) == {"kb.pdf_record_access", "kb.pdf_record_page_access"}
     assert set(record_tables()) == set(record_upload_tables()) | set(derived)
-    relation = derived["kb.pdf_record_region"]
+    from corpus_structure.semantic.metadata import get_metadata
+    from corpus_structure.semantic.pdf_record_access_native import pdf_region_relation
+
+    relation = pdf_region_relation(get_metadata())
     assert isinstance(relation.c.left.type, Numeric)
     assert relation.c.left.type.precision is None and relation.c.left.type.scale is None
     exact = Decimal("123456789012345678901234567890.123456789012345678901234567890")
-    value = dict(
-        product_id="p",
-        revision_id="p",
-        pointer="#/texts/0",
-        region_index=0,
-        page_no=1,
-        page_width=exact,
-        page_height=exact,
-        left=exact,
-        top=exact,
-        right=exact,
-        bottom=exact,
-        origin="TOPLEFT",
-    )
-    actual = record_boundary_adapter("kb.pdf_record_region").validate_python(value)
-    assert actual.left == exact and type(actual.left) is Decimal
+    value = dict(product_id="p", revision_id="p", page_no=1, page_width=exact, page_height=exact)
+    actual = record_boundary_adapter("kb.pdf_record_page_access").validate_python(value)
+    assert actual.page_width == exact and type(actual.page_width) is Decimal
     for name in derived:
         with pytest.raises(ValueError, match=r"derived PDF record projection.*SQLAlchemy Core"):
             record_arrow_schema(name)
@@ -697,4 +687,4 @@ def test_independent_model_role_edit_changes_wire_selection(tmp_path):
     assert "kb.pdf_record_access" in derived_record_tables()
     assert "kb.pdf_record_access" not in derived_record_tables(changed)
     assert "kb.pdf_record_access" in record_upload_tables(changed)
-    assert "kb.pdf_record_region" in derived_record_tables(changed)
+    assert "kb.pdf_record_page_access" in derived_record_tables(changed)

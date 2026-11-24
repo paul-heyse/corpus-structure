@@ -8,9 +8,10 @@ from typing import TYPE_CHECKING, Any
 
 import pyarrow as pa
 
+from .pdf_replay_transport import replay_schema
+
 if TYPE_CHECKING:
     from .pdf_lowering_context import CapturedPdfLowering
-    from .pdf_staging import PdfBuildRef
 
 COMPANION_BATCH_ROWS = 64
 COMPANION_BATCH_BYTES = 4 * 1024 * 1024
@@ -33,12 +34,6 @@ class PdfCompanionRecord(Mapping[str, Any]):
         return len(self.body)
 
 
-@dataclass(frozen=True, slots=True)
-class PdfCompanionEncodingBasis:
-    build_id: str
-    release_id: str
-
-
 COMPANION_STAGE_TARGETS = {
     "companion": "ops.pdf_stage_companion",
     "field": "ops.pdf_stage_companion_field",
@@ -48,7 +43,6 @@ COMPANION_STAGE_TARGETS = {
 
 
 def prepare_pdf_companion_batches(
-    build: PdfCompanionEncodingBasis | PdfBuildRef,
     family: str,
     records: Iterable[Mapping[str, Any]],
     *,
@@ -77,7 +71,9 @@ def prepare_pdf_companion_batches(
 
     def copy(name, rows):
         if rows:
-            batch = pa.RecordBatch.from_pylist(rows, schema=lowering.schema("companion:" + name))
+            batch = pa.RecordBatch.from_pylist(
+                rows, schema=replay_schema(lowering.schema("companion:" + name))
+            )
             if batch.num_rows > max_batch_rows or batch.nbytes > max_batch_bytes:
                 raise ValueError("companion COPY transfer exceeds bounded upload profile")
             on_batch(name, batch)
@@ -121,6 +117,8 @@ def prepare_pdf_companion_batches(
                 )
                 if pointer is not None:
                     body["pointer"] = pointer
+                if body["kind"] == "inline_alignment_reports":
+                    body["item_pointers"] = value["item_pointers"]
             if body["kind"] == "formula_outcomes" and isinstance(value, Mapping):
                 body["outcome"] = value.get("outcome")
                 body["has_diagnostic"] = "error" in value
@@ -141,12 +139,7 @@ def prepare_pdf_companion_batches(
                         raise ValueError("encoded page locator differs from IPC")
                     encoded = value
                 else:
-                    encoded = EncodedPagePayload(
-                        codec.encode(value),
-                        codec.schema_digest,
-                        codec.logical_digest(value),
-                        value["page_no"],
-                    )
+                    encoded = codec.encode_page(value)
                 body.update(
                     page_no=encoded.page_no,
                     payload_schema_digest=encoded.schema_digest,
@@ -187,7 +180,7 @@ def prepare_pdf_companion_batches(
             stream = (
                 "companion-field:" + sha256(canonical_bytes([family, local, field])).hexdigest()
             )
-            common = dict(product_id=build.build_id, revision_id=build.build_id, stream_id=stream)
+            common = {"stream_id": stream}
             length, root = byte_root((payload,))
             # Descriptor facts precede bounded part packets. The host can omit
             # part COPY when its protected project-scoped probe finds this key.
@@ -218,8 +211,6 @@ def prepare_pdf_companion_batches(
             copy("part", field_parts)
             descriptors.append(
                 {
-                    "product_id": build.build_id,
-                    "revision_id": build.build_id,
                     "family": family,
                     "local_id": local,
                     "field_name": field,
@@ -229,8 +220,6 @@ def prepare_pdf_companion_batches(
             )
         pending.append(
             {
-                "product_id": build.build_id,
-                "revision_id": build.build_id,
                 "family": family,
                 "local_id": local,
                 "body": encoded_body.decode("utf8"),

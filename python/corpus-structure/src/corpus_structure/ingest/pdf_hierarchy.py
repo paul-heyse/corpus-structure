@@ -41,7 +41,9 @@ def snapshot(document: Any) -> NativeSnapshot:
     return NativeSnapshot(payload, sha256(payload).hexdigest(), str(document.version))
 
 
-def derive_retained_native_projection(document: Mapping[str, Any]) -> tuple[dict[str, Any], int]:
+def derive_retained_native_projection(
+    document: Mapping[str, Any], *, contract: Mapping[str, Any] | None = None
+) -> tuple[dict[str, Any], int]:
     """Remove only verified serialization-only TableData grids before identity.
 
     Docling owns the native computed property; the retained validation contract
@@ -56,7 +58,7 @@ def derive_retained_native_projection(document: Mapping[str, Any]) -> tuple[dict
 
     from corpus_structure.semantic.pdf_records import _difference, native_validation_contract
 
-    contract = native_validation_contract()
+    contract = native_validation_contract() if contract is None else contract
     if version("docling-core") != contract["docling_core_version"]:
         raise ValueError("retained native projection requires the pinned Docling core")
     policy = contract["retained_serialization_projection"]
@@ -137,10 +139,10 @@ def derive_retained_native_projection(document: Mapping[str, Any]) -> tuple[dict
     return projected, count
 
 
-def load_snapshot(value: NativeSnapshot) -> DoclingDocument:
-    """Check exact bytes and declared native state without serializer normalization."""
-    from corpus_structure.semantic.pdf_records import validate_native_callbacks
-
+def native_snapshot_values(
+    value: NativeSnapshot, *, contract: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    """Authenticate a detached snapshot and acquire its original native field values."""
     if sha256(value.payload).hexdigest() != value.digest:
         raise ValueError("native document integrity mismatch")
     # Native exports include model-owned computed grids; record values omit them.
@@ -149,8 +151,19 @@ def load_snapshot(value: NativeSnapshot) -> DoclingDocument:
     supplied = json.loads(value.payload)
     if not isinstance(supplied, dict):
         raise ValueError("native document must be a JSON object")
-    native, _ = derive_retained_native_projection(supplied)
-    document = validate_native_callbacks(native)
+    native, _ = derive_retained_native_projection(supplied, contract=contract)
+    return native
+
+
+def load_snapshot(
+    value: NativeSnapshot, *, contract: Mapping[str, Any] | None = None
+) -> DoclingDocument:
+    """Check exact bytes and declared native state without serializer normalization."""
+    from corpus_structure.semantic.pdf_records import validate_native_callbacks
+
+    document = validate_native_callbacks(
+        native_snapshot_values(value, contract=contract), contract=contract
+    )
     if document.version != value.schema_version:
         raise ValueError("native schema version differs from binding")
     return document
@@ -222,7 +235,12 @@ class OrganizedDocument:
     source_pointers: tuple[str, ...]
 
 
-def organize(source: NativeSnapshot, policy: SectionPolicy) -> OrganizedDocument:
+def organize(
+    source: NativeSnapshot,
+    policy: SectionPolicy,
+    *,
+    contract: Mapping[str, Any] | None = None,
+) -> OrganizedDocument:
     """Derive containers while retaining source occurrence pointers and native reading order.
 
     Each newly allocated group has its triggering native heading as its first child.
@@ -232,7 +250,7 @@ def organize(source: NativeSnapshot, policy: SectionPolicy) -> OrganizedDocument
     """
     from docling_core.types.doc import ContentLayer, DocItemLabel, GroupLabel
 
-    document = load_snapshot(source)
+    document = load_snapshot(source, contract=contract)
     nodes = native_nodes(document)
     missing = policy.organizational_refs - nodes.keys()
     if missing:

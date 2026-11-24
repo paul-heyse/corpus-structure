@@ -2148,7 +2148,7 @@ def read_published_items(
 
 
 READ_PUBLISHED_REGION_CONTRACT_DIGEST = (
-    "4afb56263ad06ad222f86ce508c5b552f5d03d50d3c7b407421d83eb7d833e68"
+    "877311737df174a299f51eaa39c35dfdb26ebdeff86759d246350bb4904d5728"
 )
 
 
@@ -3352,84 +3352,6 @@ def read_pdf_companion_export_events(
     _native_result = conn.execute(_statement)
     with native_result_scope("read_native_source", "NativeJsonEnvelope"):
         return tuple(materialize_read_pdf_companion_export_events(row) for row in _native_result)
-
-
-READ_PDF_NATIVE_EVENTS_CONTRACT_DIGEST = (
-    "df0738df0eacc5c406cac32aeafe4a5578abed735c67a01d95c9f1dc585a0ec9"
-)
-
-
-class _read_pdf_native_eventsRequest(OperationResult):
-    task_id: Annotated[
-        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
-    ]
-    product_key: ProductKey
-    content_digest: ContentDigest
-
-
-_read_pdf_native_events_function = func.ops.read_pdf_native_events(
-    bindparam("task_id", type_=BigInteger()),
-    bindparam("product_key", type_=Text()),
-    bindparam("content_digest", type_=Text()),
-    type_=JSONB(astext_type=Text()),
-)
-_read_pdf_native_events_statement = select(_read_pdf_native_events_function.cast(Text()))
-
-
-def prepare_read_pdf_native_events(
-    *,
-    task_id: TaskId,
-    product_key: ProductKey,
-    content_digest: ContentDigest,
-    projection_context: PreparedRelease | None = None,
-) -> Select[str]:
-    _request = _read_pdf_native_eventsRequest(
-        task_id=task_id,
-        product_key=product_key,
-        content_digest=content_digest,
-    )
-    if projection_context is not None:
-        require_call_context(
-            projection_context,
-            "read_native_source",
-            "read_pdf_native_events",
-            READ_PDF_NATIVE_EVENTS_CONTRACT_DIGEST,
-        )
-    return _read_pdf_native_events_statement.params(
-        **{
-            "task_id": _request.task_id,
-            "product_key": _request.product_key,
-            "content_digest": _request.content_digest,
-        }
-    )
-
-
-_read_pdf_native_events_adapter = TypeAdapter(str)
-
-
-def materialize_read_pdf_native_events(row: tuple[str]) -> NativeJsonEnvelope:
-    with native_result_scope("read_native_source", "NativeJsonEnvelope", "body"):
-        checked = _read_pdf_native_events_adapter.validate_python(row[0], strict=True)
-        return NativeJsonEnvelope(body=checked)
-
-
-def read_pdf_native_events(
-    conn: Connection,
-    *,
-    task_id: TaskId,
-    product_key: ProductKey,
-    content_digest: ContentDigest,
-    projection_context: PreparedRelease | None = None,
-) -> tuple[NativeJsonEnvelope, ...]:
-    _statement = prepare_read_pdf_native_events(
-        task_id=task_id,
-        product_key=product_key,
-        content_digest=content_digest,
-        projection_context=projection_context,
-    )
-    _native_result = conn.execute(_statement)
-    with native_result_scope("read_native_source", "NativeJsonEnvelope"):
-        return tuple(materialize_read_pdf_native_events(row) for row in _native_result)
 
 
 RECORD_INTEGRATED_SOURCE_CONTEXT_CONTRACT_DIGEST = (
@@ -6355,4 +6277,4 @@ def read_pdf_frozen_rows(
         return tuple(materialize_read_pdf_frozen_rows(row) for row in _native_result)
 
 
-CALL_CONTRACT_DIGEST = "637287e6b320fbd61f3c01f5157905ecca3215da7826a71cf9bafc558e30ab2f"
+CALL_CONTRACT_DIGEST = "38969d0643f9c7f3fae94f80b412ef74047c5666e58ee0b37210fd5070d975a9"

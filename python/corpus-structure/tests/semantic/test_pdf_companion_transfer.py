@@ -49,7 +49,6 @@ def test_many_field_parts_copy_in_bounded_units_then_adopt_once(monkeypatch):
     build, events, copies = setup_transfer(monkeypatch)
     batches = []
     pdf_companion_encoding.prepare_pdf_companion_batches(
-        build,
         "native_metadata",
         [
             {
@@ -79,7 +78,6 @@ def test_prepared_encoded_payload_retains_exact_bytes_across_adoptions(monkeypat
     for _ in range(2):
         batches = []
         pdf_companion_encoding.prepare_pdf_companion_batches(
-            build,
             "native_metadata",
             [
                 {"kind": "inline_candidate_pages", "ordinal": 0, "value": encoded},

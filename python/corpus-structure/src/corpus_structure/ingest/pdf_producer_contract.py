@@ -34,6 +34,7 @@ STANDARD_MODULES = (
     "semantic/value_codec",
     "semantic/value_codec_core",
     "semantic/pdf_record_identity",
+    "semantic/pdf_replay_transport",
     "semantic/pdf_records",
     "semantic/pdf_lowering_context",
     "semantic/pdf_certification",

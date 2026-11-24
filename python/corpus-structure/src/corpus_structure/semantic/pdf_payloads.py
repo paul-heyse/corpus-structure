@@ -296,6 +296,9 @@ class PreparedPayloadFamily:
 
     def logical_digest(self, value: Mapping[str, Any]) -> str:
         self.validate(value)
+        return self._admitted_digest(value)
+
+    def _admitted_digest(self, value: Mapping[str, Any]) -> str:
         return sha256(
             _LOGICAL_IDENTITY + self.schema_digest.encode() + b"\0" + canonical_bytes(value)
         ).hexdigest()
@@ -307,12 +310,27 @@ class PreparedPayloadFamily:
         return batch
 
     def encode(self, value: Mapping[str, Any], *, compression: str | None = None) -> bytes:
+        return self._encode_batch(self.batch(value), compression=compression)
+
+    def _encode_batch(self, batch: pa.RecordBatch, *, compression: str | None = None) -> bytes:
         sink = pa.BufferOutputStream()
         with pa.ipc.new_stream(
             sink, self.arrow_schema, options=pa.ipc.IpcWriteOptions(compression=compression)
         ) as writer:
-            writer.write_batch(self.batch(value))
+            writer.write_batch(batch)
         return sink.getvalue().to_pybytes()
+
+    def encode_page(
+        self, value: Mapping[str, Any], *, compression: str | None = None
+    ) -> EncodedPagePayload:
+        """Seal the canonical receipt and IPC bytes after one page admission."""
+        batch = self.batch(value)
+        return EncodedPagePayload(
+            self._encode_batch(batch, compression=compression),
+            self.schema_digest,
+            self._admitted_digest(value),
+            batch.column("page_no")[0].as_py(),
+        )
 
     def read_batch(
         self,
@@ -388,6 +406,10 @@ class PreparedPayloadFamily:
         self, payload: bytes, *, schema_digest: str | None = None, logical_digest: str | None = None
     ) -> dict[str, Any]:
         batch = self.read_batch(payload, schema_digest=schema_digest, logical_digest=logical_digest)
+        return self.decode_batch(batch)
+
+    def decode_batch(self, batch: pa.RecordBatch) -> dict[str, Any]:
+        """Hydrate a complete batch already checked by the physical reader."""
         value = _from_arrow(batch.to_pylist()[0], self.json_schema, self.json_schema, "#")
         if not isinstance(value, dict):
             _error("#", "page payload requires an object")
@@ -472,13 +494,7 @@ def prepare_payload_family(context=None) -> PreparedPayloadFamily:
 def encode_page_payload(
     value: Mapping[str, Any], context=None, *, compression: str | None = None
 ) -> EncodedPagePayload:
-    family = prepare_payload_family(context)
-    return EncodedPagePayload(
-        family.encode(value, compression=compression),
-        family.schema_digest,
-        family.logical_digest(value),
-        value["page_no"],
-    )
+    return prepare_payload_family(context).encode_page(value, compression=compression)
 
 
 def decode_page_payload(

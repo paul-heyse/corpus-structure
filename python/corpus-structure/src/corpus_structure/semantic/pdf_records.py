@@ -13,7 +13,7 @@ import copy
 import json
 import math
 import struct
-from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from hashlib import sha256
@@ -111,6 +111,39 @@ class NativeRecordReader(Protocol):
     def members(self, parent_id: str, field_name: str) -> Iterable[Mapping[str, Any]]: ...
 
     def scalar(self, stream_id: str, /) -> Iterable[bytes]: ...
+
+
+class AcquiredNativeDocumentRows:
+    """Index one ordered native population for the shared reconstruction."""
+
+    def __init__(
+        self,
+        records: Iterable[Mapping[str, Any]],
+        memberships: Iterable[Mapping[str, Any]],
+        scalar: Callable[[str], Iterable[bytes]],
+    ):
+        self._records: dict[str, Mapping[str, Any]] = {}
+        self._memberships: dict[tuple[str, str], list[Mapping[str, Any]]] = {}
+        self.scalar = scalar
+        for row in records:
+            record_id = row["record_id"]
+            if record_id in self._records:
+                raise ValueError("duplicate native reconstruction record")
+            self._records[record_id] = row
+        for row in memberships:
+            address = (row["parent_id"], row["field_name"])
+            if row["parent_id"] not in self._records:
+                raise ValueError("native membership parent is absent")
+            self._memberships.setdefault(address, []).append(row)
+
+    def record(self, record_id: str) -> Mapping[str, Any]:
+        try:
+            return self._records[record_id]
+        except KeyError as error:
+            raise ValueError("native reconstruction record is absent") from error
+
+    def members(self, parent_id: str, field_name: str) -> Iterable[Mapping[str, Any]]:
+        return self._memberships.get((parent_id, field_name), ())
 
 
 @dataclass(frozen=True)
@@ -363,9 +396,9 @@ def _family(name: str) -> str:
 def iter_native_records(
     document: Mapping[str, Any],
     *,
-    product_id: str,
-    revision_id: str,
-    release_id: str,
+    product_id: str | None = None,
+    revision_id: str | None = None,
+    release_id: str | None = None,
     source_digest: str,
     record_id_for: Callable[[str, str], str],
     write_scalar: ScalarWriter,
@@ -411,15 +444,18 @@ def iter_native_records(
         _finite_json(document, native_address)
     else:
         raise NativeMappingError(native_address, "unsupported native record class " + native_type)
-    if (
-        not release_id
-        or len(source_digest) != 64
-        or any(c not in "0123456789abcdef" for c in source_digest)
-    ):
-        raise ValueError("native records require admitted release/source context")
-    if not product_id or not revision_id or "\x00" in product_id + revision_id:
-        raise ValueError("product/revision qualification must be nonempty PostgreSQL text")
-    common = {"product_id": product_id, "revision_id": revision_id}
+    if len(source_digest) != 64 or any(c not in "0123456789abcdef" for c in source_digest):
+        raise ValueError("native records require an admitted source digest")
+    common = {}
+    if (product_id, revision_id, release_id) != (None, None, None):
+        if (
+            not product_id
+            or not revision_id
+            or not release_id
+            or "\x00" in (product_id + revision_id + release_id)
+        ):
+            raise ValueError("PDF physical qualification requires product, revision and release")
+        common = {"product_id": product_id, "revision_id": revision_id}
 
     def external(owner: str, field: str, value: Any, *, opaque: bool = False):
         stream = owner + "/value/" + sha256(field.encode("utf-8")).hexdigest()
@@ -607,7 +643,7 @@ def iter_native_records(
             "document",
             {
                 **common,
-                "release_id": release_id,
+                **({"release_id": release_id} if release_id is not None else {}),
                 "source_digest": source_digest,
                 "mapping_profile": mapping_profile,
                 "contract_version": contract_version,
@@ -636,21 +672,16 @@ def _decode_scalar(chunks: Iterable[bytes], profile: str) -> Any:
     raise ValueError("unsupported native scalar reconstruction profile")
 
 
-def reconstruct_native_document(
+def iter_native_record_values(
     reader: NativeRecordReader,
     root_id: str,
     *,
     scalar_profiles: Mapping[str, str],
-    mapping: NativeSchemaMapping | None = None,
+    mapping: NativeSchemaMapping,
     native_type: str = "DoclingDocument",
     json_fields: Literal["text", "decoded"] = "text",
-) -> dict[str, Any]:
-    """Explicit whole-value reconstruction, distinct from ordinary selective record reads.
-
-    Missing/duplicate/out-of-order membership or mismatched native record schemas refuse.
-    The caller requests hydration here; no Docling native model or repairs are invoked.
-    """
-    mapping = prepare_native_schema_mapping() if mapping is None else mapping
+) -> Generator[tuple[str, Any]]:
+    """Walk one admitted population with shared schema and closure enforcement."""
     if json_fields not in {"text", "decoded"}:
         raise ValueError("unsupported native record JSON representation")
     active: set[str] = set()
@@ -660,10 +691,53 @@ def reconstruct_native_document(
         # selects that representation explicitly; strings remain native strings.
         return value if json_fields == "decoded" or value is None else json.loads(value)
 
-    def scalar(stream: str):
-        return _decode_scalar(reader.scalar(stream), scalar_profiles[stream])
+    def members(record_id, field, descriptor):
+        kind = descriptor["kind"]
+        yield ("object" if kind == "map" else "array"), None
+        keys = set()
+        count = 0
+        for expected, member in enumerate(reader.members(record_id, field)):
+            if member["ordinal"] != expected:
+                raise NativeMappingError(
+                    record_id + "/" + field,
+                    "missing or unordered membership",
+                    code="native_membership_closure",
+                    category="state_violation",
+                )
+            if kind == "map":
+                key = member.get("member_key")
+                if key is None:
+                    stream = member["member_key_stream_id"]
+                    key = _decode_scalar(reader.scalar(stream), scalar_profiles[stream])
+                if key in keys:
+                    raise NativeMappingError(
+                        record_id,
+                        "duplicate native map key",
+                        code="native_map_key_duplicate",
+                        category="state_violation",
+                    )
+                keys.add(key)
+                yield "key", key
+            value_kind = member["value_kind"]
+            if value_kind == "record":
+                yield from record(member["record_id"])
+            elif value_kind == "scalar":
+                yield "inline", field_value(member["scalar_json"])
+            elif value_kind == "parts":
+                yield "parts", member["stream_id"]
+            else:
+                raise NativeMappingError(record_id, "unsupported membership kind")
+            count += 1
+        if count != descriptor["length"]:
+            raise NativeMappingError(
+                record_id + "/" + field,
+                "native membership inventory differs",
+                code="native_membership_closure",
+                category="state_violation",
+            )
+        yield "end", None
 
-    def record(record_id: str):
+    def record(record_id: str) -> Iterator[tuple[str, Any]]:
         if record_id in active:
             raise NativeMappingError(
                 record_id,
@@ -675,9 +749,7 @@ def reconstruct_native_document(
         row = reader.record(record_id)
         if record_id == root_id and row["native_type"] != native_type:
             raise NativeMappingError(record_id, "requested native root class differs")
-        result = {
-            key: _parse_inline(value) for key, value in field_value(row["scalars_json"]).items()
-        }
+        scalars = field_value(row["scalars_json"])
         structure = field_value(row["structure_json"])
         schema = mapping.schema
         try:
@@ -701,72 +773,100 @@ def reconstruct_native_document(
         ):
             raise NativeMappingError(record_id, "native record type differs from retained schema")
         known = set(schema.get("properties", {})) if expected_type != "NativeArray" else {"items"}
-        if (result.keys() | structure["fields"].keys()) - known or result.keys() & structure[
+        if (scalars.keys() | structure["fields"].keys()) - known or scalars.keys() & structure[
             "fields"
         ].keys():
             raise NativeMappingError(record_id, "unsupported or duplicate native record field")
         if "extensions" in structure and schema.get("additionalProperties") is not True:
             raise NativeMappingError(record_id, "native record class does not admit extensions")
-        if "extensions" in structure:
-            extensions = scalar(structure["extensions"]["stream_id"])
-            if not isinstance(extensions, dict) or extensions.keys() & known:
-                raise NativeMappingError(record_id, "native extensions overwrite declared fields")
-            result.update(extensions)
-        for field, descriptor in structure["fields"].items():
-            kind = descriptor["kind"]
-            if kind == "object":
-                result[field] = record(descriptor["target"])
-            elif kind == "parts":
-                result[field] = scalar(descriptor["stream_id"])
-            elif kind in {"array", "map"}:
-                members = {} if kind == "map" else []
-                count = 0
-                for expected, member in enumerate(reader.members(record_id, field)):
-                    if member["ordinal"] != expected:
-                        raise NativeMappingError(
-                            record_id + "/" + field,
-                            "missing or unordered membership",
-                            code="native_membership_closure",
-                            category="state_violation",
-                        )
-                    value_kind = member["value_kind"]
-                    if value_kind == "record":
-                        value = record(member["record_id"])
-                    elif value_kind == "scalar":
-                        value = _parse_inline(field_value(member["scalar_json"]))
-                    elif value_kind == "parts":
-                        value = scalar(member["stream_id"])
-                    else:
-                        raise NativeMappingError(record_id, "unsupported membership kind")
-                    if isinstance(members, dict):
-                        key = member.get("member_key")
-                        if key is None:
-                            key = scalar(member["member_key_stream_id"])
-                        if key in members:
-                            raise NativeMappingError(
-                                record_id,
-                                "duplicate native map key",
-                                code="native_map_key_duplicate",
-                                category="state_violation",
-                            )
-                        members[key] = value
-                    else:
-                        members.append(value)
-                    count += 1
-                if count != descriptor["length"]:
-                    raise NativeMappingError(
-                        record_id + "/" + field,
-                        "native membership inventory differs",
-                        code="native_membership_closure",
-                        category="state_violation",
-                    )
-                result[field] = members
-            else:
-                raise NativeMappingError(record_id, "unsupported native structure descriptor")
+        if expected_type == "NativeArray":
+            descriptor = structure["fields"].get("items")
+            if scalars or descriptor is None or descriptor["kind"] != "array":
+                raise NativeMappingError(record_id, "native nested array has no ordered members")
+            yield from members(record_id, "items", descriptor)
+        else:
+            yield "object", None
+            for key, value in scalars.items():
+                yield "key", key
+                yield "inline", value
+            for field, descriptor in structure["fields"].items():
+                yield "key", field
+                kind = descriptor["kind"]
+                if kind == "object":
+                    yield from record(descriptor["target"])
+                elif kind == "parts":
+                    yield "parts", descriptor["stream_id"]
+                elif kind in {"array", "map"}:
+                    yield from members(record_id, field, descriptor)
+                else:
+                    raise NativeMappingError(record_id, "unsupported native structure descriptor")
+            if "extensions" in structure:
+                yield "extension", (structure["extensions"]["stream_id"], known)
+            yield "end", None
         active.remove(record_id)
-        return result["items"] if row["native_type"] == "NativeArray" else result
 
-    result = record(root_id)
+    yield from record(root_id)
+
+
+def reconstruct_native_document(
+    reader: NativeRecordReader,
+    root_id: str,
+    *,
+    scalar_profiles: Mapping[str, str],
+    mapping: NativeSchemaMapping | None = None,
+    native_type: str = "DoclingDocument",
+    json_fields: Literal["text", "decoded"] = "text",
+) -> dict[str, Any]:
+    """Assemble explicitly requested native rows, refusing incomplete or altered structure."""
+    mapping = prepare_native_schema_mapping() if mapping is None else mapping
+    events = iter_native_record_values(
+        reader,
+        root_id,
+        scalar_profiles=scalar_profiles,
+        mapping=mapping,
+        native_type=native_type,
+        json_fields=json_fields,
+    )
+
+    def scalar(stream: str):
+        return _decode_scalar(reader.scalar(stream), scalar_profiles[stream])
+
+    def build(kind, value):
+        if kind == "object":
+            result = {}
+            for action, payload in events:
+                if action == "end":
+                    return result
+                if action == "extension":
+                    stream, known = payload
+                    extensions = scalar(stream)
+                    if not isinstance(extensions, dict) or extensions.keys() & known:
+                        raise NativeMappingError(
+                            root_id, "native extensions overwrite declared fields"
+                        )
+                    result.update(extensions)
+                elif action == "key":
+                    result[payload] = build(*next(events))
+                else:
+                    raise NativeMappingError(root_id, "unexpected native object member")
+        elif kind == "array":
+            values = []
+            for action, payload in events:
+                if action == "end":
+                    return values
+                values.append(build(action, payload))
+        elif kind == "inline":
+            return _parse_inline(value)
+        elif kind == "parts":
+            return scalar(value)
+        raise NativeMappingError(root_id, "incomplete native record reconstruction")
+
+    try:
+        result = build(*next(events))
+    finally:
+        events.close()
+    if not isinstance(result, dict):
+        raise NativeMappingError(root_id, "native document root requires an object")
     if native_type == "DoclingDocument":
         mapping.validate(result)
     else:

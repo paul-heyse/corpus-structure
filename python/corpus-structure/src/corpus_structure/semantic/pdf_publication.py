@@ -32,7 +32,6 @@ from corpus_structure.core.db.store import (
 
 from . import _pdf_native_calls as calls
 from .identifiers import ContentDigest, ProductKey, TaskAttempt, TaskId
-from .pdf_access_projection import write_pdf_access_projection
 from .pdf_companion_encoding import COMPANION_STAGE_TARGETS
 from .pdf_staging import PdfBuildRef
 
@@ -210,6 +209,7 @@ def adopt_prepared_pdf_companion_batches(
     """Adopt already certified fixed-family bytes through the existing set operation."""
     from .arrow_transfer import copy_arrow_stream
     from .pdf_record_model import record_write_profile
+    from .pdf_replay_transport import PdfReplayBinding, bind_copy_batch
     from .pdf_shared_streams import PdfSharedStreamTransfer
 
     shared_transfer = PdfSharedStreamTransfer()
@@ -219,13 +219,17 @@ def adopt_prepared_pdf_companion_batches(
         for name, target in COMPANION_STAGE_TARGETS.items()
     }
     for name, batch in batches:
+        profile = profiles[name]
+        batch = bind_copy_batch(
+            batch, profile.schema, PdfReplayBinding(build.build_id, build.release_id)
+        )
         family = {"stream": "artifact_stream", "part": "artifact_part"}.get(name, name)
         if shared_transfer.omit_verified_parts(conn, build, {family: (batch,)}):
             continue
         target = COMPANION_STAGE_TARGETS[name]
         copy_arrow_stream(
             conn,
-            profiles[name],
+            profile,
             target=("pg_temp", "pc_" + target.split(".")[1]),
             batches=(batch,),
             cancellation=cancellation,
@@ -280,11 +284,18 @@ def _native_validation_child(capture: str, projection: str, result: Any) -> None
     store = None
     outcome: tuple[bool, str | None] = (True, None)
     try:
+        from .pdf_access_projection import project_pdf_access
+        from .pdf_lowering_context import CapturedPdfLowering
         from .pdf_payload_validation import FrozenPayloadStore
-        from .pdf_records import reconstruct_native_document, validate_native_callbacks
+        from .pdf_records import (
+            AcquiredNativeDocumentRows,
+            reconstruct_native_document,
+            validate_native_callbacks,
+        )
 
         store = FrozenPayloadStore(Path(projection).with_suffix(".sqlite"))
         rows: dict[str, list[dict[str, Any]]] = {name: [] for name in _FAMILIES}
+        lowering = None
         with pa.memory_map(capture, "r") as source:
             reader = pa.ipc.open_file(source)
             for index in range(reader.num_record_batches):
@@ -296,34 +307,33 @@ def _native_validation_child(capture: str, projection: str, result: Any) -> None
                 ):
                     value = json.loads(body)
                     store.add(family, value)
+                    if family == "validation_contract":
+                        if lowering is not None:
+                            raise ValueError("duplicate captured PDF validation contract")
+                        lowering = CapturedPdfLowering.from_document(value["lowering"])
                     if family in {"header", "native", "membership"}:
                         rows[family].append(value)
-        natives = {r["record_id"]: r for r in rows["native"]}
-        members: dict[tuple[str, str], list[dict[str, Any]]] = {}
-        for row in rows["membership"]:
-            members.setdefault((row["parent_id"], row["field_name"]), []).append(row)
-        for values in members.values():
-            values.sort(key=lambda r: r["ordinal"])
-
-        class Reader:
-            def record(self, record_id):
-                return natives[record_id]
-
-            def members(self, parent_id, field_name):
-                yield from members.get((parent_id, field_name), ())
-
-            def scalar(self, stream_id):
-                yield from store.parts(stream_id)
-
+        if lowering is None or len(rows["header"]) != 1:
+            raise ValueError("captured PDF validation contract or document header is absent")
+        header = rows["header"][0]
+        if (
+            header["native_schema_digest"] != lowering.native_mapping.digest
+            or (header["contract_version"], header["mapping_profile"]) != lowering.record_header
+        ):
+            raise ValueError("native document header differs from captured PDF lowering")
         profiles = {}
         for descriptor in store.stream_descriptors():
             profiles[descriptor["stream_id"]] = descriptor["encoding_profile"]
         document = reconstruct_native_document(
-            Reader(), rows["header"][0]["root_id"], scalar_profiles=profiles, json_fields="decoded"
+            AcquiredNativeDocumentRows(rows["native"], rows["membership"], store.parts),
+            header["root_id"],
+            scalar_profiles=profiles,
+            mapping=lowering.native_mapping,
+            json_fields="decoded",
         )
-        validate_native_callbacks(document)
-        write_pdf_access_projection(document, Path(projection))
-        store.validate(document, Path(projection))
+        validate_native_callbacks(document, contract=lowering.callback_policy())
+        items, regions = project_pdf_access(document)
+        store.validate(document, items=items, regions=regions)
         from hashlib import sha256
 
         from corpus_structure.ingest.pdf_streaming import _atomic_bytes
@@ -538,6 +548,11 @@ def validate_pdf_build(
 
                 with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
                     context = pdf_context_for_task(conn, frozen.build.task_id)
+                from .pdf_lowering import authenticate_retained_lowering
+
+                authenticate_retained_lowering(
+                    context, expected_digest=requirement.lowering_identity
+                )
 
                 def rows(family, filters):
                     after = None
@@ -810,6 +825,7 @@ def write_pdf_oracle_capture(
 ) -> None:
     """Capture exact callback dependencies through one authenticated row owner."""
     from .pdf_contracts import integrated_metadata_policy
+    from .pdf_lowering_context import capture_pdf_lowering
     from .pdf_payload_validation import metadata_classes
     from .pdf_payloads import schema_dump
 
@@ -846,6 +862,7 @@ def write_pdf_oracle_capture(
             )
 
         contract = {
+            "lowering": capture_pdf_lowering(context, allow_archived_default=True).document(),
             "schemas": {
                 key: context.boundary.json_schema(cls)
                 for key, cls in metadata_classes(context.staging.content).items()
@@ -961,7 +978,7 @@ def capture_published_pdf_oracle(
     """Capture an authorized exact pin inside its read transaction; no producer fence."""
     from corpus_structure.ingest.pdf_streaming import _ref
 
-    from .pdf_lowering import require_lowering_identity
+    from .pdf_lowering import authenticate_retained_lowering
 
     reader._check_active()
     receipt = reader.validation_receipt()
@@ -973,7 +990,7 @@ def capture_published_pdf_oracle(
         raise ValueError(
             "published PDF oracle requires its admitted release and sealed certification"
         )
-    identity = require_lowering_identity(context, expected_digest=receipt.lowering_identity)
+    identity = authenticate_retained_lowering(context, expected_digest=receipt.lowering_identity)
     if (
         receipt.lowering_identity != identity
         or receipt.attested_logical_digest != reader.reference.content_digest
@@ -1029,21 +1046,25 @@ def verify_published_pdf_oracle(
     )
 
 
-def prepared_pdf_companion_batches(prepared):
+def prepared_pdf_companion_batches(
+    prepared, *, check_active, legacy_binding=None, legacy_lowering=None
+):
     """Borrow certified companion IPC files through their last COPY batch."""
     from .pdf_record_model import record_arrow_schema
+    from .pdf_replay_transport import read_replay_batches
 
     for replay in prepared.replays:
-        replay.verify()
         name = replay.family.removeprefix("prepared_companion:")
-        with pa.memory_map(str(replay.path), "r") as source:
-            reader = pa.ipc.open_file(source)
-            if not reader.schema.equals(
-                record_arrow_schema(COMPANION_STAGE_TARGETS[name]), check_metadata=True
-            ):
-                raise ValueError("certified companion IPC schema differs")
-            for index in range(reader.num_record_batches):
-                yield name, reader.get_batch(index)
+        for batch in read_replay_batches(
+            replay,
+            record_arrow_schema(COMPANION_STAGE_TARGETS[name]),
+            check_active=check_active,
+            legacy_binding=legacy_binding,
+            legacy_schema=None
+            if legacy_lowering is None
+            else legacy_lowering.schema("companion:" + name),
+        ):
+            yield name, batch
 
 
 def record_pdf_producer_certification(conn: Connection, build: PdfBuildRef, certification) -> None:
@@ -1068,13 +1089,15 @@ def record_pdf_producer_certification(conn: Connection, build: PdfBuildRef, cert
 
 
 def stage_pdf_access_projection(
-    engine: Engine,
+    conn: Connection,
     build: PdfBuildRef,
-    path: Path,
+    source,
     *,
-    cancellation: BorrowerCancellation,
     check_active: Callable[[], None],
+    legacy: bool = False,
 ) -> None:
+    from .pdf_access_projection import staged_pdf_access_row
+
     pending, size = [], 0
 
     def flush():
@@ -1082,24 +1105,22 @@ def stage_pdf_access_projection(
         if not pending:
             return
         check_active()
-        with engine.connect() as conn, cancellation.borrow(conn), conn.begin():
-            calls.stage_pdf_access_batch(
-                conn,
-                build_id=build.build_id,
-                task_id=TaskId(build.task_id),
-                attempt=TaskAttempt(build.attempt),
-                holder=build.holder,
-                rows=pending,
-            )
-            check_active()
+        calls.stage_pdf_access_batch(
+            conn,
+            build_id=build.build_id,
+            task_id=TaskId(build.task_id),
+            attempt=TaskAttempt(build.attempt),
+            holder=build.holder,
+            rows=pending,
+        )
         pending.clear()
         size = 0
 
-    with path.open() as source:
-        for line in source:
-            check_active()
-            if pending and (len(pending) >= 128 or size + len(line.encode()) > 8 * 1024**2):
-                flush()
-            pending.append(json.loads(line))
-            size += len(line.encode())
+    for line in source:
+        check_active()
+        if pending and (len(pending) >= 128 or size + len(line) > 8 * 1024**2):
+            flush()
+        row = json.loads(line)
+        pending.append(staged_pdf_access_row(row) if legacy else row)
+        size += len(line)
     flush()

@@ -90,10 +90,8 @@ def access_connection(infrastructure_rollback, request):
             "text,native_json jsonb)"
         ),
         (
-            "CREATE TABLE kb.pdf_record_region(product_id text,revision_id "
-            "text,pointer text,region_index bigint,page_no bigint,page_width "
-            'numeric,page_height numeric,"left" numeric,top numeric,"right" '
-            "numeric,bottom numeric,origin text)"
+            "CREATE TABLE kb.pdf_record_page_access(product_id text,revision_id text,"
+            "page_no bigint,page_width numeric,page_height numeric)"
         ),
     ):
         conn.exec_driver_sql(ddl)
@@ -169,12 +167,7 @@ def access_connection(infrastructure_rollback, request):
             ),
         )
     conn.exec_driver_sql(
-        "INSERT INTO kb.pdf_record_region "
-        "VALUES('b','b','#/texts/0',0,1,100,100,0,20,30,40,'top_left')"
-    )
-    conn.exec_driver_sql(
-        "INSERT INTO kb.pdf_record_region "
-        "VALUES('b','b','#/texts/0',1,2,200,300,10,30,40,50,'top_left')"
+        "INSERT INTO kb.pdf_record_page_access VALUES ('b','b',1,100,100),('b','b',2,200,300)"
     )
     conn.exec_driver_sql(
         pdf_binary_identity_sql(),
@@ -201,17 +194,11 @@ def test_program_projection_correspondence_accepts_actual_values(access_connecti
 @pytest.mark.parametrize(
     "change",
     [
-        "UPDATE kb.pdf_record_access SET text='invented' WHERE pointer='#/texts/0'",
         (
             "UPDATE kb.pdf_record_access SET "
             "native_json=jsonb_set(native_json,'{text}', '\"invented\"') WHERE "
             "pointer='#/texts/0'"
         ),
-        "UPDATE kb.pdf_record_access SET parent_pointer='#/furniture' WHERE pointer='#/texts/0'",
-        "UPDATE kb.pdf_record_access SET ordinal=9 WHERE pointer='#/texts/0'",
-        "DELETE FROM kb.pdf_record_access WHERE pointer='#/texts/0'",
-        "UPDATE kb.pdf_record_access SET content_layer='forged-layer' WHERE pointer='#/texts/0'",
-        "UPDATE kb.pdf_record_access SET section_pointer='#/body' WHERE pointer='#/texts/0'",
         (
             "UPDATE kb.pdf_record_access SET "
             "native_json=jsonb_set(native_json,'{body_fake}', '1') WHERE "
@@ -222,10 +209,9 @@ def test_program_projection_correspondence_accepts_actual_values(access_connecti
             "native_json=jsonb_set(native_json,'{meta,vendor,z}', '2') WHERE "
             "pointer='#/body'"
         ),
-        "UPDATE kb.pdf_record_region SET top=21",
-        "UPDATE kb.pdf_record_region SET page_width=101",
-        "DELETE FROM kb.pdf_record_region",
-        "UPDATE kb.pdf_record_region SET revision_id='other' WHERE region_index=1",
+        "UPDATE kb.pdf_record_page_access SET page_width=101",
+        "DELETE FROM kb.pdf_record_page_access",
+        "UPDATE kb.pdf_record_page_access SET revision_id='other' WHERE page_no=2",
         "UPDATE kb.pdf_record_access SET revision_id='other' WHERE pointer='#/texts/0'",
     ],
 )
@@ -249,23 +235,3 @@ def test_projection_lookups_use_complete_revision_keys(access_connection):
         "member_key_stream_id FROM kb.pdf_record_membership"
     )
     conn.execute(text("SELECT ops.pdf_check_access_correspondence('b')"))
-
-
-@pytest.mark.parametrize("access_connection", ["nested"], indirect=True)
-def test_nearest_section_owner_and_missing_parent_boundary(access_connection):
-    conn = access_connection
-    conn.execute(text("SELECT ops.pdf_check_access_correspondence('b')"))
-    conn.exec_driver_sql(
-        "UPDATE kb.pdf_record_access SET section_pointer='#/body' WHERE pointer='#/texts/0'"
-    )
-    with conn.begin_nested() as savepoint:
-        with pytest.raises(DBAPIError, match="native access section owner"):
-            conn.execute(text("SELECT ops.pdf_check_access_correspondence('b')"))
-        savepoint.rollback()
-
-
-@pytest.mark.parametrize("access_connection", ["cycle"], indirect=True)
-def test_section_owner_refuses_rootless_cycle_with_null_owners(access_connection):
-    conn = access_connection
-    with pytest.raises(DBAPIError, match="native access section owner"):
-        conn.execute(text("SELECT ops.pdf_check_access_correspondence('b')"))

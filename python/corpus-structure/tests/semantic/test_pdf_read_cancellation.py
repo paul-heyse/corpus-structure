@@ -60,16 +60,16 @@ def test_snapshot_keeps_cancel_registration_until_rollback_and_not_next_borrower
     assert driver.cancel_safe.call_count == 2
 
 
-def test_abandoned_native_event_iterator_closes_result_and_unregisters():
+def test_abandoned_native_row_page_closes_result_and_unregisters():
     conn, driver = borrower()
     cancellation = BorrowerCancellation()
     result = conn.execute.return_value.__enter__.return_value
-    result.__iter__.return_value = iter([(json.dumps({"kind": "literal", "value": "{"}),)])
+    result.__iter__.return_value = iter([(json.dumps({"record_id": "one", "_cursor": ["one"]}),)])
     reader = PublishedPdfReader(
         conn, ProductReference(2, "native", "a" * 64), revision={}, cancellation=cancellation
     )
-    events = reader.iter_native_events()
-    assert next(events) == {"kind": "literal", "value": "{"}
+    events = reader.iter_rows("native")
+    assert next(events) == {"record_id": "one"}
     events.close()
     conn.execute.return_value.__exit__.assert_called_once()
     cancellation.request_cancel()

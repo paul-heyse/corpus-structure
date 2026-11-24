@@ -169,8 +169,9 @@ def test_compatible_predecessor_reuses_exact_access_for_changed_companion(
 
     def integer_spelling(conn, *, rows, **scope):
         for row in rows:
-            if row["family"] == "region":
-                row["body"]["left"] = int(row["body"]["left"])
+            if row["family"] == "access":
+                for prov in row["body"]["native_json"].get("prov", ()):
+                    prov["bbox"]["l"] = int(prov["bbox"]["l"])
         adopt(conn, rows=rows, **scope)
 
     monkeypatch.setattr(calls, "stage_pdf_access_batch", integer_spelling)

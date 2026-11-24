@@ -7,9 +7,11 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+ITEM_REPORT_KINDS = ("cell_reports", "derivation_mappings", "inline_alignment_reports")
 
-def write_pdf_access_projection(document: Mapping[str, Any], projection: Path) -> None:
-    """Derive access and regions from the actual certified native document."""
+
+def project_pdf_access(document: Mapping[str, Any]):
+    """Derive item and region values for pre-staging semantic validators."""
     # Source access is a derived, per-item projection, never the content authority.
     nodes = {}
     for key in ("body", "furniture"):
@@ -59,29 +61,26 @@ def write_pdf_access_projection(document: Mapping[str, Any], projection: Path) -
             owners[node_pointer] = owner
         return owner
 
-    # Organized section groups use section/chapter labels; keep the native labels.
-    with Path(projection).open("w") as out:
-        for ordinal, pointer in enumerate(order):
-            node = nodes[pointer]
-            parent = node.get("parent", {}).get("$ref")
-            row = dict(
+    items, regions = [], []
+    for ordinal, pointer in enumerate(order):
+        node = nodes[pointer]
+        items.append(
+            dict(
                 pointer=pointer,
                 ordinal=ordinal,
                 label=node.get("label", "unspecified"),
-                parent_pointer=parent,
+                parent_pointer=node.get("parent", {}).get("$ref"),
                 section_pointer=section_owner(pointer),
                 content_layer=node.get("content_layer", "body"),
                 text=node.get("text"),
                 native_json=node,
             )
-            out.write(
-                json.dumps({"family": "access", "body": row}, ensure_ascii=False, allow_nan=False)
-                + "\n"
-            )
-            for index, prov in enumerate(node.get("prov", [])):
-                page = document["pages"][str(prov["page_no"])]
-                box = prov["bbox"]
-                region = dict(
+        )
+        for index, prov in enumerate(node.get("prov", [])):
+            page = document["pages"][str(prov["page_no"])]
+            box = prov["bbox"]
+            regions.append(
+                dict(
                     pointer=pointer,
                     region_index=index,
                     page_no=prov["page_no"],
@@ -93,4 +92,40 @@ def write_pdf_access_projection(document: Mapping[str, Any], projection: Path) -
                     bottom=box["b"],
                     origin="top_left" if box["coord_origin"] == "TOPLEFT" else "bottom_left",
                 )
-                out.write(json.dumps({"family": "region", "body": region}) + "\n")
+            )
+    return items, regions
+
+
+def write_pdf_access_projection(document: Mapping[str, Any], projection: Path, *, items) -> None:
+    """Stage the native JSON copies. Publication derives their access columns."""
+    referenced_pages = {
+        prov["page_no"] for row in items for prov in row["native_json"].get("prov", ())
+    }
+    with projection.open("w", encoding="utf-8") as out:
+        for item in items:
+            row = {"family": "access", "body": {"native_json": item["native_json"]}}
+            out.write(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n")
+        for page_no in sorted(referenced_pages):
+            row = {
+                "family": "page",
+                "body": {"page_no": page_no, "size": document["pages"][str(page_no)]["size"]},
+            }
+            out.write(json.dumps(row, allow_nan=False) + "\n")
+
+
+def staged_pdf_access_row(row):
+    """Project an authenticated legacy envelope without rewriting the original spool."""
+    family, body = row["family"], row["body"]
+    if family == "access":
+        return {"family": "access", "body": {"native_json": body["native_json"]}}
+    if family == "page":
+        return row
+    if family == "region":
+        return {
+            "family": "page",
+            "body": {
+                "page_no": body["page_no"],
+                "size": {"width": body["page_width"], "height": body["page_height"]},
+            },
+        }
+    raise ValueError("unsupported legacy PDF access projection family")

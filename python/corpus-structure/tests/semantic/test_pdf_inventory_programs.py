@@ -19,7 +19,7 @@ from sqlalchemy.schema import CreateTable
 
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
-from corpus_structure.semantic.pdf_access_projection import write_pdf_access_projection
+from corpus_structure.semantic.pdf_access_projection import project_pdf_access
 from corpus_structure.semantic.pdf_publication_native import pdf_inventory_native_sql
 from corpus_structure.semantic.pdf_records import iter_native_records
 
@@ -93,15 +93,9 @@ def test_generated_inventory_retains_independent_containment_expectations(
     addresses = {row["native_address"]: row["record_id"] for row in rows["native"]}
     for reference in rows["reference"]:
         reference["target_id"] = addresses[reference["native_pointer"]]
-    projection = tmp_path / "projection.jsonl"
-    write_pdf_access_projection(
-        document.model_dump(mode="json", by_alias=True, exclude_none=True), projection
-    )
+    items, _ = project_pdf_access(body)
     rows["access"] = [
-        json.loads(line)["body"]
-        | dict(product_id="inventory-control", revision_id="inventory-control")
-        for line in projection.read_text().splitlines()
-        if json.loads(line)["family"] == "access"
+        row | dict(product_id="inventory-control", revision_id="inventory-control") for row in items
     ]
     members = rows["membership"]
     owned = next(row for row in members if row["field_name"] == "texts")

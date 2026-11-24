@@ -18,7 +18,7 @@ def test_body_direct_page_includes_unsectioned_body_and_preserves_section_bounda
     selected = MetaData()
     for name in (
         "kb.pdf_record_access",
-        "kb.pdf_record_region",
+        "kb.pdf_record_page_access",
         "kb.pdf_record_companion",
         "ops.pdf_published_revision",
     ):

@@ -9,16 +9,30 @@ from .pdf import CellEnrichment
 from .pdf_candidate_geometry import candidate_page_status
 from .pdf_candidate_source import as_candidate_source
 from .pdf_enrichment import PdfEnrichmentRequest
-from .pdf_hierarchy import load_snapshot, native_nodes
-from .pdf_methods import _conversion_from_product, _member_order
+from .pdf_hierarchy import native_nodes
+from .pdf_methods import _conversion_from_values, _member_order
 from .pdf_record_product import native_publication_draft
 
 
 def enrich_selected_pdf(
-    product, parent, specs, options, recipe_bytes, candidate_source, worker, *, check_active
+    values,
+    parent,
+    specs,
+    options,
+    recipe_bytes,
+    candidate_source,
+    worker,
+    *,
+    original,
+    schema_bytes,
+    source_policy,
+    output_policy,
+    check_active,
 ):
-    conversion = _conversion_from_product(product, recipe_bytes, candidate_source)
-    document = load_snapshot(conversion.native)
+    from corpus_structure.semantic.pdf_records import validate_native_callbacks
+
+    document = validate_native_callbacks(values["document"], contract=source_policy)
+    conversion = _conversion_from_values(values, recipe_bytes, candidate_source)
     nodes = native_nodes(document)
     # Selected analysis units and their explicit ancestor context share one original.
     specs = list(dict.fromkeys(specs))
@@ -58,11 +72,12 @@ def enrich_selected_pdf(
     computed = worker.enrich(
         PdfEnrichmentRequest(
             conversion,
-            product.original,
+            original,
             frozenset(selected),
             options.cell_math_pattern,
             options.cell_prose_pattern,
             options.crop_padding_points,
+            source_policy,
         ),
         check_active=check_active,
     )
@@ -74,8 +89,6 @@ def enrich_selected_pdf(
         inline_candidates=computed.candidate_pages,
     )
     derived = computed.native
-    document = load_snapshot(derived)
-    nodes = native_nodes(document)
     reports = list(computed.cell_reports)
     enriched = CellEnrichment(
         conversion.native.digest, derived, computed.outcomes, computed.mappings
@@ -83,11 +96,12 @@ def enrich_selected_pdf(
     draft = native_publication_draft(
         conversion,
         product_key="math-enriched",
-        original=product.original,
-        schema_bytes=product.schema_bytes,
+        original=original,
+        schema_bytes=schema_bytes,
         native=derived,
         recipe_bytes=recipe_bytes,
         extra_outcomes=enriched.outcomes,
+        callback_policy=output_policy,
     )
     payload: dict[str, Any] = {"health": dict(draft.health)}
     payload["cell_reports"] = reports
@@ -99,7 +113,7 @@ def enrich_selected_pdf(
         candidate_policy="native-font-token-vector-ocr-word-v3",
         cells_policy="all-nonempty-selected-cells-v1",
     )
-    nodes = native_nodes(document)
+    nodes = native_nodes(draft.document)
     outcomes = {row["pointer"]: row["outcome"] for row in payload["health"]["formula_outcomes"]}
 
     candidate_pages = candidate_page_status(

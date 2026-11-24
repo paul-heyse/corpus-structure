@@ -382,7 +382,7 @@ actions:
     - name: region_index
       native_parameter: p_region_index
       nullable: false
-      source: physical:kb.pdf_record_region.region_index
+      source: model:PdfRecordRegion.region_index
     requires_context: true
     result_fields: []
     result_source: model:PdfRecordRegion
@@ -685,34 +685,6 @@ actions:
       source: primitive:json_payload
     result_mode: scalar
     symbol: ops.read_pdf_companion_export_events
-  - cardinality: many
-    id: read_pdf_native_events
-    json_read: json-text-v1
-    order_by: []
-    ordered: false
-    parameters:
-    - name: task_id
-      native_parameter: p_task
-      nullable: false
-      semantic_type: TaskId
-      source: physical:ops.pdf_published_revision.task_id
-    - name: product_key
-      native_parameter: p_product
-      nullable: false
-      semantic_type: ProductKey
-      source: physical:ops.pdf_published_revision.product_key
-    - name: content_digest
-      native_parameter: p_digest
-      nullable: false
-      semantic_type: ContentDigest
-      source: physical:ops.pdf_published_revision.logical_digest
-    result_class: NativeJsonEnvelope
-    result_fields:
-    - name: body
-      nullable: false
-      source: primitive:json_payload
-    result_mode: scalar
-    symbol: ops.read_pdf_native_events
   - cardinality: one
     id: record_integrated_source_context
     json_read: json-text-v1

@@ -333,6 +333,7 @@ class PreparedPdfCapture:
             ),
             directory=directory,
             check_active=check_active,
+            retain_adoption=execution_owner.retain_pdf_adoption,
         )
         check_active()
         with engine.begin() as connection:

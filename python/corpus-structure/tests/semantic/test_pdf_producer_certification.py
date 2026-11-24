@@ -13,7 +13,6 @@ from corpus_structure.semantic.pdf_certification import (
     jsonb_canonical_text,
     write_pdf_companion_sets,
 )
-from corpus_structure.semantic.pdf_companion_encoding import PdfCompanionEncodingBasis
 from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
 from corpus_structure.semantic.pdf_lowering import LOWERING_CONTRACT, require_lowering_identity
 from corpus_structure.semantic.pdf_payload_validation import metadata_classes
@@ -49,15 +48,12 @@ def prepared(tmp_path, *, candidate=None):
     streamed = StreamingPdfResult(
         document, PdfStreamSpool(tmp_path / "pages"), "success", (), b"recipe", ()
     )
-    replays = streamed.write_record_batches(
-        tmp_path / "records", build_id="build", release_id="release", source_digest="a" * 64
-    )
+    replays = streamed.write_record_batches(tmp_path / "records", source_digest="a" * 64)
     metadata = [{"kind": "runtime_report", "ordinal": 0, "value": {"effective_options": "{}"}}]
     if candidate is not None:
         metadata.append({"kind": "inline_candidate_pages", "ordinal": 1, "value": candidate})
     sets = write_pdf_companion_sets(
         tmp_path / "companions",
-        PdfCompanionEncodingBasis("build", "release"),
         {
             "native_metadata": metadata,
             "health": (
@@ -104,7 +100,11 @@ def test_producer_certifies_existing_document_and_prepared_bytes_without_reconst
         assert certification.source_digest == "a" * 64
         assert len(certification.logical_digest) == len(certification.native_document_digest) == 64
         rows = [json.loads(line) for line in (tmp_path / "access.jsonl").read_text().splitlines()]
-        assert [row["body"]["pointer"] for row in rows] == ["#/body", "#/furniture"]
+        assert [row["body"]["native_json"]["self_ref"] for row in rows] == [
+            "#/body",
+            "#/furniture",
+        ]
+        assert all(set(row["body"]) == {"native_json"} for row in rows)
         assert all(row["family"] == "access" for row in rows)
     finally:
         payloads.close()
@@ -175,7 +175,9 @@ def test_lowering_identity_requires_matching_captured_artifacts(artifact_name, m
         return artifact
 
     with pytest.raises(ValueError, match=message):
-        require_lowering_identity(SimpleNamespace(domain=SimpleNamespace(source=source)))
+        require_lowering_identity(
+            replace(context, domain=SimpleNamespace(source=source, sources=domain.sources))
+        )
 
 
 def test_companion_frame_json_uses_postgresql_numeric_spelling():
@@ -226,7 +228,7 @@ def test_independent_oracle_refuses_lossy_but_callback_valid_lowering(tmp_path):
                         if (json.loads(raw)["family"], json.loads(raw)["local_id"])
                         == (row["family"], row["local_id"])
                     ]
-                    yield row
+                    yield {"product_id": "oracle-fixture", "revision_id": "oracle-fixture", **row}
             elif family == "artifact_stream":
                 for (raw,) in payloads.db.exec_driver_sql(
                     "SELECT body FROM entry WHERE family='artifact_stream'"
@@ -342,7 +344,6 @@ def test_stream_requires_captured_lowering_before_provider_preparation(tmp_path)
             source,
             tmp_path / "pages",
             tmp_path / "records",
-            "build",
             "release",
             b"{}",
             "lowering",
@@ -386,8 +387,6 @@ def test_native_mapping_and_callback_policy_use_the_acquired_context(tmp_path, m
     )
     replays = streamed.write_record_batches(
         tmp_path / "explicit-records",
-        build_id="build",
-        release_id="release",
         source_digest="a" * 64,
         lowering=lowering,
     )

@@ -13,7 +13,6 @@ from corpus_structure.semantic.pdf_record_pages_native import pdf_record_page_pr
 from corpus_structure.semantic.pdf_record_reader_native import (
     pdf_companion_export_programs,
     pdf_materialization_bound_programs,
-    pdf_native_export_programs,
 )
 from corpus_structure.semantic.published_document import published_readers_programs
 
@@ -79,10 +78,9 @@ def test_pdf_support_and_bound_readers_are_declared_before_rendering(monkeypatch
         page,
         frozen,
         *pdf_materialization_bound_programs(model),
-        *pdf_native_export_programs(target_metadata=model),
         *pdf_companion_export_programs(target_metadata=model),
     )
-    assert len(supporting) == len({item.identity for item in supporting}) == 8
+    assert len(supporting) == len({item.identity for item in supporting}) == 7
     for declaration in (*companion, *published, *supporting):
         assert declaration.owner == role_name("publisher")
         assert declaration.validity == ()

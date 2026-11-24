@@ -1,10 +1,12 @@
 """Protected companion set adoption from captured models and typed native steps."""
 
 import json
+from typing import Any
 
 from sqlalchemy import (
     BigInteger,
     Column,
+    ColumnElement,
     MetaData,
     Table,
     Text,
@@ -422,6 +424,10 @@ def companion_adoption_programs(context, metadata) -> tuple[ProgramDeclaration, 
     classes = metadata_classes(context.staging.content)
     metadata_keys = case(
         (
+            body["kind"].astext == "inline_alignment_reports",
+            array(["kind", "ordinal", "item_pointers"]),
+        ),
+        (
             body["kind"].astext == "formula_outcomes",
             array(["kind", "ordinal", "pointer", "outcome", "has_diagnostic"]),
         ),
@@ -466,6 +472,10 @@ def companion_adoption_programs(context, metadata) -> tuple[ProgramDeclaration, 
                             func.jsonb_typeof(body["has_diagnostic"]).is_distinct_from("boolean"),
                             func.jsonb_typeof(body["outcome"]).is_distinct_from("string"),
                         ),
+                    ),
+                    and_(
+                        body["kind"].astext == "inline_alignment_reports",
+                        func.jsonb_typeof(body["item_pointers"]).is_distinct_from("array"),
                     ),
                     and_(
                         body["kind"].astext == FAMILY,
@@ -529,9 +539,15 @@ def companion_adoption_programs(context, metadata) -> tuple[ProgramDeclaration, 
         from .pdf_publication_native import _schema_json
 
         schema = cast(literal(_schema_json(context.boundary.json_schema(cls))), JSONB())
-        matching = schema.op("||")(
-            json_object("allOf", func.jsonb_build_array(projection, formula))
-        )
+        checks: list[ColumnElement[Any]] = [projection, formula]
+        if kind == "inline_alignment_reports":
+            checks.append(
+                json_object(
+                    "properties",
+                    json_object("item_pointers", json_object("const", body["item_pointers"])),
+                )
+            )
+        matching = schema.op("||")(json_object("allOf", func.jsonb_build_array(*checks)))
         value = cast(
             func.convert_from(
                 func.ops.pdf_companion_field_bytes(p_build, p_build, field.c.stream_id, True),

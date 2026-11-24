@@ -5,7 +5,7 @@ import json
 import pytest
 from pdf_acceptance_support import inventory
 
-from semantic.pdf_payload_validation_support import captured
+from semantic.pdf_payload_validation_support import captured, validate_projection_fixture
 
 
 def replace_health(store, health):
@@ -32,7 +32,7 @@ def test_frozen_source_bounds_are_not_omitted(tmp_path, scope, start, end, diagn
     replace_health(store, dict(source_scope=scope, page_start=start, page_end=end))
     try:
         with pytest.raises(ValueError, match=diagnostic):
-            store.validate(document, projection)
+            validate_projection_fixture(store, document, projection)
     finally:
         store.close()
 
@@ -46,6 +46,6 @@ def test_frozen_complete_display_coverage_requires_actual_formula_outcomes(tmp_p
     replace_health(store, dict(source_scope="whole_document", display_coverage="complete"))
     try:
         with pytest.raises(ValueError, match="lacks attributable recognition"):
-            store.validate(native, projection)
+            validate_projection_fixture(store, native, projection)
     finally:
         store.close()

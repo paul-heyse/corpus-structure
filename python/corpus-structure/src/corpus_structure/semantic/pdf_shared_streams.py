@@ -407,7 +407,14 @@ def verified_shared_stream_ids(connection, build, descriptors):
     from .data_operation_json import json_bytes
     from .identifiers import TaskAttempt, TaskId
 
-    rows = tuple(descriptors)
+    rows = []
+    for descriptor in descriptors:
+        # Retained descriptors are logical. The native probe accepts current
+        # physical custody only, just like the COPY boundary.
+        for field in ("product_id", "revision_id"):
+            if field in descriptor and descriptor[field] != build.build_id:
+                raise ValueError("shared stream descriptor changes its owned build")
+        rows.append(dict(descriptor, product_id=build.build_id, revision_id=build.build_id))
     if not rows:
         return frozenset()
     return frozenset(
@@ -438,6 +445,14 @@ class PdfSharedStreamTransfer:
             return False
         ids = set()
         for batch in relations["artifact_part"]:
+            from .pdf_replay_transport import replay_schema
+            from .pdf_staging import stage_schema
+
+            if batch.schema.equals(
+                replay_schema(stage_schema("artifact_part")), check_metadata=True
+            ):
+                ids.update(pc.call_function("unique", [batch.column("stream_id")]).to_pylist())
+                continue
             for name in ("product_id", "revision_id"):
                 column = batch.column(name)
                 if column.null_count:

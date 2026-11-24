@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Callable, Generator, Sequence
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import UTC, datetime, timedelta
 from threading import Event, RLock, Thread
 from typing import Literal, Protocol
@@ -132,12 +132,23 @@ class ClaimOwner:
     def settle(self, claim: OwnedClaim, completion: Callable[[Connection], object]):
         return self._transact(claim, completion, retire=True)
 
-    def retain(self, claim: OwnedClaim, completion: Callable[[Connection], object]):
+    def retain(
+        self,
+        claim: OwnedClaim,
+        completion: Callable[[Connection], object],
+        *,
+        cancellation: BorrowerCancellation | None = None,
+    ):
         """Commit exact private intent while retaining the publication fence."""
-        return self._transact(claim, completion, retire=False)
+        return self._transact(claim, completion, retire=False, cancellation=cancellation)
 
     def _transact(
-        self, claim: OwnedClaim, completion: Callable[[Connection], object], *, retire: bool
+        self,
+        claim: OwnedClaim,
+        completion: Callable[[Connection], object],
+        *,
+        retire: bool,
+        cancellation: BorrowerCancellation | None = None,
     ):
         """Serialize renewal and finite exact completion/replay, retaining per-task durability."""
         key = (claim.task_id, claim.attempt, self.holder)
@@ -153,7 +164,11 @@ class ClaimOwner:
             for replay in range(2):
                 phase = DatabasePhase.ACQUIRING
                 try:
-                    with self.engine.connect() as conn, conn.begin():
+                    with (
+                        self.engine.connect() as conn,
+                        cancellation.borrow(conn) if cancellation is not None else nullcontext(),
+                        conn.begin(),
+                    ):
                         phase = DatabasePhase.EXECUTING
                         _deadlines(
                             conn,
@@ -161,6 +176,8 @@ class ClaimOwner:
                             statement_timeout_seconds=self.database.completion_statement_timeout_seconds,
                         )
                         result = completion(conn)
+                        if cancellation is not None:
+                            cancellation.check_active()
                         phase = DatabasePhase.COMMITTING
                     # Never retire until commit succeeds or an exact replay commits.
                     if retire:

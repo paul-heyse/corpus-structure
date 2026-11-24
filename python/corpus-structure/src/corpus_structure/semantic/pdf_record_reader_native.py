@@ -1,6 +1,19 @@
 """Published-only bounded record access, composed into forward native authoring."""
 
-from sqlalchemy import BigInteger, MetaData, Numeric, Table, Text, cast, column, func, or_, select
+from sqlalchemy import (
+    BigInteger,
+    MetaData,
+    Numeric,
+    Table,
+    Text,
+    cast,
+    column,
+    func,
+    or_,
+    select,
+    true,
+    union_all,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 
 from corpus_structure.schema.integrity import role_name
@@ -25,8 +38,6 @@ from .native_program_registry import ProgramDeclaration
 from .pdf_record_event_queries import (
     companion_event_query,
     companion_event_relation,
-    native_event_query,
-    native_event_relations,
 )
 from .pdf_record_pages_native import pdf_record_page_programs, pdf_record_page_sql
 
@@ -99,21 +110,6 @@ def _export_program(model, name, product_parameter, query_builder, *, family=Fal
     return _reader_program(definition)
 
 
-def pdf_native_export_programs(
-    *, target_metadata: MetaData | None = None
-) -> tuple[ProgramDeclaration, ...]:
-    """Read the ordered containment cursor for a published product."""
-    model = get_metadata() if target_metadata is None else target_metadata
-    return (
-        _export_program(
-            model,
-            "read_pdf_native_events",
-            "p_product",
-            lambda model, published: native_event_query(native_event_relations(model, published)),
-        ),
-    )
-
-
 def pdf_companion_export_programs(
     *, target_metadata: MetaData | None = None
 ) -> tuple[ProgramDeclaration, ...]:
@@ -164,12 +160,6 @@ def pdf_materialization_bound_programs(model: MetaData) -> tuple[ProgramDeclarat
         ("published",),
         strict=True,
     )
-    exported = (
-        func.ops.read_pdf_native_events(task, product, digest)
-        .table_valued(column("event", JSONB()))
-        .render_derived()
-    )
-    events = select(exported.c.event).cte("events").prefix_with("MATERIALIZED")
 
     def byte_count(value):
         return func.coalesce(func.sum(cast(value, Numeric())), 0)
@@ -179,19 +169,47 @@ def pdf_materialization_bound_programs(model: MetaData) -> tuple[ProgramDeclarat
 
     artifacts = model.tables["kb.source_artifact"]
     streams = model.tables["ops.pdf_artifact_stream"]
-    event_bytes = select(byte_count(func.octet_length(cast(events.c.event, Text()))))
-    # Count repeated native stream uses individually, including escaped JSON strings.
+    natives = model.tables["kb.pdf_record_native"]
+    membership = model.tables["kb.pdf_record_membership"]
+    fields = (
+        func.jsonb_each(natives.c.structure_json["fields"])
+        .table_valued(column("key", Text()), column("value", JSONB()))
+        .lateral("descriptor")
+    )
+    native_stream_uses = union_all(
+        select(fields.c.value["stream_id"].astext.label("stream_id"))
+        .select_from(natives.join(fields, true()))
+        .where(*placed(natives), fields.c.value["kind"].astext == "parts"),
+        select(natives.c.structure_json["extensions"]["stream_id"].astext).where(
+            *placed(natives), natives.c.structure_json.has_key("extensions")
+        ),
+        select(membership.c.stream_id).where(
+            *placed(membership), membership.c.stream_id.is_not(None)
+        ),
+        select(membership.c.member_key_stream_id).where(
+            *placed(membership), membership.c.member_key_stream_id.is_not(None)
+        ),
+    ).subquery("native_stream_uses")
     native_bytes = (
         select(byte_count(streams.c.byte_length))
-        .select_from(events.join(streams, streams.c.stream_id == events.c.event["value"].astext))
-        .where(
-            *placed(streams), events.c.event["kind"].astext.in_(("parts", "key_parts", "extension"))
+        .select_from(
+            native_stream_uses.join(streams, streams.c.stream_id == native_stream_uses.c.stream_id)
         )
+        .where(*placed(streams))
     )
-    companion_stream_bytes = select(byte_count(streams.c.byte_length)).where(*placed(streams))
+    # The aggregate includes the acquired bytes of all streams as well as each
+    # native use expanded in a document. This covers shared streams without a
+    # containment walk or transfer of the stored part bodies.
+    acquired_stream_bytes = select(byte_count(streams.c.byte_length)).where(*placed(streams))
     record_bytes = []
-    for name in ("companion", "companion_field", "membership"):
-        row = model.tables[f"kb.pdf_record_{name}"]
+    for name in (
+        "ops.pdf_record_document",
+        "kb.pdf_record_native",
+        "kb.pdf_record_membership",
+        "kb.pdf_record_companion",
+        "kb.pdf_record_companion_field",
+    ):
+        row = model.tables[name]
         size = func.octet_length(cast(func.to_jsonb(row.table_valued()), Text()))
         record_bytes.append(select(byte_count(size)).where(*placed(row)))
     raw_bytes = select(byte_count(func.octet_length(artifacts.c.content))).where(
@@ -206,7 +224,7 @@ def pdf_materialization_bound_programs(model: MetaData) -> tuple[ProgramDeclarat
     escaped = (
         sum(
             query.scalar_subquery()
-            for query in (event_bytes, native_bytes, companion_stream_bytes, *record_bytes)
+            for query in (native_bytes, acquired_stream_bytes, *record_bytes)
         )
         * 6
     )
@@ -238,10 +256,6 @@ def pdf_materialization_bound_programs(model: MetaData) -> tuple[ProgramDeclarat
         ),
     )
     return (_reader_program(definition),)
-
-
-def pdf_native_export_sql(*, target_metadata: MetaData | None = None) -> str:
-    return _reader_sql(pdf_native_export_programs(target_metadata=target_metadata)[0])
 
 
 def pdf_companion_export_sql(*, target_metadata: MetaData | None = None) -> str:

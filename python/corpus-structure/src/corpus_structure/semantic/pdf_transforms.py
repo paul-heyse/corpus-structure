@@ -440,7 +440,10 @@ def _endpoint(mode):
 
 @dataclass(frozen=True)
 class SelectedPdfInput:
-    product: Any
+    values: Mapping[str, Any]
+    original: bytes
+    schema_bytes: bytes
+    callback_policy: Mapping[str, Any]
     parent: Any
     candidates: Any
     sections: tuple[tuple[str, str], ...]
@@ -482,7 +485,8 @@ def _read_selected_pdf(
 
     from .metadata import table
     from .pdf_capture import pdf_publication_value
-    from .pdf_contracts import PreparedPdfProduct, pdf_context_for_release
+    from .pdf_contracts import pdf_context_for_release
+    from .pdf_lowering_context import capture_pdf_lowering
     from .pdf_payloads import prepare_payload_family
     from .pdf_publication import PdfExecutionReceipt
     from .pdf_record_reader import PublishedPdfReader, PublishedReadBudget
@@ -581,14 +585,10 @@ def _read_selected_pdf(
                 bodies[publication.source_digest], inventory, parent, context, read_budget
             )
         with reader._materialization_scope():
-            values = reader.native_product_values(include_candidate_pages=False)
-            product = PreparedPdfProduct(
-                canonical_bytes(values),
-                bodies[publication.source_digest],
-                bodies[publication.schema_digest],
-                bodies[publication.recipe_digest],
-                context.contract_digest,
-            )
+            finish_product = reader.prepare_native_product(include_candidate_pages=False)
+            callback_policy = capture_pdf_lowering(
+                reader._payload_context(), allow_archived_default=True
+            ).callback_policy()
             if membership not in {"direct", "descendants"}:
                 raise ValueError("PDF source membership is outside the admitted finite choices")
             projections = (
@@ -629,7 +629,19 @@ def _read_selected_pdf(
                 else None
             )
     check_active()
-    return SelectedPdfInput(product, parent, candidates, specs, context, read_budget)
+    values = finish_product()
+    check_active()
+    return SelectedPdfInput(
+        values,
+        bodies[publication.source_digest],
+        bodies[publication.schema_digest],
+        callback_policy,
+        parent,
+        candidates,
+        specs,
+        context,
+        read_budget,
+    )
 
 
 def _read_selected_observations(value, binding, execution_owner, selected, check_active):
@@ -739,16 +751,19 @@ def integration_draft(selected, recipe_bytes, observations, directory, options):
     """Pure deterministic selection; native input/publication authority stays outside."""
     from corpus_structure.core.method import PdfRecordPublicationDraft
     from corpus_structure.ingest.pdf import native_conversion_health
-    from corpus_structure.ingest.pdf_hierarchy import load_snapshot, native_nodes
-    from corpus_structure.ingest.pdf_methods import _snapshot_from_values
+    from corpus_structure.ingest.pdf_hierarchy import native_nodes
     from corpus_structure.ingest.pdf_stream_reconciliation import reconcile_pdf_stream
 
-    document = load_snapshot(_snapshot_from_values(selected.product.values()))
+    from .pdf_records import validate_native_callbacks
+
+    document = validate_native_callbacks(
+        selected.values["document"], contract=selected.callback_policy
+    )
     with reconcile_pdf_stream(
         document,
         selected.parent.values(),
         iter(observations),
-        sha256(selected.product.original).hexdigest(),
+        sha256(selected.original).hexdigest(),
         directory=directory,
         policy=options.integration_policy,
         context=selected.context,
@@ -758,8 +773,8 @@ def integration_draft(selected, recipe_bytes, observations, directory, options):
             document=reconciled.document,
             product_key="integrated",
             kind="integrated",
-            original=selected.product.original,
-            schema_bytes=selected.product.schema_bytes,
+            original=selected.original,
+            schema_bytes=selected.schema_bytes,
             recipe_bytes=recipe_bytes,
             health=health,
             companions={
@@ -825,11 +840,7 @@ def _selected_pdf_execution(
                 task_id=claim.task_id,
                 attempt=claim.attempt,
                 holder=claim.holder,
-                original=(
-                    selected.original
-                    if isinstance(selected, SelectedPdfRecognitionInput)
-                    else selected.product.original
-                ),
+                original=selected.original,
                 recipe_bytes=recipe_bytes,
             )
         yield selected, recipe_bytes, owner, directory
@@ -937,9 +948,9 @@ class PreparedPdfTransform:
                 claim.holder,
                 product_key=product_key,
                 kind="integrated" if self.mode == "integrated" else "native",
-                source_digest=sha256(selected.product.original).hexdigest(),
+                source_digest=sha256(selected.original).hexdigest(),
                 recipe_bytes=recipe_bytes,
-                schema_digest=sha256(selected.product.schema_bytes).hexdigest(),
+                schema_digest=sha256(selected.schema_bytes).hexdigest(),
                 check_active=check_active,
             )
             if publication is None:
@@ -973,6 +984,7 @@ class PreparedPdfTransform:
                         draft,
                         directory=owner,
                         check_active=check_active,
+                        retain_adoption=execution_owner.retain_pdf_adoption,
                     )
             with execution_owner.engine.connect() as connection:
                 receipt = inspect_pdf_execution_receipt(
@@ -1261,23 +1273,27 @@ class PreparedPdfTransform:
         from pydantic import TypeAdapter
 
         from corpus_structure.ingest.pdf_hierarchy import SectionPolicy, organize
-        from corpus_structure.ingest.pdf_methods import _conversion_from_product
+        from corpus_structure.ingest.pdf_methods import _conversion_from_values
         from corpus_structure.ingest.pdf_record_product import native_publication_draft
 
+        from .pdf_lowering_context import capture_pdf_lowering
+
         check_active()
-        conversion = _conversion_from_product(selected.product, recipe_bytes, selected.candidates)
+        conversion = _conversion_from_values(selected.values, recipe_bytes, selected.candidates)
         organized = organize(
             conversion.native,
             TypeAdapter(SectionPolicy).validate_python(dict(self.record["options"])),
+            contract=selected.callback_policy,
         )
         check_active()
         draft = native_publication_draft(
             conversion,
             product_key="organized",
-            original=selected.product.original,
-            schema_bytes=selected.product.schema_bytes,
+            original=selected.original,
+            schema_bytes=selected.schema_bytes,
             native=organized.document,
             recipe_bytes=recipe_bytes,
+            callback_policy=capture_pdf_lowering(selected.context).callback_policy(),
         )
         return replace(
             draft, companions={"input": ({**selected.parent.values(), "role": "structural"},)}
@@ -1291,6 +1307,8 @@ class PreparedPdfTransform:
         from corpus_structure.ingest.pdf_capacity import native_before_nemotron
         from corpus_structure.ingest.pdf_selected_enrichment import enrich_selected_pdf
         from corpus_structure.ingest.pdf_worker import PdfWorker
+
+        from .pdf_lowering_context import capture_pdf_lowering
 
         native = self.record["native"]
         recipe = PdfRecipe.from_bytes(bytes.fromhex(native["recipe"]))
@@ -1312,13 +1330,17 @@ class PreparedPdfTransform:
             worker = PdfWorker(recipe, assets=assets)
             try:
                 return enrich_selected_pdf(
-                    selected.product,
+                    selected.values,
                     selected.parent,
                     selected.sections,
                     PdfEnrichmentOptions.model_validate(self.record["options"]),
                     recipe_bytes,
                     selected.candidates,
                     worker,
+                    original=selected.original,
+                    schema_bytes=selected.schema_bytes,
+                    source_policy=selected.callback_policy,
+                    output_policy=capture_pdf_lowering(selected.context).callback_policy(),
                     check_active=check_active,
                 )
             finally:
@@ -1328,7 +1350,7 @@ class PreparedPdfTransform:
         self, selected, recipe_bytes, value, binding, execution_owner, directory, check_active
     ):
         options = PdfIntegrationOptions.model_validate(self.record["options"])
-        values = selected.product.values()
+        values = selected.values
         if (
             values["source_scope"] != "whole_document"
             or values["health"]["conversion"] != "success"

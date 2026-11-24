@@ -128,7 +128,6 @@ def test_current_section_fixture_serializes_real_empty_and_formula_sections(tmp_
             source,
             tmp_path / "spool",
             tmp_path / "records",
-            "current-test-build",
             "current-test-release",
             **asdict(prepare_pdf_producer_contract(trusted_pdf_context(), kind="native")),
         )

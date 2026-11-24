@@ -31,7 +31,6 @@ def stream_request(tmp_path):
             source,
             tmp_path / "pages",
             tmp_path / "records",
-            "build",
             "release",
             **asdict(prepare_pdf_producer_contract(trusted_pdf_context(), kind="native")),
         )

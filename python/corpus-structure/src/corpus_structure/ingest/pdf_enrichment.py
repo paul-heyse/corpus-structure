@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
 from functools import cmp_to_key
 from typing import Any, Literal
@@ -539,6 +540,7 @@ class PdfEnrichmentRequest:
     cell_math_pattern: str
     cell_prose_pattern: str
     crop_padding_points: float
+    source_policy: Mapping[str, Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -565,7 +567,7 @@ def compute_enrichment(
 
     if sha256(request.original).hexdigest() != request.conversion.original_digest:
         raise ValueError("enrichment original differs from its pinned native product")
-    document = load_snapshot(request.conversion.native)
+    document = load_snapshot(request.conversion.native, contract=request.source_policy)
     nodes = native_nodes(document)
     if not request.selected <= nodes.keys():
         raise ValueError("enrichment selection names missing native occurrences")

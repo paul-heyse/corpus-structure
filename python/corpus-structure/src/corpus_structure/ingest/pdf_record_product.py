@@ -6,7 +6,7 @@ from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Any
 
 from .pdf_candidate_source import as_candidate_source
-from .pdf_hierarchy import load_snapshot, native_nodes
+from .pdf_hierarchy import native_nodes
 
 if TYPE_CHECKING:
     from corpus_structure.core.method import PdfRecordPublicationDraft
@@ -23,11 +23,19 @@ def native_publication_draft(
     extra_outcomes: Iterable[Any] = (),
     health: Mapping[str, Any] | None = None,
     metadata: Mapping[str, Any] | None = None,
+    callback_policy: Mapping[str, Any] | None = None,
 ) -> PdfRecordPublicationDraft:
     from corpus_structure.core.method import PdfRecordPublicationDraft
+    from corpus_structure.semantic.pdf_records import native_validation_contract
+
+    from .pdf_streaming import SealedPdfNative
 
     selected = conversion.native if native is None else native
-    document = load_snapshot(selected)
+    policy = native_validation_contract() if callback_policy is None else callback_policy
+    sealed = SealedPdfNative(selected, callback_policy=policy)
+    document = sealed.validate_under(policy)
+    if document.version != selected.schema_version:
+        raise ValueError("native schema version differs from binding")
     nodes = native_nodes(document)
     if health is None:
         from .pdf import native_conversion_health
@@ -67,6 +75,7 @@ def native_publication_draft(
         health=health,
         metadata=captured,
         kind="native",
+        sealed_document=sealed.publication_value(document),
     )
 
 

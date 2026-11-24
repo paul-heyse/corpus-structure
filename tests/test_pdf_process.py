@@ -59,6 +59,7 @@ def test_successful_empty_native_operations_reuse_one_serial_child():
     from docling_core.types.doc import DoclingDocument
 
     from corpus_structure.ingest.pdf_hierarchy import snapshot
+    from corpus_structure.semantic.pdf_records import native_validation_contract
 
     original = b"%PDF-empty-selection-lifecycle-control"
     recipe = PdfRecipe("a" * 40, "b" * 40, device="cpu")
@@ -66,7 +67,9 @@ def test_successful_empty_native_operations_reuse_one_serial_child():
     conversion = PdfConversion(
         sha256(original).hexdigest(), recipe.to_bytes(), native, "success", (), (), (), None
     )
-    request = PdfEnrichmentRequest(conversion, original, frozenset(), r"=", r"[A-Za-z]+", 0.75)
+    request = PdfEnrichmentRequest(
+        conversion, original, frozenset(), r"=", r"[A-Za-z]+", 0.75, native_validation_contract()
+    )
     worker = PdfWorker(recipe)
     try:
         first = worker.enrich(request)

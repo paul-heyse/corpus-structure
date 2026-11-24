@@ -41,8 +41,6 @@ _FINAL = {
     "companion": "kb.pdf_record_companion",
     "endpoint": "kb.pdf_record_endpoint",
     "companion_field": "kb.pdf_record_companion_field",
-    "access": "kb.pdf_record_access",
-    "region": "kb.pdf_record_region",
 }
 
 
@@ -181,6 +179,7 @@ def _prepare_pdf_build_program(
         variable,
         void_call_routine,
     )
+    from .pdf_record_access_native import prepare_pdf_access_statements
 
     names = {}
     for field in binding.parameters:
@@ -215,6 +214,15 @@ def _prepare_pdf_build_program(
                     Sql(statement)
                     for statement in _prepare_pdf_copy_statements(
                         metadata, stages, build_parameter=names["build_id"]
+                    )
+                ),
+                *(
+                    Sql(statement)
+                    for statement in prepare_pdf_access_statements(
+                        metadata,
+                        core_variable(
+                            names["build_id"], metadata.tables[_FINAL["native"]].c.product_id.type
+                        ),
                     )
                 ),
                 Perform(frozen),
@@ -473,7 +481,7 @@ def published_view_programs(model, domain):
 
     programs = []
 
-    def view(name, query, *, admitter=False):
+    def view(name, query, *, admitter=False, schema="ops", internal=False):
         projection = (
             prepare_sql(
                 str(query.compile(dialect=dialect(), compile_kwargs={"literal_binds": True})),
@@ -493,19 +501,25 @@ def published_view_programs(model, domain):
         programs.append(
             RelationProgramDeclaration(
                 ast.ViewStmt(
-                    view=ast.RangeVar(schemaname="ops", relname=name, inh=True),
+                    view=ast.RangeVar(schemaname=schema, relname=name, inh=True),
                     query=projection,
                     replace=True,
                     withCheckOption=enums.ViewCheckOption.NO_CHECK_OPTION,
                 ),
                 "target-current:PDF views",
                 role_name("publisher"),
-                tuple((role, "SELECT", False) for role in roles),
+                () if internal else tuple((role, "SELECT", False) for role in roles),
             )
         )
 
-    for family, name in (("access", "pdf_published_item"), ("region", "pdf_published_region")):
-        records = model.tables["kb.pdf_record_" + family]
+    from .pdf_record_access_native import pdf_region_relation, pdf_region_view
+
+    regions = pdf_region_relation(model)
+    view(regions.name, pdf_region_view(model), schema="kb", internal=True)
+    for records, name in (
+        (model.tables["kb.pdf_record_access"], "pdf_published_item"),
+        (regions, "pdf_published_region"),
+    ):
         view(
             name,
             select(
@@ -611,7 +625,6 @@ def _publication_stages():
         "endpoint": "ops.pdf_stage_endpoint",
         "companion_field": "ops.pdf_stage_companion_field",
         "access": "ops.pdf_stage_access",
-        "region": "ops.pdf_stage_region",
     }
 
 
@@ -658,7 +671,6 @@ def publication_native_programs(model, domain):
     from .pdf_record_pages_native import pdf_record_page_programs
     from .pdf_record_reader_native import (
         pdf_companion_export_programs,
-        pdf_native_export_programs,
         pdf_record_reader_programs,
     )
     from .pdf_validation_read_native import pdf_validation_program_declarations
@@ -672,7 +684,6 @@ def publication_native_programs(model, domain):
         pdf_reference_bytes_equal_program(model),
         *pdf_record_reader_programs(target_metadata=model),
         *pdf_record_context_page_programs(model),
-        *pdf_native_export_programs(target_metadata=model),
         *pdf_companion_export_programs(target_metadata=model),
         *pdf_record_page_programs(model, frozen=True),
         *pdf_validation_program_declarations(model, pdf_domain=domain).values(),
@@ -725,7 +736,6 @@ def pdf_freeze_native_programs(model, stages=None, *, pdf_domain=None):
             "endpoint": "ops.pdf_stage_endpoint",
             "companion_field": "ops.pdf_stage_companion_field",
             "access": "ops.pdf_stage_access",
-            "region": "ops.pdf_stage_region",
         }
         if stages is None
         else stages
@@ -1207,8 +1217,7 @@ def pdf_inventory_native_sql(model):
 
 def pdf_publication_control_programs(model):
     """Generate bounded projection admission and exact private build lookup controls."""
-    from pglast import ast
-    from sqlalchemy import BigInteger, Text, cast, column, exists, or_
+    from sqlalchemy import Text, and_, cast, column, exists, literal, or_
     from sqlalchemy.dialects.postgresql import JSONB
 
     from .native_program import (
@@ -1223,10 +1232,8 @@ def pdf_publication_control_programs(model):
         ReturnQuery,
         SelectInto,
         Sql,
-        call,
         column_type,
         pg_type,
-        variable,
     )
 
     build = model.tables["ops.pdf_stage_build"]
@@ -1235,7 +1242,6 @@ def pdf_publication_control_programs(model):
     validation = model.tables["ops.pdf_build_validation"]
     published = model.tables["ops.pdf_published_revision"]
     access = model.tables["ops.pdf_stage_access"]
-    region = model.tables["ops.pdf_stage_region"]
     p_build, p_task, p_attempt, p_holder = (
         core_variable(name, field.type)
         for name, field in (
@@ -1271,46 +1277,9 @@ def pdf_publication_control_programs(model):
     payload = core_variable("p_rows", JSONB())
     incoming = func.jsonb_array_elements(payload).table_valued(column("value", JSONB()))
 
-    def projection_statements(relation, local, family_name):
-        alias = relation.alias("r")
-        row_equal = (
-            func.to_jsonb(alias.table_valued(), type_=JSONB()) - "product_id" - "revision_id"
-        )
-        conditions = [
-            alias.c.product_id == p_build,
-            alias.c.revision_id == p_build,
-            alias.c.pointer == body["pointer"].astext,
-            row_equal == body,
-        ]
-        if family_name == "region":
-            conditions.append(
-                alias.c.region_index == cast(body["region_index"].astext, BigInteger())
-            )
-        return (
-            Assign(
-                local,
-                call(
-                    "pg_catalog",
-                    "jsonb_populate_record",
-                    ast.TypeCast(
-                        arg=ast.A_Const(isnull=True),
-                        typeName=pg_type(relation.schema, relation.name),
-                    ),
-                    variable("owned_"),
-                ),
-            ),
-            Sql(
-                insert(relation)
-                .values(
-                    {field: core_variable(local, field.type, field.name) for field in relation.c}
-                )
-                .on_conflict_do_nothing()
-            ),
-            If(
-                ~exists(select(1).select_from(alias).where(*conditions)),
-                (Raise("changed " + family_name + " projection", "23514"),),
-            ),
-        )
+    pointer = core_variable("pointer_", Text())
+    native_copy = core_variable("native_copy_", JSONB())
+    stored = access.alias("stored")
 
     out = [
         _publication_control_routine(
@@ -1339,24 +1308,71 @@ def pdf_publication_control_programs(model):
                     (
                         Assign("family_", row["family"].astext),
                         Assign("body_", row["body"]),
-                        Assign(
-                            "owned_",
-                            body.op("||")(
-                                func.jsonb_build_object(
-                                    "product_id", p_build, "revision_id", p_build
-                                )
+                        If(
+                            family == "access",
+                            (
+                                Assign("native_copy_", body["native_json"]),
+                                Assign("pointer_", native_copy["self_ref"].astext),
+                            ),
+                            (
+                                If(
+                                    family.is_distinct_from("page"),
+                                    (Raise("invalid projection family", "22023"),),
+                                ),
+                                Assign("native_copy_", body),
+                                Assign(
+                                    "pointer_",
+                                    literal("#/pages/").op("||")(body["page_no"].astext),
+                                ),
                             ),
                         ),
                         If(
-                            family == "access",
-                            projection_statements(access, "access_", "access"),
-                            (
-                                If(
-                                    family == "region",
-                                    projection_statements(region, "region_", "region"),
-                                    (Raise("invalid projection family", "P0001"),),
+                            or_(
+                                func.jsonb_typeof(native_copy).is_distinct_from("object"),
+                                pointer.is_(None),
+                                ~pointer.like("#/%"),
+                                and_(
+                                    family == "page",
+                                    or_(
+                                        func.jsonb_typeof(body["page_no"]).is_distinct_from(
+                                            "number"
+                                        ),
+                                        func.jsonb_typeof(body["size"]["width"]).is_distinct_from(
+                                            "number"
+                                        ),
+                                        func.jsonb_typeof(body["size"]["height"]).is_distinct_from(
+                                            "number"
+                                        ),
+                                        body.has_key("self_ref"),
+                                    ),
                                 ),
                             ),
+                            (
+                                Raise(
+                                    "invalid native projection JSON copy address or value", "23514"
+                                ),
+                            ),
+                        ),
+                        Sql(
+                            insert(access)
+                            .values(
+                                product_id=p_build,
+                                revision_id=p_build,
+                                pointer=pointer,
+                                native_json=native_copy,
+                            )
+                            .on_conflict_do_nothing()
+                        ),
+                        If(
+                            ~exists(
+                                select(1).where(
+                                    stored.c.product_id == p_build,
+                                    stored.c.revision_id == p_build,
+                                    stored.c.pointer == pointer,
+                                    stored.c.native_json == native_copy,
+                                )
+                            ),
+                            (Raise("changed native projection JSON copy", "23514"),),
                         ),
                     ),
                 ),
@@ -1366,9 +1382,8 @@ def pdf_publication_control_programs(model):
                 Local("row_", pg_type("jsonb")),
                 Local("body_", pg_type("jsonb")),
                 Local("family_", pg_type("text")),
-                Local("owned_", pg_type("jsonb")),
-                Local("access_", access),
-                Local("region_", region),
+                Local("pointer_", pg_type("text")),
+                Local("native_copy_", pg_type("jsonb")),
             ),
         )
     ]

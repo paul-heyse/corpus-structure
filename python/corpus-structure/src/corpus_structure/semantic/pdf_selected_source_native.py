@@ -428,7 +428,9 @@ def _selected_events(model, revision, section, part_bytes):
         .select_from(selected)
         .scalar_subquery()
     )
-    region = model.tables["kb.pdf_record_region"].alias("r")
+    from .pdf_record_access_native import pdf_region_relation
+
+    region = pdf_region_relation(model).alias("r")
     payload = ordered.c.payload
     size = func.octet_length(payload)
     parts = (

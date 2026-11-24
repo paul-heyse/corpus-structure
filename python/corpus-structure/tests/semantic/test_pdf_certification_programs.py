@@ -27,6 +27,79 @@ class StreamFixture(TypedDict):
     serialization_sha256: str | None
 
 
+def _revalidate_with_changed_defaults(capture, projection, result, *, authored):
+    """Discriminate both captured defaults inside the actual spawned oracle."""
+    import json
+
+    from corpus_structure.semantic import pdf_publication, pdf_records
+
+    callback_policy = dict(pdf_records.native_validation_contract())
+    callback_policy["docling_core_version"] = "0.0.0"
+    schema = json.loads(pdf_records.native_schema_bytes())
+    schema["properties"]["name"]["maxLength"] = 1
+    ambient_schema = json.dumps(schema).encode()
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(pdf_records, "native_validation_contract", lambda: callback_policy)
+        patch.setattr(pdf_records, "native_schema_bytes", lambda: ambient_schema)
+        with pytest.raises(ValueError, match=r"callbacks require exactly docling-core 0\.0\.0"):
+            pdf_records.validate_native_callbacks(authored)
+        with pytest.raises(pdf_records.NativeMappingError, match="is too long"):
+            pdf_records.prepare_native_schema_mapping().validate(authored)
+        pdf_publication._native_validation_child(capture, projection, result)
+
+
+def test_force_revalidate_published_pdf_uses_captured_policy_and_schema(
+    create_private_build, commit_writer_engine, commit_reader_engine, tmp_path, monkeypatch
+):
+    from functools import partial
+    from hashlib import sha256
+
+    from pdf_acceptance_support import stage_complete_native
+
+    from corpus_structure.semantic import pdf_publication
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
+    from corpus_structure.semantic.pdf_record_reader import published_record_reader
+    from corpus_structure.semantic.product_reference import ProductReference
+
+    build = create_private_build()
+    with create_private_build.maintained(build):
+        stage_complete_native(commit_writer_engine, build, tmp_path / "earlier")
+        with commit_writer_engine.begin() as conn:
+            frozen = pdf_publication.freeze_pdf_build(conn, build, kind="native")
+            pdf_publication.prepare_pdf_build(conn, frozen)
+        pdf_publication.validate_pdf_build(commit_writer_engine, frozen, force_oracle=True)
+        with commit_writer_engine.begin() as conn:
+            published = pdf_publication.seal_pdf_build(conn, frozen)
+
+    reference = ProductReference(published.task_id, published.product_key, published.logical_digest)
+    with commit_reader_engine.connect() as conn:
+        reader = published_record_reader(conn, reference)
+        assert reader is not None
+        authored = reader.reconstruct_document()
+        assert authored["name"] == "frozen fixture"
+        assert authored["texts"][0]["text"] == "independent expected text"
+        assert authored["pages"]["1"]["size"] == {"width": 200, "height": 300}
+        capture = pdf_publication.capture_published_pdf_oracle(
+            reader,
+            context=pdf_context_for_task(conn, published.task_id),
+            directory=tmp_path / "captured",
+            check_active=lambda: None,
+        )
+    expected = sha256(canonical_bytes(authored)).hexdigest()
+    assert expected == capture.native_document_digest
+    monkeypatch.setattr(
+        pdf_publication,
+        "_native_validation_child",
+        partial(_revalidate_with_changed_defaults, authored=authored),
+    )
+    result = pdf_publication.verify_published_pdf_oracle(capture, check_active=lambda: None)
+    assert result.release_id == published.release_id
+    assert result.lowering_identity == capture.lowering_identity
+    assert result.logical_digest == published.logical_digest
+    assert result.reconstructed_native_digest == expected
+
+
 @pytest.mark.parametrize(
     "prior_state",
     ["hit", "failed", "unpublished", "unvalidated", "other-kind", "other-lowering", "forced"],

@@ -10,11 +10,12 @@ import json
 import os
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, Protocol
 
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.pdf_lowering_context import CapturedPdfLowering
 
 from .pdf_stream_types import (
@@ -42,7 +43,7 @@ def _atomic_bytes(path: Path, value: bytes, family: str) -> PdfReplayRef:
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
-    return _ref(path, family)
+    return PdfReplayRef(path, sha256(value).hexdigest(), len(value), family)
 
 
 @lru_cache(maxsize=1)
@@ -124,18 +125,16 @@ class PdfStreamSpool:
             raise ValueError("candidate page was spooled twice")
         from dataclasses import replace
 
-        family = self.payload_family
-        logical = value.to_wire()
-        content = family.encode(logical)
+        encoded = self.payload_family.encode_page(value.to_wire())
         replay = _atomic_bytes(
-            self.root / f"candidate-{value.page_no:06}.arrow", content, "candidate_payload"
+            self.root / f"candidate-{value.page_no:06}.arrow", encoded.content, "candidate_payload"
         )
         replay = replace(
             replay,
             rows=1,
-            schema_digest=family.schema_digest,
-            logical_digest=family.logical_digest(logical),
-            page_no=value.page_no,
+            schema_digest=encoded.schema_digest,
+            logical_digest=encoded.logical_digest,
+            page_no=encoded.page_no,
         )
         # The same encoded bytes and source-qualified locator cross the ACK boundary.
         if self.on_page:
@@ -227,7 +226,9 @@ class PdfStreamSpool:
                         f"unrecorded native raster scale requested: page={self.page_no}, "
                         f"requested={scale}, retained={self._scale}"
                     )
-                with Image.open(self._raster.path) as original:
+                from io import BytesIO
+
+                with Image.open(BytesIO(self._raster.read_bytes())) as original:
                     if cropbox is None:
                         return original.copy()
                     assert self.size is not None
@@ -249,8 +250,7 @@ class PdfStreamSpool:
                 if number in current:
                     restored.append(current[number])
                 continue
-            replay.verify()
-            data = json.loads(replay.path.read_bytes())
+            data = json.loads(replay.read_bytes())
             from .pdf_assembly import restore_assembly
 
             raw_page = dict(data["page"])
@@ -264,7 +264,6 @@ class PdfStreamSpool:
             page._raster = PdfReplayRef(
                 Path(raster["path"]), raster["digest"], raster["byte_length"], "native-raster"
             )
-            page._raster.verify()
             page._scale = data["scale"]
             if data["confidence"] is not None:
                 conv_res.confidence.pages[number] = PageConfidenceScores.model_validate(
@@ -375,11 +374,63 @@ def _json_view(value: Any, computed: bool = False) -> Any:
     return value
 
 
+def _own_json(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: _own_json(child) for key, child in value.items()}
+    if isinstance(value, list):
+        return [_own_json(child) for child in value]
+    return value
+
+
+class SealedPdfNative:
+    """Own one detached native value for record lowering and producer certification."""
+
+    def __init__(self, document: Any, *, callback_policy: Mapping[str, Any] | None = None):
+        from .pdf_hierarchy import NativeSnapshot, native_snapshot_values
+
+        self._values = (
+            native_snapshot_values(document, contract=callback_policy)
+            if isinstance(document, NativeSnapshot)
+            else _own_json(_json_view(document))
+        )
+        self._validated_policy: bytes | None = None
+
+    def validate_under(self, policy: Mapping[str, Any]):
+        from corpus_structure.semantic.pdf_records import validate_native_callbacks
+
+        document = validate_native_callbacks(self._values, contract=policy)
+        self._validated_policy = canonical_bytes(policy)
+        return document
+
+    def publication_value(self, document: Any) -> SealedPdfNative:
+        """Keep the established publication representation across snapshot imports."""
+        from corpus_structure.semantic.pdf_records import _difference
+
+        # Preserve the serializer's object order, including in opaque streams.
+        # A changed value cannot inherit the snapshot's admission.
+        published = SealedPdfNative(document)
+        if _difference(self._values, published._values) is None:
+            published._validated_policy = self._validated_policy
+        return published
+
+    def iter_records(self, **options):
+        from corpus_structure.semantic.pdf_records import iter_native_records
+
+        yield from iter_native_records(self._values, **options)
+
+    def certify(self, payloads, projection, **options):
+        policy = payloads.lowering.callback_policy()
+        if self._validated_policy != canonical_bytes(policy):
+            self.validate_under(policy)
+        return payloads._certify_native_values(self._values, projection, **options)
+
+
 @dataclass(frozen=True)
 class PreparedPdfCertificationInput:
     """Exact converted values and the preparation acknowledged by the stream owner."""
 
     document: Any
+    sealed: SealedPdfNative
     spool: PdfStreamSpool
     conversion_status: str
     errors: tuple[str, ...]
@@ -396,21 +447,25 @@ class StreamingPdfResult:
     errors: tuple[str, ...]
     recipe: bytes
     formula_outcomes: tuple[Any, ...]
+    sealed_input: SealedPdfNative | None = None
+
+    @cached_property
+    def sealed(self) -> SealedPdfNative:
+        return (
+            self.sealed_input if self.sealed_input is not None else SealedPdfNative(self.document)
+        )
 
     def iter_records(
         self,
         *,
-        product_id: str,
-        revision_id: str,
-        release_id: str,
+        product_id: str | None = None,
+        revision_id: str | None = None,
+        release_id: str | None = None,
         source_digest: str,
         write_scalar: Any,
         lowering: CapturedPdfLowering | None = None,
     ) -> Iterator[Any]:
-        from corpus_structure.semantic.pdf_records import iter_native_records
-
-        yield from iter_native_records(
-            _json_view(self.document),
+        yield from self.sealed.iter_records(
             product_id=product_id,
             revision_id=revision_id,
             release_id=release_id,
@@ -427,8 +482,6 @@ class StreamingPdfResult:
         self,
         root: Path,
         *,
-        build_id: str,
-        release_id: str,
         source_digest: str,
         on_batch: Callable[[PdfReplayRef], None] | None = None,
         preparation_report: bytes = b"{}",
@@ -442,6 +495,7 @@ class StreamingPdfResult:
             ScalarDescriptor,
             emit_parts,
         )
+        from corpus_structure.semantic.pdf_replay_transport import replay_schema
 
         if lowering is None:
             from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
@@ -460,7 +514,7 @@ class StreamingPdfResult:
             sizes.pop(family, None)
             if not rows:
                 return
-            schema = lowering.schema("stage:" + family)
+            schema = replay_schema(lowering.schema("stage:" + family))
             batch = pa.RecordBatch.from_pylist(rows, schema=schema)
             if batch.nbytes > max_batch_bytes:
                 raise ValueError("native replay batch exceeds declared byte limit")
@@ -498,7 +552,7 @@ class StreamingPdfResult:
         def scalar(stream_id: str, profile: str, chunks: Any) -> ScalarDescriptor:
             folded = IdentityFold("bytes")
             digest = sha256()
-            common = {"product_id": build_id, "revision_id": build_id, "stream_id": stream_id}
+            common = {"stream_id": stream_id}
             # Complete the descriptor before its first protected transfer. The
             # local complete packet is retained for independent certification.
             from tempfile import TemporaryFile
@@ -579,9 +633,6 @@ class StreamingPdfResult:
         )
 
         for row in self.iter_records(
-            product_id=build_id,
-            revision_id=build_id,
-            release_id=release_id,
             source_digest=source_digest,
             write_scalar=scalar,
             lowering=lowering,
@@ -608,8 +659,6 @@ class StreamingPdfResult:
             )
         records = self.write_record_batches(
             request.record_root,
-            build_id=request.build_id,
-            release_id=request.release_id,
             source_digest=request.source.digest,
             on_batch=on_replay,
             preparation_report=preparation_report,
@@ -618,6 +667,7 @@ class StreamingPdfResult:
         on_replay(_ref(request.record_root / "completion.jsonl", "native_completion"))
         prepared = PreparedPdfCertificationInput(
             self.document,
+            self.sealed,
             self.spool,
             self.conversion_status,
             self.errors,

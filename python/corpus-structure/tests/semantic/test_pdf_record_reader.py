@@ -125,7 +125,7 @@ def test_compact_record_descriptor_preserves_health_availability_without_hydrati
         raise AssertionError("compact metadata must not hydrate native content")
 
     monkeypatch.setattr(reader, "iter_rows", rows)
-    monkeypatch.setattr(reader, "hydrate_document", refuse_hydration)
+    monkeypatch.setattr(reader, "reconstruct_document", refuse_hydration)
     if assessment == "ambiguous":
         with pytest.raises(ValueError, match="health inventory is ambiguous"):
             reader.product_descriptor()
@@ -139,191 +139,44 @@ def test_compact_record_descriptor_preserves_health_availability_without_hydrati
     producer.require_operation.assert_called_once_with("read_pdf_product")
 
 
-@pytest.mark.parametrize("large", [False, True])
-def test_program_export_uses_one_ordered_sql_cursor(infrastructure_rollback, large):
-    from sqlalchemy import event, text
-
-    from corpus_structure.semantic.pdf_record_reader_native import pdf_native_export_sql
+def test_whole_export_streams_large_parts_and_releases_its_acquired_rows():
+    from corpus_structure.core.db.lifetime import BorrowerCancellation, DatabaseOperationCancelled
 
     value = native()
     value["pages"] = {"1": {"size": {"width": -0.0, "height": 100.0}, "page_no": 1}}
-    if large:
-        value["texts"][0]["text"] = ('\u03b1\\"\n') * 350_000
-        value["body"]["meta"] = {"vendor": {"empty": [], "large": "Ω" * 350_000}}
-    if large:
-        assert len(value["texts"][0]["text"].encode("utf-8")) > 1024 * 1024
-    lowered = NativeRows(value)
-    conn = infrastructure_rollback
-    for ddl in (
-        "CREATE SCHEMA ops",
-        "CREATE SCHEMA kb",
-        "CREATE TABLE ops.pdf_record_document(product_id text,revision_id text,root_id text)",
-        (
-            "CREATE TABLE kb.pdf_record_native(product_id text,revision_id "
-            "text,record_id text,native_type text,native_address text,scalars_json "
-            "jsonb,structure_json jsonb)"
-        ),
-        (
-            "CREATE TABLE kb.pdf_record_membership(product_id "
-            "text,revision_id text,parent_id text,field_name text,ordinal "
-            "bigint,value_kind text,record_id text,scalar_json "
-            "jsonb,stream_id text,member_key text,member_key_stream_id text)"
-        ),
-        (
-            "CREATE FUNCTION ops.read_pdf_published_revision(p_task "
-            "bigint,p_product text,p_digest text) RETURNS TABLE(build_id "
-            "text) LANGUAGE sql AS $$SELECT 'b'::text WHERE p_task=42 AND "
-            "p_product='integrated' AND p_digest=repeat('f',64)$$"
-        ),
-    ):
-        conn.exec_driver_sql(ddl)
-    for row in lowered.rows:
-        if row.kind == "document":
-            fields = ("product_id", "revision_id", "root_id")
-            relation = "ops.pdf_record_document"
-        elif row.kind == "native":
-            fields = (
-                "product_id",
-                "revision_id",
-                "record_id",
-                "native_type",
-                "native_address",
-                "scalars_json",
-                "structure_json",
-            )
-            relation = "kb.pdf_record_native"
-        elif row.kind == "membership":
-            fields = (
-                "product_id",
-                "revision_id",
-                "parent_id",
-                "field_name",
-                "ordinal",
-                "value_kind",
-                "record_id",
-                "scalar_json",
-                "stream_id",
-                "member_key",
-                "member_key_stream_id",
-            )
-            relation = "kb.pdf_record_membership"
-        else:
-            continue
-        values = {name: row.values.get(name) for name in fields}
-        placeholders = [
-            f"CAST(:{name} AS jsonb)" if name.endswith("_json") else ":" + name for name in fields
-        ]
-        conn.execute(
-            text(f"INSERT INTO {relation}({','.join(fields)}) VALUES({','.join(placeholders)})"),
-            values,
-        )
-    conn.exec_driver_sql(pdf_native_export_sql())
-    queries = []
+    value["texts"][0]["text"] = ('\u03b1"\n') * 350_000
+    value["body"]["meta"] = {"vendor": {"empty": [], "large": "Ω" * 350_000}}
+    reader = NativeRows(value)
+    reader.cancellation = BorrowerCancellation()
 
-    def called(conn, cursor, statement, parameters, context, executemany):
-        queries.append(statement)
-
-    event.listen(conn, "before_cursor_execute", called)
-
-    class ScalarReader(PublishedPdfReader):
-        # A scalar replay owner exercises formatter boundaries independently of
-        # server artifact admission (which has its separate native controls).
-        def scalar(self, stream_id):
-            from corpus_structure.semantic.pdf_record_identity import emit_parts
-
-            for part in emit_parts(stream_id, lowered.scalar(stream_id)):
-                yield part.body
-
-        def _profile(self, stream_id):
-            return lowered._profile(stream_id)
-
-    reader = ScalarReader(
-        conn, ProductReference(42, "integrated", "f" * 64), revision=lowered.revision
-    )
-    results = []
-
-    def returned(conn, clause, multiparams, params, options, result):
-        results.append(result)
-
-    event.listen(conn, "after_execute", returned)
-    streamed = io.BytesIO()
+    sink = io.BytesIO()
     for chunk in reader.iter_native_json():
-        assert isinstance(chunk, bytes) and len(chunk) < 1024 * 1024
-        streamed.write(chunk)
-    assert results[-1].closed
-    reconstructed = json.loads(streamed.getvalue())
-    assert reconstructed == value
-    assert type(reconstructed["pages"]["1"]["size"]["height"]) is float
+        assert len(chunk) < 1024 * 1024
+        sink.write(chunk)
+    assert reader._document_stream_descriptors is None
+    assert json.loads(sink.getvalue()) == value == reader.reconstruct_document()
+    assert math.copysign(1.0, json.loads(sink.getvalue())["pages"]["1"]["size"]["width"]) == -1
 
-    def logical_identity(rows):
-        from corpus_structure.semantic.pdf_record_identity import LogicalIdentity
-        from corpus_structure.semantic.pdf_records import native_record_identity_fields
-
-        identity = LogicalIdentity(rows._one("header")["native_schema_digest"], "release", "a" * 64)
-        fields = [
-            part
-            for row in rows.rows
-            if (
-                part := native_record_identity_fields(
-                    row, scalar_descriptor=rows.descriptors.__getitem__
-                )
-            )
-            is not None
-        ]
-        ordered = sorted(fields, key=lambda p: (p[0].encode(), p[1].encode()))
-        for family, key, members in ordered:
-            identity.add_record(family, key, members)
-        return identity.pin().logical_digest
-
-    # Native identity has independent scalar/fold vectors. Here it assesses the
-    # formatter against the authored input, including distinctions JSON equality loses.
-    assert logical_identity(NativeRows(reconstructed)) == logical_identity(lowered)
-    assert len(queries) == 1
-    queries.clear()
-    early = reader.iter_native_json()
-    next(early)
-    early.close()
-    assert results[-1].closed
-    assert len(queries) == 1
-    queries.clear()
+    export = reader.iter_native_json()
+    next(export)
+    assert reader._document_stream_descriptors is not None
+    export.close()
+    assert reader._document_stream_descriptors is None
 
     class BrokenSink(io.BytesIO):
-        def write(self, chunk, /) -> int:
+        def write(self, chunk, /):
             raise OSError("consumer stopped")
 
     with pytest.raises(OSError, match="consumer stopped"):
         reader.write_native_json(BrokenSink())
-    assert results[-1].closed
-    assert len(queries) == 1
-    queries.clear()
-    sink = io.BytesIO()
-    receipt = reader.write_native_json(sink)
-    assert json.loads(sink.getvalue()) == value
-    assert math.copysign(1, json.loads(sink.getvalue())["pages"]["1"]["size"]["width"]) == -1
-    assert receipt.serialization_sha256 == sha256(sink.getvalue()).hexdigest()
-    assert len(queries) == 1
-    queries.clear()
-    assert reader.hydrate_document() == value
-    assert len(queries) == 1
-    from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
+    assert reader._document_stream_descriptors is None
 
-    cancelled_reader = ScalarReader(
-        conn, ProductReference(42, "integrated", "f" * 64), revision=lowered.revision
-    )
-    cancelled = cancelled_reader.iter_native_json()
-    next(cancelled)
-    cancelled_reader.cancellation.request_cancel()
+    export = reader.iter_native_json()
+    next(export)
+    reader.cancellation.request_cancel()
     with pytest.raises(DatabaseOperationCancelled):
-        next(cancelled)
-    assert results[-1].closed
-    event.remove(conn, "before_cursor_execute", called)
-    event.remove(conn, "after_execute", returned)
-    assert (
-        conn.execute(
-            text("SELECT count(*) FROM ops.read_pdf_native_events(42,'integrated',repeat('e',64))")
-        ).scalar_one()
-        == 0
-    )
+        next(export)
+    assert reader._document_stream_descriptors is None
 
 
 def test_integrated_v2_export_preserves_metadata_and_distinct_bindings():

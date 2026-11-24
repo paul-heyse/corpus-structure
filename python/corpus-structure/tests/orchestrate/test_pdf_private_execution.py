@@ -55,25 +55,34 @@ class Transactions:
             self.active -= 1
 
 
-def test_ipc_replay_uses_physical_retry_keys_and_preserves_batch_order(tmp_path):
+@pytest.mark.parametrize("replace_path", [False, True])
+def test_ipc_replay_uses_physical_retry_keys_and_preserves_batch_order(tmp_path, replace_path):
     from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
+    from corpus_structure.semantic.pdf_replay_transport import replay_schema
 
-    schema = pa.schema([("value", pa.int64())])
+    schema = replay_schema(pdf_staging.stage_schema("membership"))
     path = tmp_path / "records.arrow"
     with pa.ipc.new_file(str(path), schema) as writer:
-        writer.write_batch(pa.record_batch([[3]], schema=schema))
-        writer.write_batch(pa.record_batch([[4]], schema=schema))
+        writer.write_batch(pa.RecordBatch.from_pylist([{"ordinal": 3}], schema=schema))
+        writer.write_batch(pa.RecordBatch.from_pylist([{"ordinal": 4}], schema=schema))
     digest = sha256(path.read_bytes()).hexdigest()
-    replay = PdfReplayRef(path, digest, path.stat().st_size, "native", 2)
+    replay = PdfReplayRef(path, digest, path.stat().st_size, "membership", 2)
     checks = []
     batches = execution.ipc_replay_batches([replay], lambda: checks.append(True))
     with __import__("contextlib").closing(batches):
         for ordinal, value in enumerate((3, 4)):
             batch = next(batches)
-            assert batch.replay_key == f"ipc:native:{digest}:{ordinal}"
-            assert next(iter(batch.relations["native"])).column(0).to_pylist() == [value]
+            assert batch.replay_key == f"ipc:membership:{digest}:{ordinal}"
+            assert next(iter(batch.relations["membership"])).column("ordinal").to_pylist() == [
+                value
+            ]
+            if ordinal == 0:
+                # Both path replacement and same-inode mutation must leave already
+                # acquired data alone. A new acquisition authenticates again.
+                if replace_path:
+                    path.rename(tmp_path / "older.arrow")
+                path.write_bytes(bytes(replay.byte_length))
     assert len(checks) == 3
-    path.write_bytes(b"corrupted")
     with pytest.raises(ValueError, match="changed"):
         next(execution.ipc_replay_batches([replay], lambda: None))
 
@@ -176,7 +185,9 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
         )
         contract, *sources = pdf_domain.pdf_domain_sources(standard_producer=selected_producer)
         context = replace(
-            context, domain=pdf_domain.PdfDomainContract(contract.content, tuple(sources))
+            context,
+            domain=pdf_domain.PdfDomainContract(contract.content, tuple(sources)),
+            operation="source.pdf/capture",
         )
     build = pdf_staging.PdfBuildRef(
         "b",
@@ -305,7 +316,7 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
     monkeypatch.setattr(pdf_staging, "begin_pdf_build", lambda *args, **kwargs: build)
     monkeypatch.setattr(pdf_domain, "require_pdf_database_action", lambda *args: None)
 
-    def task_context(connection, task_id):
+    def task_context(connection, task_id, *, operation):
         assert connection is engine and engine.active == 1 and active[0]
         assert task_id == 1
 
@@ -318,8 +329,9 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
 
     adoptions = []
 
-    def stage_access(actual_engine, actual, path, *, cancellation, check_active):
-        assert actual_engine is engine and actual is build and engine.active == 0
+    def stage_access(connection, actual, replay, *, check_active, legacy):
+        assert connection is engine and actual is build and engine.active == 1
+        assert not legacy
         assert not sleeping[0]
         check_active()
         adoptions.append("access")

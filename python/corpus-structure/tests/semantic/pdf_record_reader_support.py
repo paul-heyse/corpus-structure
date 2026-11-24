@@ -1,7 +1,5 @@
 """Shared controlled inputs and builders for pdf record reader support."""
 
-import codecs
-import json
 from collections.abc import Generator
 from typing import Any, Literal
 
@@ -63,112 +61,12 @@ class NativeRows(PublishedPdfReader):
             yield {"kind": "row", "body": dict(body)}
             yield {"kind": "close"}
 
-    def iter_native_json(self, events=None) -> Generator[bytes]:
-        from corpus_structure.semantic.pdf_records import _decode_scalar, _parse_inline
-
-        def encode(value):
-            return json.dumps(
-                value, ensure_ascii=False, allow_nan=False, separators=(",", ":")
-            ).encode("utf-8")
-
-        def scalar(stream_id):
-            profile = self._profile(stream_id)
-            if profile == "pdf-record-native-json-v1":
-                yield from self.scalar(stream_id)
-            elif profile == "pdf-record-scalar-v1:s":
-                yield b'"'
-                decoder = codecs.getincrementaldecoder("utf-8")()
-                for chunk in self.scalar(stream_id):
-                    yield encode(decoder.decode(chunk))[1:-1]
-                yield encode(decoder.decode(b"", final=True))[1:-1]
-                yield b'"'
-            else:
-                yield encode(_decode_scalar(self.scalar(stream_id), profile))
-
-        active = set()
-
-        def record(record_id):
-            if record_id in active:
-                raise ValueError("published native containment cycle")
-            active.add(record_id)
-            row = self.record(record_id)
-            scalars, structure = json.loads(row["scalars_json"]), json.loads(row["structure_json"])
-            array = row["native_type"] == "NativeArray"
-            if not array:
-                yield b"{"
-            first = True
-            for field in sorted(scalars.keys() | structure["fields"].keys()):
-                if not first:
-                    yield b","
-                first = False
-                if not array:
-                    yield encode(field) + b":"
-                if field in scalars:
-                    yield encode(_parse_inline(scalars[field]))
-                    continue
-                descriptor = structure["fields"][field]
-                kind = descriptor["kind"]
-                if kind == "object":
-                    yield from record(descriptor["target"])
-                elif kind == "parts":
-                    yield from scalar(descriptor["stream_id"])
-                elif kind in {"array", "map"}:
-                    yield b"{" if kind == "map" else b"["
-                    count = 0
-                    for member in self.members(record_id, field):
-                        if member["ordinal"] != count:
-                            raise ValueError("published membership inventory/order differs")
-                        if count:
-                            yield b","
-                        if kind == "map":
-                            key = member["member_key"]
-                            if key is None:
-                                key = _decode_scalar(
-                                    self.scalar(member["member_key_stream_id"]),
-                                    self._profile(member["member_key_stream_id"]),
-                                )
-                            yield encode(key) + b":"
-                        if member["value_kind"] == "record":
-                            yield from record(member["record_id"])
-                        elif member["value_kind"] == "scalar":
-                            yield encode(_parse_inline(json.loads(member["scalar_json"])))
-                        else:
-                            yield from scalar(member["stream_id"])
-                        count += 1
-                    if count != descriptor["length"]:
-                        raise ValueError("published membership inventory differs")
-                    yield b"}" if kind == "map" else b"]"
-                else:
-                    raise ValueError("unsupported published structure descriptor")
-            if "extensions" in structure:
-                # The native opaque encoder emits one object. Preserve its exact
-                # encounter order and stream its interior without parsing the object.
-                chunks = iter(self.scalar(structure["extensions"]["stream_id"]))
-                pending = b""
-                opened = False
-                separator = not first
-                for chunk in chunks:
-                    if not opened:
-                        if not chunk.startswith(b"{"):
-                            raise ValueError("native extension is not an object")
-                        chunk = chunk[1:]
-                        opened = True
-                    pending += chunk
-                    if len(pending) > 1:
-                        if separator:
-                            yield b","
-                            separator = False
-                        yield pending[:-1]
-                        pending = pending[-1:]
-                if not opened or pending != b"}":
-                    raise ValueError("native extension object is incomplete")
-            if not array:
-                yield b"}"
-            active.remove(record_id)
-
-        yield from record(self._one("header")["root_id"])
-
     def iter_rows(self, family, filters=None, **kwargs) -> Generator[dict[str, Any]]:
+        if family == "artifact_stream":
+            for stream_id, encoding_profile in self.profiles.items():
+                if not filters or filters.get("stream_id") == stream_id:
+                    yield {"stream_id": stream_id, "encoding_profile": encoding_profile}
+            return
         kind = "document" if family == "header" else family
         for row in self.rows:
             if row.kind == kind and all(row.values.get(k) == v for k, v in (filters or {}).items()):
@@ -176,9 +74,6 @@ class NativeRows(PublishedPdfReader):
 
     def scalar(self, stream_id):
         yield from self.streams[stream_id]
-
-    def _profile(self, stream_id):
-        return self.profiles[stream_id]
 
 
 def native() -> dict[str, Any]:

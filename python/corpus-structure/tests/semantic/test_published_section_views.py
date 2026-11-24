@@ -130,7 +130,7 @@ class SelectedReader(PublishedPdfReader):
             )
         ]
 
-    def hydrate_document(self):
+    def reconstruct_document(self):
         raise AssertionError("whole-book demand is forbidden in selected construction")
 
     def native_product_values(self, *, include_candidate_pages=True):

@@ -13,8 +13,9 @@ from docling_core.types.doc import (
 )
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
+from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
 from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
-from corpus_structure.orchestrate.pdf_streaming import ipc_replay_batches
+from corpus_structure.orchestrate.pdf_streaming import _adopt_pdf_document
 from corpus_structure.semantic.pdf_certification import (
     PdfProducerPayloads,
     prepare_pdf_producer_contract,
@@ -22,16 +23,9 @@ from corpus_structure.semantic.pdf_certification import (
 )
 from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
 from corpus_structure.semantic.pdf_payloads import prepare_payload_family
-from corpus_structure.semantic.pdf_publication import (
-    adopt_prepared_pdf_companion_batches,
-    prepared_pdf_companion_batches,
-    record_pdf_producer_certification,
-    stage_pdf_access_projection,
-)
-from corpus_structure.semantic.pdf_staging import adopt_pdf_batch
 
 
-def stage_pdf_document(
+def prepare_pdf_document(
     engine,
     build,
     directory,
@@ -68,8 +62,6 @@ def stage_pdf_document(
     replays = tuple(
         result.write_record_batches(
             directory / "records",
-            build_id=build.build_id,
-            release_id=build.release_id,
             source_digest=build.source_digest,
         )
     )
@@ -88,7 +80,6 @@ def stage_pdf_document(
     )
     prepared = write_pdf_companion_sets(
         directory / "companions",
-        build,
         families,
         payload_family=prepare_payload_family(context),
         check_active=lambda: None,
@@ -132,21 +123,17 @@ def stage_pdf_document(
         )
     finally:
         payloads.close()
-    for batch in ipc_replay_batches(replays, check_active=lambda: None):
-        with engine.begin() as conn:
-            adopt_pdf_batch(conn, build, batch.replay_key, batch.relations)
-    for group in prepared:
-        batches = prepared_pdf_companion_batches(group)
-        try:
-            with engine.begin() as conn:
-                adopt_prepared_pdf_companion_batches(conn, build, batches, group.replay_key)
-        finally:
-            batches.close()
-    stage_pdf_access_projection(
-        engine, build, projection, cancellation=BorrowerCancellation(), check_active=lambda: None
+    return replays, prepared, PdfReplayRef.from_path(projection, "producer_access"), certification
+
+
+def stage_pdf_document(engine, build, directory, document, **options):
+    _adopt_pdf_document(
+        engine,
+        build,
+        *prepare_pdf_document(engine, build, directory, document, **options),
+        cancellation=BorrowerCancellation(),
+        check_active=lambda: None,
     )
-    with engine.begin() as conn:
-        record_pdf_producer_certification(conn, build, certification)
     return document
 
 

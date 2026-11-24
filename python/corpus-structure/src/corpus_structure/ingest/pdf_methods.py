@@ -240,10 +240,11 @@ def _drafts(
     return tuple(drafts)
 
 
-def _conversion_from_product(
-    product, recipe_bytes: bytes, candidate_source: CandidatePageSource | None = None
+def _conversion_from_values(
+    values: Mapping[str, Any],
+    recipe_bytes: bytes,
+    candidate_source: CandidatePageSource | None = None,
 ) -> PdfConversion:
-    values = product.values()
     if candidate_source is None:
         # Explicitly materialized native-product callers already own these values.
         # Preserve their observed metadata; the enrichment caller supplies a detached

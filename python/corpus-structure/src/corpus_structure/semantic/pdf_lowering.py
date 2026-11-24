@@ -302,13 +302,29 @@ def lowering_reuse_complete(context) -> bool:
     return json.loads(selected_lowering_contract(context).content)["code_identity"]["complete"]
 
 
-def require_lowering_identity(context, *, expected_digest=None) -> str:
-    """Use the exact retained artifact only after matching its executable closure."""
-    from hashlib import sha256
+def _authenticated_lowering_contract(context, *, expected_digest=None) -> SourceArtifact:
+    """Authenticate the declared assets from the exact producing release."""
 
     if context.domain is None:
         raise ValueError("PDF certification requires its released lowering contract")
     retained = selected_lowering_contract(context, expected_digest=expected_digest)
+    declared = json.loads(retained.content)
+    for item in declared["inputs"]:
+        name = item["name"].removeprefix("pdf-domain/")
+        captured = context.domain.source(name)
+        if sha256(captured.content).hexdigest() != item["sha256"]:
+            raise ValueError("captured PDF lowering source differs from its contract")
+    return retained
+
+
+def authenticate_retained_lowering(context, *, expected_digest: str) -> str:
+    """Verify historical custody when reconstructing under the archived policy."""
+    return _authenticated_lowering_contract(context, expected_digest=expected_digest).digest
+
+
+def require_lowering_identity(context, *, expected_digest=None) -> str:
+    """Require the executable closure before producing or reusing a native result."""
+    retained = _authenticated_lowering_contract(context, expected_digest=expected_digest)
     from .metadata import get_metadata
 
     current_boundary = _current_boundary()
@@ -337,10 +353,4 @@ def require_lowering_identity(context, *, expected_digest=None) -> str:
         source.name == retained.name and source.content == retained.content for source in current
     ):
         raise ValueError("PDF lowering contract differs from the captured execution basis")
-    declared = json.loads(retained.content)
-    for item in declared["inputs"]:
-        name = item["name"].removeprefix("pdf-domain/")
-        captured = context.domain.source(name)
-        if sha256(captured.content).hexdigest() != item["sha256"]:
-            raise ValueError("captured PDF lowering source differs from its contract")
     return retained.digest

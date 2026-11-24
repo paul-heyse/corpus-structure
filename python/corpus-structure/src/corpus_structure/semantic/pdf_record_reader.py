@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import codecs
 import json
-from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
 from contextlib import closing, contextmanager, nullcontext
 from dataclasses import dataclass
@@ -19,7 +18,7 @@ from typing import TYPE_CHECKING, Any, BinaryIO, TypedDict
 
 import pyarrow as pa
 import pyarrow.compute as pc
-from sqlalchemy import Connection, Text, any_, func, literal, select
+from sqlalchemy import Connection, Text, and_, any_, func, literal, select
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.core.db.store import (
@@ -49,35 +48,77 @@ class PublishedReadBudget:
     bytes: int = 0
 
     def preflight(self, conn, statement, *, payload_reserved=False):
-        from .refusal_types import ReadLimit
-
         # Only scalar lengths/count cross this first protected read. Data remains on
         # the server until its exact immutable selection has passed admission.
-        requested = statement.subquery()
-        selected = select(requested).limit(self.max_rows - self.rows + 1).subquery()
+        selected = self._selection(statement).subquery()
+        summary = conn.execute(self._summary(selected)).one()
+        self._admit_summary(*summary, payload_reserved=payload_reserved)
+
+    def _selection(self, statement):
+        return select(statement.subquery()).limit(self.max_rows - self.rows + 1)
+
+    @staticmethod
+    def _summary(selected, *, ordinal=None):
         size = sum(
-            (func.coalesce(func.octet_length(column.cast(Text)), 0) for column in selected.c),
+            (
+                func.coalesce(func.octet_length(column.cast(Text)), 0)
+                for column in selected.c
+                if column is not ordinal
+            ),
             literal(0),
         )
-        summary = conn.execute(
-            select(
-                func.count().label("rows"),
-                func.coalesce(func.sum(size), 0).label("bytes"),
-                func.coalesce(func.max(size), 0).label("largest"),
-            ).select_from(selected)
-        ).one()
-        if self.rows + summary.rows > self.max_rows:
+        return select(
+            func.count().label("rows"),
+            func.coalesce(func.sum(size), 0).label("bytes"),
+            func.coalesce(func.max(size), 0).label("largest"),
+        ).select_from(selected)
+
+    def _admit_summary(self, rows, total_bytes, largest, *, payload_reserved):
+        from .refusal_types import ReadLimit
+
+        if self.rows + rows > self.max_rows:
             raise ReadLimit("native source row-work budget exhausted", reason="work_limit")
-        allowance = self.max_bytes if payload_reserved else self.max_bytes - self.bytes
         # PostgreSQL JSON text has insignificant whitespace/hex byte transport. A
         # bounded 2x transfer preflight precedes canonical decoded-row accounting.
-        if summary.largest > 2 * self.max_bytes:
+        if largest > 2 * self.max_bytes:
             raise ReadLimit(
                 "a native source object exceeds the byte budget", reason="oversized_item"
             )
-        if summary.bytes > 2 * allowance:
+        if total_bytes > 2 * self._byte_allowance(payload_reserved):
             raise ReadLimit("native source byte-work budget exhausted", reason="work_limit")
-        self.rows += summary.rows
+        self.rows += rows
+
+    def _byte_allowance(self, payload_reserved):
+        return self.max_bytes if payload_reserved else self.max_bytes - self.bytes
+
+    def guarded_rows(self, conn, statement, *, payload_reserved=False):
+        """Size and deliver one immutable bounded page in a single server evaluation."""
+        ordered = self._selection(statement).subquery()
+        selected = (
+            select(ordered, func.row_number().over().label("_pdf_ordinal"))
+            .cte("pdf_selected")
+            .prefix_with("MATERIALIZED", dialect="postgresql")
+        )
+        ordinal = selected.c._pdf_ordinal
+        summary = self._summary(selected, ordinal=ordinal).cte("pdf_size")
+        admitted = and_(
+            summary.c.rows <= self.max_rows - self.rows,
+            summary.c.largest <= 2 * self.max_bytes,
+            summary.c.bytes <= 2 * self._byte_allowance(payload_reserved),
+        )
+        query = (
+            select(
+                summary.c.rows, summary.c.bytes, summary.c.largest, ordinal, *list(selected.c)[:-1]
+            )
+            .select_from(summary.outerjoin(selected, admitted))
+            .order_by(ordinal)
+        )
+        with conn.execute(query) as result:
+            first = next(result)
+            self._admit_summary(*first[:3], payload_reserved=payload_reserved)
+            if first[3] is None:
+                return []
+            return [first[4:], *(row[4:] for row in result)]
 
     def reserve_rows(self, count: int) -> None:
         from .refusal_types import ReadLimit
@@ -164,15 +205,19 @@ def _published_revision(conn: Connection, reference: ProductReference, *, read_b
         product_key=ProductKey(reference.product_key),
         logical_digest=ContentDigest(reference.content_digest),
     )
-    if read_budget is not None:
-        read_budget.preflight(conn, statement)
-    with conn.execute(statement) as result:
-        row = result.one_or_none()
-        decoded = (
-            materialize_read_pdf_published_revision(row).model_dump(mode="python")
-            if row is not None
-            else None
-        )
+    if read_budget is None:
+        with conn.execute(statement) as result:
+            row = result.one_or_none()
+    else:
+        rows = read_budget.guarded_rows(conn, statement)
+        if len(rows) > 1:
+            raise ValueError("published native revision is ambiguous")
+        row = rows[0] if rows else None
+    decoded = (
+        materialize_read_pdf_published_revision(row).model_dump(mode="python")
+        if row is not None
+        else None
+    )
     if read_budget is not None and decoded is not None:
         read_budget.value(decoded)
     return decoded
@@ -180,6 +225,7 @@ def _published_revision(conn: Connection, reference: ProductReference, *, read_b
 
 _METADATA_PROJECTIONS = (
     "pointer",
+    "item_pointers",
     "outcome",
     "has_diagnostic",
     "page_no",
@@ -306,7 +352,7 @@ class PublishedPdfReader:
             budget = getattr(self, "read_budget", None)
             admitted = getattr(self, "_whole_materialization", False)
             if budget is not None and not admitted:
-                budget.preflight(self.conn, statement, payload_reserved=payload_reserved)
+                return budget.guarded_rows(self.conn, statement, payload_reserved=payload_reserved)
             with self.conn.execute(statement) as result:
                 rows = list(result)
             if budget is not None and admitted:
@@ -412,7 +458,7 @@ class PublishedPdfReader:
                 self._check_active()
                 yield chunk
             return
-        stream = self._one("artifact_stream", {"stream_id": stream_id})
+        stream = self._stream_descriptor(stream_id)
         pin = ArtifactPin(
             stream_id,
             self.revision["release_id"],
@@ -583,108 +629,37 @@ class PublishedPdfReader:
             rows = self._read_operation("read_published_item_ancestors", **pin, pointer=pointer)
         return self._projection_values(rows)
 
-    def _remember_metadata_report(self, row, body):
-        cache = self.__dict__.setdefault("_metadata_report_cache", OrderedDict())
-        cache[row["local_id"]] = body
-        cache.move_to_end(row["local_id"])
-        if len(cache) > 256:
-            cache.popitem(last=False)
-        order = self.__dict__.setdefault("_metadata_report_order", {})
-        order[row["local_id"]] = (row["ordinal"], row["local_id"])
-
-    def _metadata_report_index(self, kind):
-        """Scan one known family in bounded pages, retaining addresses rather than bodies."""
-        indexes = self.__dict__.setdefault("_metadata_report_indexes", {})
-        if kind in indexes:
-            return indexes[kind]
-        index = {}
-        for row in self.iter_rows("companion", {"family": "native_metadata", "kind": kind}):
-            body = self.decode_companion_row(row)
-            value = body["value"]
-            pointers = (
-                value["item_pointers"]
-                if kind == "inline_alignment_reports"
-                else (value["table_pointer" if kind == "cell_reports" else "pointer"],)
-            )
-            for pointer in pointers:
-                index.setdefault(pointer, []).append(row["local_id"])
-            self._remember_metadata_report(row, body)
-        indexes[kind] = index
-        return index
-
-    def _metadata_report_value(self, local_id):
-        from copy import deepcopy
-
-        cache = self.__dict__.setdefault("_metadata_report_cache", OrderedDict())
-        if local_id not in cache:
-            row = self._one("companion", {"family": "native_metadata", "local_id": local_id})
-            self._remember_metadata_report(row, self.decode_companion_row(row))
-        cache.move_to_end(local_id)
-        # Callers can attach presentation custody without changing original retained values.
-        return deepcopy(cache[local_id])
-
     def selected_item_reports(
         self,
         pointers: Sequence[str],
         *,
-        kinds=(
-            "cell_reports",
-            "derivation_mappings",
-            "inline_alignment_reports",
-        ),
+        kinds=("cell_reports", "derivation_mappings", "inline_alignment_reports"),
     ):
-        """Select known diagnostics through original byte-owned companion fields.
-
-        Single-pointer cell/derivation reads use their existing native selector. An
-        inline or bulk family is streamed once per reader into a pointer/local-id
-        index; at most 256 decoded reports remain cached. No native JSONB conversion
-        is used for opaque values or arbitrary strings.
-        """
+        """Open only the exact diagnostic occurrences selected by item and ancestry."""
+        from .pdf_access_projection import ITEM_REPORT_KINDS
         from .pdf_contracts import pdf_context_for_release
 
-        allowed = {"cell_reports", "derivation_mappings", "inline_alignment_reports"}
-        if not set(kinds) <= allowed:
+        if not set(kinds) <= set(ITEM_REPORT_KINDS):
             raise ValueError("unknown selected native diagnostic family")
         with self._projection_scope() as pin:
             pdf_context_for_release(self.conn, pin["projection_context"]).require_operation(
                 "read_native_source"
             )
-            if not pointers:
+            if not pointers or not kinds:
                 return []
-            selected = set(pointers)
-            ancestry = set()
-            local_ids = set()
-            for kind in dict.fromkeys(kinds):
-                if kind != "inline_alignment_reports" and len(selected) == 1:
-                    for row in self.iter_rows(
-                        "companion",
-                        {
-                            "family": "native_metadata",
-                            "kind": kind,
-                            "pointer": next(iter(selected)),
-                        },
-                    ):
-                        self._remember_metadata_report(row, self.decode_companion_row(row))
-                        local_ids.add(row["local_id"])
-                    continue
-                if kind == "inline_alignment_reports" and not ancestry:
-                    ancestry = {
-                        row["pointer"]
-                        for pointer in selected
-                        for row in self.item_ancestors(pointer)
-                    }
-                index = self._metadata_report_index(kind)
-                for pointer in ancestry if kind == "inline_alignment_reports" else selected:
-                    local_ids.update(index.get(pointer, ()))
-            order = self.__dict__.get("_metadata_report_order", {})
-            return [
-                dict(
-                    local_id=local_id,
-                    ordinal=order[local_id][0],
-                    body=self._metadata_report_value(local_id),
-                )
-                for local_id in sorted(local_ids, key=order.__getitem__)
-            ]
+            filters = {
+                "pointers": list(dict.fromkeys(pointers)),
+                "kinds": list(dict.fromkeys(kinds)),
+            }
+            with closing(self.iter_rows("item_report", filters)) as rows:
+                return [
+                    dict(
+                        local_id=row["local_id"],
+                        ordinal=row["ordinal"],
+                        body=self.decode_companion_row(row),
+                    )
+                    for row in rows
+                ]
 
     def section_reports(self, pointers: Sequence[str], sections: Sequence[str]):
 
@@ -709,12 +684,18 @@ class PublishedPdfReader:
         return self._projection_values((row,))[0]
 
     def _profile(self, stream_id):
+        return self._stream_descriptor(stream_id)["encoding_profile"]
+
+    def _stream_descriptor(self, stream_id):
         materialized = getattr(self, "_materialized_streams", None)
-        if materialized is not None:
-            if stream_id not in materialized:
+        if materialized is not None and stream_id in materialized:
+            return materialized[stream_id][0]
+        selected = getattr(self, "_document_stream_descriptors", None)
+        if selected is not None:
+            if stream_id not in selected:
                 raise PublishedRecordUnavailable("published native stream is absent")
-            return materialized[stream_id][0]["encoding_profile"]
-        return self._one("artifact_stream", {"stream_id": stream_id})["encoding_profile"]
+            return selected[stream_id]
+        return self._one("artifact_stream", {"stream_id": stream_id})
 
     def hydrate(self, record_id: str, *, native_type: str) -> dict[str, Any]:
         from .pdf_records import reconstruct_native_document
@@ -891,10 +872,53 @@ class PublishedPdfReader:
             self._materialized_streams = None
             self._whole_materialization = False
 
-    def hydrate_document(self):
-        """Explicit whole-value demand uses admitted, verified bulk stream custody."""
-        with self._materialization_scope(), closing(self.iter_native_json()) as chunks:
-            value = json.loads(b"".join(chunks))
+    @contextmanager
+    def _document_rows(self):
+        from .pdf_records import AcquiredNativeDocumentRows
+
+        with (
+            self._materialization_scope(),
+            closing(self.iter_rows("native", batch_size=1000)) as records,
+            closing(self.iter_rows("membership", batch_size=1000)) as memberships,
+        ):
+            header = self._one("header")
+            mapping = self._native_schema_mapping()
+            if header["native_schema_digest"] != mapping.digest:
+                raise PublishedSchemaUnavailable(
+                    "native record header differs from producer schema"
+                )
+            streams = getattr(self, "_materialized_streams", None)
+            if streams is not None:
+
+                def scalar(stream_id):
+                    return streams[stream_id][1]
+
+                reader = AcquiredNativeDocumentRows(records, memberships, scalar)
+                descriptors = {
+                    stream_id: descriptor for stream_id, (descriptor, _) in streams.items()
+                }
+            else:
+                reader = AcquiredNativeDocumentRows(records, memberships, self.scalar)
+                with closing(self.iter_rows("artifact_stream", batch_size=1000)) as pages:
+                    descriptors = {row["stream_id"]: row for row in pages}
+            profiles = {
+                stream_id: descriptor["encoding_profile"]
+                for stream_id, descriptor in descriptors.items()
+            }
+            self._document_stream_descriptors = descriptors
+            try:
+                yield reader, header["root_id"], mapping, profiles
+            finally:
+                self._document_stream_descriptors = None
+
+    def reconstruct_document(self):
+        """Rebuild the published record population under its producing schema."""
+        from .pdf_records import reconstruct_native_document
+
+        with self._document_rows() as (reader, root, mapping, profiles):
+            value = reconstruct_native_document(
+                reader, root, scalar_profiles=profiles, mapping=mapping
+            )
         self._check_active()
         return value
 
@@ -1135,10 +1159,34 @@ class PublishedPdfReader:
     def native_product_values(self, *, include_candidate_pages: bool = True):
         """Explicit complete materialization for native transformations."""
         with self._materialization_scope():
-            return self._native_product_values(include_candidate_pages=include_candidate_pages)
+            metadata = self._native_product_metadata(
+                include_candidate_pages=include_candidate_pages
+            )
+            document = self.reconstruct_document()
+        return dict(metadata, native_schema_version=document["version"], document=document)
 
-    def _native_product_values(self, *, include_candidate_pages: bool):
-        document = self.hydrate_document()
+    def prepare_native_product(self, *, include_candidate_pages: bool):
+        """Acquire finite publication facts and own the bytes needed for detached reconstruction."""
+        from .pdf_records import reconstruct_native_document
+
+        with self._materialization_scope():
+            if getattr(self, "_materialized_streams", None) is None:
+                raise ValueError("detached PDF reconstruction requires owned artifact streams")
+            metadata = self._native_product_metadata(
+                include_candidate_pages=include_candidate_pages
+            )
+            with self._document_rows() as (reader, root, mapping, profiles):
+                pass
+
+        def finish():
+            document = reconstruct_native_document(
+                reader, root, scalar_profiles=profiles, mapping=mapping
+            )
+            return dict(metadata, native_schema_version=document["version"], document=document)
+
+        return finish
+
+    def _native_product_metadata(self, *, include_candidate_pages: bool):
         health_rows = list(self.iter_companions("health"))
         wrappers = [h for h in health_rows if "source_scope" in h]
         if len(wrappers) != 1:
@@ -1154,13 +1202,11 @@ class PublishedPdfReader:
             health["formula_outcomes"] = outcomes
         value = dict(
             recipe="pdf-native-v1",
-            native_schema_version=document["version"],
             derivation_mappings=[],
             product_key=self.reference.product_key,
             artifact_digest=self.revision["source_digest"],
             schema_digest=self.revision["schema_digest"],
             recipe_digest=self.revision["recipe_digest"],
-            document=document,
             source_scope=wrapper["source_scope"],
             health=health,
         )
@@ -1619,27 +1665,46 @@ class PublishedPdfReader:
                     raise ValueError("unsupported published export event")
 
     def iter_native_events(self) -> Generator[dict[str, Any]]:
-        from ._pdf_native_calls import (
-            materialize_read_pdf_native_events,
-            prepare_read_pdf_native_events,
-        )
+        """Format the ordered native rows; selected fragments supply their own events."""
+        from .pdf_records import iter_native_record_values
+
+        def literal(value):
+            return {"kind": "literal", "value": value}
+
+        def rendered(kind, value):
+            self._check_active()
+            if kind in {"inline", "parts"}:
+                yield {"kind": kind, "value": value}
+                return
+            if kind not in {"object", "array"}:
+                raise ValueError("invalid native reconstruction event")
+            yield literal("{" if kind == "object" else "[")
+            separator = ""
+            for name, item in events:
+                if name == "end":
+                    yield literal("}" if kind == "object" else "]")
+                    return
+                if name == "extension":
+                    stream, _ = item
+                    yield {"kind": "extension", "prefix": separator, "value": stream}
+                else:
+                    if separator:
+                        yield literal(separator)
+                    if name == "key":
+                        yield literal(json.dumps(item, ensure_ascii=False, allow_nan=False) + ":")
+                        yield from rendered(*next(events))
+                    else:
+                        yield from rendered(name, item)
+                separator = ","
+            raise ValueError("incomplete native reconstruction event stream")
 
         with (
-            self._read_scope(),
-            self.conn.execute(
-                prepare_read_pdf_native_events(
-                    **_record_parameters(self.reference)
-                ).execution_options(yield_per=256),
-            ) as result,
+            self._document_rows() as (reader, root, mapping, profiles),
+            closing(
+                iter_native_record_values(reader, root, scalar_profiles=profiles, mapping=mapping)
+            ) as events,
         ):
-            for row in result:
-                self._check_active()
-                event = _record_envelope(materialize_read_pdf_native_events(row))
-                budget = getattr(self, "read_budget", None)
-                if budget is not None and getattr(self, "_whole_materialization", False):
-                    budget.reserve_rows(1)
-                    budget.value(event)
-                yield event
+            yield from rendered(*next(events))
 
     def write_native_json(self, sink: BinaryIO) -> PdfExportReceipt:
         digest, size = sha256(), 0

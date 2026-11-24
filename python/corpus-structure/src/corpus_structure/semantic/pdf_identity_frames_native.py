@@ -344,7 +344,7 @@ def _pdf_identity_frame_declarations_program(model: MetaData) -> ProgramDeclarat
                         _array(("value", "payload_codec", "payload_schema_digest"), Text())
                     ),
                 ),
-                (metadata, companion_body.op("-")("value")),
+                (metadata, companion_body.op("-")(_array(("value", "item_pointers"), Text()))),
                 (companion_family == "occurrence", companion_body.op("-")("text")),
                 (
                     core_variable("row_", Boolean(), "has_relation_fields"),

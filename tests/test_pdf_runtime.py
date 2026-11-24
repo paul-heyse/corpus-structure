@@ -497,6 +497,7 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
     monkeypatch.setattr(converter, "runtime_bindings", lambda: ())
     from corpus_structure.ingest.pdf_enrichment import compute_enrichment
     from corpus_structure.ingest.pdf_worker import PdfWorker
+    from corpus_structure.semantic.pdf_records import native_validation_contract
 
     worker = PdfWorker(recipe)
     monkeypatch.setattr(
@@ -518,13 +519,17 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
 
     monkeypatch.setattr("corpus_structure.ingest.pdf_enrichment.PdfRegionRenderer", Renderer)
     draft = enrich_selected_pdf(
-        product,
+        product.values(),
         pin,
         ((section, membership),),
         cfg,
         b"captured-enrichment-recipe",
         candidate_source,
         worker,
+        original=product.original,
+        schema_bytes=product.schema_bytes,
+        source_policy=native_validation_contract(),
+        output_policy=native_validation_contract(),
         check_active=lambda: None,
     )
     try:

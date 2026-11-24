@@ -140,7 +140,7 @@ def test_page_replay_refuses_corrupt_bytes(tmp_path):
         errors=(),
     )
     spool.pages[1].path.write_bytes(b"bad")
-    with pytest.raises(ValueError, match="replay size changed"):
+    with pytest.raises(ValueError, match="replay size or file custody changed"):
         spool.restore_pages(
             SimpleNamespace(
                 pages=[page], confidence=SimpleNamespace(pages={}), errors=[], _page_sizes_by_no={}
@@ -260,8 +260,6 @@ def test_record_replay_uses_exact_stage_schema_and_explicit_parts(tmp_path):
     seen = []
     refs = result.write_record_batches(
         tmp_path / "records",
-        build_id="build",
-        release_id="release",
         source_digest="0" * 64,
         on_batch=seen.append,
     )
@@ -273,10 +271,14 @@ def test_record_replay_uses_exact_stage_schema_and_explicit_parts(tmp_path):
         ref.verify()
         with pa.memory_map(str(ref.path), "r") as source:
             reader = pa.ipc.open_file(source)
-            assert reader.schema.equals(stage_schema(ref.family), check_metadata=True)
+            from corpus_structure.semantic.pdf_replay_transport import replay_schema
+
+            assert reader.schema.equals(
+                replay_schema(stage_schema(ref.family)), check_metadata=True
+            )
             batch = reader.get_batch(0)
             assert batch.num_rows == ref.rows
-            assert batch.column("product_id").to_pylist() == ["build"] * ref.rows
+            assert not {"product_id", "revision_id", "release_id"}.intersection(batch.schema.names)
             if ref.family == "artifact_part":
                 assert max(batch.column("byte_length").to_pylist()) <= 65536
 
@@ -306,6 +308,24 @@ def test_logical_fields_do_not_depend_on_operational_build(tmp_path):
     assert fields("build-one") == fields("build-two")
 
 
+def test_sealed_pdf_records_are_isolated_from_former_draft_alias(tmp_path):
+    document = native_document()
+    document.texts[0].text = "Sealed text."
+    result = StreamingPdfResult(
+        document, PdfStreamSpool(tmp_path / "spool"), "success", (), b"", ()
+    )
+
+    def records():
+        return tuple(result.iter_records(source_digest="a" * 64, write_scalar=lambda *_: None))
+
+    first = records()
+    document.texts[0].text = "Edited draft."
+    later = records()
+    assert later == first
+    assert any("Sealed text." in str(row.values) for row in later)
+    assert all("Edited draft." not in str(row.values) for row in later)
+
+
 def test_worker_adopts_replay_before_terminal_result(tmp_path):
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_worker import PdfWorker
@@ -326,7 +346,6 @@ def test_worker_adopts_replay_before_terminal_result(tmp_path):
                     ref,
                     spool_root=tmp_path / "pages",
                     record_root=tmp_path / "records",
-                    build_id="build",
                     release_id="release",
                     **explicit_producer_contract(),
                 ),
@@ -354,9 +373,7 @@ def test_lazy_view_preserves_native_origin_picture_and_typed_metadata(tmp_path):
     expected = doc.export_to_dict()
     assert json.loads(json.dumps(_json_view(doc, computed=True))) == expected
     stream = StreamingPdfResult(doc, PdfStreamSpool(tmp_path / "spool"), "success", (), b"{}", ())
-    refs = stream.write_record_batches(
-        tmp_path / "records", build_id="B", release_id="R", source_digest="0" * 64
-    )
+    refs = stream.write_record_batches(tmp_path / "records", source_digest="0" * 64)
     assert any(ref.family == "artifact_part" for ref in refs)
     image.close()
 
@@ -378,7 +395,6 @@ def test_partial_stream_disposes_containing_worker(tmp_path):
                     source,
                     spool_root=tmp_path / "pages",
                     record_root=tmp_path / "records",
-                    build_id="build",
                     release_id="release",
                     **explicit_producer_contract(),
                 ),
@@ -475,9 +491,7 @@ def test_page_working_streams_are_not_reemitted_into_record_products(tmp_path):
     spool.pages[1] = ref
     spool.candidates[1] = ref
     result = StreamingPdfResult(native_document(), spool, "success", (), b"recipe", ())
-    refs = result.write_record_batches(
-        tmp_path / "records", build_id="build:one", release_id="release:one", source_digest="a" * 64
-    )
+    refs = result.write_record_batches(tmp_path / "records", source_digest="a" * 64)
     streams = []
     for item in refs:
         if item.family == "artifact_stream":

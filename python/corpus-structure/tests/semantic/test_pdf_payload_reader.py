@@ -1,6 +1,7 @@
 """Selected-page IPC access keeps Python export and columnar consumers coherent."""
 
 import json
+from dataclasses import replace
 from hashlib import sha256
 
 import pytest
@@ -96,6 +97,53 @@ def test_owned_projected_batch_and_inventory_keep_nested_arrays():
         {"page_no": 1, "candidate_count": 1, "ocr_region_count": 1, "ocr_word_count": 3},
         {"page_no": 2, "candidate_count": 0, "ocr_region_count": 0, "ocr_word_count": 0},
     ]
+
+
+def test_recovered_candidate_projects_previously_admitted_bytes(tmp_path, monkeypatch):
+    from corpus_structure.ingest.pdf_candidate_source import ReplayCandidatePageSource
+    from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
+    from corpus_structure.semantic.pdf_payloads import PreparedPayloadFamily, prepare_payload_family
+
+    family = prepare_payload_family()
+    original = family.encode_page(inventory())
+    path = tmp_path / "received.arrow"
+    path.write_bytes(original.content)
+    replay = replace(
+        PdfReplayRef.from_path(path, "candidate_payload", 1),
+        page_no=1,
+        schema_digest=original.schema_digest,
+        logical_digest=original.logical_digest,
+    )
+    source = ReplayCandidatePageSource({1: replay}, family)
+    requested = ("candidates", "has_words")
+    reads = []
+    read_batch = PreparedPayloadFamily.read_batch
+
+    def traced(codec, payload, **options):
+        reads.append((options.get("columns"), options.get("logical_digest")))
+        return read_batch(codec, payload, **options)
+
+    monkeypatch.setattr(PreparedPayloadFamily, "read_batch", traced)
+    (admitted,) = source.iter_batches(columns=requested)
+    (projected,) = source.iter_batches(columns=requested)
+    assert projected.equals(admitted) and projected.schema.names == list(requested)
+    assert reads == [
+        (None, original.logical_digest),
+        ((*requested, "page_no"), None),
+    ]
+
+    # Unselected OCR values changed without changing candidate geometry.
+    changed_value = inventory()
+    changed_value["ocr_regions"][0]["lines"][0]["words"][1]["confidence"] = 0.8
+    changed = family.encode_page(changed_value)
+    path.write_bytes(changed.content)
+    with pytest.raises(ValueError, match="changed"):
+        list(source.iter_batches(columns=requested))
+    unproven = replace(
+        replay, digest=sha256(changed.content).hexdigest(), byte_length=len(changed.content)
+    )
+    with pytest.raises(ValueError, match="logical digest differs"):
+        list(ReplayCandidatePageSource({1: unproven}, family).iter_batches(columns=requested))
 
 
 def test_streamed_export_decodes_ipc_to_logical_json_with_same_custody_pin():

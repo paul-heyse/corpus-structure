@@ -43,7 +43,7 @@ def validation_controls(infrastructure_engine, request):
                 "ops.task",
                 "ops.data_derivation",
                 "kb.pdf_record_access",
-                "kb.pdf_record_region",
+                "kb.pdf_record_page_access",
                 "ops.pdf_record_document",
                 "kb.pdf_record_native",
                 "kb.pdf_record_membership",
@@ -61,6 +61,13 @@ def validation_controls(infrastructure_engine, request):
                         UniqueConstraint("build_id", "attempt", "holder", "check_name")
                     )
             controls.create_all(connection)
+            connection.exec_driver_sql(
+                "CREATE VIEW kb.pdf_record_region_view AS "
+                "SELECT product_id, revision_id, ''::text AS pointer, 0::bigint AS region_index, "
+                "page_no, page_width, page_height, 0::numeric AS left, 0::numeric AS top, "
+                "0::numeric AS right, 0::numeric AS bottom, ''::text AS origin "
+                "FROM kb.pdf_record_page_access WHERE false"
+            )
             from corpus_structure.semantic.target_installation import foundation_programs
 
             for source, selected in (

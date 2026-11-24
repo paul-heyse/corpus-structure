@@ -1,9 +1,11 @@
 """Actual exact-pin selected report and ancestry projections on a small publication."""
 
+import json
 from copy import deepcopy
 from hashlib import sha256
 from importlib.resources import files
 
+import pyarrow as pa
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -119,7 +121,13 @@ def test_selected_reports_use_valid_original_parent_candidate_geometry_and_prose
 
     from corpus_structure.ingest.pdf import PdfConversion, publication_payload
     from corpus_structure.ingest.pdf_hierarchy import snapshot
+    from corpus_structure.semantic.pdf_certification import write_pdf_companion_sets
     from corpus_structure.semantic.pdf_contracts import pdf_context_for_task, prepare_pdf_product
+    from corpus_structure.semantic.pdf_payloads import prepare_payload_family
+    from corpus_structure.semantic.pdf_publication import (
+        adopt_prepared_pdf_companion_batches,
+        prepared_pdf_companion_batches,
+    )
     from corpus_structure.serve.native_source import (
         _published_alignment_reports,
         _published_parent_product,
@@ -228,6 +236,42 @@ def test_selected_reports_use_valid_original_parent_candidate_geometry_and_prose
             kind="native_text_range",
         )
     ]
+    (prepared_reports,) = write_pdf_companion_sets(
+        tmp_path / "projection-controls",
+        {
+            "native_metadata": [
+                dict(
+                    kind="inline_alignment_reports",
+                    ordinal=0,
+                    value=values["inline_alignment_reports"][0],
+                )
+            ],
+        },
+        payload_family=prepare_payload_family(context),
+        check_active=lambda: None,
+    )
+
+    def changed_projection(forged):
+        batches = prepared_pdf_companion_batches(prepared_reports, check_active=lambda: None)
+        for family, batch in batches:
+            if family == "companion":
+                rows = batch.to_pylist()
+                for row in rows:
+                    body = json.loads(row["body"])
+                    body["item_pointers"] = forged
+                    row["body"] = json.dumps(body, ensure_ascii=False)
+                batch = pa.RecordBatch.from_pylist(rows, schema=batch.schema)
+            yield family, batch
+
+    for forged, refusal in (
+        (outside.self_ref, "invalid metadata envelope"),
+        ([outside.self_ref], "metadata value/schema/projection differs"),
+    ):
+        with pytest.raises(DBAPIError, match=refusal), commit_writer_engine.begin() as conn:
+            adopt_prepared_pdf_companion_batches(
+                conn, private_build, changed_projection(forged), prepared_reports.replay_key
+            )
+
     derived = prepare_pdf_product(values, original, schema, recipe, context=context)
     selected = publish_native_record_fixture(
         commit_writer_engine,
@@ -245,22 +289,48 @@ def test_selected_reports_use_valid_original_parent_candidate_geometry_and_prose
             projection_context=open_release(conn, private_build.release_id),
         )
         assert reader is not None
-        scans = []
+        (outside_row,) = reader.iter_rows(
+            "companion", {"family": "native_metadata", "local_id": "inline_alignment_reports:1"}
+        )
+        outside_stream = outside_row["_fields"][0]["stream_id"]
+        family_scans = []
+        selected_lookups = []
+        opened_streams = []
         original_rows = reader.iter_rows
+        original_scalar = reader.scalar
 
         def observed_rows(family, filters=None, **kwargs):
-            if (filters or {}).get("kind") == "inline_alignment_reports" and kwargs.get(
-                "batch_size"
-            ) != 1:
-                scans.append(filters)
+            if family == "item_report":
+                selected_lookups.append(filters)
+            if (
+                family == "companion"
+                and (filters or {}).get("kind") == "inline_alignment_reports"
+                and kwargs.get("batch_size") != 1
+            ):
+                family_scans.append(filters)
             yield from original_rows(family, filters, **kwargs)
 
+        def observed_scalar(stream_id):
+            opened_streams.append(stream_id)
+            yield from original_scalar(stream_id)
+
         monkeypatch.setattr(reader, "iter_rows", observed_rows)
+        monkeypatch.setattr(reader, "scalar", observed_scalar)
         reports = reader.selected_item_reports((formula.self_ref,))
-        assert {row["local_id"] for row in reports} == {
-            "inline_alignment_reports:0",
+        assert [row["local_id"] for row in reports] == [
             "derivation_mappings:0",
-        }
+            "inline_alignment_reports:0",
+        ]
+        assert reports[1]["body"]["value"]["detail"] == "Retained ancestor prose diagnostic \x00é🙂"
+        assert "item_pointers" not in reports[1]["body"]
+        lookup = selected_lookups[0]
+        assert lookup is not None and lookup["pointers"] == [formula.self_ref]
+        assert [
+            (row["pointer"], row["region_index"], row["page_no"], row["left"], row["right"])
+            for row in reader.selected_regions((prose.self_ref,))
+        ] == [
+            (prose.self_ref, 0, 1, 26, 66),
+        ]
         assert _published_alignment_reports(reader, formula.self_ref) == [
             dict(values["inline_alignment_reports"][0], candidate_basis="native-vector-gap-v1")
         ]
@@ -270,7 +340,8 @@ def test_selected_reports_use_valid_original_parent_candidate_geometry_and_prose
         assert _published_alignment_reports(reader, formula.self_ref) == [
             dict(values["inline_alignment_reports"][0], candidate_basis="native-vector-gap-v1")
         ]
-        assert len(scans) == 1
+        assert family_scans == []
+        assert outside_stream not in opened_streams
         assert _published_parent_product(reader) == dict(
             task_id=private_build.task_id,
             product_key="raw",

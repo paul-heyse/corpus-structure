@@ -8,13 +8,16 @@ from pglast.visitors import Visitor
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    Column,
     Double,
     Integer,
     MetaData,
     Numeric,
     Select,
+    Table,
     Text,
     and_,
+    any_,
     case,
     cast,
     column,
@@ -25,7 +28,7 @@ from sqlalchemy import (
     true,
     union_all,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSONB, array
+from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSONB, array, insert
 
 from corpus_structure.schema.integrity import role_name
 
@@ -47,8 +50,269 @@ from .native_program import (
     pg_type,
 )
 from .native_program_registry import ProgramDeclaration
+from .pdf_access_projection import ITEM_REPORT_KINDS
 from .pdf_record_model import record_upload_table
 from .pdf_staging import stage_upload_profile
+
+
+def prepare_pdf_access_statements(model: MetaData, build):
+    """Derive the indexed item and page relations from the admitted JSON copies."""
+    stage = model.tables["ops.pdf_stage_access"]
+    access = model.tables["kb.pdf_record_access"]
+    pages = model.tables["kb.pdf_record_page_access"]
+    scoped = (
+        select(stage.c.product_id, stage.c.revision_id, stage.c.pointer, stage.c.native_json)
+        .where(stage.c.product_id == build, stage.c.revision_id == build)
+        .cte("json_copies")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    body = scoped.c.native_json
+    items = (
+        select(
+            scoped,
+            body["parent"]["$ref"].astext.label("parent_pointer"),
+            func.coalesce(body["label"].astext, "unspecified").label("label"),
+            func.coalesce(body["content_layer"].astext, "body").label("content_layer"),
+            body["text"].astext.label("text"),
+        )
+        .where(body.has_key("self_ref"))
+        .cte("items")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    parent, child = items.alias("parent"), items.alias("child")
+    is_section = child.c.label.in_(("section", "chapter"))
+    owners = (
+        select(child.c.pointer, case((is_section, child.c.pointer)).label("owner"))
+        .select_from(child.outerjoin(parent, parent.c.pointer == child.c.parent_pointer))
+        .where(parent.c.pointer.is_(None))
+        .cte("section_owners", recursive=True)
+    )
+    owners = owners.union_all(
+        select(
+            child.c.pointer,
+            case((is_section, child.c.pointer), else_=owners.c.owner),
+        ).select_from(owners.join(child, child.c.parent_pointer == owners.c.pointer))
+    )
+    header = model.tables["ops.pdf_record_document"].alias("h")
+    native = model.tables["kb.pdf_record_native"]
+    document, root = native.alias("d"), native.alias("root")
+    root_fields = (
+        func.jsonb_each(document.c.structure_json["fields"])
+        .table_valued(column("key", Text()), column("value", JSONB()))
+        .lateral("root_fields")
+    )
+    roots = (
+        select(
+            root.c.scalars_json["self_ref"].astext.label("pointer"),
+            cast(
+                array([case((root_fields.c.key == "body", 0), else_=1)]), ARRAY(BigInteger())
+            ).label("position"),
+        )
+        .select_from(
+            header.join(
+                document,
+                and_(
+                    document.c.product_id == build,
+                    document.c.revision_id == build,
+                    document.c.record_id == header.c.root_id,
+                ),
+            )
+            .join(root_fields, true())
+            .join(
+                root,
+                and_(
+                    root.c.product_id == build,
+                    root.c.revision_id == build,
+                    root.c.record_id == root_fields.c.value["target"].astext,
+                ),
+            )
+        )
+        .where(
+            header.c.product_id == build,
+            header.c.revision_id == build,
+            root_fields.c.key.in_(("body", "furniture")),
+        )
+        .cte("document_roots")
+    )
+    traversal = select(
+        roots.c.pointer,
+        roots.c.position,
+        array([roots.c.pointer], type_=Text()).label("path"),  # pyrefly: ignore[bad-argument-type]
+    ).cte("traversal", recursive=True)
+    children = (
+        func.jsonb_array_elements(
+            func.coalesce(parent.c.native_json["children"], cast(literal("[]"), JSONB()))
+        )
+        .table_valued(column("value", JSONB()), with_ordinality="ordinality")
+        .render_derived()
+        .lateral("children")
+    )
+    edges = (
+        select(
+            parent.c.pointer.label("parent_pointer"),
+            child.c.pointer.label("pointer"),
+            func.min(children.c.ordinality).label("position"),
+        )
+        .select_from(
+            parent.join(children, true()).join(
+                child,
+                and_(
+                    child.c.pointer == children.c.value["$ref"].astext,
+                    child.c.parent_pointer == parent.c.pointer,
+                ),
+            )
+        )
+        .group_by(parent.c.pointer, child.c.pointer)
+        .cte("containment_edges")
+    )
+    traversal = traversal.union_all(
+        select(
+            edges.c.pointer,
+            traversal.c.position.concat(
+                array([edges.c.position], type_=BigInteger())  # pyrefly: ignore[bad-argument-type]
+            ),
+            traversal.c.path.concat(
+                array([edges.c.pointer], type_=Text())  # pyrefly: ignore[bad-argument-type]
+            ),
+        )
+        .select_from(traversal.join(edges, edges.c.parent_pointer == traversal.c.pointer))
+        .where(~(edges.c.pointer == any_(traversal.c.path)))
+    )
+    ordered = select(
+        items.c.product_id,
+        items.c.revision_id,
+        items.c.pointer,
+        (
+            func.row_number().over(
+                order_by=(
+                    traversal.c.position.is_(None),
+                    traversal.c.position,
+                    items.c.pointer.collate("C"),
+                )
+            )
+            - 1
+        ).label("ordinal"),
+        items.c.label,
+        items.c.parent_pointer,
+        owners.c.owner.label("section_pointer"),
+        items.c.content_layer,
+        items.c.text,
+        items.c.native_json,
+    ).select_from(
+        items.outerjoin(traversal, traversal.c.pointer == items.c.pointer).outerjoin(
+            owners, owners.c.pointer == items.c.pointer
+        )
+    )
+    dimensions = select(
+        scoped.c.product_id,
+        scoped.c.revision_id,
+        cast(body["page_no"].astext, BigInteger()),
+        cast(body["size"]["width"].astext, Numeric()),
+        cast(body["size"]["height"].astext, Numeric()),
+    ).where(~body.has_key("self_ref"))
+    return (
+        insert(access)
+        .from_select([col.name for col in ordered.selected_columns], ordered)
+        .on_conflict_do_nothing(),
+        insert(pages).from_select(list(pages.c.keys()), dimensions).on_conflict_do_nothing(),
+        _prepare_pdf_report_items(model, build),
+    )
+
+
+def _prepare_pdf_report_items(model: MetaData, build):
+    reports = model.tables["kb.pdf_record_report_item"]
+    companion = model.tables["kb.pdf_record_companion"]
+    kind = companion.c.body["kind"].astext
+    scoped = (
+        companion.c.product_id == build,
+        companion.c.revision_id == build,
+        companion.c.family == "native_metadata",
+    )
+    direct_pointer = companion.c.body["pointer"].astext
+    direct = select(
+        companion.c.product_id,
+        companion.c.revision_id,
+        kind,
+        direct_pointer,
+        companion.c.local_id,
+    ).where(*scoped, kind.in_(ITEM_REPORT_KINDS[:2]), direct_pointer.is_not(None))
+    # Adoption validates the compact addresses against the exact byte field.
+    # The opaque report may contain values outside PostgreSQL JSONB's domain.
+    pointer = (
+        func.jsonb_array_elements_text(companion.c.body["item_pointers"])
+        .table_valued(column("value", Text()))
+        .lateral("pointers")
+    )
+    inline_items = (
+        select(
+            companion.c.product_id,
+            companion.c.revision_id,
+            kind,
+            pointer.c.value,
+            companion.c.local_id,
+        )
+        .select_from(companion.join(pointer, true()))
+        .where(*scoped, kind == ITEM_REPORT_KINDS[2])
+    )
+    return (
+        insert(reports)
+        .from_select(
+            ["product_id", "revision_id", "kind", "pointer", "local_id"],
+            direct.union_all(inline_items),
+        )
+        .on_conflict_do_nothing()
+    )
+
+
+def pdf_region_view(model: MetaData) -> Select:
+    """Expand each admitted provenance member and join its published physical page."""
+    access = model.tables["kb.pdf_record_access"]
+    pages = model.tables["kb.pdf_record_page_access"]
+    provenance = (
+        func.jsonb_array_elements(
+            func.coalesce(access.c.native_json["prov"], cast(literal("[]"), JSONB()))
+        )
+        .table_valued(column("value", JSONB()), with_ordinality="ordinality")
+        .render_derived()
+        .lateral("provenance")
+    )
+    bbox = provenance.c.value["bbox"]
+    page_no = cast(provenance.c.value["page_no"].astext, BigInteger())
+    return select(
+        access.c.product_id,
+        access.c.revision_id,
+        access.c.pointer,
+        (cast(provenance.c.ordinality, BigInteger()) - 1).label("region_index"),
+        pages.c.page_no,
+        pages.c.page_width,
+        pages.c.page_height,
+        *(
+            cast(bbox[key].astext, Numeric()).label(name)
+            for name, key in (("left", "l"), ("top", "t"), ("right", "r"), ("bottom", "b"))
+        ),
+        cast(
+            case((bbox["coord_origin"].astext == "TOPLEFT", "top_left"), else_="bottom_left"),
+            Text(),
+        ).label("origin"),
+    ).select_from(
+        access.join(provenance, true()).join(
+            pages,
+            and_(
+                pages.c.product_id == access.c.product_id,
+                pages.c.revision_id == access.c.revision_id,
+                pages.c.page_no == page_no,
+            ),
+        )
+    )
+
+
+def pdf_region_relation(model: MetaData) -> Table:
+    return Table(
+        "pdf_record_region_view",
+        MetaData(),
+        *(Column(field.name, field.type) for field in pdf_region_view(model).selected_columns),
+        schema="kb",
+    )
 
 
 def pdf_access_correspondence_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
@@ -354,7 +618,7 @@ def _access_checker_program(model: MetaData) -> ProgramDeclaration:
     native = model.tables["kb.pdf_record_native"].alias("n")
     membership = model.tables["kb.pdf_record_membership"].alias("m")
     header = model.tables["ops.pdf_record_document"].alias("h")
-    regions = model.tables["kb.pdf_record_region"].alias("r")
+    page_access = model.tables["kb.pdf_record_page_access"].alias("p")
     statements = []
 
     def scope(relation):
@@ -400,16 +664,6 @@ def _access_checker_program(model: MetaData) -> ProgramDeclaration:
                 access.c.revision_id != build,
                 native.c.record_id.is_(None),
                 access.c.native_json["self_ref"].astext.is_distinct_from(access.c.pointer),
-                access.c.label.is_distinct_from(
-                    func.coalesce(access.c.native_json["label"].astext, "unspecified")
-                ),
-                access.c.content_layer.is_distinct_from(
-                    func.coalesce(access.c.native_json["content_layer"].astext, "body")
-                ),
-                access.c.text.is_distinct_from(access.c.native_json["text"].astext),
-                access.c.parent_pointer.is_distinct_from(
-                    access.c.native_json["parent"]["$ref"].astext
-                ),
             ),
         ),
         "native access fields do not correspond to frozen native item",
@@ -605,141 +859,6 @@ def _access_checker_program(model: MetaData) -> ProgramDeclaration:
         cycles={"projected": ("record_id", "cycle_", "path_")},
     )
 
-    scoped = (
-        select(access.c.pointer, access.c.parent_pointer, access.c.label, access.c.section_pointer)
-        .where(*scope(access))
-        .cte("scoped")
-        .prefix_with("MATERIALIZED")
-    )
-    root, parent, child = scoped.alias("root"), access.alias("parent"), scoped.alias("child")
-    owners = (
-        select(
-            root.c.pointer,
-            case((root.c.label.in_(("section", "chapter")), root.c.pointer)).label("owner"),
-        )
-        .where(
-            ~select(1)
-            .select_from(parent)
-            .where(*scope(parent), parent.c.pointer == root.c.parent_pointer)
-            .correlate(root)
-            .exists()
-        )
-        .cte("section_owners", recursive=True)
-    )
-    owners = owners.union_all(
-        select(
-            child.c.pointer,
-            case(
-                (child.c.label.in_(("section", "chapter")), child.c.pointer), else_=owners.c.owner
-            ),
-        ).select_from(owners.join(child, child.c.parent_pointer == owners.c.pointer))
-    )
-    reject(
-        select(scoped.c.pointer, scoped.c.section_pointer).except_all(
-            select(owners.c.pointer, owners.c.owner)
-        ),
-        "native access section owner differs from native ancestry",
-    )
-
-    root_native, target = (
-        model.tables["kb.pdf_record_native"].alias("root"),
-        model.tables["kb.pdf_record_native"].alias("target"),
-    )
-    f = json_items(root_native.c.structure_json["fields"], "root_field")
-    roots = (
-        select(
-            target.c.scalars_json["self_ref"].astext.label("pointer"),
-            cast(array([case((f.c.key == "body", 0), else_=1)]), ARRAY(BigInteger())).label("path"),
-        )
-        .select_from(
-            header.join(
-                root_native,
-                and_(
-                    *scope(root_native),
-                    root_native.c.record_id == header.c.root_id,
-                ),
-            )
-            .join(f, true())
-            .join(
-                target,
-                and_(
-                    *scope(target),
-                    target.c.record_id == f.c.value["target"].astext,
-                ),
-            )
-        )
-        .where(*scope(header), f.c.key.in_(("body", "furniture")))
-        .cte("roots")
-    )
-    traversal = select(roots.c.pointer, roots.c.path).cte("traversal", recursive=True)
-    c = (
-        func.jsonb_array_elements(
-            func.coalesce(access.c.native_json["children"], cast(literal("[]"), JSONB()))
-        )
-        .table_valued(
-            column("value", JSONB()),
-            with_ordinality="ordinality",
-        )
-        .render_derived()
-        .lateral("child")
-    )
-    traversal = traversal.union_all(
-        select(
-            c.c.value["$ref"].astext,
-            traversal.c.path.concat(cast(array([c.c.ordinality - 1]), ARRAY(BigInteger()))),
-        ).select_from(
-            traversal.join(
-                access, and_(*scope(access), access.c.pointer == traversal.c.pointer)
-            ).join(c, true())
-        )
-    )
-    t = traversal.alias("t")
-    ordered = (
-        select(
-            access.c.pointer,
-            access.c.ordinal,
-            (
-                func.row_number().over(
-                    order_by=(
-                        case((t.c.pointer.is_(None), 1), else_=0),
-                        t.c.path,
-                        access.c.pointer.collate("C"),
-                    )
-                )
-                - 1
-            ).label("expected"),
-            core_variable("t", Boolean(), "cycle_").label("cycle_"),
-        )
-        .select_from(access.outerjoin(t, t.c.pointer == access.c.pointer))
-        .where(*scope(access))
-        .subquery("ordered")
-    )
-    reject(
-        select(1)
-        .select_from(ordered)
-        .where(or_(ordered.c.ordinal != ordered.c.expected, ordered.c.cycle_)),
-        "native access order differs from native containment traversal",
-        cycles={"traversal": ("pointer", "cycle_", "cycle_path_")},
-    )
-
-    region_counts = (
-        select(regions.c.pointer, func.count().label("count_"))
-        .where(*scope(regions))
-        .group_by(regions.c.pointer)
-        .cte("region_counts")
-    )
-    bad_counts = (
-        select(1)
-        .select_from(access.outerjoin(region_counts, region_counts.c.pointer == access.c.pointer))
-        .where(
-            *scope(access),
-            func.coalesce(region_counts.c.count_, 0)
-            != func.jsonb_array_length(
-                func.coalesce(access.c.native_json["prov"], cast(literal("[]"), JSONB()))
-            ),
-        )
-        .exists()
-    )
     pages, page, size = (
         model.tables["kb.pdf_record_membership"].alias("pages"),
         model.tables["kb.pdf_record_native"].alias("page"),
@@ -769,55 +888,50 @@ def _access_checker_program(model: MetaData) -> ProgramDeclaration:
         .cte("page_sizes")
         .prefix_with("MATERIALIZED")
     )
-    prov = (
-        select(access.c.native_json["prov"][cast(regions.c.region_index, Integer())].label("value"))
-        .correlate(access, regions)
-        .lateral("prov")
-    )
-    bad_regions = (
+    reject(
         select(1)
         .select_from(
-            regions.outerjoin(access, and_(*scope(access), access.c.pointer == regions.c.pointer))
-            .outerjoin(prov, true())
-            .outerjoin(page_sizes, page_sizes.c.member_key == cast(regions.c.page_no, Text()))
+            page_access.outerjoin(
+                page_sizes, page_sizes.c.member_key == cast(page_access.c.page_no, Text())
+            )
         )
         .where(
-            regions.c.product_id == build,
+            page_access.c.product_id == build,
             or_(
-                regions.c.revision_id != build,
-                access.c.pointer.is_(None),
-                prov.c.value.is_(None),
-                cast(prov.c.value["page_no"].astext, BigInteger()).is_distinct_from(
-                    regions.c.page_no
-                ),
+                page_access.c.revision_id != build,
+                page_sizes.c.member_key.is_(None),
                 func.ops.pdf_projection_scalar_matches(
-                    func.to_jsonb(regions.c.page_width), page_sizes.c.dimensions["width"]
+                    func.to_jsonb(page_access.c.page_width), page_sizes.c.dimensions["width"]
                 ).is_not(True),
                 func.ops.pdf_projection_scalar_matches(
-                    func.to_jsonb(regions.c.page_height), page_sizes.c.dimensions["height"]
+                    func.to_jsonb(page_access.c.page_height), page_sizes.c.dimensions["height"]
                 ).is_not(True),
-                *(
-                    func.to_jsonb(regions.c[field]).is_distinct_from(prov.c.value["bbox"][key])
-                    for field, key in (("left", "l"), ("top", "t"), ("right", "r"), ("bottom", "b"))
-                ),
-                regions.c.origin.is_distinct_from(
-                    case(
-                        (prov.c.value["bbox"]["coord_origin"].astext == "TOPLEFT", "top_left"),
-                        (
-                            prov.c.value["bbox"]["coord_origin"].astext == "BOTTOMLEFT",
-                            "bottom_left",
-                        ),
-                    )
-                ),
             ),
-        )
-        .exists()
+        ),
+        "native access page JSON differs from frozen page dimensions",
     )
-    statements.append(
-        If(
-            or_(bad_counts, bad_regions),
-            (Raise("native access regions differ from native provenance/pages", "23514"),),
+    provenance = (
+        func.jsonb_array_elements(
+            func.coalesce(access.c.native_json["prov"], cast(literal("[]"), JSONB()))
         )
+        .table_valued(column("value", JSONB()))
+        .lateral("provenance")
+    )
+    reject(
+        select(1)
+        .select_from(access.join(provenance, true()))
+        .where(
+            *scope(access),
+            ~select(1)
+            .select_from(page_access)
+            .where(
+                *scope(page_access),
+                page_access.c.page_no == cast(provenance.c.value["page_no"].astext, BigInteger()),
+            )
+            .correlate(access, provenance)
+            .exists(),
+        ),
+        "native access provenance has no corresponding page JSON copy",
     )
     routine = NativeRoutine(
         "ops",

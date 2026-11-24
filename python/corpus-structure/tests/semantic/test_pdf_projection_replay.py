@@ -42,29 +42,23 @@ def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
     from pdf_acceptance_support import stage_pdf_document
 
     stage_pdf_document(commit_writer_engine, build, tmp_path, document)
-    bodies = {}
+    bodies = {"access": [], "page": []}
     with commit_db_engine.connect() as conn:
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
-        for family in ("access", "region"):
-            bodies[family] = (
-                conn.execute(
-                    text(
-                        "SELECT to_jsonb(r)-'product_id'-'revision_id' "
-                        f"FROM ops.pdf_stage_{family} r "
-                        "WHERE product_id=:build AND revision_id=:build"
-                    ),
-                    {"build": build.build_id},
-                )
-                .scalars()
-                .all()
-            )
-    assert sorted(
-        (r["pointer"], r["region_index"], r["page_no"], r["left"], r["top"], r["origin"])
-        for r in bodies["region"]
-    ) == [
-        ("#/texts/0", 0, 1, 10, 20, "top_left"),
-        ("#/texts/0", 1, 2, 10, 20, "top_left"),
-    ]
+        copies = conn.execute(
+            text(
+                "SELECT native_json FROM ops.pdf_stage_access "
+                "WHERE product_id=:build AND revision_id=:build ORDER BY pointer"
+            ),
+            {"build": build.build_id},
+        ).scalars()
+        for copy in copies:
+            if "self_ref" in copy:
+                bodies["access"].append({"native_json": copy})
+            else:
+                bodies["page"].append(copy)
+    assert len(bodies["page"]) == 2
+    assert all(set(row) == {"native_json"} for row in bodies["access"])
 
     def write(connection, family, row):
         calls.stage_pdf_access_batch(
@@ -81,18 +75,46 @@ def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
             with commit_writer_engine.begin() as conn:
                 write(conn, family, row)
         row = rows[0]
-        changes = ({"left": row["left"] + 1},) if family == "region" else ({"text": "changed"},)
-        for change in changes:
-            with (
-                pytest.raises(DBAPIError, match=f"changed {family} projection"),
-                commit_writer_engine.begin() as conn,
-            ):
-                write(conn, family, row | change)
+        changed = (
+            row | {"size": dict(width=201, height=300)}
+            if family == "page"
+            else {"native_json": row["native_json"] | {"name": "changed"}}
+        )
+        with (
+            pytest.raises(DBAPIError, match="changed native projection JSON copy"),
+            commit_writer_engine.begin() as conn,
+        ):
+            write(conn, family, changed)
 
     with commit_writer_engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
     validate_pdf_build(commit_writer_engine, frozen)
+    with commit_db_engine.connect() as conn:
+        conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
+        assert conn.execute(
+            text(
+                'SELECT pointer, region_index, page_no, "left", top, origin '
+                "FROM kb.pdf_record_region_view WHERE product_id=:build AND revision_id=:build "
+                "ORDER BY pointer, region_index"
+            ),
+            {"build": build.build_id},
+        ).all() == [
+            ("#/texts/0", 0, 1, 10, 20, "top_left"),
+            ("#/texts/0", 1, 2, 10, 20, "top_left"),
+        ]
+        assert conn.execute(
+            text(
+                "SELECT pointer, parent_pointer, section_pointer, label, content_layer, text "
+                "FROM kb.pdf_record_access WHERE product_id=:build AND revision_id=:build "
+                "ORDER BY ordinal"
+            ),
+            {"build": build.build_id},
+        ).all() == [
+            ("#/body", None, None, "unspecified", "body", None),
+            ("#/texts/0", "#/body", None, "text", "body", "expected"),
+            ("#/furniture", None, None, "unspecified", "furniture", None),
+        ]
     # Projection membership now freezes with its certified producer, before the
     # reconstruction oracle or final validation can run. Even exact late writes refuse.
     for family, rows in bodies.items():

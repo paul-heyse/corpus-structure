@@ -467,6 +467,43 @@ def test_native_required_scalar_join_retains_exact_unchanged_origin_use(
     assert cut_count() == 2
 
 
+def test_native_governed_freshness_keeps_pending_sibling_contexts_separate(
+    commit_db_engine, scalar_reader, tmp_path
+):
+    recipe = scalar_recipe()
+    preparation = prepare_kernel(recipe, directory=tmp_path / "scoped-kernel")
+    with commit_db_engine.begin() as connection:
+        kernel = admit_kernel(connection, recipe, engine=commit_db_engine, preparation=preparation)
+    _, _, _, attached = attach(
+        kernel,
+        operation=LEFT,
+        selection_name="qualified-siblings",
+        additional_roots=(
+            dict(subject="subject:one", original_source="source:test", analyzed_scope={"page": 2}),
+            dict(subject="subject:one", original_source="source:other", analyzed_scope={"page": 1}),
+        ),
+    )
+
+    def governed(**scope):
+        with scalar_reader.begin() as connection:
+            return DataOperationStorage(connection).read_governed_selection(
+                cast(
+                    WireReadGovernedSelectionRequest,
+                    dict(project_id="ddo-test", selection_name="qualified-siblings", scope=scope),
+                )
+            )
+
+    assert governed()["state"] == "Pending"
+    fence = claim(kernel, attached, seconds=300)
+    publish(kernel, fence, retain(kernel, fence, outputs=(7,)))
+
+    exact = governed(original_source="source:test", analyzed_scope={"page": 1})
+    sibling = governed(original_source="source:test", analyzed_scope={"page": 2})
+    cross_source = governed(original_source="source:other", analyzed_scope={"page": 1})
+    assert exact["state"] == "Fresh"
+    assert sibling["state"] == cross_source["state"] == governed()["state"] == "Pending"
+
+
 @pytest.mark.parametrize("outcome", ["empty", "failed"])
 def test_closed_scalar_arm_stays_distinct_from_an_incomplete_join(
     commit_db_engine, scalar_writer, tmp_path, outcome

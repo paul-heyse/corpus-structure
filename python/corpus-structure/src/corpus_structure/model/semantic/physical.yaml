@@ -1462,20 +1462,14 @@ classes:
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id"],"target":"ops.pdf_stage_build.build_id"}]}
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
   pdf_stage_access:
-    is_a: PdfRecordAccess
     in_subset: [ops]
+    attributes:
+      product_id: {range: string, required: true}
+      revision_id: {range: string, required: true}
+      pointer: {range: string, required: true}
+      native_json: {range: json_payload, required: true}
     unique_keys:
       primary_key: {unique_key_slots: [product_id, revision_id, pointer]}
-    annotations:
-      ph:frontier_guard: exempt
-      ph:immutability: immutable
-      ph:read_roles: {"tag":"ph:read_roles","value":[]}
-      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id"],"target":"ops.pdf_stage_build.build_id"}]}
-  pdf_stage_region:
-    is_a: PdfRecordRegion
-    in_subset: [ops]
-    unique_keys:
-      primary_key: {unique_key_slots: [product_id, revision_id, pointer, region_index]}
     annotations:
       ph:frontier_guard: exempt
       ph:immutability: immutable
@@ -1668,18 +1662,38 @@ classes:
     annotations:
       ph:immutability: immutable
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:indexes: {"tag":"ph:indexes","value":[["product_id","revision_id","ordinal"],["product_id","revision_id","parent_pointer"],["product_id","revision_id","section_pointer","ordinal"]]}
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id"],"target":"ops.pdf_stage_build.build_id"}]}
-  pdf_record_region:
-    is_a: PdfRecordRegion
-    in_subset:
-    - kb
+  pdf_record_page_access:
+    in_subset: [kb]
+    attributes:
+      product_id: {range: string, required: true}
+      revision_id: {range: string, required: true}
+      page_no: {range: integer, required: true}
+      page_width: {range: exact_numeric, required: true}
+      page_height: {range: exact_numeric, required: true}
     unique_keys:
       primary_key:
         unique_key_slots:
         - product_id
         - revision_id
-        - pointer
-        - region_index
+        - page_no
+    annotations:
+      pds:record_boundary_role: derived_core
+      ph:immutability: immutable
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id"],"target":"ops.pdf_stage_build.build_id"}]}
+  pdf_record_report_item:
+    description: Pointer membership of an exact native diagnostic report occurrence.
+    in_subset: [kb]
+    attributes:
+      product_id: {range: string, required: true}
+      revision_id: {range: string, required: true}
+      kind: {range: string, required: true}
+      pointer: {range: string, required: true}
+      local_id: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [product_id, revision_id, kind, pointer, local_id]}
     annotations:
       ph:immutability: immutable
       ph:read_roles: {"tag":"ph:read_roles","value":[]}

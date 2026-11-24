@@ -7,7 +7,6 @@ buffers, so a selected result remains usable after its reader and source have cl
 from __future__ import annotations
 
 from collections.abc import Collection, Iterable, Iterator, Mapping, Sequence
-from hashlib import sha256
 from typing import Any, Protocol, cast
 
 import pyarrow as pa
@@ -50,10 +49,9 @@ def _replay_payload(replay: PdfReplayRef) -> EncodedPagePayload:
         or replay.logical_digest is None
     ):
         raise ValueError("candidate replay lacks its released payload binding")
-    content = replay.path.read_bytes()
-    if len(content) != replay.byte_length or sha256(content).hexdigest() != replay.digest:
-        raise ValueError("PDF replay bytes changed")
-    return EncodedPagePayload(content, replay.schema_digest, replay.logical_digest, replay.page_no)
+    return EncodedPagePayload(
+        replay.read_bytes(), replay.schema_digest, replay.logical_digest, replay.page_no
+    )
 
 
 def _read_replay(
@@ -101,6 +99,7 @@ class ReplayCandidatePageSource:
     ) -> None:
         self.replays = dict(replays)
         self.payload_family = payload_family or prepare_payload_family()
+        self._admitted: dict[int, PdfReplayRef] = {}
 
     def __getstate__(self) -> dict[str, Any]:
         # Validators/registries hold local callables. Transfer only the admitted schema
@@ -110,39 +109,63 @@ class ReplayCandidatePageSource:
     def __setstate__(self, state: dict[str, Any]) -> None:
         self.replays = state["replays"]
         self.payload_family = prepare_payload_schema(schema_load(state["schema"]))
+        self._admitted = {}
 
     @property
     def page_nos(self) -> tuple[int, ...]:
         return tuple(sorted(self.replays))
 
     def encoded(self, page_no: int) -> EncodedPagePayload:
-        value = encoded_replay(self.replays[page_no], self.payload_family)
-        if value.page_no != page_no:
-            raise ValueError("candidate source page binding differs")
+        replay, value = self._acquire(page_no)
+        if self._admitted.get(page_no) != replay:
+            self._admit(replay, value)
         return value
 
+    def _acquire(self, page_no: int) -> tuple[PdfReplayRef, EncodedPagePayload]:
+        replay = self.replays[page_no]
+        encoded = _replay_payload(replay)
+        if encoded.page_no != page_no:
+            raise ValueError("candidate source page binding differs")
+        return replay, encoded
+
+    def _admit(self, replay: PdfReplayRef, encoded: EncodedPagePayload) -> pa.RecordBatch:
+        batch = self.payload_family.read_batch(
+            encoded.content,
+            schema_digest=encoded.schema_digest,
+            logical_digest=encoded.logical_digest,
+        )
+        if batch.column("page_no")[0].as_py() != encoded.page_no:
+            raise ValueError("candidate replay page binding differs")
+        self._admitted[encoded.page_no] = replay
+        return batch
+
     def iter_batches(self, page_nos=None, columns=None) -> Iterator[pa.RecordBatch]:
+        if columns is not None and (
+            not columns
+            or len(set(columns)) != len(columns)
+            or set(columns) - set(self.payload_family.arrow_schema.names)
+        ):
+            raise ValueError("candidate projection requires distinct released columns")
         for number in self.page_nos:
             if page_nos is not None and number not in page_nos:
                 continue
-            encoded, batch = _read_replay(self.replays[number], self.payload_family)
-            if encoded.page_no != number:
-                raise ValueError("candidate source page binding differs")
+            replay, encoded = self._acquire(number)
+            if self._admitted.get(number) != replay:
+                batch = self._admit(replay, encoded)
+            else:
+                physical = columns
+                if columns is not None and "page_no" not in columns:
+                    physical = (*columns, "page_no")
+                batch = self.payload_family.read_batch(
+                    encoded.content, schema_digest=encoded.schema_digest, columns=physical
+                )
+                if batch.column("page_no")[0].as_py() != number:
+                    raise ValueError("candidate replay page binding differs")
             yield batch.select(columns) if columns is not None else batch
 
     def iter_pages(self, page_nos=None) -> Iterator[CandidatePage]:
-        for number in self.page_nos:
-            if page_nos is None or number in page_nos:
-                encoded = _replay_payload(self.replays[number])
-                if encoded.page_no != number:
-                    raise ValueError("candidate source page binding differs")
-                yield _page(
-                    self.payload_family.decode(
-                        encoded.content,
-                        schema_digest=encoded.schema_digest,
-                        logical_digest=encoded.logical_digest,
-                    )
-                )
+        for batch in self.iter_batches(page_nos):
+            yield _page(self.payload_family.decode_batch(batch))
 
 
 class InMemoryCandidatePageSource:
@@ -181,13 +204,7 @@ class InMemoryCandidatePageSource:
         return tuple(sorted(self.pages))
 
     def encoded(self, page_no: int) -> EncodedPagePayload:
-        value = self.pages[page_no].to_wire()
-        return EncodedPagePayload(
-            self.payload_family.encode(value),
-            self.payload_family.schema_digest,
-            self.payload_family.logical_digest(value),
-            page_no,
-        )
+        return self.payload_family.encode_page(self.pages[page_no].to_wire())
 
     def iter_batches(self, page_nos=None, columns=None) -> Iterator[pa.RecordBatch]:
         for page in self.iter_pages(page_nos):

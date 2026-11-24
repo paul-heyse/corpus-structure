@@ -34,17 +34,26 @@ if TYPE_CHECKING:
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
     from corpus_structure.ingest.pdf_build_spool import PdfSpoolProducerBasis, VerifiedSpoolRecovery
     from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
+    from corpus_structure.semantic.pdf_certification import PdfProducerCertification
+    from corpus_structure.semantic.pdf_lowering_context import CapturedPdfLowering
     from corpus_structure.semantic.pdf_publication import (
         FrozenPdfBuildRef,
         PdfBuildState,
         PublishedPdfDocumentRef,
     )
+    from corpus_structure.semantic.pdf_replay_transport import PdfReplayBinding
     from corpus_structure.semantic.pdf_staging import PdfBuildRef, PdfStageReceipt
 
 
 class PdfProducerClaim(OwnedClaim, Protocol):
     @property
     def runtime_id(self) -> str: ...
+
+
+type PdfAdoptionTransaction = Callable[
+    [Callable[[Connection], tuple[PdfStageReceipt, ...]], BorrowerCancellation],
+    tuple[PdfStageReceipt, ...],
+]
 
 
 _PREPARATION_IDENTITY = TypeAdapter(
@@ -70,24 +79,116 @@ def _pdf_transaction(engine: Engine, cancellation: BorrowerCancellation) -> Gene
 
 
 def ipc_replay_batches(
-    replays: Iterable[PdfReplayRef], check_active: Callable[[], None]
+    replays: Iterable[PdfReplayRef],
+    check_active: Callable[[], None],
+    *,
+    legacy_binding: PdfReplayBinding | None = None,
+    legacy_lowering: CapturedPdfLowering | None = None,
 ) -> Generator[PdfStageBatch]:
     """Borrow each authenticated IPC replay through adoption of its last batch.
 
     Physical file/batch keys identify exact retries, not logical product identity.
     The caller retains the replay owner until this iterator is closed.
     """
+    from corpus_structure.semantic.pdf_replay_transport import read_replay_batches
+    from corpus_structure.semantic.pdf_staging import stage_schema
+
     for replay in replays:
-        check_active()
-        replay.verify()
-        with pa.memory_map(str(replay.path), "r") as source:
-            reader = pa.ipc.open_file(source)
-            for ordinal in range(reader.num_record_batches):
-                check_active()
+        with closing(
+            read_replay_batches(
+                replay,
+                stage_schema(replay.family),
+                check_active=check_active,
+                legacy_binding=legacy_binding,
+                legacy_schema=None
+                if legacy_lowering is None
+                else legacy_lowering.schema("stage:" + replay.family),
+            )
+        ) as batches:
+            for ordinal, batch in enumerate(batches):
                 yield PdfStageBatch(
                     f"ipc:{replay.family}:{replay.digest}:{ordinal}",
-                    {replay.family: (reader.get_batch(ordinal),)},
+                    {replay.family: (batch,)},
                 )
+
+
+def _adopt_pdf_document(
+    engine: Engine,
+    build: PdfBuildRef,
+    records,
+    companions,
+    access: PdfReplayRef,
+    certification: PdfProducerCertification,
+    *,
+    cancellation: BorrowerCancellation,
+    check_active: Callable[[], None],
+    legacy_binding: PdfReplayBinding | None = None,
+    legacy_lowering: CapturedPdfLowering | None = None,
+    on_adopted: Callable[[PdfStageReceipt], None] | None = None,
+    retain_adoption: PdfAdoptionTransaction | None = None,
+) -> None:
+    """Adopt all complete output on one connection, settling before reporting receipts."""
+    from corpus_structure.semantic.pdf_publication import (
+        adopt_prepared_pdf_companion_batches,
+        prepared_pdf_companion_batches,
+        record_pdf_producer_certification,
+        stage_pdf_access_projection,
+    )
+    from corpus_structure.semantic.pdf_shared_streams import PdfSharedStreamTransfer
+    from corpus_structure.semantic.pdf_staging import adopt_pdf_batch
+
+    def adopt(connection: Connection) -> tuple[PdfStageReceipt, ...]:
+        shared_transfer = PdfSharedStreamTransfer()
+        receipts = []
+        projection.seek(0)
+        with closing(
+            ipc_replay_batches(
+                records,
+                check_active,
+                legacy_binding=legacy_binding,
+                legacy_lowering=legacy_lowering,
+            )
+        ) as batches:
+            for batch in batches:
+                if shared_transfer.omit_verified_parts(connection, build, batch.relations):
+                    continue
+                receipt = adopt_pdf_batch(
+                    connection, build, batch.replay_key, batch.relations, cancellation=cancellation
+                )
+                if on_adopted is not None:
+                    receipts.append(receipt)
+        for prepared in companions:
+            with closing(
+                prepared_pdf_companion_batches(
+                    prepared,
+                    check_active=check_active,
+                    legacy_binding=legacy_binding,
+                    legacy_lowering=legacy_lowering,
+                )
+            ) as batches:
+                adopt_prepared_pdf_companion_batches(
+                    connection, build, batches, prepared.replay_key, cancellation=cancellation
+                )
+        stage_pdf_access_projection(
+            connection,
+            build,
+            projection,
+            check_active=check_active,
+            legacy=legacy_binding is not None,
+        )
+        record_pdf_producer_certification(connection, build, certification)
+        check_active()
+        return tuple(receipts)
+
+    with access.open_snapshot(check_active=check_active) as projection:
+        if retain_adoption is None:
+            with _pdf_transaction(engine, cancellation) as connection:
+                receipts = adopt(connection)
+        else:
+            receipts = retain_adoption(adopt, cancellation)
+    if on_adopted is not None:
+        for receipt in receipts:
+            on_adopted(receipt)
 
 
 def _original_pdf_spool_root(storage: Path, original: PdfSpoolProducerBasis) -> Path:
@@ -159,6 +260,7 @@ def run_private_native_pdf_build(
     nemotron_endpoint: str | None = None,
     require_nemotron_handoff: bool = False,
     on_adopted: Callable[[PdfStageReceipt], None] | None = None,
+    retain_adoption: PdfAdoptionTransaction | None = None,
     cancellation: BorrowerCancellation | None = None,
     owned_check: Callable[[], None],
 ) -> PdfBuildRef:
@@ -176,7 +278,6 @@ def run_private_native_pdf_build(
     from corpus_structure.ingest.pdf_worker import PdfWorker
     from corpus_structure.semantic.pdf_staging import (
         UPLOAD_STAGE_FAMILIES,
-        adopt_pdf_batch,
         begin_pdf_build,
     )
 
@@ -213,7 +314,10 @@ def run_private_native_pdf_build(
 
                 require_pdf_database_action(connection, build.release_id, "stage_pdf_producer")
                 from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
-                from corpus_structure.semantic.pdf_lowering import CAPTURE_OPERATION
+                from corpus_structure.semantic.pdf_lowering import (
+                    CAPTURE_OPERATION,
+                    selected_lowering_contract,
+                )
                 from corpus_structure.semantic.pdf_payloads import (
                     prepare_payload_family,
                     schema_dump,
@@ -367,74 +471,50 @@ def run_private_native_pdf_build(
 
             reply = None
             recovery_pages = []
-            # A complete verified record spool precedes any new native setup.
+            original_binding = original_lowering = recovered_certification = None
+            # Complete output retains its original filenames and producer lease.
             for recovery in reversed(recovered):
                 prior_reply = recovery.complete_reply()
-                if prior_reply is not None:
-                    ready = recovery.ready_pages(payload_family)
-                    if {page.page_no for page in ready} != {
-                        page.page_no for page in prior_reply.page_replays
-                    }:
-                        raise ValueError(
-                            "completed PDF spool differs from complete native page custody"
-                        )
-                    selected = recovery.entries
-                    register_contributor(recovery, selected)
-                    copied = clone_recovery_entries(
-                        recovery, spool, selected, prefix="recovered-complete"
+                if prior_reply is None:
+                    continue
+                ready = recovery.ready_pages(payload_family)
+                if {page.page_no for page in ready} != {
+                    page.page_no for page in prior_reply.page_replays
+                }:
+                    raise ValueError(
+                        "completed PDF spool differs from complete native page custody"
                     )
-                    copied_paths.update(clone.path for clone in copied.values())
-                    from dataclasses import replace
+                register_contributor(recovery, recovery.entries)
+                from corpus_structure.semantic.pdf_lowering_context import capture_pdf_lowering
+                from corpus_structure.semantic.pdf_replay_transport import PdfReplayBinding
+                from corpus_structure.semantic.pdf_spool_recertification import (
+                    recertify_pdf_recovery,
+                )
 
-                    reply = replace(
-                        prior_reply,
-                        page_replays=tuple(
-                            copied[entry.path] for entry in prior_reply.page_replays
-                        ),
-                        record_replays=tuple(
-                            copied[entry.path] for entry in prior_reply.record_replays
-                        ),
-                        companion_sets=tuple(
-                            replace(
-                                value, replays=tuple(copied[entry.path] for entry in value.replays)
-                            )
-                            for value in prior_reply.companion_sets
-                        ),
-                        certification=copied[prior_reply.certification.path]
-                        if prior_reply.certification is not None
-                        else None,
-                        access_replay=copied[prior_reply.access_replay.path]
-                        if prior_reply.access_replay is not None
-                        else None,
+                original_binding = PdfReplayBinding(
+                    recovery.owner.build_id, recovery.premises.producer.release_id
+                )
+                with _pdf_transaction(engine, cancellation) as connection:
+                    original_context = pdf_context_for_task(
+                        connection, recovery.owner.task_id, operation=CAPTURE_OPERATION
                     )
-                    from corpus_structure.semantic.pdf_spool_recertification import (
-                        rebind_pdf_recovery_reply,
-                        recertify_pdf_recovery,
-                    )
-
-                    reply = rebind_pdf_recovery_reply(
-                        reply,
-                        spool.root / "recovered-current",
-                        original_build=recovery.owner.build_id,
-                        original_release=recovery.premises.producer.release_id,
-                        build=build,
-                        on_replay=spool.append,
-                        check_active=check_active,
-                    )
-                    reply = recertify_pdf_recovery(
-                        reply,
-                        spool.root / "recovered-certification",
-                        original_release=recovery.premises.producer.release_id,
-                        validation_contract=validation_contract,
-                        lowering_identity=lowering_identity,
-                        build=build,
-                        source_digest=source_digest,
-                        recipe_digest=recipe.digest,
-                        schema_digest=schema_digest,
-                        on_replay=spool.append,
-                        check_active=check_active,
-                    )
-                    break
+                    original_lowering = capture_pdf_lowering(original_context)
+                    original_lowering_identity = selected_lowering_contract(original_context).digest
+                recovered_certification = recertify_pdf_recovery(
+                    prior_reply,
+                    spool.root / "recovered-certification",
+                    original=original_binding,
+                    original_lowering=original_lowering,
+                    original_lowering_identity=original_lowering_identity,
+                    validation_contract=validation_contract,
+                    lowering_identity=lowering_identity,
+                    source_digest=source_digest,
+                    recipe_digest=recipe.digest,
+                    schema_digest=schema_digest,
+                    check_active=check_active,
+                )
+                reply = prior_reply
+                break
             if reply is None:
                 selected_pages = set()
                 preparation_identity = None
@@ -490,7 +570,6 @@ def run_private_native_pdf_build(
                 worker = PdfWorker(recipe, assets=assets, writer_lease=spool.writer_lease)
 
             from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
-            from corpus_structure.semantic.pdf_lowering import selected_lowering_contract
 
             selected_lowering = json.loads(selected_lowering_contract(context).content)
             selected_producer = (
@@ -505,8 +584,7 @@ def run_private_native_pdf_build(
                 if replay.family == "native_preparation" and selected_producer is not None:
                     import json
 
-                    replay.verify()
-                    report = json.loads(replay.path.read_bytes())["_preparation"]
+                    report = json.loads(replay.read_bytes())["_preparation"]
                     preparation = _PREPARATION_IDENTITY.validate_python(report, strict=True)
                     if (
                         preparation["profile"] != STANDARD_PREPARATION
@@ -535,9 +613,7 @@ def run_private_native_pdf_build(
 
                     from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
 
-                    replay.verify()
-                    with replay.path.open() as source:
-                        page = json.load(source)
+                    page = json.loads(replay.read_bytes())
                     raster = page["raster"]
                     spool.append(
                         PdfReplayRef(
@@ -549,35 +625,6 @@ def run_private_native_pdf_build(
                         )
                     )
                 spool.append(replay)
-
-            from corpus_structure.semantic.pdf_shared_streams import PdfSharedStreamTransfer
-
-            shared_transfer = PdfSharedStreamTransfer()
-
-            def adopt_replay(replay: PdfReplayRef) -> None:
-                check_active()
-                replay.verify()
-                if replay.family not in UPLOAD_STAGE_FAMILIES:
-                    raise ValueError("unknown private PDF replay family")
-                batches = ipc_replay_batches([replay], check_active)
-                try:
-                    for batch in batches:
-                        with _pdf_transaction(engine, cancellation) as connection:
-                            if shared_transfer.omit_verified_parts(
-                                connection, build, batch.relations
-                            ):
-                                continue
-                            receipt = adopt_pdf_batch(
-                                connection,
-                                build,
-                                batch.replay_key,
-                                batch.relations,
-                                cancellation=cancellation,
-                            )
-                        if on_adopted is not None:
-                            on_adopted(receipt)
-                finally:
-                    batches.close()
 
             if reply is None:
                 if worker is None:
@@ -602,7 +649,6 @@ def run_private_native_pdf_build(
                             owner.reference,
                             spool_root=replay_root / "pages",
                             record_root=replay_root / "records",
-                            build_id=build.build_id,
                             release_id=build.release_id,
                             payload_schema=payload_schema,
                             validation_contract=validation_contract,
@@ -624,70 +670,50 @@ def run_private_native_pdf_build(
                 raise RuntimeError(
                     "native streaming conversion did not complete: " + "; ".join(reply.errors)
                 )
-            spool.complete(reply)
-            fresh_entries = tuple(
-                entry for entry in spool.entries if entry.path not in copied_paths
-            )
-            if fresh_entries:
-                with _pdf_transaction(engine, cancellation) as connection:
-                    calls.register_pdf_spool_contributor(
-                        connection,
-                        build_id=build.build_id,
-                        task_id=TaskId(claim.task_id),
-                        attempt=TaskAttempt(claim.attempt),
-                        holder=holder,
-                        runtime_id=RuntimeId(claim.runtime_id),
-                        producer_id=producer_id,
-                        manifest_bytes=spool.path.read_bytes(),
-                        selected_replays=selected_replay_bytes(spool.root, fresh_entries),
-                    )
-            # Certification was computed over the actual complete output and
-            # these exact prepared files before any database staging begins.
+            if recovered_certification is None:
+                spool.complete(reply)
+                fresh_entries = tuple(
+                    entry for entry in spool.entries if entry.path not in copied_paths
+                )
+                if fresh_entries:
+                    with _pdf_transaction(engine, cancellation) as connection:
+                        calls.register_pdf_spool_contributor(
+                            connection,
+                            build_id=build.build_id,
+                            task_id=TaskId(claim.task_id),
+                            attempt=TaskAttempt(claim.attempt),
+                            holder=holder,
+                            runtime_id=RuntimeId(claim.runtime_id),
+                            producer_id=producer_id,
+                            manifest_bytes=spool.path.read_bytes(),
+                            selected_replays=selected_replay_bytes(spool.root, fresh_entries),
+                        )
             if reply.certification is None or reply.access_replay is None:
                 raise ValueError("native PDF publication has no producer certification")
             from corpus_structure.semantic.pdf_certification import PdfProducerCertification
-            from corpus_structure.semantic.pdf_publication import (
-                adopt_prepared_pdf_companion_batches,
-                prepared_pdf_companion_batches,
-                record_pdf_producer_certification,
-                stage_pdf_access_projection,
-            )
 
-            reply.certification.verify()
-            reply.access_replay.verify()
-            certification = PdfProducerCertification(
-                **json.loads(reply.certification.path.read_bytes())
+            certification = recovered_certification or PdfProducerCertification(
+                **json.loads(reply.certification.read_bytes())
             )
             if (
                 certification.kind != "native"
                 or certification.lowering_identity != lowering_identity
             ):
                 raise ValueError("native PDF producer used another captured lowering basis")
-            for replay in reply.record_replays:
-                adopt_replay(replay)
-            for prepared in reply.companion_sets:
-                batches = prepared_pdf_companion_batches(prepared)
-                try:
-                    with _pdf_transaction(engine, cancellation) as connection:
-                        adopt_prepared_pdf_companion_batches(
-                            connection,
-                            build,
-                            batches,
-                            prepared.replay_key,
-                            cancellation=cancellation,
-                        )
-                finally:
-                    batches.close()
-            stage_pdf_access_projection(
+            _adopt_pdf_document(
                 engine,
                 build,
-                reply.access_replay.path,
+                reply.record_replays,
+                reply.companion_sets,
+                reply.access_replay,
+                certification,
                 cancellation=cancellation,
                 check_active=check_active,
+                legacy_binding=original_binding,
+                legacy_lowering=original_lowering,
+                on_adopted=on_adopted,
+                retain_adoption=retain_adoption,
             )
-            with _pdf_transaction(engine, cancellation) as connection:
-                record_pdf_producer_certification(connection, build, certification)
-            check_active()
         finally:
             # Stop native borrowers before ending claim maintenance or source custody.
             if worker is not None and (not worker.closed or worker.pid is not None):
@@ -778,6 +804,7 @@ def publish_pdf_record_draft(
     directory: Path,
     check_active: Callable[[], None],
     cancellation: BorrowerCancellation | None = None,
+    retain_adoption: PdfAdoptionTransaction | None = None,
 ) -> PublishedPdfDocumentRef:
     """Publish the actual method result through private rows and frozen validation.
 
@@ -793,7 +820,6 @@ def publish_pdf_record_draft(
         validate_pdf_build,
     )
     from corpus_structure.semantic.pdf_staging import (
-        adopt_pdf_batch,
         begin_pdf_build,
     )
 
@@ -878,44 +904,22 @@ def publish_pdf_record_draft(
             (),
             draft.recipe_bytes,
             (),
+            sealed_input=draft.sealed_document,
         )
-
-        from corpus_structure.semantic.pdf_shared_streams import PdfSharedStreamTransfer
-
-        shared_transfer = PdfSharedStreamTransfer()
-
-        def adopt(replay: PdfReplayRef) -> None:
-            batches = ipc_replay_batches((replay,), check_active)
-            try:
-                for batch in batches:
-                    check_active()
-                    with _pdf_transaction(engine, cancellation) as connection:
-                        if shared_transfer.omit_verified_parts(connection, build, batch.relations):
-                            continue
-                        adopt_pdf_batch(
-                            connection,
-                            build,
-                            batch.replay_key,
-                            batch.relations,
-                            cancellation=cancellation,
-                        )
-            finally:
-                batches.close()
 
         native_replays = streamed.write_record_batches(
             owner / "records",
-            build_id=build.build_id,
-            release_id=build.release_id,
             source_digest=source_digest,
             on_batch=draft_spool.append,
+            lowering=captured_lowering,
         )
         from corpus_structure.semantic.pdf_certification import write_retained_pdf_replays
 
         if draft.retained_serialization is not None:
             native_replays += write_retained_pdf_replays(
                 owner / "retained",
-                build,
                 draft.retained_serialization,
+                lowering=captured_lowering,
                 check_active=check_active,
                 on_replay=draft_spool.append,
             )
@@ -975,16 +979,9 @@ def publish_pdf_record_draft(
             PdfProducerPayloads,
             write_pdf_companion_sets,
         )
-        from corpus_structure.semantic.pdf_publication import (
-            adopt_prepared_pdf_companion_batches,
-            prepared_pdf_companion_batches,
-            record_pdf_producer_certification,
-            stage_pdf_access_projection,
-        )
 
         prepared_sets = write_pdf_companion_sets(
             owner / "prepared-companions",
-            build,
             companions,
             payload_family=payload_family,
             lowering=captured_lowering,
@@ -1018,7 +1015,7 @@ def publish_pdf_record_draft(
                     )
                 target_meanings.update((tuple(value["pin"]), value["meaning"]) for value in values)
             certification = payloads.certify(
-                draft.document,
+                streamed.sealed,
                 projection,
                 release_id=build.release_id,
                 source_digest=source_digest,
@@ -1036,7 +1033,8 @@ def publish_pdf_record_draft(
 
         with projection.open("rb") as source:
             os.fsync(source.fileno())
-        draft_spool.append(_ref(projection, "producer_access"))
+        access_replay = _ref(projection, "producer_access")
+        draft_spool.append(access_replay)
         draft_spool.append(
             _atomic_bytes(
                 owner / "producer-certification.json",
@@ -1044,22 +1042,17 @@ def publish_pdf_record_draft(
                 "producer_certification",
             )
         )
-        for replay in native_replays:
-            adopt(replay)
-        for prepared in prepared_sets:
-            batches = prepared_pdf_companion_batches(prepared)
-            try:
-                with _pdf_transaction(engine, cancellation) as connection:
-                    adopt_prepared_pdf_companion_batches(
-                        connection, build, batches, prepared.replay_key, cancellation=cancellation
-                    )
-            finally:
-                batches.close()
-        stage_pdf_access_projection(
-            engine, build, projection, cancellation=cancellation, check_active=check_active
+        _adopt_pdf_document(
+            engine,
+            build,
+            native_replays,
+            prepared_sets,
+            access_replay,
+            certification,
+            cancellation=cancellation,
+            check_active=check_active,
+            retain_adoption=retain_adoption,
         )
-        with _pdf_transaction(engine, cancellation) as connection:
-            record_pdf_producer_certification(connection, build, certification)
         check_active()
         with _pdf_transaction(engine, cancellation) as connection:
             frozen = freeze_pdf_build(connection, build, kind=draft.kind)
@@ -1080,6 +1073,7 @@ def produce_published_pdf_records(
     directory: Path,
     check_active: Callable[[], None],
     cancellation: BorrowerCancellation | None = None,
+    retain_adoption: PdfAdoptionTransaction | None = None,
 ) -> PublishedPdfDocumentRef:
     """Actual finite page producer followed by frozen publication, never graph IPC."""
     from corpus_structure.semantic.pdf_publication import (
@@ -1131,6 +1125,7 @@ def produce_published_pdf_records(
         require_nemotron_handoff=request.require_nemotron_handoff,
         cancellation=cancellation,
         owned_check=check_active,
+        retain_adoption=retain_adoption,
     )
     check_active()
     with _pdf_transaction(engine, cancellation) as connection:

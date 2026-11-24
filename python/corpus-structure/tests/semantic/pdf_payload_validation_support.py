@@ -1,5 +1,6 @@
 """Shared controlled inputs and builders for pdf payload validation support."""
 
+import json
 from typing import Any
 
 from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
@@ -62,3 +63,12 @@ def captured(tmp_path, page):
     projection.write_text("")
     document: dict[str, Any] = {"pages": {"1": {"size": {"width": 200, "height": 300}}}}
     return store, row, document, projection
+
+
+def validate_projection_fixture(store, document, projection):
+    """Read independent expected projections supplied by validator tests."""
+    items, regions = [], []
+    for line in projection.read_text().splitlines():
+        row = json.loads(line)
+        (items if row["family"] == "access" else regions).append(row["body"])
+    store.validate(document, items=items, regions=regions)

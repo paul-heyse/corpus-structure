@@ -295,6 +295,14 @@ class FrozenPayloadStore:
             )
             if body.get("pointer") != pointer:
                 raise ValueError("metadata pointer projection differs")
+            # Older captures carry only the original opaque value. New adoption
+            # requires a matching occurrence projection.
+            if (
+                kind == "inline_alignment_reports"
+                and "item_pointers" in body
+                and body["item_pointers"] != value["item_pointers"]
+            ):
+                raise ValueError("metadata item pointer projection differs")
             if kind == "formula_outcomes" and (
                 body.get("outcome") != value.get("outcome")
                 or body.get("has_diagnostic") != ("error" in value)
@@ -307,7 +315,7 @@ class FrozenPayloadStore:
         for row in self.companions("native_metadata", kind=kind):
             yield self._value(row, prepared)
 
-    def validate(self, document: Mapping[str, Any], projection: Path) -> None:
+    def validate(self, document: Mapping[str, Any], *, items, regions) -> None:
         from .pdf_ocr_contracts import validate_pdf_page_payloads
         from .pdf_payloads import FAMILY
         from .pdf_report_validation import validate_pdf_report_metadata
@@ -351,12 +359,6 @@ class FrozenPayloadStore:
             for (raw,) in self.db.execute(select(_PAGE.c.local).order_by(_PAGE.c.number)):
                 yield decode(json.loads(raw))
 
-        items, regions = [], []
-        with projection.open() as source:
-            for line in source:
-                row = json.loads(line)
-                row["body"].pop("native_json", None)
-                (items if row["family"] == "access" else regions).append(row["body"])
         health = [r["body"] for r in self.companions("health") if "source_scope" in r["body"]]
         if len(health) != 1:
             raise ValueError("native health/source scope is absent or ambiguous")

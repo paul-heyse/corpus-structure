@@ -5,10 +5,12 @@ from __future__ import annotations
 import os
 import shutil
 import stat
+from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import file_digest, sha256
 from pathlib import Path
-from tempfile import mkdtemp
+from tempfile import TemporaryFile, mkdtemp
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,13 +105,61 @@ class PdfReplayRef:
     def from_path(cls, path: Path, family: str, rows: int = 0) -> PdfReplayRef:
         with path.open("rb") as source:
             digest = file_digest(source, "sha256").hexdigest()
-        return cls(path, digest, path.stat().st_size, family, rows)
+            return cls(path, digest, os.fstat(source.fileno()).st_size, family, rows)
+
+    @contextmanager
+    def _open(self):
+        descriptor = os.open(self.path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(descriptor, "rb") as source:
+            info = os.fstat(descriptor)
+            if not stat.S_ISREG(info.st_mode) or info.st_size != self.byte_length:
+                raise ValueError("PDF replay size or file custody changed")
+            yield source
 
     def verify(self) -> None:
-        if self.path.stat().st_size != self.byte_length:
-            raise ValueError("PDF replay size changed")
-        with self.path.open("rb") as source:
+        with self._open() as source:
             if file_digest(source, "sha256").hexdigest() != self.digest:
+                raise ValueError("PDF replay bytes changed")
+
+    def read_bytes(self) -> bytes:
+        """Authenticate and return the same immutable bytes the consumer will use."""
+        with self._open() as source:
+            content = source.read(self.byte_length + 1)
+        if len(content) != self.byte_length or sha256(content).hexdigest() != self.digest:
+            raise ValueError("PDF replay bytes changed")
+        return content
+
+    def clone_to(self, path: Path, *, check_active: Callable[[], None]) -> None:
+        """Transfer and hash the same byte stream under the new private owner."""
+        with path.open("xb") as sink:
+            try:
+                self._write_exact(sink, check_active)
+                sink.flush()
+                os.fsync(sink.fileno())
+            except BaseException:
+                path.unlink()
+                raise
+
+    @contextmanager
+    def open_snapshot(self, *, check_active: Callable[[], None]):
+        """Own a seekable verified copy when a replay is larger than an Arrow packet."""
+        with TemporaryFile(mode="w+b") as snapshot:
+            self._write_exact(snapshot, check_active)
+            snapshot.seek(0)
+            yield snapshot
+
+    def _write_exact(self, sink, check_active: Callable[[], None]) -> None:
+        digest = sha256()
+        with self._open() as source:
+            remaining = self.byte_length
+            while chunk := source.read(min(remaining + 1, 1024 * 1024)):
+                check_active()
+                remaining -= len(chunk)
+                if remaining < 0:
+                    break
+                digest.update(chunk)
+                sink.write(chunk)
+            if remaining != 0 or digest.hexdigest() != self.digest:
                 raise ValueError("PDF replay bytes changed")
 
 
@@ -133,7 +183,6 @@ class PdfStreamRequest:
     source: PdfSourceRef
     spool_root: Path
     record_root: Path
-    build_id: str
     release_id: str
     validation_contract: bytes
     lowering_identity: str

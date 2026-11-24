@@ -15,6 +15,7 @@ from . import _pdf_native_calls as calls
 from .arrow_transfer import ArrowWriteProfile, copy_arrow_stream
 from .identifiers import ReleaseId, TaskAttempt, TaskId
 from .pdf_record_model import record_arrow_schema, record_write_profile
+from .pdf_replay_transport import PdfReplayBinding, bind_copy_batch
 
 STAGE_FAMILIES = {
     "header": "ops.pdf_stage_document",
@@ -191,11 +192,17 @@ def adopt_pdf_batch(
 
     for name, batches in relations.items():
         target = stage_relation(name)
+        profile = build._write_profiles[target]
         copy_arrow_stream(
             conn,
-            build._write_profiles[target],
+            profile,
             target=("pg_temp", "ps_" + target.split(".")[1]),
-            batches=batches,
+            batches=(
+                bind_copy_batch(
+                    batch, profile.schema, PdfReplayBinding(build.build_id, build.release_id)
+                )
+                for batch in batches
+            ),
             before_encode=check_upload,
             cancellation=cancellation,
         )

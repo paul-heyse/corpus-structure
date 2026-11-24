@@ -119,7 +119,7 @@ class CapturedPdfLowering:
         )
 
 
-def capture_pdf_lowering(context) -> CapturedPdfLowering:
+def capture_pdf_lowering(context, *, allow_archived_default: bool = False) -> CapturedPdfLowering:
     """Project already archived schemas and staging policy, without rebuilding metadata."""
     import yaml
 
@@ -130,7 +130,7 @@ def capture_pdf_lowering(context) -> CapturedPdfLowering:
     native_schema = context.domain.source(
         "implementation/pdf/docling-validation.schema.json"
     ).content
-    prepare_native_schema_mapping(native_schema)
+    prepare_native_schema_mapping(native_schema, allow_archived_default=allow_archived_default)
     record_model = yaml.safe_load(context.domain.source("logical/pdf_records").content)
     header = record_model["classes"]["PdfRecordDocument"]["attributes"]
     policy = json.loads(record_model["annotations"]["pdr:native_validation_contract"])

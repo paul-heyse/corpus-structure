@@ -30,6 +30,7 @@ from .pdf_record_identity import (
     record_frame,
     structured_payload_scalar,
 )
+from .pdf_replay_transport import PdfReplayBinding, read_replay_batches, replay_schema
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,20 +160,33 @@ class PdfProducerPayloads(FrozenPayloadStore):
                     row["body"] = json.loads(row["body"])
                 self.add(family, row)
 
-    def add_replays(self, replays, *, check_active=lambda: None) -> None:
+    def add_replays(
+        self,
+        replays,
+        *,
+        check_active=lambda: None,
+        legacy_binding: PdfReplayBinding | None = None,
+        legacy_lowering: CapturedPdfLowering | None = None,
+    ) -> None:
         for replay in replays:
-            check_active()
-            replay.verify()
-            with pa.memory_map(str(replay.path), "r") as source:
-                reader = pa.ipc.open_file(source)
-                if not reader.schema.equals(
-                    self.lowering.schema("stage:" + replay.family), check_metadata=True
-                ):
-                    raise ValueError("producer native record replay schema differs")
-                for index in range(reader.num_record_batches):
-                    self.add_batch(replay.family, reader.get_batch(index))
+            name = "stage:" + replay.family
+            for batch in read_replay_batches(
+                replay,
+                self.lowering.schema(name),
+                check_active=check_active,
+                legacy_binding=legacy_binding,
+                legacy_schema=None if legacy_lowering is None else legacy_lowering.schema(name),
+            ):
+                self.add_batch(replay.family, batch)
 
-    def add_companion_replays(self, sets, *, check_active=lambda: None) -> None:
+    def add_companion_replays(
+        self,
+        sets,
+        *,
+        check_active=lambda: None,
+        legacy_binding: PdfReplayBinding | None = None,
+        legacy_lowering: CapturedPdfLowering | None = None,
+    ) -> None:
         families = {
             "companion": "companion",
             "field": "companion_field",
@@ -181,17 +195,16 @@ class PdfProducerPayloads(FrozenPayloadStore):
         }
         for prepared in sets:
             for replay in prepared.replays:
-                check_active()
-                replay.verify()
                 target = replay.family.removeprefix("prepared_companion:")
-                with pa.memory_map(str(replay.path), "r") as source:
-                    reader = pa.ipc.open_file(source)
-                    if not reader.schema.equals(
-                        self.lowering.schema("companion:" + target), check_metadata=True
-                    ):
-                        raise ValueError("producer companion replay schema differs")
-                    for index in range(reader.num_record_batches):
-                        self.add_batch(families[target], reader.get_batch(index))
+                name = "companion:" + target
+                for batch in read_replay_batches(
+                    replay,
+                    self.lowering.schema(name),
+                    check_active=check_active,
+                    legacy_binding=legacy_binding,
+                    legacy_schema=None if legacy_lowering is None else legacy_lowering.schema(name),
+                ):
+                    self.add_batch(families[target], batch)
 
     def _descriptor(self, stream: str) -> ScalarDescriptor:
         raw = self._entry_body("artifact_stream", stream)
@@ -301,7 +314,7 @@ class PdfProducerPayloads(FrozenPayloadStore):
                 for key in (
                     ("value", "payload_codec", "payload_schema_digest")
                     if body["kind"] == "inline_candidate_pages"
-                    else ("value",)
+                    else ("value", "item_pointers")
                 ):
                     body.pop(key, None)
             elif family == "occurrence":
@@ -350,9 +363,15 @@ class PdfProducerPayloads(FrozenPayloadStore):
             logical.add_encoded_record(family, key, encoded)
         return logical.pin().logical_digest
 
-    def certify(
+    def certify(self, document: Any, projection: Path, **options) -> PdfProducerCertification:
+        from corpus_structure.ingest.pdf_streaming import SealedPdfNative
+
+        sealed = document if isinstance(document, SealedPdfNative) else SealedPdfNative(document)
+        return sealed.certify(self, projection, **options)
+
+    def _certify_native_values(
         self,
-        document: Any,
+        actual: Mapping[str, Any],
         projection: Path,
         *,
         release_id: str,
@@ -363,15 +382,11 @@ class PdfProducerPayloads(FrozenPayloadStore):
         lowering_identity: str,
         target_meanings: Mapping[tuple[int, str, str], Any],
     ) -> PdfProducerCertification:
-        from corpus_structure.ingest.pdf_streaming import _json_view
+        from .pdf_access_projection import project_pdf_access, write_pdf_access_projection
 
-        from .pdf_access_projection import write_pdf_access_projection
-        from .pdf_records import validate_native_callbacks
-
-        actual = json.loads(json.dumps(_json_view(document), allow_nan=False, ensure_ascii=False))
-        validate_native_callbacks(actual, contract=self.lowering.callback_policy())
-        write_pdf_access_projection(actual, projection)
-        self.validate(actual, projection)
+        items, regions = project_pdf_access(actual)
+        self.validate(actual, items=items, regions=regions)
+        write_pdf_access_projection(actual, projection, items=items)
         digest = self.logical_digest(
             release_id=release_id,
             source_digest=source_digest,
@@ -394,7 +409,6 @@ class PdfProducerPayloads(FrozenPayloadStore):
 
 def write_pdf_companion_sets(
     root: Path,
-    build,
     companions: Mapping[str, Iterable[Mapping[str, Any]]],
     *,
     payload_family,
@@ -442,7 +456,6 @@ def write_pdf_companion_sets(
                 replays.append(replay)
 
             prepare_pdf_companion_batches(
-                build,
                 family,
                 pending,
                 on_batch=write,
@@ -489,13 +502,10 @@ def certify_native_stream(streamed, request, replays, *, on_replay):
     from corpus_structure.ingest.pdf_record_product import native_occurrence_rows
     from corpus_structure.ingest.pdf_streaming import _atomic_bytes, _ref
 
-    from .pdf_companion_encoding import PdfCompanionEncodingBasis
-
     contract = json.loads(request.validation_contract)
     lowering = CapturedPdfLowering.from_document(contract.get("lowering"))
     if contract["publication_kind"] != "native":
         raise ValueError("native capture certification requires the native publication kind")
-    build = PdfCompanionEncodingBasis(request.build_id, request.release_id)
 
     def metadata():
         for number in sorted(streamed.spool.candidates):
@@ -535,7 +545,6 @@ def certify_native_stream(streamed, request, replays, *, on_replay):
     }
     sets = write_pdf_companion_sets(
         request.record_root.with_name(request.record_root.name + "-certified-companions"),
-        build,
         companions,
         payload_family=streamed.spool.payload_family,
         lowering=lowering,
@@ -548,7 +557,7 @@ def certify_native_stream(streamed, request, replays, *, on_replay):
         payloads.add_replays(replays, check_active=streamed.spool.active)
         payloads.add_companion_replays(sets, check_active=streamed.spool.active)
         certification = payloads.certify(
-            streamed.document,
+            streamed.sealed,
             projection,
             release_id=request.release_id,
             source_digest=request.source.digest,
@@ -575,7 +584,7 @@ def certify_native_stream(streamed, request, replays, *, on_replay):
     return sets, certificate, access
 
 
-def write_retained_pdf_replays(root: Path, build, retained, *, check_active, on_replay):
+def write_retained_pdf_replays(root: Path, retained, *, lowering, check_active, on_replay):
     """Own exact retained export bytes before they participate in certification."""
     import gzip
     import os
@@ -583,18 +592,15 @@ def write_retained_pdf_replays(root: Path, build, retained, *, check_active, on_
     from corpus_structure.ingest.pdf_streaming import _ref
 
     from .pdf_record_identity import IdentityFold, emit_parts
-    from .pdf_staging import stage_schema
 
     root.mkdir(parents=True, exist_ok=False)
-    common = {
-        "product_id": build.build_id,
-        "revision_id": build.build_id,
-        "stream_id": "retained/envelope",
-    }
+    common = {"stream_id": "retained/envelope"}
     replays = []
 
     def write(family, rows):
-        batch = pa.RecordBatch.from_pylist(rows, schema=stage_schema(family))
+        batch = pa.RecordBatch.from_pylist(
+            rows, schema=replay_schema(lowering.schema("stage:" + family))
+        )
         path = root / f"{len(replays):08}-{family}.arrow"
         with pa.OSFile(str(path), "wb") as sink, pa.ipc.new_file(sink, batch.schema) as writer:
             writer.write_batch(batch)

@@ -79,9 +79,15 @@ class PublishedDocumentBinding:
 
 def published_read_statements(*, target_metadata=None) -> dict[str, Select]:
     """Resolve field/type references through the existing physical model once."""
+    from .pdf_record_access_native import pdf_region_relation
+
     selected_table = table if target_metadata is None else target_metadata.tables.__getitem__
     access = selected_table("kb.pdf_record_access")
-    region = selected_table("kb.pdf_record_region")
+    region = (
+        table("kb.pdf_record_region_view")
+        if target_metadata is None
+        else pdf_region_relation(target_metadata)
+    )
     build, revision = (
         bindparam("_native_build_id", type_=Text()),
         bindparam("_native_revision_id", type_=Text()),

@@ -32,7 +32,7 @@ def published_envelopes(infrastructure_rollback):
         "ops.pdf_producer_certification",
         "ops.pdf_roundtrip_oracle",
         "kb.pdf_record_access",
-        "kb.pdf_record_region",
+        "kb.pdf_record_page_access",
         "kb.pdf_record_companion",
         "sem.input",
     ):

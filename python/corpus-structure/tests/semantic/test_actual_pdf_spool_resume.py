@@ -65,6 +65,34 @@ def _records(reply):
     return dict(result)
 
 
+def _compare_recovered_candidate_layout(candidate, context):
+    from corpus_structure.semantic.pdf_payloads import prepare_payload_family
+
+    family = prepare_payload_family(context)
+    encoded = candidate.read_bytes()
+    batch = family.read_batch(
+        encoded, schema_digest=candidate.schema_digest, logical_digest=candidate.logical_digest
+    )
+    destination = pa.BufferOutputStream()
+    with pa.ipc.new_file(destination, batch.schema) as writer:
+        writer.write_batch(batch)
+    file_bytes = destination.getvalue()
+    for fields in (
+        ("page_no", "candidates"),
+        ("page_no", "has_words", "has_vectors", "native_text_quality", "ocr_regions"),
+    ):
+        stream = family.read_batch(encoded, schema_digest=candidate.schema_digest, columns=fields)
+        indices = [batch.schema.get_field_index(field) for field in fields]
+        with pa.BufferReader(file_bytes) as source:
+            reader = pa.ipc.open_file(
+                source, options=pa.ipc.IpcReadOptions(included_fields=indices, use_threads=False)
+            )
+            selected = reader.get_batch(0).select(fields)
+            assert stream.equals(selected, check_metadata=True)
+            assert selected.equals(batch.select(fields), check_metadata=True)
+    return {"ipc_stream": len(encoded), "ipc_file": file_bytes.size}
+
+
 def test_actual_missing_page_resume_and_same_spool_rebuild(tmp_path, request):
     from corpus_structure.semantic.pdf_certification import prepare_pdf_producer_contract
     from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
@@ -93,7 +121,6 @@ def test_actual_missing_page_resume_and_same_spool_rebuild(tmp_path, request):
                     source,
                     spool_root=tmp_path / "interrupted",
                     record_root=tmp_path / "discarded-records",
-                    build_id="controlled-recovery",
                     release_id="controlled-release",
                     page_range=PAGE_RANGE,
                     **bindings,
@@ -102,6 +129,9 @@ def test_actual_missing_page_resume_and_same_spool_rebuild(tmp_path, request):
             )
         first = _recoveries(interrupted)
         assert len(first) == 1
+        acquired_bytes = _compare_recovered_candidate_layout(
+            first[0].candidate, trusted_pdf_context()
+        )
         resumed_replays = []
         with closing(PdfWorker(recipe, assets=assets)) as worker:
             resumed = worker.stream(
@@ -109,7 +139,6 @@ def test_actual_missing_page_resume_and_same_spool_rebuild(tmp_path, request):
                     source,
                     spool_root=tmp_path / "resumed",
                     record_root=tmp_path / "resumed-records",
-                    build_id="controlled-recovery",
                     release_id="controlled-release",
                     page_range=PAGE_RANGE,
                     recovery_pages=first,
@@ -129,7 +158,6 @@ def test_actual_missing_page_resume_and_same_spool_rebuild(tmp_path, request):
                     source,
                     spool_root=tmp_path / "rebuilt",
                     record_root=tmp_path / "rebuilt-records",
-                    build_id="controlled-recovery",
                     release_id="controlled-release",
                     page_range=PAGE_RANGE,
                     recovery_pages=all_pages,
@@ -148,6 +176,7 @@ def test_actual_missing_page_resume_and_same_spool_rebuild(tmp_path, request):
                     "original_sha256": source.digest,
                     "physical_pages": PAGE_RANGE,
                     "restored": [first[0].page_no],
+                    "complete_transport_bytes": acquired_bytes,
                     "computed": sorted(number for number in computed if number is not None),
                     "comparison": "exact emitted records from the same completed page spool",
                     "limits": "no uninterrupted-versus-resumed GPU equality or native DDO publication claim",

@@ -42,6 +42,7 @@ from .native_program import (
 )
 from .native_program import literal as pg_literal
 from .native_program_registry import ProgramDeclaration
+from .pdf_access_projection import ITEM_REPORT_KINDS
 from .pdf_record_model import artifact_part_upload_table
 
 
@@ -97,6 +98,12 @@ _FAMILIES = (
         ("family", "local_id", "field_name"),
     ),
     RecordPageFamily(
+        "item_report",
+        "kb.pdf_record_companion",
+        ("family", "ordinal", "local_id"),
+        body_filters=("pointers", "kinds"),
+    ),
+    RecordPageFamily(
         "endpoint",
         "kb.pdf_record_endpoint",
         ("relation_id", "ordinal"),
@@ -147,6 +154,46 @@ def _companion_fields(model, row):
     )
 
 
+def _item_report_keys(model, build, filters):
+    reports = model.tables["kb.pdf_record_report_item"].alias("report")
+    items = model.tables["kb.pdf_record_access"].alias("item")
+    requested = func.jsonb_array_elements_text(filters["pointers"]).table_valued(
+        column("value", Text())
+    )
+    kinds = func.jsonb_array_elements_text(filters["kinds"]).table_valued(column("value", Text()))
+    pointers, report_kinds = select(requested.c.value), select(kinds.c.value)
+    inline = ITEM_REPORT_KINDS[2]
+    ancestry = (
+        select(items.c.pointer, items.c.parent_pointer)
+        .where(
+            items.c.product_id == build,
+            items.c.revision_id == build,
+            items.c.pointer.in_(pointers),
+            literal(inline).in_(report_kinds),
+        )
+        .cte("selected_item_ancestry", recursive=True)
+    )
+    ancestry = ancestry.union(
+        select(items.c.pointer, items.c.parent_pointer)
+        .select_from(ancestry.join(items, items.c.pointer == ancestry.c.parent_pointer))
+        .where(items.c.product_id == build, items.c.revision_id == build)
+    )
+    return (
+        select(reports.c.local_id)
+        .where(
+            reports.c.product_id == build,
+            reports.c.revision_id == build,
+            reports.c.kind.in_(report_kinds),
+            or_(
+                and_(reports.c.kind != inline, reports.c.pointer.in_(pointers)),
+                and_(reports.c.kind == inline, reports.c.pointer.in_(select(ancestry.c.pointer))),
+            ),
+        )
+        .distinct()
+        .subquery("selected_item_reports")
+    )
+
+
 def _page(model: MetaData, spec: RecordPageFamily, build, filters, after, limit, stream_ids):
     if spec.name == "artifact_part":
         shape = artifact_part_upload_table(model)
@@ -171,7 +218,12 @@ def _page(model: MetaData, spec: RecordPageFamily, build, filters, after, limit,
         conditions.append(
             or_(~filters.has_key("stream_ids"), row.c.stream_id.in_(select(ids.c.value)))
         )
-    if spec.body_filters:
+    source = row
+    if spec.name == "item_report":
+        keys_for_items = _item_report_keys(model, build, filters)
+        source = row.join(keys_for_items, keys_for_items.c.local_id == row.c.local_id)
+        conditions.append(row.c.family == "native_metadata")
+    if spec.name == "companion":
         pages = func.jsonb_array_elements(filters["page_nos"]).table_valued(
             column("value", JSONB())
         )
@@ -197,10 +249,11 @@ def _page(model: MetaData, spec: RecordPageFamily, build, filters, after, limit,
                 or_(seek, and_(row.c.family == bound[0], row.c.ordinal.is_(None))),
             ),
         )
+    if spec.name in {"companion", "item_report"}:
         output = output.op("||")(func.jsonb_build_object("_fields", _companion_fields(model, row)))
     return (
         select(output)
-        .select_from(row)
+        .select_from(source)
         .where(
             row.c.product_id == build,
             row.c.revision_id == build,
@@ -309,6 +362,8 @@ def pdf_record_page_programs(
 
     branches = []
     for spec in _FAMILIES:
+        if frozen and spec.name == "item_report":
+            continue
         names = spec.filters + spec.body_filters + (("stream_ids",) if spec.has_stream_set else ())
         steps: list[If | Assign] = [
             If(
@@ -319,6 +374,42 @@ def pdf_record_page_programs(
                 (Raise("unsupported published record filter", "22023"),),
             )
         ]
+        if spec.name == "item_report":
+            pointers = func.jsonb_array_elements_text(filters["pointers"]).table_valued(
+                column("value", Text())
+            )
+            kinds = func.jsonb_array_elements_text(filters["kinds"]).table_valued(
+                column("value", Text())
+            )
+            invalid_reports = Raise("invalid selected item report pointers or kinds", "22023")
+            steps.extend(
+                (
+                    If(
+                        or_(
+                            func.jsonb_typeof(filters["pointers"]).is_distinct_from("array"),
+                            func.jsonb_typeof(filters["kinds"]).is_distinct_from("array"),
+                        ),
+                        (invalid_reports,),
+                    ),
+                    If(
+                        or_(
+                            ~func.jsonb_array_length(filters["pointers"]).between(1, 1000),
+                            select(1)
+                            .select_from(pointers)
+                            .where(~pointers.c.value.like("#/%"))
+                            .exists(),
+                            ~func.jsonb_array_length(filters["kinds"]).between(
+                                1, len(ITEM_REPORT_KINDS)
+                            ),
+                            select(1)
+                            .select_from(kinds)
+                            .where(kinds.c.value.not_in(ITEM_REPORT_KINDS))
+                            .exists(),
+                        ),
+                        (invalid_reports,),
+                    ),
+                )
+            )
         if spec.has_stream_set:
             steps.extend(
                 (
