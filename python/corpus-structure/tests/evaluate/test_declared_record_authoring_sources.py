@@ -49,19 +49,25 @@ def authoring(monkeypatch):
         acquired.append((connection, demand_id, kwargs))
         yield None, object()
 
+    active = set()
+
     @contextmanager
     def transaction():
         connection = object()
         transactions.append(connection)
-        yield connection
+        active.add(connection)
+        try:
+            yield connection
+        finally:
+            active.remove(connection)
 
-    monkeypatch.setattr(demand_results, "selected_record_index", selected_index)
+    def check_coordinates(*args, source_cache=None):
+        assert not active, "independent coordinate checking retained a native transaction"
+        coordinates.append(args)
+
+    monkeypatch.setattr(demand_results, "acquired_selected_relations", selected_index)
     monkeypatch.setattr(policy, "_selected_body", lambda *_args: (row, body))
-    monkeypatch.setattr(
-        policy,
-        "_check_source_coordinates",
-        lambda *args, source_cache=None: coordinates.append(args),
-    )
+    monkeypatch.setattr(policy, "_check_source_coordinates", check_coordinates)
     monkeypatch.setattr(releases, "open_release", lambda *_args: prepared)
     monkeypatch.setattr(data_operation_admission, "bound_data_operation_model", lambda _: model)
     from corpus_structure.evaluate import record_alignment

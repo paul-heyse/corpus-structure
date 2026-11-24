@@ -16,7 +16,7 @@ from corpus_structure.semantic._data_operation_wire import WireCutSelection
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import json_context_meaning
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
-from corpus_structure.semantic.demand_results import CutSelection, selected_record_index
+from corpus_structure.semantic.demand_results import CutSelection, acquired_selected_relations
 from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.refusal_types import SemanticRefusal
@@ -32,7 +32,7 @@ _SNAPSHOT = (
 )
 
 
-def _body(index, product, member=None):
+def _row(index, product, member=None):
     row = (
         index.mapping("kb.data_product", ("id",)).get(product)
         if member is None
@@ -42,33 +42,21 @@ def _body(index, product, member=None):
     )
     if row is None:
         raise SelectedReferenceRefusal("reference address is outside the selected native closure")
+    return row
+
+
+def _body(index, product, member=None):
+    row = _row(index, product, member)
     return row, decode_semantic_value(row["canonical_body" if member is None else "body"])
 
 
 def _partition(index, product_id, collection, partition_key):
     from corpus_structure.semantic.selected_population_archive import POPULATION_HEADERS
 
-    if (archive := getattr(index, "population_archive", None)) is not None:
-        typed = tuple(
-            archive.rows(
-                POPULATION_HEADERS,
-                product_id=product_id,
-                collection=collection,
-                partition_key=partition_key,
-            )
-        )
-        if len(typed) == 1:
-            return typed[0]
-        if typed:
-            raise SelectedReferenceRefusal("reference partition repeats its exact address")
-    rows = tuple(
-        index.rows_for(
-            "kb.data_product_partition",
-            product_id=product_id,
-            collection=collection,
-            partition_key=partition_key,
-        )
-    )
+    address = dict(product_id=product_id, collection=collection, partition_key=partition_key)
+    rows = tuple(index.rows_for(POPULATION_HEADERS, **address))
+    if not rows:
+        rows = tuple(index.rows_for("kb.data_product_partition", **address))
     if len(rows) != 1:
         raise SelectedReferenceRefusal(
             "reference partition is outside the exact selected native closure"
@@ -215,7 +203,7 @@ def _authenticate_reference_sources(connection, body, *, project_id, max_bytes=8
     pins = source_cut.record
     if pins["project_id"] != project_id:
         raise SelectedReferenceRefusal("reference original source belongs to another project")
-    with selected_record_index(
+    with acquired_selected_relations(
         connection,
         body["source_demand_id"],
         project_id=project_id,
@@ -223,9 +211,10 @@ def _authenticate_reference_sources(connection, body, *, project_id, max_bytes=8
         read_id=pins["read_id"],
         expected_cut=source_cut.identity,
         max_bytes=max_bytes,
+        retain_population_items=False,
     ) as (_, index):
         for source in body["source_members"]:
-            actual, _ = _body(index, source["product_id"], source.get("member_id"))
+            actual = _row(index, source["product_id"], source.get("member_id"))
             if (
                 any(
                     actual[key] != source[key]
@@ -242,7 +231,7 @@ def _authenticate_reference_sources(connection, body, *, project_id, max_bytes=8
             if variant == "partition":
                 _partition(index, parent, output["collection"], address)
             else:
-                _body(index, parent, address)
+                _row(index, parent, address)
 
 
 def author_selected_references(engine, prepared, *, request):
@@ -581,7 +570,7 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
         raise SelectedReferenceRefusal(
             "reference and prediction require their separate native selections"
         )
-    with selected_record_index(
+    with acquired_selected_relations(
         connection,
         request.reference_demand_id,
         project_id=request.project_id,
@@ -589,6 +578,7 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
         read_id=reference_pin.record["read_id"] if reference_pin is not None else None,
         expected_cut=reference_pin.identity if reference_pin is not None else None,
         max_bytes=request.max_bytes,
+        retain_population_items=False,
     ) as (reference_cut, references):
         reference_row, reference = _body(references, request.reference_product_id)
         prepared = open_release(connection, reference_cut.record["release_id"])
@@ -627,13 +617,16 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
         if reference_row["kind_contract"] in snapshot_contracts:
             episodes = {
                 row["derivation_id"]
-                for row in references.rows("ops.data_derivation_output")
-                if row["product_id"] == request.reference_product_id
+                for row in references.rows_for(
+                    "ops.data_derivation_output", product_id=request.reference_product_id
+                )
             }
             originals = [
                 row
-                for row in references.rows("ops.data_derivation_input")
-                if row["derivation_id"] in episodes and row["role"] == "reference"
+                for episode in episodes
+                for row in references.rows_for(
+                    "ops.data_derivation_input", derivation_id=episode, role="reference"
+                )
             ]
             if len(originals) != 1:
                 raise SelectedReferenceRefusal(
@@ -650,24 +643,27 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
             }
             admissions = {
                 row["id"]
-                for row in references.rows("ops.original_source_admission")
-                if row["product_id"] == original["product_id"]
-                and row["evidence"].get("standing") == "authored"
+                for row in references.rows_for(
+                    "ops.original_source_admission", product_id=original["product_id"]
+                )
+                if row["evidence"].get("standing") == "authored"
             }
             if (
                 original_row["kind_contract"] not in source_contracts
                 or json_bytes(original_body) != json_bytes(reference)
                 or not any(
-                    row["derivation_id"] == original["derivation_id"]
-                    and row["role"] == "reference"
-                    and row["admission_id"] in admissions
-                    for row in references.rows("ops.data_derivation_original_support")
+                    row["admission_id"] in admissions
+                    for row in references.rows_for(
+                        "ops.data_derivation_original_support",
+                        derivation_id=original["derivation_id"],
+                        role="reference",
+                    )
                 )
             ):
                 raise SelectedReferenceRefusal(
                     "reference snapshot differs from its authentic independently authored input"
                 )
-        with selected_record_index(
+        with acquired_selected_relations(
             connection,
             request.prediction_demand_id,
             project_id=request.project_id,
@@ -692,8 +688,9 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
                 )
             producer_episodes = {
                 row["derivation_id"]
-                for row in predictions.rows("ops.data_derivation_output")
-                if row["product_id"] == request.prediction_product_id
+                for row in predictions.rows_for(
+                    "ops.data_derivation_output", product_id=request.prediction_product_id
+                )
             }
             if not producer_episodes or not any(
                 row["derivation_id"] in producer_episodes and row["fate"] == "fulfilled"

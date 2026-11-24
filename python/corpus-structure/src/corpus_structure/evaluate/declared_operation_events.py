@@ -187,21 +187,14 @@ def _selected_body(index, product, member=None):
     )
     if row is None:
         raise SemanticRefusal("event input is outside its exact selected closure")
-    return decode_semantic_value(row["canonical_body" if member is None else "body"])
+    return row, decode_semantic_value(row["canonical_body" if member is None else "body"])
 
 
-def _check_selected_context(index, reference):
+def _check_selected_context(row, reference):
     from corpus_structure.semantic.data_operation_json import json_bytes
-    from corpus_structure.semantic.data_operation_model import json_context_meaning
 
-    row = index.mapping("kb.data_product", ("id",)).get(reference.product_id)
-    if reference.member_id is not None:
-        row = index.mapping("kb.data_product_member", ("product_id", "member_id")).get(
-            (reference.product_id, reference.member_id)
-        )
     if (
-        row is None
-        or row["kind_contract"] != reference.kind_contract
+        row["kind_contract"] != reference.kind_contract
         or any(
             row[name] != getattr(reference, name)
             for name in ("subject", "subject_definition", "original_source")
@@ -210,6 +203,31 @@ def _check_selected_context(index, reference):
         != reference.analyzed_scope_meaning
     ):
         raise SemanticRefusal("event reference changes its actual selected kind/context")
+
+
+def _require_report_outputs(expected, acquired):
+    """Find missing exact producer occurrences in one set operation per frame."""
+    import pyarrow as pa
+
+    from corpus_structure.analytics import connection
+
+    schema = pa.schema(
+        [
+            ("derivation_id", pa.string()),
+            ("product_id", pa.string()),
+            ("member_id", pa.string()),
+            ("role", pa.string()),
+            ("position", pa.int64()),
+            ("multiplicity", pa.int64()),
+        ]
+    )
+    with connection() as engine:
+        required = engine.from_arrow(pa.Table.from_pylist(expected, schema=schema))
+        available = engine.from_arrow(pa.Table.from_pylist(list(acquired), schema=schema))
+        if required.except_(available).limit(1).fetchall():
+            raise SemanticRefusal(
+                "event report lacks its exact selected current producing use/episode"
+            )
 
 
 def execute_frame_profile(receiver, question, reports, sources):
@@ -252,8 +270,7 @@ def execute_frame_kernel(
         analyzed_scope_meaning=json_context_meaning(question_role.context.analyzed_scope).decode(),
     )
     reports_by_id = {
-        row.product_id: read_definition_components_report(row.body)
-        for row in grouped["reports"]
+        row.product_id: read_definition_components_report(row.body) for row in grouped["reports"]
     }
     source_values = {
         canonical_bytes([row.product_id, row.member_id]).decode(): FrozenNativeSource.acquire(
@@ -279,7 +296,7 @@ class EventFramePlan:
         from corpus_structure.semantic.data_operation_prepared_call import PreparedCallResult
         from corpus_structure.semantic.demand_results import (
             CutSelection,
-            selected_record_index,
+            acquired_selected_relations,
         )
         from corpus_structure.semantic.native_definition_projection import (
             read_native_definition_projection,
@@ -335,83 +352,122 @@ class EventFramePlan:
                 row["operation_id"]: row
                 for row in read_native_definition_projection(prediction_prepared)["operations"]
             }
-            report_bodies = dict(
-                zip((row.product for row in reports), arguments.arguments["reports"], strict=True)
+            original_cut = CutSelection(original_selection.cut_canonical_json.encode())
+            prediction_cut = CutSelection(prediction_selection.cut_canonical_json.encode())
+            source_references = tuple(
+                dict.fromkeys(row.selection.source for row in question.judgments)
             )
-            # Identical pinned selections share one authenticated index in this transaction.
-            for selection in dict.fromkeys((original_selection, prediction_selection)):
-                cut = CutSelection(selection.cut_canonical_json.encode())
-                with selected_record_index(
-                    connection,
-                    selection.demand_id,
-                    project_id=context.project_id,
-                    scope=cut.record["scope"],
-                    read_id=selection.read_id,
-                    expected_cut=selection.cut_id,
-                    capture_frontier=True,
-                    use_ids={row.selection.use_id for row in question.judgments}
-                    if selection == prediction_selection and selection != original_selection
-                    else None,
-                ) as (_, index):
-                    if selection == original_selection:
-                        for member, body in zip(
-                            sources, arguments.arguments["sources"], strict=True
-                        ):
-                            actual = _selected_body(index, member.product, member.member)
-                            if canonical_bytes(actual) != canonical_bytes(body):
-                                raise SemanticRefusal(
-                                    "event original source differs from actual selected body"
-                                )
-                    if selection != prediction_selection:
-                        continue
-                    uses = {row["use_id"]: row for row in index.frontier_rows("uses")}
-                    episodes = index.mapping("ops.data_derivation", ("id",))
-                    requests = index.mapping("ops.data_request", ("id",))
-                    for row in question.judgments:
-                        selected = row.selection
-                        _check_selected_context(index, selected.report)
-                        actual = _selected_body(index, selected.report.product_id)
-                        use = uses.get(selected.use_id)
-                        episode = episodes.get(selected.derivation_id)
-                        request = None if episode is None else requests.get(episode["request_id"])
-                        definition = definitions.get(selected.producer_operation)
-                        if (
-                            canonical_bytes(actual)
-                            != canonical_bytes(report_bodies[selected.report.product_id])
-                            or use is None
-                            or use["derivation_id"] != selected.derivation_id
-                            or use["completion_state"] != "success"
-                            or use["fate"] not in {"fulfilled", "attached"}
-                            or episode is None
-                            or request is None
-                            or request["operation_id"] != selected.producer_operation
-                            or definition is None
-                            or definition["support_contract"]["capabilities"].get(
-                                "prepared_factory"
-                            )
-                            is None
-                            or definition["support_contract"]["capabilities"]["prepared_factory"][
-                                "entrypoint"
-                            ]
-                            != _PRODUCERS[selected.producer_operation]
-                            or episode["release_id"] != prediction_prepared.release_id
-                            or episode["recipe"] != request["recipe"]
-                            or definition["implementation_revision"] != selected.producer_revision
-                            or not any(
-                                output["derivation_id"] == selected.derivation_id
-                                and output["product_id"] == selected.report.product_id
-                                and output["member_id"] is None
-                                for output in index.rows("ops.data_derivation_output")
-                            )
-                        ):
-                            raise SemanticRefusal(
-                                "event report lacks its exact selected current producing use/episode"
-                            )
-            capsule = (
-                ""
-                if original_prepared.release_id == self.prepared.release_id
-                else release_capsule(original_prepared).hex()
+            with acquired_selected_relations(
+                connection,
+                original_selection.demand_id,
+                project_id=context.project_id,
+                scope=original_cut.record["scope"],
+                read_id=original_selection.read_id,
+                expected_cut=original_selection.cut_id,
+                retain_population_items=False,
+            ) as (_, originals):
+                source_rows = {}
+                for member, body in zip(sources, arguments.arguments["sources"], strict=True):
+                    row, actual = _selected_body(originals, member.product, member.member)
+                    if canonical_bytes(actual) != canonical_bytes(body):
+                        raise SemanticRefusal(
+                            "event original source differs from actual selected body"
+                        )
+                    source_rows[member.product, member.member] = row
+                for reference in source_references:
+                    _check_selected_context(
+                        source_rows[reference.source_product, reference.source_member], reference
+                    )
+            selected_reports = tuple(
+                dict.fromkeys(
+                    (
+                        item.selection.use_id,
+                        item.selection.derivation_id,
+                        item.selection.report,
+                        item.selection.producer_operation,
+                        item.selection.producer_revision,
+                    )
+                    for item in question.judgments
+                )
             )
+            report_members = {member.product: member for member in reports}
+            with acquired_selected_relations(
+                connection,
+                prediction_selection.demand_id,
+                project_id=context.project_id,
+                scope=prediction_cut.record["scope"],
+                read_id=prediction_selection.read_id,
+                expected_cut=prediction_selection.cut_id,
+                capture_frontier=True,
+                use_ids={use for use, *_ in selected_reports},
+                retain_population_items=False,
+            ) as (_, predictions):
+                report_rows = {}
+                for member, body in zip(reports, arguments.arguments["reports"], strict=True):
+                    row, actual = _selected_body(predictions, member.product)
+                    if canonical_bytes(actual) != canonical_bytes(body):
+                        raise SemanticRefusal("event report differs from its actual selected body")
+                    report_rows[member.product] = row
+                episodes = predictions.mapping("ops.data_derivation", ("id",))
+                requests = predictions.mapping("ops.data_request", ("id",))
+                expected_outputs = []
+                for use_id, derivation_id, report, operation, revision in selected_reports:
+                    _check_selected_context(report_rows[report.product_id], report)
+                    use = predictions.frontier_row("uses", use_id)
+                    episode = episodes.get(derivation_id)
+                    request = None if episode is None else requests.get(episode["request_id"])
+                    definition = definitions.get(operation)
+                    factory = (
+                        None
+                        if definition is None
+                        else definition["support_contract"]["capabilities"].get("prepared_factory")
+                    )
+                    member = report_members[report.product_id]
+                    output = member.producer_output
+                    if (
+                        use is None
+                        or use["derivation_id"] != derivation_id
+                        or use["completion_state"] != "success"
+                        or use["fate"] not in {"fulfilled", "attached"}
+                        or episode is None
+                        or request is None
+                        or request["operation_id"] != operation
+                        or definition is None
+                        or factory is None
+                        or factory["entrypoint"] != _PRODUCERS[operation]
+                        or episode["release_id"] != prediction_prepared.release_id
+                        or episode["recipe"] != request["recipe"]
+                        or definition["implementation_revision"] != revision
+                        or derivation_id not in member.support_episodes
+                        or output is None
+                        or output.member_id is not None
+                    ):
+                        raise SemanticRefusal(
+                            "event report lacks its exact selected current producing use/episode"
+                        )
+                    expected_outputs.append(
+                        dict(
+                            derivation_id=derivation_id,
+                            product_id=report.product_id,
+                            **output.model_dump(),
+                        )
+                    )
+                acquired_outputs = tuple(
+                    output
+                    for derivation_id in dict.fromkeys(
+                        row["derivation_id"] for row in expected_outputs
+                    )
+                    for output in predictions.rows_for(
+                        "ops.data_derivation_output", derivation_id=derivation_id
+                    )
+                )
+        check_active()
+        _require_report_outputs(expected_outputs, acquired_outputs)
+        capsule = (
+            ""
+            if original_prepared.release_id == self.prepared.release_id
+            else release_capsule(original_prepared).hex()
+        )
         input_basis = _input_basis(self.port, binding, arguments.arguments)
         bound = inspect.signature(execute_frame_kernel).bind(
             input_basis, capsule, prepared=self.prepared, check_active=check_active

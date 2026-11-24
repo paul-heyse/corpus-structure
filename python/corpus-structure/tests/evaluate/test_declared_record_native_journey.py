@@ -231,7 +231,10 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
     """Real native publications and purposes; extraction remains controlled."""
     from typing import cast
 
-    from corpus_structure.evaluate.declared_record_policy import reacquire_record_feature_grade
+    from corpus_structure.evaluate.declared_record_policy import (
+        reacquire_record_feature_grade,
+        reacquire_selected_record_grade,
+    )
     from corpus_structure.semantic._data_operation_wire import (
         WireReadSelectedFeatureFitFrameRequest,
         WireRevokeDataSupportRequest,
@@ -261,6 +264,8 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
     with journey.kernel.purpose("fit").begin() as connection:
         acquired = reacquire_record_feature_grade(connection, fitted.feature.selection)
     assert acquired == fitted.feature.grade
+    with journey.kernel.purpose("evaluate").begin() as connection:
+        assert reacquire_selected_record_grade(connection, fitted.feature.selection) == acquired
     assert len(acquired.frame.events) == 8 and {row.correct for row in acquired.frame.events} == {
         True,
         False,
@@ -341,6 +346,11 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
     # This is an actual different captured CPU producer/common receipt, carrying
     # exactly the same protected body. It is deliberately not a grade authority.
     copied = copy_grade(journey, fitted.feature)
+    with (
+        journey.kernel.purpose("evaluate").begin() as connection,
+        pytest.raises(ValueError, match="exact producing episode/use/output"),
+    ):
+        reacquire_selected_record_grade(connection, copied.selection)
     with (
         journey.kernel.purpose("fit").begin() as connection,
         pytest.raises(DBAPIError, match="actual admitted protected grade implementation"),

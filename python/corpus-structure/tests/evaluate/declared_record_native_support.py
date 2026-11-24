@@ -275,7 +275,7 @@ class CurrentRecordPolicyJourney:
         self, engine, demand, *, kind, scope=None, page_rows=100, max_bytes=8 * 1024**2
     ):
         from corpus_structure.evaluate.declared_record_policy import _selected_body
-        from corpus_structure.semantic.demand_results import selected_record_index
+        from corpus_structure.semantic.demand_results import acquired_selected_relations
         from corpus_structure.semantic.selected_support import SelectedReadReference
 
         names = (kind,) if isinstance(kind, str) else kind
@@ -286,7 +286,7 @@ class CurrentRecordPolicyJourney:
         }
         with (
             engine.begin() as connection,
-            selected_record_index(
+            acquired_selected_relations(
                 connection,
                 demand,
                 project_id=PROJECT,
@@ -326,7 +326,7 @@ def _capture_record_policy(kernel, tmp_path, source_count):
     from corpus_structure.semantic.data_operation_model import json_context_meaning
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
-    from corpus_structure.semantic.demand_results import selected_record_index
+    from corpus_structure.semantic.demand_results import acquired_selected_relations
     from corpus_structure.semantic.identifiers import ProjectId, ReleaseId
     from corpus_structure.semantic.original_documents import (
         acquire_original_document_selection,
@@ -405,7 +405,7 @@ def _capture_record_policy(kernel, tmp_path, source_count):
     selected = []
     with (
         kernel.purpose("evaluate").begin() as connection,
-        selected_record_index(
+        acquired_selected_relations(
             connection, demand, project_id=PROJECT, scope={}, capture_frontier=True
         ) as (
             source_cut,

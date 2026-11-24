@@ -425,3 +425,24 @@ def test_actual_current_cpu_kernels_bind_frame_fit_and_ordered_score_values(nomi
     score_reply = execute_score_kernel(score_basis, check_active=lambda: None)
     score = cpu_authority_value(canonical_bytes(score_reply), expected_basis=score_basis)
     assert score == pytest.approx(fit.result.predictions[0].fitted_probability)
+
+
+@pytest.mark.parametrize("changed", ["derivation_id", "role", "position", "multiplicity"])
+def test_report_preflight_requires_exact_producing_occurrence(changed):
+    from corpus_structure.evaluate.declared_operation_events import _require_report_outputs
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
+
+    same_report = {"product_id": "report:identical", "member_id": None}
+    first = dict(
+        same_report, derivation_id="episode:first", role="definition", position=0, multiplicity=1
+    )
+    second = dict(first, derivation_id="episode:second")
+    _require_report_outputs([first, second], [second, first])
+    substitutes = {
+        "derivation_id": first["derivation_id"],
+        "role": "other",
+        "position": 1,
+        "multiplicity": 2,
+    }
+    with pytest.raises(SemanticRefusal, match="exact selected current producing use/episode"):
+        _require_report_outputs([first, second], [first, {**second, changed: substitutes[changed]}])

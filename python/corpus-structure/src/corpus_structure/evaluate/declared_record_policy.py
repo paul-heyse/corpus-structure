@@ -8,6 +8,7 @@ labels remain protected and are exposed only through the dedicated fitter capabi
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cache
 from hashlib import sha256
 from typing import Annotated, Any, Literal, Self
 
@@ -1485,23 +1486,23 @@ def _check_source_coordinates(
             )
 
 
-def _authenticate_question_sources(connection, prepared, questions, *, source_cache=None):
+def _acquire_question_sources(connection, questions):
     from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.data_operation_model import json_context_meaning
-    from corpus_structure.semantic.demand_results import CutSelection, selected_record_index
+    from corpus_structure.semantic.demand_results import CutSelection, acquired_selected_relations
 
     cut = CutSelection(questions[0].source_cut_canonical_json.encode())
     if any(question.source_cut_canonical_json.encode() != cut.content for question in questions):
         raise SemanticRefusal("record source population changes its exact frozen native source cut")
-    source_cache = {} if source_cache is None else source_cache
     by_pin, question_pins = {}, []
-    with selected_record_index(
+    with acquired_selected_relations(
         connection,
         cut.record["demand_id"],
         project_id=questions[0].project_id,
         scope=cut.record["scope"],
         read_id=cut.record["read_id"],
         expected_cut=cut.identity,
+        retain_population_items=False,
     ) as (_, index):
         for question in questions:
             frame = _record_frame(question.frame_canonical_json)
@@ -1545,17 +1546,7 @@ def _authenticate_question_sources(connection, prepared, questions, *, source_ca
                         "record source coordinate differs from its retained native body"
                     )
                 by_pin[key] = (pin, body)
-    result = []
-    for question, pins in zip(questions, question_pins, strict=True):
-        values = tuple(by_pin[canonical_bytes(pin)] for pin in pins)
-        _check_source_coordinates(
-            prepared,
-            values,
-            _canonical_json_value(question.coordinate_texts_canonical_json),
-            source_cache=source_cache,
-        )
-        result.append(values)
-    return tuple(result)
+    return tuple(tuple(by_pin[canonical_bytes(pin)] for pin in pins) for pins in question_pins)
 
 
 def execute_grade_profile(
@@ -1826,7 +1817,10 @@ class RecordPolicyGradePlan:
         from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
         from corpus_structure.semantic.data_operation_json import json_bytes
         from corpus_structure.semantic.data_operation_model import json_context_meaning
-        from corpus_structure.semantic.demand_results import CutSelection, selected_record_index
+        from corpus_structure.semantic.demand_results import (
+            CutSelection,
+            acquired_selected_relations,
+        )
         from corpus_structure.semantic.reading_resolution_products import reading_recipe_identity
         from corpus_structure.semantic.releases import open_release
 
@@ -1899,33 +1893,25 @@ class RecordPolicyGradePlan:
                     "record prediction selection differs from its exact acquired native cut"
                 )
         archives, addresses, recipes = [], [], []
-        historical = {}
+        coordinate_checks = []
         loaded_releases = {}
-        source_cache = {}
 
         def acquire_release(connection, release_id):
             if release_id not in loaded_releases:
                 loaded_releases[release_id] = open_release(connection, release_id)
             return loaded_releases[release_id]
 
-        def capture(prepared):
-            if (
-                prepared.release_id != self.prepared.release_id
-                and prepared.release_id not in historical
-            ):
-                historical[prepared.release_id] = release_capsule(prepared).hex()
-            return prepared.release_id
+        @cache
+        def prediction_recipe(release_id):
+            return reading_recipe_identity(bound_data_operation_model(loaded_releases[release_id]))
 
         with execution_owner.engine.begin() as connection:
             reference_prepared = acquire_release(connection, questions[0].source_release_id)
-            reference_release_id = capture(reference_prepared)
-            sources_by_question = _authenticate_question_sources(
-                connection, reference_prepared, questions, source_cache=source_cache
-            )
+            sources_by_question = _acquire_question_sources(connection, questions)
             _verify_declared_sources(
                 sources_by_question, source_members, values["sources"], project=context.project_id
             )
-            with selected_record_index(
+            with acquired_selected_relations(
                 connection,
                 cut.record["demand_id"],
                 project_id=context.project_id,
@@ -1933,20 +1919,18 @@ class RecordPolicyGradePlan:
                 read_id=cut.record["read_id"],
                 expected_cut=cut.identity,
                 capture_frontier=True,
+                retain_population_items=False,
                 obligation_ids=tuple(
                     selection.obligation_id for selection in specification.prediction_selections
                 ),
             ) as (_, index):
-                uses = {row["use_id"]: row for row in index.frontier_rows("uses")}
-                obligations = {
-                    row["obligation_id"]: row for row in index.frontier_rows("obligations")
-                }
+                episodes = index.mapping("ops.data_derivation", ("id",))
                 for question, selection, source_values in zip(
                     questions, specification.prediction_selections, sources_by_question, strict=True
                 ):
                     check_active()
-                    use = uses.get(selection.use_id)
-                    obligation = obligations.get(selection.obligation_id)
+                    use = index.frontier_row("uses", selection.use_id)
+                    obligation = index.frontier_row("obligations", selection.obligation_id)
                     if (
                         use is None
                         or obligation is None
@@ -1975,11 +1959,9 @@ class RecordPolicyGradePlan:
                                 "absent/failed prediction is unknown, unavailable or not actually completed"
                             )
                         prepared = acquire_release(connection, cut.record["release_id"])
-                        archives.append(capture(prepared))
+                        archives.append(prepared.release_id)
                         addresses.append(None)
-                        recipes.append(
-                            reading_recipe_identity(bound_data_operation_model(prepared))
-                        )
+                        recipes.append(prediction_recipe(prepared.release_id))
                         continue
                     member, passed_body = bound_predictions[selection.product_id]
                     if (
@@ -1996,26 +1978,27 @@ class RecordPolicyGradePlan:
                         raise SemanticRefusal(
                             "record prediction differs from its actual selected carrier body"
                         )
-                    episode = index.mapping("ops.data_derivation", ("id",)).get(
-                        selection.derivation_id
-                    )
-                    outputs = tuple(
-                        index.rows_for(
-                            "ops.data_derivation_output",
-                            derivation_id=selection.derivation_id,
-                            product_id=selection.product_id,
-                        )
-                    )
+                    episode = episodes.get(selection.derivation_id)
+                    occurrence = member.producer_output
                     if (
                         episode is None
-                        or not outputs
+                        or occurrence is None
+                        or occurrence.member_id is not None
+                        or not tuple(
+                            index.rows_for(
+                                "ops.data_derivation_output",
+                                derivation_id=selection.derivation_id,
+                                product_id=selection.product_id,
+                                **occurrence.model_dump(),
+                            )
+                        )
                         or episode["request_id"] != selection.request_id
                     ):
                         raise SemanticRefusal(
                             "record prediction lacks its exact actual producing episode/output"
                         )
                     prepared = acquire_release(connection, episode["release_id"])
-                    recipe = reading_recipe_identity(bound_data_operation_model(prepared))
+                    recipe = prediction_recipe(prepared.release_id)
                     if episode["recipe"] != recipe:
                         raise SemanticRefusal(
                             "record prediction recipe differs from its actual admitted producer"
@@ -2025,40 +2008,60 @@ class RecordPolicyGradePlan:
                         for packet in actual["members"]
                         if packet["body"]["candidate_type"] == "record"
                     ]
-                    _check_source_coordinates(
-                        prepared,
-                        source_values,
-                        actual["coordinate_texts"],
-                        [anchor for row in records for anchor in row["anchors"]],
-                        source_cache=source_cache,
+                    coordinate_checks.append(
+                        (
+                            prepared,
+                            source_values,
+                            actual["coordinate_texts"],
+                            tuple(anchor for row in records for anchor in row["anchors"]),
+                        )
                     )
-                    archives.append(capture(prepared))
+                    archives.append(prepared.release_id)
                     addresses.append(
                         DeclaredProductRef.from_bound(
                             member, project=context.project_id
                         ).model_dump(mode="json")
                     )
                     recipes.append(recipe)
-            metadata = dict(
-                reference_release_id=reference_release_id,
-                prediction_release_ids=archives,
-                historical_capsules=historical,
-                reference_addresses=[
-                    DeclaredProductRef.from_bound(member, project=context.project_id).model_dump(
-                        mode="json"
-                    )
-                    for member in reference_members
-                ],
-                prediction_addresses=addresses,
-                prediction_recipes=recipes,
-                cut_release_id=cut.record["release_id"],
-                bound_prediction_addresses=[
-                    DeclaredProductRef.from_bound(member, project=context.project_id).model_dump(
-                        mode="json"
-                    )
-                    for member in prediction_members
-                ],
+        source_cache = {}
+        for question, source_values in zip(questions, sources_by_question, strict=True):
+            check_active()
+            _check_source_coordinates(
+                reference_prepared,
+                source_values,
+                _canonical_json_value(question.coordinate_texts_canonical_json),
+                source_cache=source_cache,
             )
+        for prepared, source_values, coordinates, anchors in coordinate_checks:
+            check_active()
+            _check_source_coordinates(
+                prepared, source_values, coordinates, anchors, source_cache=source_cache
+            )
+        historical = {
+            release_id: release_capsule(prepared).hex()
+            for release_id, prepared in loaded_releases.items()
+            if release_id != self.prepared.release_id
+        }
+        metadata = dict(
+            reference_release_id=reference_prepared.release_id,
+            prediction_release_ids=archives,
+            historical_capsules=historical,
+            reference_addresses=[
+                DeclaredProductRef.from_bound(member, project=context.project_id).model_dump(
+                    mode="json"
+                )
+                for member in reference_members
+            ],
+            prediction_addresses=addresses,
+            prediction_recipes=recipes,
+            cut_release_id=cut.record["release_id"],
+            bound_prediction_addresses=[
+                DeclaredProductRef.from_bound(member, project=context.project_id).model_dump(
+                    mode="json"
+                )
+                for member in prediction_members
+            ],
+        )
         signature = inspect.signature(execute_grade_kernel, eval_str=True)
         bound = signature.bind(
             input_basis=_record_cpu_basis(self.port, binding, values),
@@ -2124,7 +2127,7 @@ def reacquire_selected_record_grade(
 ) -> DdoRecordGrade:
     """Evaluator-authorized exact grade selection, separate from the fitter-only read."""
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-    from corpus_structure.semantic.demand_results import CutSelection, selected_record_index
+    from corpus_structure.semantic.demand_results import CutSelection, acquired_selected_relations
     from corpus_structure.semantic.native_definition_projection import (
         read_native_definition_projection,
     )
@@ -2143,7 +2146,7 @@ def reacquire_selected_record_grade(
         selection.read_id,
     ):
         raise SemanticRefusal("grade selection differs from original acquired native cut bytes")
-    with selected_record_index(
+    with acquired_selected_relations(
         connection,
         selection.demand_id,
         project_id=selection.project_id,
@@ -2151,26 +2154,28 @@ def reacquire_selected_record_grade(
         read_id=selection.read_id,
         expected_cut=cut.identity,
         use_ids=(selection.use_id,),
+        capture_frontier=True,
+        retain_population_items=False,
     ) as (_, index):
-        row, body = _selected_body(index, selection.product_id)
         episode = index.mapping("ops.data_derivation", ("id",)).get(selection.derivation_id)
-        use = index.mapping("ops.demand_use", ("id",)).get(selection.use_id)
-        outputs = [
-            edge
-            for edge in index.rows("ops.data_derivation_output")
-            if (
-                edge["derivation_id"],
-                edge["product_id"],
-                edge["role"],
-                edge["member_id"],
-                edge["multiplicity"],
+        use = index.frontier_row("uses", selection.use_id)
+        outputs = tuple(
+            index.rows_for(
+                "ops.data_derivation_output",
+                derivation_id=selection.derivation_id,
+                product_id=selection.product_id,
+                role="grade",
+                position=0,
+                member_id=None,
+                multiplicity=1,
             )
-            == (selection.derivation_id, selection.product_id, "grade", None, 1)
-        ]
+        )
         if (
             episode is None
             or use is None
             or use["derivation_id"] != selection.derivation_id
+            or use["completion_state"] != "success"
+            or use["fate"] not in {"fulfilled", "attached"}
             or len(outputs) != 1
         ):
             raise SemanticRefusal(
@@ -2201,6 +2206,7 @@ def reacquire_selected_record_grade(
             for kind in read_native_definition_projection(prepared)["kinds"]
             if kind["kind"] == GRADE_KIND and kind["universe"] == "evaluator"
         }
+        row, body = _selected_body(index, selection.product_id)
         if row["kind_contract"] not in contracts:
             raise SemanticRefusal("selected grade lacks its actual protected nominal kind")
         grade = DdoRecordGrade.from_selected_body(body)
@@ -2268,44 +2274,49 @@ def author_record_policy_inputs(engine, prepared, *, request):
                 questions[0].source_cut_canonical_json,
             )
             populations.setdefault(key, []).extend(value.references)
-    # One invocation pins one transaction. Identical exact cuts share their
-    # authenticated selected index; no authority survives this authoring call.
+    # Read receipts and trust locks end with acquisition. Authored coordinates
+    # and record alignment still independently check every retained reference.
+    acquired = []
     if populations:
         with engine.begin() as connection:
             for (_, release_id, _), references in populations.items():
                 original = open_release(connection, release_id)
                 questions = tuple(reference.question for reference in references)
-                sources = _authenticate_question_sources(connection, original, questions)
-                for reference, question, source_values in zip(
-                    references, questions, sources, strict=True
-                ):
-                    rows = tuple(
-                        original.validate_json("SourceRecord", canonical_bytes(row)).model_dump(
-                            mode="python", exclude_unset=True
-                        )
-                        for row in _canonical_json_value(reference.records_canonical_json)
-                    )
-                    frame = _record_frame(question.frame_canonical_json)
-                    from dataclasses import replace
+                sources = _acquire_question_sources(connection, questions)
+                acquired.append((original, references, questions, sources))
+    for original, references, questions, sources in acquired:
+        model = bound_data_operation_model(original)
+        source_cache = {}
+        for reference, question, source_values in zip(references, questions, sources, strict=True):
+            rows = tuple(
+                original.validate_json("SourceRecord", canonical_bytes(row)).model_dump(
+                    mode="python", exclude_unset=True
+                )
+                for row in _canonical_json_value(reference.records_canonical_json)
+            )
+            frame = _record_frame(question.frame_canonical_json)
+            from dataclasses import replace
 
-                    comparison = replace(
-                        frame, prediction_policy_version=frame.reference_policy_version
-                    )
-                    coordinates = _canonical_json_value(question.coordinate_texts_canonical_json)
-                    _check_source_coordinates(
-                        original,
-                        source_values,
-                        coordinates,
-                        [anchor for row in rows for anchor in row["anchors"]],
-                    )
-                    align_records(
-                        RecordSide(comparison, rows),
-                        RecordSide(comparison, rows),
-                        original,
-                        model=bound_data_operation_model(original),
-                        prediction_model=bound_data_operation_model(original),
-                        coordinate_texts=coordinates,
-                    )
+            comparison = replace(frame, prediction_policy_version=frame.reference_policy_version)
+            coordinates = _canonical_json_value(question.coordinate_texts_canonical_json)
+            _check_source_coordinates(
+                original, source_values, coordinates, source_cache=source_cache
+            )
+            _check_source_coordinates(
+                original,
+                source_values,
+                coordinates,
+                [anchor for row in rows for anchor in row["anchors"]],
+                source_cache=source_cache,
+            )
+            align_records(
+                RecordSide(comparison, rows),
+                RecordSide(comparison, rows),
+                original,
+                model=model,
+                prediction_model=model,
+                coordinate_texts=coordinates,
+            )
     return author_interpretations(engine, prepared, request=request)
 
 
