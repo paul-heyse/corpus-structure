@@ -331,7 +331,7 @@ def test_current_scoped_relations_publish_nomination_and_reopen_exact_artifact_c
 @pytest.mark.gpu
 @pytest.mark.prerequisite("pdf_resume_assets")
 def test_genuine_selected_pdf_scoped_report_publishes_and_reopens(scenario_seeds, tmp_path):
-    """Three retained pages traverse real Standard capture and the installed scoped producer."""
+    """One retained page traverses real Standard capture and the installed scoped producer."""
     from io import BytesIO
 
     import pypdfium2 as pdfium
@@ -339,7 +339,7 @@ def test_genuine_selected_pdf_scoped_report_publishes_and_reopens(scenario_seeds
     from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
     from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.semantic.demand_results import read_selected_answer
-    from semantic.actual_pdf_resume_support import ORIGINAL, PAGE_RANGE, prepared_pdf_resume_assets
+    from semantic.actual_pdf_resume_support import ORIGINAL, prepared_pdf_resume_assets
     from semantic.current_pdf_source_support import (
         CurrentPdfSource,
         _capture_source,
@@ -349,7 +349,7 @@ def test_genuine_selected_pdf_scoped_report_publishes_and_reopens(scenario_seeds
 
     recipe, assets = prepared_pdf_resume_assets()
     with pdfium.PdfDocument(ORIGINAL) as retained, pdfium.PdfDocument.new() as panel:
-        panel.import_pages(retained, list(range(PAGE_RANGE[0] - 1, PAGE_RANGE[1])))
+        panel.import_pages(retained, [120])  # Physical page 121 preserves a nonempty math source.
         output = BytesIO()
         panel.save(output)
     capture_recipe = current_pdf_recipe(
@@ -363,7 +363,7 @@ def test_genuine_selected_pdf_scoped_report_publishes_and_reopens(scenario_seeds
             tmp_path,
             (),
             original=output.getvalue(),
-            source_uri="retained-grinstead-snell-panel.pdf",
+            source_uri="retained-grinstead-snell-page-121.pdf",
         )
         source = CurrentPdfSource(capture, demand, document, original, ())
         kernel = admit_current_target(

@@ -1343,9 +1343,7 @@ class NativeDemandExecutor:
 
         def retain(calls):
             if draft is not None and draft.population_upload is not None:
-                self._upload_draft(
-                    calls, claim, draft, check_active=lambda: _check_claim_active(owner, claim)
-                )
+                self._upload_draft(calls, claim, draft)
             elif profile is not None:
                 calls.prepare_population_upload(
                     claim.fence,
@@ -1428,12 +1426,7 @@ class NativeDemandExecutor:
 
                 def consume(calls, *, candidate=candidate, draft=draft, original=original):
                     if draft.population_upload is not None:
-                        self._upload_draft(
-                            calls,
-                            claim,
-                            draft,
-                            check_active=lambda: _check_claim_active(owner, claim),
-                        )
+                        self._upload_draft(calls, claim, draft)
                     return calls.consume_data_completion_draft(
                         {
                             **claim.fence,
@@ -1465,11 +1458,15 @@ class NativeDemandExecutor:
         return None
 
     @staticmethod
-    def _upload_draft(calls, claim, draft, *, check_active=lambda: None):
+    def _upload_draft(calls, claim, draft):
+        from corpus_structure.core.execution_control import check_execution_active
+
         profile = population_item_write_profile(release_id=draft.release_id)
 
         def active():
-            check_active()
+            # The claim owner may be replaying after an uncertain commit. The
+            # native upload preparation checks the exact claim fence in that transaction.
+            check_execution_active()
             cancellation = getattr(calls, "cancellation", None)
             if cancellation is not None:
                 cancellation.check_active()
