@@ -1221,14 +1221,34 @@ comparing candidates.
 A, B and C are development strands. A and C can be developed independently. B consumes A's
 partition and proof contracts. Its freshness slice also consumes A's native settlement coverage.
 Other read design can proceed while coverage is under development. Reconcile the strands with
-the SBX-09 development root and its two registered read successors, ending at
-`semantic_sbx_answer_guards`. Inspect the actual registered stage predecessor before authoring
+the SBX-09 development root and the registered read successors. The starting development
+predecessor for the integrated SBX-11–16 change is `semantic_sbx_qualified_reads`. Inspect
+the actual registered stage predecessor before authoring
 stage candidates. Author each against its exact predecessor snapshot and register in dependency
 order. Candidate effects, including shared descriptor admission, determine whether a strand
 can be installed independently. The letters identify effect groups, while the actual registered
 chain governs installation, restart and receipt applicability.
 [Coverage contract](references-and-projection-keys.md#settlement-coverage) ·
 [Public read](owner-resolved-reads.md#sbx-11)
+
+**Installed · 2026-11-23.** Development advanced from `semantic_sbx_qualified_reads` to
+`semantic_sbx_selected_pdf` using rollback-only candidate `1f6b2eb7893c458a8fd7080b971bf093`.
+Candidate `3530c89fd5a247c1b94bf605ac59d7dc` refused until the request declared the retirement of both legacy table
+triggers and the public whole-native event reader. Preview `994d687c3ba849d6bbc5d3c2fdcdc43c` binds those three
+retirements. The candidate contained 84 native, 17 ordinary and two privilege operations.
+Registration `ea64976841d845829a71fc418a49c711` and deployment
+`a9d6f25f285e4ad690d95e8595d941e8` passed. Maintenance readback confirmed that installed revision
+and registered head. The read request shape changes shared wire custody. Physical access and
+relationship changes affect the PDF installation. Provider evidence still determines how the
+actual capture, recognition and transformed publication identities behave under policy-only change.
+
+**Installed · 2026-11-23.** The sparse-report successor `semantic_sbx_pdf_report_address`
+changes seven native operations, preserving the physical schema and grants. PostgreSQL now
+checks compact diagnostic pointers against the opaque report at companion admission. The
+report-occurrence view can use those pointers without converting the rest of the report to
+JSONB. Preview `fdbd28256ef74f25b1dfc4a2ebe9c7c6`, rollback-only candidate
+`48254c3778c44d9c83fb6609e07756f1`, registration `0e257063bbea45e5919f754f030ff7f0`
+and development deployment `5073f98968cc4a08806119b66b4f3b52` passed.
 
 Start the attribution comparison early using the existing candidate inspection views. Compare
 a read implementation change, a wire-only change and a material producer lowering against their

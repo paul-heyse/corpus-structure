@@ -290,7 +290,7 @@ are used here. [Pinned workspace][lock] · [Docling advanced options][docling-op
 [wire-code]: ../../python/corpus-structure/src/corpus_structure/semantic/data_operation_wire.py#L616
 [export]: ../../python/corpus-structure/src/corpus_structure/serve/demand_export.py#L57
 [export-capture]: ../../python/corpus-structure/src/corpus_structure/serve/demand_export.py#L483
-[index]: ../../python/corpus-structure/src/corpus_structure/semantic/data_operation_read_index.py#L114
+[index]: ../plans/set-based-execution/owner-resolved-reads.md#sbx-through-13-checkpoint
 [change]: ../../python/corpus-structure/src/corpus_structure/schema/model_change.py#L201
 [deployment]: ../../python/corpus-structure/src/corpus_structure/schema/model_deployment.py#L749
 [temp]: ../../python/corpus-structure/src/corpus_structure/semantic/alembic_native.py#L22

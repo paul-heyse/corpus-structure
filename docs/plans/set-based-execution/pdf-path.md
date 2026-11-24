@@ -374,6 +374,79 @@ checks over compact coordinates under the shared analytical owner.
 [Retained streaming evidence](../../design_review/evidence/2026-11-22_sbx-columnar-basis/README.md) ·
 [Review I12](../../plan_improvement_reviews/set-based-execution-after-sbx09-deep-review_2026-11-23.md#I12)
 
+<a id="sbx-through-16-checkpoint"></a>
+### SBX-14–16 implementation checkpoint
+
+**Implemented · 2026-11-23.** Transforms, full exports and the validation child use
+ordered native record, membership and stream relations. The child checks the lowering
+captured by the producer. A transformation acquires bounded immutable rows and artifact
+streams, releases its database connection, then assembles the owned document. The selected
+transform hands off acquired values directly, and Integration validates those values under
+the producer's captured policy. PostgreSQL derives sparse access and report-occurrence
+relationships from admitted rows and their staged JSON. Admitted compact report pointers
+keep opaque diagnostic bytes out of JSONB indexing. Region reads use the derived
+view. Budget evaluation and delivery share a bounded native selection, with exact scalar
+payload limits checked before transfer. The legacy whole-document event entry point is
+retired. Explicit fragment traversal keeps its own semantic purpose.
+
+**Implemented · 2026-11-23.** Retained replay files carry logical rows. Scoped loaders
+supply physical build, revision and release bindings. Adoption authenticates the
+original retained bytes, then stages the recovered document in one transaction with
+claim renewal coordinated by the claim owner. Old replay shapes can supply a verified
+projection at load. Adoption preserves the original files byte for byte. Candidate status and geometry read
+from an admitted page batch or its projected stream. The document draft seals an
+owned result. Lowering and certification reuse the parent's validation when the exact
+emitted value and captured callback policy match. A changed representation receives fresh
+validation. The validation child independently reconstructs and validates its own input.
+
+**Tested by selected identity · 2026-11-23.** The repaired private cohort
+`f0e6aace46384292927754feea14c920` passed native transformation with a controlled
+provider and a same-spool different-build case. The latter refused a late tamper, left
+no partial receipt and adopted unchanged retained files after retry.
+
+**Tested and measured on the recovered fixture · 2026-11-23.** The genuine Docling GPU
+recovery passed (`4a13e399a673476da3237a5bef75e27f`) on physical pages 120–122.
+It recomputed only the missing pages and compared native record output from the same
+completed spool. The recovered candidate page produced identical projected status and
+geometry for the two IPC layouts. Complete authenticated acquisition was 27,488 bytes
+for the existing stream and 33,522 bytes for an IPC file. Retain the stream on this
+evidence. A larger OCR-heavy case or an Acero operator chain remains conditional on
+removing material transfer or a full pass while preserving custody and release.
+
+**Tested by selected identity · 2026-11-23.** The installed policy-remap and historical
+basis journeys passed (`42a62898af344299b27d3faa75dcf7fd`). They exercised genuine
+Standard capture, the installed recognition worker with a finite service, policy-only
+reuse of the observations, and historical authorization across generation advance and
+withdrawal. The provider-only selection of these two identities selected no cases
+(`e3e1174896b54b6cad2902f8b0a5bc99`). The passing run used the ordinary native lane.
+
+**Tested by selected identity · 2026-11-23.** The subsequent private native cohort
+`248e71d8bba04aedb3f42f5c9fde4dab` passed forced revalidation from a real sealed
+publication. The spawned child reconstructed the sealed digest under the captured contract.
+Its deliberately incompatible ambient schema and callback defaults rejected the same
+document independently. The installed sparse diagnostic case preserved exact NUL and
+Unicode, selected two report kinds sharing a local ordinal, skipped unrelated bodies, and
+refused malformed or forged compact pointer arrays.
+
+The serial retry `753f19be5cb14ad1b2f7606badacc4ae` passed the installed derived access and
+region parity check, native organization, enrichment, integration and exact resume, and
+real native worker reuse. The managed cohort retains four enrichment-control failures
+from instrumentation that outlived its native fixture. The affected isolated controls
+passed `3b0ce36ecba246b7bc10f982af246931` after narrowing the instrumentation to the
+seal methods.
+
+The final native control cohort `1f6e6523ba374dc7bb9b41a39cc1778e` passed the
+organization and enrichment publication-seal checks and the four enrichment controls
+on the same worker. It also passed exact materialization bounds for a small source and
+refusal of an oversized selected source before reading body rows.
+
+The enrichment parent uses one independently validated source and the draft's validated
+output document for its coverage calculation. The installed parent control saw one
+successful output callback validation through lowering and certification. The worker's
+pinned tree finalization pass still normalizes geometry after enrichment. The complete
+worker and child validation counts and the representative combined visual evidence case
+retain separate acceptance.
+
 <a id="sbx-17"></a>
 ## SBX-17 — Certification and validation without round trips
 

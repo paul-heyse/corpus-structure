@@ -1,12 +1,12 @@
 # Set-based execution
 
-**Status · 2026-11-23.** Development scope through SBX-10 is complete.
-The [accepted redesign](#columnar-redesign-amendment) uses typed producers, workers,
-retained rows and selected consumers on `main`. The native root included the approved
-PDF producer custody slice and established the clean development baseline. The
-[qualified reads successor](set-based-execution/owner-resolved-reads.md#sbx-qualified-reads-checkpoint)
-is installed on that development database. Acceptance through SBX-12 remains open.
-[Integrated qualification](set-based-execution/cutover-and-qualification.md#sbx-columnar-implementation) ·
+**Status · 2026-11-23.** Development runs `semantic_sbx_pdf_report_address`. The accepted
+typed producer and reader design through SBX-10 has its original development acceptance.
+The [read and evaluation checkpoint](set-based-execution/owner-resolved-reads.md#sbx-through-13-checkpoint)
+and [PDF checkpoint](set-based-execution/pdf-path.md#sbx-through-16-checkpoint) record
+implementation and selected native and provider results through SBX-16. The execution
+queue and package owners retain the open implementation and qualification obligations.
+[Installed revision](set-based-execution/cutover-and-qualification.md#native-revisions) ·
 [Verified development reset](set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09)
 
 This series owns the pivot to
@@ -220,12 +220,12 @@ capability consumed.
 | SBX-08 | Complete. Acquired source frames and immutable typed, formal, interpreted and composed payloads passed the named provider, handoff and malformed-input checks. | SBX-04/05 proof and address contracts | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-08) |
 | SBX-09 | Complete. Sealed output and reply custody, registered-root use, deployment recovery, both PDF reuse journeys, and applicable ordinary, provider and shared fault qualification passed. The development database was recreated empty on the verified sole root. | Integrated SBX-03–08 behavior, the brought-forward PDF producer slice, and final-source correspondence to the registered root | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-09) · [Verified reset](set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09) |
 | SBX-10 | Complete for development. Consumed-runtime custody and the installed math occurrence, normalization, scope, exact readback and resume checks passed. | SBX-08 and SBX-03 token views. Selected math readback uses the early SBX-12 reader. | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-consumed-runtime-custody) |
-| SBX-11 | Qualified freshness and bounded native answer changes are installed in development. Shared selected consumers and PDF catalog header batching have been integrated. Exact-reference batching, scoped attribution and combined installed acceptance remain open. | SBX-01 partitions, SBX-02 proofs, SBX-06 qualified settlement and the early SBX-12 reader for structural consumers | [ORR](set-based-execution/owner-resolved-reads.md#sbx-11) |
-| SBX-12 | Live and detached readers share a lookup contract. The v4 writer emits typed Parquet relations, and the dossier uses a substantive presentation cache after current authorization. Combined native replay, paging and cache acceptance remain open. | Early contract uses SBX-02 proofs, SBX-05 references and shared typed projections. Full live and detached integration uses SBX-11 acquisition. | [ORR](set-based-execution/owner-resolved-reads.md#sbx-12) |
-| SBX-13 | Separate acquired evaluation cuts and purposes. Consolidate deterministic native preflight, independent Python checks and mutable completion guards. | SBX-11 native binding facts and the early SBX-12 reader slice | [ORR](set-based-execution/owner-resolved-reads.md#sbx-13) |
-| SBX-14 | One document rebuild routine; round-trip validation under the captured policy | — | [PDF](set-based-execution/pdf-path.md#sbx-14) |
-| SBX-15 | Publication-derived access and diagnostic membership, batched sparse reads and retirement of the region copy | SBX-14 rebuild contract | [PDF](set-based-execution/pdf-path.md#sbx-15) |
-| SBX-16 | One document per process; verified page and file carriers; build identifier at load | — | [PDF](set-based-execution/pdf-path.md#sbx-16) |
+| SBX-11 | Implemented indexed output-prefix paging, typed partition and derivation windows, bounded proof aggregation, catalog frontier batches and shared exact-reference acquisition. Installed output paging, sibling freshness, exact and absent partition items, and first matching proof passed. Physical attribution, protected partitions, combined cross-source coverage and remaining finite snapshot lifetimes stay open. | SBX-01 partitions, SBX-02 proofs, SBX-06 qualified settlement and the early SBX-12 reader for structural consumers | [ORR](set-based-execution/owner-resolved-reads.md#sbx-11) |
+| SBX-12 | Implemented typed v4 replay, atomic archive publication, current reacquisition for proof-sensitive readers and retirement of the selected-record SQLite index. Installed interruption controls and genuine candidate-conditioned D1 export and replay passed. Remaining proof-sensitive reader and whole-route acceptance stays open. | Early contract uses SBX-02 proofs, SBX-05 references and shared typed projections. Full live and detached integration uses SBX-11 acquisition. | [ORR](set-based-execution/owner-resolved-reads.md#sbx-12) |
+| SBX-13 | Implemented separate acquired evaluation cuts, scoped Arrow facts, DuckDB event slot checks and independent evaluation after reader release. Installed grade/fitter custody, event scoring, selected authored references, known empty output, and restricted event-frame refusals passed by selected identity. | SBX-11 native binding facts and the early SBX-12 reader slice | [ORR](set-based-execution/owner-resolved-reads.md#sbx-13) |
+| SBX-14 | Implemented shared ordered row reconstruction for transforms, full exports and validation with captured lowering. Installed native transforms and forced revalidation under incompatible ambient defaults passed by selected identity. | — | [PDF](set-based-execution/pdf-path.md#sbx-14) |
+| SBX-15 | Implemented publication-derived item relations, exact report-occurrence lookup, bounded native reads and a derived region view. Sparse formula diagnostics passed on the installed revision, including NUL and forged-pointer controls. Larger combined visual qualification remains open. | SBX-14 rebuild contract | [PDF](set-based-execution/pdf-path.md#sbx-15) |
+| SBX-16 | Implemented verified replay custody, load-time physical bindings, atomic document adoption, projected candidate reads and publication sealing. Different-build adoption and genuine missing-page GPU recovery passed. Whole-transformation snapshot cleanup and validation counts remain open. | — | [PDF](set-based-execution/pdf-path.md#sbx-16) |
 | SBX-17 | Typed certification, logical rows by column and retirement of duplicate certifier storage | SBX-15 relationship projections, SBX-16 carriers and consumed SBX-18 job contract | [PDF](set-based-execution/pdf-path.md#sbx-17) |
 | SBX-18 | Shared fidelity, one analytical job allocation and bounded comparisons for physical batching and durable output | Existing typed population and worker custody | [KT](set-based-execution/kernel-trial.md#sbx-18) |
 | SBX-19 | Complete scoped-relations comparison through exact artifact nomination and readback, with a recorded adoption decision | SBX-18, SBX-08, SBX-05 and SBX-10 indexes. Complete comparison consumes installed math integration. Projection-keyed qualification consumes SBX-06. | [KT](set-based-execution/kernel-trial.md#sbx-19) |

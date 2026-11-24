@@ -542,6 +542,101 @@ transaction through their use. Independently pending analyzed siblings, cross-so
 correspondence, protected partition and proof coverage, and combined installed read acceptance
 retain their individual evidence requirements.
 
+<a id="sbx-through-13-checkpoint"></a>
+### SBX-11–13 implementation checkpoint
+
+**Implemented · 2026-11-23.** Output paging seeks the pinned obligation and output prefix,
+then uses exact member equality or a bounded ordered member scan. It retains a shared
+candidate-address budget across prefixes and continues from the last disclosed address.
+Partition and derivation-input pages use their typed positions before body projection. Proof
+pages select authorized rule and premise addresses before aggregating establishments.
+The source catalog acquires the obligations on its page in one bounded native frontier call.
+The shared reference reader checks the producing use and declared slot for each occurrence,
+and can read distinct member bodies together while preserving caller order and multiplicity.
+Query-context CLI and MCP requests finish the pinned database read and close its scratch before
+resolving context over the acquired Arrow relations.
+
+**Implemented · 2026-11-23.** Grouped interpretation, contribution and exclusion comparisons
+reacquire their determining evidence on each request. The operation frontier is read only
+where the response uses it. A frontier stamp cannot establish exact current proof membership.
+The dossier keeps its existing cache after exact current reference authorization. Selected
+Parquet and structural review exports share atomic no-replace publication. Restart verifies
+a sealed destination using its trusted manifest digest. An incomplete destination cannot
+supply a trusted replay. The typed selected-record reader has one Arrow implementation.
+
+**Implemented · 2026-11-23.** Evaluation uses separately acquired reference and prediction
+cuts, retaining the restricted fitter frame and native completion guards. Event preflight
+uses a DuckDB anti-join over exact producer slots. Independent authored-coordinate checks
+run after their native reader transactions close.
+
+**Tested by selected identity · 2026-11-23.** The first focused archive and catalog cohort
+passed 38 checks (`37c6169f62f34c6da17ccabecd5c7f16`). The evaluation and serving cohort
+`c019a178814b4afb9d3bd90c6d412ad7` retains 18 failures, including source custody during
+concurrent edits and fixtures still bound to the retired reader. The subsequent stable
+selected test command `uv run ci test --workers 1` passed 332 of 338 cases
+(`cbab20ffe0c440a0b3ab710d5739dd14`). The six PDF fixture failures passed on
+`uv run ci test retry cbab20ffe0c440a0b3ab710d5739dd14 --lane ordinary`
+(`87abfd5fe0874bc39353169e94bc00af`).
+
+The first private native run (`2987b67f786548679e1b01ef382ed343`) passed 16 of 25
+selected identities. The nine failures include PDF setup that sent logical replay
+descriptors to a native shared-stream probe requiring physical build fields. The loader
+now supplies the authorized build binding. `uv run ci results recover
+2987b67f786548679e1b01ef382ed343` recovered the settled receipt after the host cleanup
+learned to recognize drained synthetic kernel scratch. Its nine failures remain retained.
+The second private run (`e36b5ce07ac145bbb3b9df9681cfc7af`) was interrupted before retrying
+against that repair.
+
+The repaired private cohort `f0e6aace46384292927754feea14c920` passed all three selected
+identities using `uv run ci test --native-host private --workers 1`. It covered installed
+output continuation within one obligation, a late tamper followed by atomic different-build
+replay of unchanged files, and the controlled-provider native organization, enrichment,
+integration and exact-resume journey. The MCP neighborhood tool and resource scope controls
+passed for both server routes (`f2006d11e5a74ae9bb974708c677708a`).
+
+The private cohort `ec74df4df3484fb2a93e1dfc34bfce43` also passed the real record
+grade and restricted fitter, the event issuer and shared scorer, the selected authored
+reference, and protected dossier and detached replay. Its sibling-freshness fixture failed
+during native registration because the supplied root ordering differed from the authenticated
+frozen selection. Exact retry `999acce07d9a4e97a4f13e628e42bce4` registered the frozen order
+and passed the sibling-context case. The retained cohort was recovered
+after the private host and child groups had exited.
+
+The genuine candidate-conditioned D1 journey passed against the installed read program
+(`ee260ad3d86d4601b4accd99f7fa61bf`, `uv run ci test --native-host private
+--providers-only --workers 1`). Its selected export took 4.8 seconds, including 0.6 seconds
+for one native staging call and 0.5 seconds across 28 native fetches. Detached verification
+and replay took 32.6 seconds. These measurements apply to the selected D1 fixture.
+
+The focused serial test cohort `ac6c2c9eae8541ebb5bb118fcdde0902` passed 81 of 85 cases,
+including query-context ownership and cleanup after projection failure. Four older PDF
+certification fixtures still expected staged physical identifiers or derived access columns,
+or supplied an incomplete lowering context. The updated fixtures passed exact retry
+`4b6f79203e4e43adbae497ce626cc683`. The earlier command
+`a5c62b4db8564e8687587d84d31069f9` failed selection with a nonexistent test path.
+
+The installed cohort `248e71d8bba04aedb3f42f5c9fde4dab` passed the explicit completed
+empty-carrier grade and refusal of an event frame under the ordinary read purpose or
+a substituted use. The recovered receipt retains four passes and two fixture failures
+in the selected PDF and evaluation scope.
+
+The genuine annotation and canonical projection journey passed
+(`4784854cbd9c4fab8117d35ae8a4d6d3`, `uv run ci test --native-host private
+--providers-only --workers 1`). The early pinned cut returned no proof. The later cut
+returned the first retained matching attestation and its exact producing slot. Direct
+partition header and exact-item reads agreed with the typed archive. An absent item in
+the authorized partition returned an empty answer.
+
+The final serial native control cohort `1f6e6523ba374dc7bb9b41a39cc1778e` passed all
+eight selected identities. Its retained-pin case carried the original pin across demands
+without producing a hidden substitute. The two-slot source case kept proof selection
+role-local while preserving the original reuse basis.
+
+Physical attribution under sparse header filters and broad descendant scans still requires a
+representative installed plan. Finite consumers that still depend on a live borrowed reader
+retain that snapshot. Combined native acceptance still needs the protected partition case and
+governed coverage across distinct original source roles.
+
 <a id="sbx-12"></a>
 ## SBX-12 — Replay, export, cursor and cache
 
