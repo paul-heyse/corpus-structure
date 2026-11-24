@@ -842,7 +842,7 @@ def _discover_relations(
         # A native footnote pointer establishes the table association. Applicability
         # inside the table requires its own exact scope cue.
         for ref in node.get("footnotes", ()):
-            target_pointer = ref.get("$ref") if isinstance(ref, dict) else None
+            target_pointer = ref.get("$ref") if isinstance(ref, Mapping) else None
             facts = navigation.select("note_scope", target_pointer)
             note_targets = ()
             if len(facts) == 1:
