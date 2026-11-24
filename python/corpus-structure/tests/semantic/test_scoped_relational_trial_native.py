@@ -4,6 +4,8 @@ The PDF decoder is controlled. Native source acquisition, linguistic and formal 
 scoped execution, publication, artifact consumption and authenticated reopen are real.
 """
 
+import pytest
+
 from corpus_structure.semantic.data_operation_service import DemandOperationSelection
 from corpus_structure.semantic.data_operation_source_sets import (
     FrozenSourceSet,
@@ -263,3 +265,46 @@ def test_current_scoped_relations_publish_nomination_and_reopen_exact_artifact_c
                 len(actual_inputs) == 1
                 and actual_inputs[0]["product_id"] == scoped.row["product_id"]
             )
+
+
+@pytest.mark.provider_evidence
+@pytest.mark.gpu
+@pytest.mark.prerequisite("pdf_resume_assets")
+def test_genuine_selected_pdf_scoped_report_publishes_and_reopens(scenario_seeds, tmp_path):
+    """Three retained pages traverse real Standard capture and the installed scoped producer."""
+    from io import BytesIO
+
+    import pypdfium2 as pdfium
+    from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
+    from corpus_structure.semantic.demand_results import read_selected_answer
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
+    from semantic.actual_pdf_resume_support import ORIGINAL, PAGE_RANGE, prepared_pdf_resume_assets
+    from semantic.current_pdf_source_support import CurrentPdfSource, _capture_source, current_pdf_recipe
+    from semantic.data_operation_kernel_support import Kernel
+
+    recipe, assets = prepared_pdf_resume_assets()
+    with pdfium.PdfDocument(ORIGINAL) as retained, pdfium.PdfDocument.new() as panel:
+        panel.import_pages(retained, list(range(PAGE_RANGE[0] - 1, PAGE_RANGE[1])))
+        output = BytesIO()
+        panel.save(output)
+    capture_recipe = current_pdf_recipe(tmp_path, capture_profile=(recipe, assets, standard_pdf_contract()))
+    with scenario_seeds.build_for_consumer(capture_recipe, tmp_path) as clone:
+        stage = clone.stage
+        capture = Kernel(clone.admin, stage.preparation, stage.identities, capture_recipe, clone)
+        demand, document, original = _capture_source(capture, tmp_path, (), original=output.getvalue(), source_uri="retained-grinstead-snell-panel.pdf")
+        source = CurrentPdfSource(capture, demand, document, original, ())
+        kernel = admit_current_target(source, artifact_recipe(tmp_path / "recipe"), tmp_path / "consumer")
+        pending = current_consumer_request(source, kernel, (SCOPED,), discover=True)
+        scoped_demand, execution = execute(kernel, pending)
+        assert execution.receipt_count > 0
+        (report,) = selected(kernel, scoped_demand["demand_id"], kind=SCOPED_KIND)
+        (selected_source,) = selected(kernel, scoped_demand["demand_id"], kind=SOURCE_KIND)
+        assert report.body["source_pin"]["source_product"] == selected_source.row["product_id"]
+        with kernel.purpose("read").begin() as connection:
+            answer = read_selected_answer(connection, "read_selected_outputs", scoped_demand["demand_id"], project_id=PROJECT,
+                scope={"operation_id":SCOPED}, use_id=report.row["use_id"], product_id=report.row["product_id"], body=True)
+            assert canonical_bytes(decode_semantic_value(answer["rows"][0]["meaning_body"])) == canonical_bytes(report.body)
+            exported = export_demand_result(connection, scoped_demand["demand_id"], project_id=PROJECT,
+                destination=tmp_path / "genuine-scoped-export", format="parquet", scope={"product_ids":[report.row["product_id"]]})
+        with verified_demand_export(tmp_path / "genuine-scoped-export", manifest_digest=exported.manifest_digest) as (_,_,_,index):
+            assert {report.row["product_id"],selected_source.row["product_id"]} <= set(index.mapping("kb.data_product",("id",)))
