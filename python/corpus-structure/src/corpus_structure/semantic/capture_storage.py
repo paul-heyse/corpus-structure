@@ -73,6 +73,18 @@ class LogicalRows:
         self._hash.update(data)
 
     def write(self, batch: pa.RecordBatch) -> None:
+        offset = 0
+        while offset < batch.num_rows:
+            count = min(512, batch.num_rows - offset)
+            selected = batch.slice(offset, count)
+            while selected.nbytes > 4 * 1024**2 and count > 1:
+                count = max(1, count // 2)
+                selected = batch.slice(offset, count)
+            self._write_columns(selected)
+            offset += count
+        self.rows += batch.num_rows
+
+    def _write_columns(self, batch: pa.RecordBatch) -> None:
         columns = tuple(_column_values(column) for column in batch.columns)
         keys = tuple(batch.column(index).to_pylist() for index in self._key_indices)
         rows = zip(*columns, strict=True) if columns else repeat((), batch.num_rows)
@@ -83,7 +95,6 @@ class LogicalRows:
                     raise ValueError("capture rows are not in unique primary-key order")
                 self._previous = key
             self._update(list(row))
-        self.rows += batch.num_rows
 
     @property
     def digest(self) -> str:

@@ -66,3 +66,27 @@ def test_column_conversion_matches_independent_mixed_type_rows_and_key_boundarie
         assert logical.digest == digest.hexdigest() and logical.rows == 2
         with pytest.raises(ValueError, match="unique primary-key order"):
             logical.write(table.to_batches()[0])
+
+
+def test_column_preparation_bounds_wide_batches_and_keeps_oversized_rows(monkeypatch):
+    from corpus_structure.semantic import capture_storage
+
+    sizes = []
+    original = capture_storage._column_values
+    def prepare(column):
+        sizes.append(column.nbytes)
+        return original(column)
+
+    monkeypatch.setattr(capture_storage, "_column_values", prepare)
+    table = pa.table({"text": ["x" * (1024**2)] * 10})
+    actual = LogicalRows(table.schema)
+    actual.write(table.to_batches()[0])
+    assert actual.rows == 10 and max(sizes) <= 4 * 1024**2
+    expected = LogicalRows(table.schema)
+    for batch in table.to_batches(max_chunksize=1):
+        expected.write(batch)
+    assert actual.digest == expected.digest
+    large = pa.record_batch({"text": ["y" * (5 * 1024**2)]})
+    oversized = LogicalRows(large.schema)
+    oversized.write(large)
+    assert oversized.rows == 1
