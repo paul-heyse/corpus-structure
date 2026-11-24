@@ -514,7 +514,7 @@ def ordered_recapped_declarations(
         if not query.start <= a < b <= query.end:
             continue
         section = items[use_pointer].get("parent")
-        if section not in sections:
+        if not isinstance(section, str) or section not in sections:
             continue
         _siblings,counts,positions = sections[section]
         if counts[use_pointer] != 1:
