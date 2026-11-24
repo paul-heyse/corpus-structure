@@ -110,7 +110,7 @@ class NativeRecordReader(Protocol):
 
     def members(self, parent_id: str, field_name: str) -> Iterable[Mapping[str, Any]]: ...
 
-    def scalar(self, stream_id: str, /) -> Iterable[bytes]: ...
+    def scalar(self, stream_id: str, /) -> Iterable[bytes | memoryview]: ...
 
 
 class AcquiredNativeDocumentRows:
@@ -653,7 +653,7 @@ def iter_native_records(
         )
 
 
-def _decode_scalar(chunks: Iterable[bytes], profile: str) -> Any:
+def _decode_scalar(chunks: Iterable[bytes | memoryview], profile: str) -> Any:
     payload = b"".join(chunks)  # Explicit requested reconstruction owns this allocation.
     if profile == "pdf-record-native-json-v1":
         return json.loads(payload)
@@ -967,34 +967,11 @@ def native_record_identity_fields(
         # Reference rows are a generated index of the exact scalar in their native object.
         return None
     if row.kind == "native":
-        fields: list[tuple[str, Any]] = [
-            ("native_type", values["native_type"]),
-            ("family", values["family"]),
-        ]
-        scalars = json.loads(values["scalars_json"])
-        structure = json.loads(values["structure_json"])
-        # Structure keys are bounded by the supported class, never document cardinality.
-        for field in sorted(
-            scalars.keys() | structure["fields"].keys(), key=lambda v: v.encode("utf-8")
-        ):
-            if field in scalars:
-                fields.append((field + "/value", _parse_inline(scalars[field])))
-                continue
-            descriptor = structure["fields"][field]
-            kind = descriptor["kind"]
-            if kind == "parts":
-                fields.append((field + "/value", scalar_descriptor(descriptor["stream_id"])))
-            else:
-                fields.append((field + "/kind", kind))
-                fields.append(
-                    (
-                        field + "/target" if kind == "object" else field + "/length",
-                        descriptor["target"] if kind == "object" else descriptor["length"],
-                    )
-                )
-        if "extensions" in structure:
-            fields.append(("@extensions", scalar_descriptor(structure["extensions"]["stream_id"])))
-        return "native", values["record_id"], tuple(fields)
+        return _native_identity_fields(
+            values["record_id"], values["native_type"], values["family"],
+            json.loads(values["scalars_json"]), json.loads(values["structure_json"]),
+            scalar_descriptor,
+        )
     if row.kind == "membership":
         fields = [
             ("parent_id", values["parent_id"]),
@@ -1031,3 +1008,78 @@ def native_record_identity_fields(
         )
         return "membership", key, tuple(fields)
     raise ValueError("unsupported PDF identity family " + row.kind)
+
+
+def _native_identity_fields(record_id, native_type, family, scalars, structure, scalar_descriptor):
+    fields: list[tuple[str, Any]] = [
+        ("native_type", native_type),
+        ("family", family),
+    ]
+    # Structure keys are bounded by the supported class, never document cardinality.
+    for field in sorted(
+        scalars.keys() | structure["fields"].keys(), key=lambda v: v.encode("utf-8")
+    ):
+        if field in scalars:
+            fields.append((field + "/value", _parse_inline(scalars[field])))
+            continue
+        descriptor = structure["fields"][field]
+        kind = descriptor["kind"]
+        if kind == "parts":
+            fields.append((field + "/value", scalar_descriptor(descriptor["stream_id"])))
+        else:
+            fields.append((field + "/kind", kind))
+            fields.append(
+                (
+                    field + "/target" if kind == "object" else field + "/length",
+                    descriptor["target"] if kind == "object" else descriptor["length"],
+                )
+            )
+    if "extensions" in structure:
+        fields.append(("@extensions", scalar_descriptor(structure["extensions"]["stream_id"])))
+    return "native", record_id, tuple(fields)
+
+
+def native_record_identity_fields_batch(batch, *, kind, scalar_descriptor):
+    """Prepare captured typed columns once, retaining the canonical scalar seam."""
+    columns = {name: column.to_pylist() for name, column in zip(batch.schema.names, batch.columns, strict=True)}
+    if kind == "document":
+        for profile, version, schema, root in zip(
+            columns["mapping_profile"], columns["contract_version"],
+            columns["native_schema_digest"], columns["root_id"], strict=True,
+        ):
+            yield "document", "root", (
+                ("mapping_profile", profile), ("contract_version", version),
+                ("native_schema_digest", schema), ("root_id", root),
+            )
+        return
+    if kind == "native":
+        scalars = [json.loads(value) for value in columns["scalars_json"]]
+        structures = [json.loads(value) for value in columns["structure_json"]]
+        for values in zip(columns["record_id"], columns["native_type"], columns["family"], scalars, structures, strict=True):
+            yield _native_identity_fields(*values, scalar_descriptor)
+        return
+    if kind != "membership":
+        raise ValueError("unsupported PDF identity family " + kind)
+    # Physical optional columns use null for an absent member field. Only the
+    # logical member-key choice is relevant to the canonical record.
+    absent = [None] * batch.num_rows
+    member_keys = columns.get("member_key", absent)
+    key_streams = columns.get("member_key_stream_id", absent)
+    for parent, field, ordinal, key, key_stream, value_kind, record, scalar, stream in zip(
+        columns["parent_id"], columns["field_name"], columns["ordinal"], member_keys,
+        key_streams, columns["value_kind"], columns["record_id"],
+        columns["scalar_json"], columns["stream_id"], strict=True,
+    ):
+        fields = [("parent_id", parent), ("field_name", field)]
+        key_value = scalar_descriptor(key_stream) if key is None and key_stream is not None else key
+        if key_value is None:
+            fields.append(("ordinal", ordinal))
+        else:
+            fields.append(("member_key", key_value))
+        if value_kind == "record":
+            fields.append(("target", record))
+        else:
+            value = _parse_inline(json.loads(scalar)) if value_kind == "scalar" else scalar_descriptor(stream)
+            fields.append(("value", value))
+        identity = _json([parent, field, canonical_scalar(key_value).hex() if key_value is not None else ordinal])
+        yield "membership", identity, tuple(fields)

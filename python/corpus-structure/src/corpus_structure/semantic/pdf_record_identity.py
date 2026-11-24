@@ -62,13 +62,13 @@ class IdentityFold:
         self.count = 0
         self.byte_length = 0
 
-    def add(self, payload: bytes) -> None:
+    def add(self, payload: bytes | memoryview) -> None:
         if len(payload) > MAX_FRAME_BYTES:
             raise ValueError("identity fold frame exceeds 64 KiB")
         _length(self.byte_length + len(payload))
-        self._state = sha256(
-            _STEP + self._state + _length(self.count) + frame(b"F", payload)
-        ).digest()
+        digest = sha256(_STEP + self._state + _length(self.count) + b"F" + _length(len(payload)))
+        digest.update(payload)
+        self._state = digest.digest()
         self.count += 1
         self.byte_length += len(payload)
 
@@ -76,14 +76,18 @@ class IdentityFold:
         return sha256(_END + self._state + _length(self.count) + _length(self.byte_length)).digest()
 
 
-def canonical_blocks(chunks: Iterable[bytes]) -> Iterator[bytes]:
-    """Reblock an arbitrary byte delivery into canonical 64 KiB blocks."""
+def canonical_blocks(chunks: Iterable[bytes | memoryview]) -> Iterator[bytes | memoryview]:
+    """Borrow aligned blocks and copy only blocks spanning input buffers."""
     pending = bytearray()
     for chunk in chunks:
-        if not isinstance(chunk, bytes):
-            raise TypeError("byte stream chunks must be bytes")
-        remaining = memoryview(chunk)
+        if not isinstance(chunk, (bytes, memoryview)):
+            raise TypeError("byte stream chunks must be bytes or a byte buffer view")
+        remaining = memoryview(chunk).cast("B")
         while remaining:
+            if not pending and len(remaining) >= BLOCK_BYTES:
+                yield remaining[:BLOCK_BYTES]
+                remaining = remaining[BLOCK_BYTES:]
+                continue
             amount = min(BLOCK_BYTES - len(pending), len(remaining))
             pending.extend(remaining[:amount])
             remaining = remaining[amount:]
@@ -94,7 +98,7 @@ def canonical_blocks(chunks: Iterable[bytes]) -> Iterator[bytes]:
         yield bytes(pending)
 
 
-def byte_root(chunks: Iterable[bytes]) -> tuple[int, bytes]:
+def byte_root(chunks: Iterable[bytes | memoryview]) -> tuple[int, bytes]:
     """Return actual byte length and the fixed-block fold, never a claimed hash."""
     folded = IdentityFold("bytes")
     for block in canonical_blocks(chunks):
@@ -107,7 +111,8 @@ def emit_parts(stream_id: str, chunks: Iterable[bytes]) -> Iterator[ArtifactPart
     if not stream_id:
         raise ValueError("artifact stream identity is required")
     offset = 0
-    for ordinal, body in enumerate(canonical_blocks(chunks)):
+    for ordinal, block in enumerate(canonical_blocks(chunks)):
+        body = bytes(block)
         yield ArtifactPart(stream_id, ordinal, offset, len(body), body, sha256(body).hexdigest())
         offset += len(body)
 
@@ -396,7 +401,7 @@ def replay_artifact(
     folded = IdentityFold("bytes")
     for block in canonical_blocks(verified()):
         folded.add(block)
-        yield block
+        yield bytes(block)
     if already_admitted is not None and already_admitted.read(1):
         raise ValueError("already-admitted retained bytes have a trailing suffix")
     if (

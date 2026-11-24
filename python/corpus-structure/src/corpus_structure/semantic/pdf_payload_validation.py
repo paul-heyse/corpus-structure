@@ -73,6 +73,7 @@ class FrozenPayloadStore:
     def __init__(self, validation_contract: Mapping[str, Any]):
         from .pdf_payloads import schema_load
 
+        self._batches: dict[str, list[pa.RecordBatch]] = {}
         self._rows: dict[str, dict[tuple[Any, ...], _Row]] = {family: {} for family in _KEYS}
         self._members: dict[tuple[str, str], list[tuple[int, _Row]]] = {}
         self._parts: dict[str, dict[int, _Row]] = {}
@@ -88,6 +89,7 @@ class FrozenPayloadStore:
         self.integrated_metadata_policy = validation_contract.get("integrated_metadata_policy")
 
     def close(self) -> None:
+        self._batches.clear()
         self._rows.clear()
         self._members.clear()
         self._parts.clear()
@@ -108,6 +110,8 @@ class FrozenPayloadStore:
             # Native references are represented in the canonical document and
             # checked independently against the native reference relation on adoption.
             return
+        if family != "artifact_part":
+            self._batches.setdefault(family, []).append(batch)
         if family == "artifact_part":
             self._part_coordinates.append(
                 batch.select(("stream_id", "ordinal", "byte_offset", "byte_length"))
@@ -150,6 +154,10 @@ class FrozenPayloadStore:
             if family == "membership":
                 parent, field, ordinal = key
                 self._members.setdefault((parent, field), []).append((ordinal, row))
+
+    def batches(self, family: str) -> Iterator[pa.RecordBatch]:
+        """Borrow captured-schema batches in their original delivery order."""
+        yield from self._batches.get(family, ())
 
     def entries(self, family: str) -> Iterator[dict[str, Any]]:
         for row in self._rows[family].values():
@@ -291,13 +299,13 @@ class FrozenPayloadStore:
             raise ValueError("frozen metadata stream is missing")
         return row.values()
 
-    def parts(self, stream: str) -> Iterator[bytes]:
+    def parts(self, stream: str) -> Iterator[memoryview]:
         rows = self._parts.get(stream, {})
         offset = 0
         verify = stream not in self._verified_streams
         for expected, ordinal in enumerate(sorted(rows)):
             row = rows[ordinal]
-            body = row["body"]
+            body = memoryview(row.batch.column("body")[row.index].as_buffer()).cast("B")
             if verify:
                 if ordinal != expected or row["byte_offset"] != offset:
                     raise ValueError("artifact parts must be one contiguous ordered stream")
@@ -310,7 +318,7 @@ class FrozenPayloadStore:
                 offset += len(body)
             yield body
 
-    def scalar(self, stream_id: str, /) -> Iterable[bytes]:
+    def scalar(self, stream_id: str, /) -> Iterable[memoryview]:
         self.verify_stream(self.descriptor(stream_id))
         return self.parts(stream_id)
 

@@ -226,20 +226,19 @@ class PdfProducerPayloads(FrozenPayloadStore):
         )
 
     def _identity_fields(self, kind, recipe_digest, target_meanings):
-        from .pdf_records import NativeRow, native_record_identity_fields
+        from .pdf_records import native_record_identity_fields_batch
 
         for family in ("header", "native", "membership"):
-            for values in self.entries(family):
-                row = {name: value for name, value in values.items() if value is not None}
-                result = native_record_identity_fields(
-                    NativeRow("document" if family == "header" else family, row),
+            for batch in self.batches(family):
+                yield from native_record_identity_fields_batch(
+                    batch, kind="document" if family == "header" else family,
                     scalar_descriptor=self._descriptor,
                 )
-                if result is not None:
-                    yield result
         inputs = {row["local_id"]: row["body"] for row in self.companions("input")}
-        for family in self._companions:
-            for row in self.companions(family):
+        for batch in self.batches("companion"):
+            columns = tuple(batch.column(name).to_pylist() for name in ("family", "local_id", "ordinal", "body"))
+            for family, local_id, ordinal, body in zip(*columns, strict=True):
+                row = {"family": family, "local_id": local_id, "ordinal": ordinal, "body": json.loads(body)}
                 yield from self._companion_frames(row, inputs, target_meanings)
         yield "publication", "root", (("kind", kind), ("recipe_digest", recipe_digest))
 

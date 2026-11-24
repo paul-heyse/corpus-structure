@@ -387,3 +387,87 @@ def test_native_mapping_and_callback_policy_use_the_acquired_context(tmp_path, m
             payloads.certify(document, tmp_path / "wrong-policy.jsonl", **basis)
     finally:
         payloads.close()
+
+
+def test_batch_native_identity_prepares_captured_columns_with_independent_fields(tmp_path):
+    import pyarrow as pa
+
+    from corpus_structure.semantic.pdf_records import native_record_identity_fields_batch
+
+    batch = pa.RecordBatch.from_pylist([
+        {"record_id": "r", "native_type": "TextItem", "family": "texts", "scalars_json": '{"é":null,"alpha":{"native_float64":"8000000000000000"},"value":1e-20}', "structure_json": '{"fields":{"children":{"kind":"array","length":0}}}'},
+    ])
+    def forbidden(stream):
+        raise AssertionError("inline identity requested an artifact")
+
+    assert list(native_record_identity_fields_batch(batch, kind="native", scalar_descriptor=forbidden)) == [
+        ("native", "r", (("native_type", "TextItem"), ("family", "texts"), ("alpha/value", -0.0), ("children/kind", "array"), ("children/length", 0), ("value/value", 1e-20), ("é/value", None)))
+    ]
+
+
+def test_batch_certification_matches_independent_ordered_record_reference(tmp_path):
+    from corpus_structure.semantic.pdf_record_identity import LogicalIdentity
+    from corpus_structure.semantic.pdf_records import NativeRow, native_record_identity_fields
+
+    payloads, _document, basis = prepared(tmp_path)
+    try:
+        expected = []
+        for family in ("header", "native", "membership"):
+            for values in payloads.entries(family):
+                row = {name: value for name, value in values.items() if value is not None}
+                expected.append(native_record_identity_fields(NativeRow("document" if family == "header" else family, row), scalar_descriptor=payloads._descriptor))
+        inputs = {row["local_id"]: row["body"] for row in payloads.companions("input")}
+        for family in payloads._companions:
+            for row in payloads.companions(family):
+                expected.extend(payloads._companion_frames(row, inputs, {}))
+        expected.append(("publication", "root", (("kind", basis["kind"]), ("recipe_digest", basis["recipe_digest"]))))
+        folded = LogicalIdentity(basis["schema_digest"], basis["release_id"], basis["source_digest"])
+        for family, key, fields in sorted(expected, key=lambda row: (row[0].encode(), row[1].encode())):
+            folded.add_record(family, key, fields)
+        actual = payloads.logical_digest(**{name: basis[name] for name in ("release_id", "source_digest", "recipe_digest", "schema_digest", "kind", "target_meanings")})
+        assert actual == folded.pin().logical_digest
+    finally:
+        payloads.close()
+
+
+@pytest.mark.parametrize("corrupt", [None, "shared", "unreferenced"])
+def test_certifier_checks_shared_and_unreferenced_live_part_buffers(tmp_path, corrupt):
+    import pyarrow as pa
+    from semantic.pdf_payload_validation_support import add_row
+
+    from corpus_structure.semantic.pdf_record_identity import BLOCK_BYTES, byte_root
+
+    payloads, _document, basis = prepared(tmp_path)
+    try:
+        for stream in ("shared", "unreferenced"):
+            raw = (b"a" if stream == "shared" else b"z") * (BLOCK_BYTES + 13)
+            length, root = byte_root((raw,))
+            add_row(payloads, "artifact_stream", {
+                "stream_id": stream, "byte_length": length, "byte_root": root.hex(),
+                "encoding_profile": "pdf-record-scalar-v1:s", "serialization_sha256": sha256(raw).hexdigest(),
+            })
+            offset = 0
+            for ordinal, chunk in enumerate((raw[:17], raw[17:BLOCK_BYTES], raw[BLOCK_BYTES:])):
+                original = chunk
+                if stream == corrupt and ordinal == 0:
+                    chunk = b"!" + chunk[1:]
+                add_row(payloads, "artifact_part", {
+                    "stream_id": stream, "ordinal": ordinal, "byte_offset": offset,
+                    "body": chunk, "sha256_digest": sha256(original).hexdigest(),
+                })
+                offset += len(chunk)
+        schema = next(payloads.batches("native")).schema
+        for identity in ("shared:a", "shared:b"):
+            payloads.add_batch("native", pa.RecordBatch.from_pylist([
+                {"record_id": identity, "native_type": "TextItem", "family": "texts", "scalars_json": "{}", "structure_json": '{"fields":{"text":{"kind":"parts","stream_id":"shared"}}}'},
+            ], schema=schema))
+        options = {name: basis[name] for name in ("release_id", "source_digest", "recipe_digest", "schema_digest", "kind", "target_meanings")}
+        if corrupt is not None:
+            with pytest.raises(ValueError, match="part actual bytes"):
+                payloads.logical_digest(**options)
+        else:
+            digest = payloads.logical_digest(**options)
+            assert len(digest) == 64
+            assert payloads._verified_streams >= {"shared", "unreferenced"}
+    finally:
+        payloads.close()
