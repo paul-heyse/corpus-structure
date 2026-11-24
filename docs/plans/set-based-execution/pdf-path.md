@@ -1,6 +1,6 @@
 # The PDF path
 
-**Status:** Proposed. Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
+**Status:** Complete for development. Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
 This companion owns the PDF path from an original to published records. It owns SBX-14 to SBX-17
@@ -519,3 +519,43 @@ empty scope, and distinct report occurrences sharing a local position. Verify th
 part fold with shared and unreferenced streams and exercise cleanup on early exit. The
 validation child reads typed rows directly. The companion export's logical-row digest is
 unchanged on a mixed-type batch.
+
+**Implementation checkpoint · 2026-11-24.** Capture, transformed publication, spool
+recertification and the independent validation child consume keyed Arrow batches. The certifier
+uses DuckDB for compact coordinate checks and binary frame ordering. Ordered folds consume the
+existing canonical record frames and binary part buffers. The keyed store and per-family oracle
+capture replace the PDF SQLite and JSON row stores. The protected PostgreSQL pages and both
+companion export routes carry part bodies in a binary column on the
+[development successor](cutover-and-qualification.md#native-revisions). Formula outcome,
+coverage, cell-to-page and runtime relationships use typed groups and anti-joins. Report and
+page validation share the acquired source index. Nominal and geometry checks use their
+captured validators.
+
+**Installed controls · 2026-11-24.** The private serial cohort
+`65cbe14ee2724ed5ae5b162499599421` passed forced validation under the captured policy,
+byte-retaining new-build adoption, exact selected metadata and overflow companion streaming
+with cursor cleanup. Two Standard capture journeys reached a closed source-custody refusal.
+The PDF worker now captures its analytical settings before spawn and retires standalone
+scratch with the process. It sends a primitive allocation so Docling's generated dependencies
+are acquired inside the existing Standard capture guard. The final-source policy and historical
+authorization controls have their own installed selection.
+
+**Passed · 2026-11-24.** `uv run ci test --workers 1` covered 125 selected PDF identities
+after the report relationship and worker startup changes (`ee7cb6eb7f11408cae83d3ed31fb9734`).
+This includes independent corruption checks and installed OCR writer cases.
+
+**Genuine recovery and adoption · Passed · 2026-11-24.** `uv run ci test retry
+13d1c48d7610472782bb4cd87efb22c8 --lane ordinary --json` passed
+`7468deed9ce84945b12b9ec4a8c52ca5` on the private successor. Standard capture interrupted and
+recovered Grinstead–Snell pages 120–122, recomputed the missing pages and reproduced the emitted
+records on a warm spool. The adopter selected the Standard capture contract, reproduced the
+logical and stream commitments, sealed a different native build and reopened all three pages.
+The original provider attempt failed at the fixture's generic lowering basis. The retry changed
+that fixture, and the provider coverage view accounts for all three originally selected identities.
+
+**Development acceptance · Passed · 2026-11-24.** `uv run ci test --native-host private
+--workers 1` on the final source passed forced validation with the captured schema and policy,
+genuine Standard and recognition reuse after policy remap, and historical authorization after
+generation advance and withdrawal (`8dd7a7bfd13241d9bba9a3fa92589a42`, selected PDF identities).
+Together with genuine recovered adoption and the installed binary export controls, this closes
+SBX-17 for development.

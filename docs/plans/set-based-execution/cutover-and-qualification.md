@@ -1262,6 +1262,17 @@ generated typed-column fingerprint change (`9b7d67ef20854221bedeebc9b03bd53e`). 
 initial candidate `d8d7fe9315404a54a3299129a06c53da` refused after working-tree source
 changed during authoring. The passing candidate followed source stabilization.
 
+**Installed · 2026-11-24.** Development runs `semantic_sbx_pdf_binary_rows`. Preview
+`7154ddd5d84042fcb10f9ebef8910300` and rollback-only candidate
+`9d74447019204fcda9e6c0ac50be6554` bind the exact predecessor
+`semantic_sbx_read_visual_bounds`. The candidate records 13 native operations and zero ordinary
+operations. Four PDF read and export functions are recreated for their `jsonb` and `bytea` row
+returns. The remaining changes update PDF contract input, operation admission and operation
+lookup. Registration `6bd53769695d4976b1f5bf6d6fb10d05` and development deployment
+`7fed7fec64dc4e3e82c702bee9a05eec` passed. `uv run ci db status --maintenance --json`
+confirmed the installed and registered head on `corpus_structure_dev`. The affected functional
+results belong to [SBX-17](pdf-path.md#sbx-17). Stage retains its own predecessor and acceptance.
+
 Start the attribution comparison early using the existing candidate inspection views. Compare
 a read implementation change, a wire-only change and a material producer lowering against their
 exact predecessors. Within PDF, distinguish transformed publication from a genuinely shared

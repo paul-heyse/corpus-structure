@@ -1,7 +1,8 @@
 # Set-based execution
 
-**Status · 2026-11-24.** Development runs `semantic_sbx_read_visual_bounds`. Development
-acceptance through SBX-16 is complete. The [read and evaluation checkpoint](set-based-execution/owner-resolved-reads.md#sbx-through-13-checkpoint)
+**Status · 2026-11-24.** Development runs `semantic_sbx_pdf_binary_rows`. Development acceptance
+through SBX-19 is complete. The SBX-19 trial adopted typed scoped relations. The
+[read and evaluation checkpoint](set-based-execution/owner-resolved-reads.md#sbx-through-13-checkpoint)
 and [PDF checkpoint](set-based-execution/pdf-path.md#sbx-through-16-checkpoint) record
 the selected native, provider and measurement results. The execution queue and package
 owners retain the remaining scope through SBX-22.
@@ -225,9 +226,9 @@ capability consumed.
 | SBX-14 | Complete for development. Shared ordered reconstruction serves transforms, full exports and validation under captured lowering. Installed transformations, forced revalidation under incompatible ambient defaults, and malformed membership, ordinal and cycle controls passed. | — | [PDF](set-based-execution/pdf-path.md#sbx-14) |
 | SBX-15 | Complete for development. The installed compact page, pointer and provenance ordinal relation serves region access and bounded visual selection. Sparse diagnostics, combined native formula and visual inspection, and genuine Chandra page 151 readback passed. | SBX-14 rebuild contract | [PDF](set-based-execution/pdf-path.md#sbx-15) |
 | SBX-16 | Complete for development. Typed document custody spans transformation, one admission precedes projected candidate reads, and the worker returns changed pages. Validation counts, installed policy reuse, atomic different-build adoption, and genuine recovery through the selected-file contract passed. The recovered-page comparison retains the Arrow IPC stream. | — | [PDF](set-based-execution/pdf-path.md#sbx-16) |
-| SBX-17 | Typed certification, logical rows by column and retirement of duplicate certifier storage | SBX-15 relationship projections, SBX-16 carriers and consumed SBX-18 job contract | [PDF](set-based-execution/pdf-path.md#sbx-17) |
-| SBX-18 | Shared fidelity, one analytical job allocation and bounded comparisons for physical batching and durable output | Existing typed population and worker custody | [KT](set-based-execution/kernel-trial.md#sbx-18) |
-| SBX-19 | Complete scoped-relations comparison through exact artifact nomination and readback, with a recorded adoption decision | SBX-18, SBX-08, SBX-05 and SBX-10 indexes. Complete comparison consumes installed math integration. Projection-keyed qualification consumes SBX-06. | [KT](set-based-execution/kernel-trial.md#sbx-19) |
+| SBX-17 | Complete for development. Typed certification, independent validation, binary companion export and genuine recovered adoption passed. | SBX-15 relationship projections, SBX-16 carriers and consumed SBX-18 job contract | [PDF](set-based-execution/pdf-path.md#sbx-17) |
+| SBX-18 | Complete for development. The shared allocation, typed fidelity, bounded physical cohorts and file-backed COPY passed. | Existing typed population and worker custody | [KT](set-based-execution/kernel-trial.md#sbx-18) |
+| SBX-19 | Complete for development. Adopted typed scoped relations after independent report parity and installed artifact nomination, selected readback and verified detached reopen. | SBX-18, SBX-08, SBX-05 and SBX-10 installed math and indexes. The trial uses whole-source premises. | [KT](set-based-execution/kernel-trial.md#sbx-19) |
 | SBX-20 | Attribute the A, B and C effects against exact predecessors, register the resulting chain and install stage | Packages the candidates carry and the observed stage predecessor | [CQ](set-based-execution/cutover-and-qualification.md#sbx-20) |
 | SBX-21 | Retirement sweep, including confirmation of SBX-06 watermark and sweep removal | replacement paths and migrated consumers | [CQ](set-based-execution/cutover-and-qualification.md#sbx-21) |
 | SBX-22 | Final-source qualification, including the shared change scenarios | SBX-20, SBX-21 | [CQ](set-based-execution/cutover-and-qualification.md#sbx-22) |

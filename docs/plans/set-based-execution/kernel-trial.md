@@ -1,6 +1,6 @@
 # The kernel trial
 
-**Status:** Proposed. Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
+**Status:** Complete for development. Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
 This companion owns one kernel family rebuilt as set operations over tables, as a trial that
@@ -396,3 +396,63 @@ expectations. Record whether a second family should follow, considering predicat
 constructions' region handling, source preparation and math layout. If the trial stops, retain
 the Python span vocabulary of SBX-10 as the kernels' basis. A second-family recommendation
 enters the existing scope and decision route before execution.
+
+## SBX-18 and SBX-19 implementation checkpoint
+
+**Implemented · 2026-11-24.** The request reservation includes analytical workspace. The
+allocation and captured settings follow computation through parent callbacks, relay steps and
+CPU dispatch. Worker resources bound DuckDB threads, buffer memory and private spill. The
+connection owns incremental readers and observes cancellation before releasing scratch.
+
+The selected physical cohort path shares projection, ordering and result setup across compatible
+sentence partitions while retaining independent commitments and zero-item headers. The draft
+writer streams validated IPC to its owned file, seals it after close and fsync, and reopens an
+authenticated private copy for transactional COPY. This removes the complete encoded IPC buffer
+and Python bytes copy. The per-partition canonical Arrow tables remain available to publication.
+Typed expressions remain the production route. The named window comparison covers bound SQL
+and explicit ties without a new authoring policy.
+
+**Local evidence · 2026-11-24.** `uv run ci test --workers 1` selected 188 analytical,
+population, draft, PDF and scoped identities (`fb7c53f257654b9295c875da1f4f9a66`). The
+capture, resource and fixture corrections were verified in the 29-identity serial cohort
+`8dd9a9efdc674f69bff14130b9d17550`, including the five earlier failed identities. It also
+exercised captured per-job settings in the parent and worker paths and checked that the relay
+releases the binding between scheduler steps.
+
+**Provider evidence · 2026-11-24.** `uv run ci test --native-host private --providers-only
+--workers 1` passed the native sentence and canonical chain with an acknowledged file-backed
+population draft and PostgreSQL COPY/readback. The same receipt
+(`13d1c48d7610472782bb4cd87efb22c8`) passed full scoped report byte equality on four retained
+Siegrist excerpts with authored HTML coordinates. The independent PDF identity in that receipt
+failed at its fixture's lowering contract and retains its own retry in SBX-17.
+
+The installed serial cohort `8dd7a7bfd13241d9bba9a3fa92589a42` passed the final two-job control.
+One worker held a partially consumed Arrow reader over actual DuckDB spill. Cancellation
+interrupted its sibling while the first reader remained open and then closed normally. Both
+workers retired their resources and returned their reservations. The same cohort passed the fresh Standard child
+check and the typed and bound-SQL window comparison.
+
+**SBX-19 trial · Tested · 2026-11-24.** The candidate uses one invocation-owned analytical
+inventory for range membership, table geometry, caption counts, prior declarations and witness
+matching. Formal inventories retain independently produced occurrences. Python retains lexical
+decisions and report identity. The ordinary managed cohort `8ea062e8ef40464db87095e64b135d28`
+passed 71 analytical and scoped identities on 2026-11-24. The final private native cohort
+`8dd7a7bfd13241d9bba9a3fa92589a42` passed all 19 selected identities. The scoped case used
+controlled PDF decoding and exercised actual native acquisition, scoped and artifact publication,
+exact nomination of a report occurrence and contribution from the selected source member,
+selected structural readback, and verified detached reopen of the report dependency.
+
+Earlier cohorts `65cbe14ee2724ed5ae5b162499599421` and `af2e10d3910c4ad89225b350212527fe`
+reached scoped publication and contribution selection. The fixture corrections supplied the
+required artifact policy and bound the actual source member with its product. The final case
+checks both bindings against the published result.
+
+**Decision · Adopt · 2026-11-24.** Keep one typed DuckDB route for scoped relations. Preparing
+the admitted inventories once removes repeated source, table and formal lookups across the
+kernel. Range joins, grouped matches and explicit ordinal windows preserve the Python seam's
+identity, ordering and witness semantics through the published consumer. The independent book
+and installed comparisons support that choice. Keep PostgreSQL selection and transactional
+publication and use whole-source premises for the trial. The current acquired transfer already
+supplies the required columns, so this path keeps its existing transfer and typed authoring.
+Predicate evidence is the next family to consider where a distinct trial of retained token
+partitions is scheduled through the existing decision route. SBX-20 retains stage installation.

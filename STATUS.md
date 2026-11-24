@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-24. Development acceptance through SBX-16 is complete on `semantic_sbx_read_visual_bounds`._ [Plan disposition](docs/plans/set-based-execution_2026-11-21.md) · [Development revision](docs/plans/set-based-execution/cutover-and-qualification.md#native-revisions)
+_Updated 2026-11-24. Development acceptance through SBX-19 is complete on `semantic_sbx_pdf_binary_rows`. The scoped-relations trial adopted the typed DuckDB route._ [Plan disposition](docs/plans/set-based-execution_2026-11-21.md) · [Development revision](docs/plans/set-based-execution/cutover-and-qualification.md#native-revisions)
 
 ## Current owners
 
@@ -9,6 +9,11 @@ _Updated 2026-11-24. Development acceptance through SBX-16 is complete on `seman
 - [Domain Model Operability](docs/plans/domain-model-operability_2026-11-20.md#completion-and-handoff), the [test-domain coordinator](docs/plans/test-domain-model-and-execution_2026-11-17.md#implementation-evidence), and [library-discovery tooling](tooling/docs/plans/library-discovery-tooling_2026-11-17.md#current-state) retain their existing scopes.
 
 ## Last verified
+
+- **Passed · 2026-11-24.** `uv run ci model change deploy 9d74447019204fcda9e6c0ac50be6554` installed `semantic_sbx_pdf_binary_rows` (`7fed7fec64dc4e3e82c702bee9a05eec`). `uv run ci db status --maintenance --json` confirmed the installed and registered head. [Native revision effects](docs/plans/set-based-execution/cutover-and-qualification.md#native-revisions)
+- **Passed by selected identity · 2026-11-24.** `uv run ci test --workers 1` covered scoped report parity, analytical cancellation and the parent job settings, relay and lifetime corrections (`8ea062e8ef40464db87095e64b135d28`, `8dd9a9efdc674f69bff14130b9d17550`). `uv run ci check --view steps` passed applicable repository checks (`2490bfe609ce48eea65ea2f77a604f3f`, Rust `1.102.0-nightly bdf712ee8`). [Analytical checkpoint](docs/plans/set-based-execution/kernel-trial.md#sbx-18-and-sbx-19-implementation-checkpoint)
+- **Passed by selected identity · 2026-11-24.** Private provider tests covered the file-backed sentence draft through COPY, scoped report parity on four retained book excerpts, and genuine Standard PDF recovery through new-build adoption and readback (`13d1c48d7610472782bb4cd87efb22c8`, `7468deed9ce84945b12b9ec4a8c52ca5`). [PDF recovery](docs/plans/set-based-execution/pdf-path.md#sbx-17) · [Analytical checkpoint](docs/plans/set-based-execution/kernel-trial.md#sbx-18-and-sbx-19-implementation-checkpoint)
+- **Passed · 2026-11-24.** Private serial tests passed all 19 selected identities, including captured-policy validation, Standard capture and recognition reuse, historical authorization, actual spill and cancellation, exact scoped artifact nomination, selected readback and verified detached reopen (`8dd7a7bfd13241d9bba9a3fa92589a42`). [PDF certification](docs/plans/set-based-execution/pdf-path.md#sbx-17) · [Analytical checkpoint](docs/plans/set-based-execution/kernel-trial.md#sbx-18-and-sbx-19-implementation-checkpoint)
 
 - **Passed · 2026-11-24.** `uv run ci model change deploy cfbc6545a5dc40d882bce2f7f5e56a69` installed the successor (deployment `80af79f0728849dd89d68adb8b735406`). `uv run ci db status --maintenance` confirmed the installed and registered head. `just model check` matched released projections. [Native revision effects](docs/plans/set-based-execution/cutover-and-qualification.md#native-revisions)
 - **Passed · 2026-11-24.** `uv run ci check --view steps` passed applicable checks (`88ad07c9bfc5408daa70c1533bb6d036`, `rustc 1.102.0-nightly bdf712ee8`). [Native revision effects](docs/plans/set-based-execution/cutover-and-qualification.md#native-revisions)
@@ -19,6 +24,5 @@ _Updated 2026-11-24. Development acceptance through SBX-16 is complete on `seman
 
 ## Remaining scope
 
-- [SBX-17](docs/plans/set-based-execution/pdf-path.md#sbx-17) owns the typed PDF certifier and retirement of duplicate storage. [SBX-18/19](docs/plans/set-based-execution/kernel-trial.md#sbx-18) owns the complete analytical job and scoped-relations trial.
 - Stage installation belongs to [SBX-20](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-20). The final retirement and whole-book campaign belongs to [SBX-21/22](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-21).
 - The full repository-wide `uv run ci test` campaign is `not_run` at this checkpoint. The [older interrupted campaign](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-09-qualification-pause) retains its original results and staged fixture custody.
