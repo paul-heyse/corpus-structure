@@ -544,3 +544,28 @@ def test_population_private_copy_observes_stop_and_preserves_original(
     assert draft.population_upload.path.read_bytes() == original
     with store.open(draft.identity).population_upload.open_reader() as reader:
         assert reader.read_all().num_rows == 1
+
+
+def test_acknowledgment_sync_failure_keeps_exact_population_for_recovery(
+    tmp_path, monkeypatch, upload_arguments
+):
+    from corpus_structure.semantic import completion_drafts
+
+    store = CompletionDraftStore(tmp_path, max_bytes=65536)
+    sync = completion_drafts._sync_directory
+
+    def fail_ack_sync(path):
+        if tuple(path.glob("*.ack")):
+            raise OSError("acknowledgment directory synchronization failed")
+        sync(path)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(completion_drafts, "_sync_directory", fail_ack_sync)
+        with pytest.raises(OSError, match="synchronization failed"):
+            acknowledge(store, **upload_arguments())
+    (draft,) = store.candidates("request:original", 2)
+    expected = draft.population_upload.path.read_bytes()
+    retried = acknowledge(store, **upload_arguments())
+    assert retried.identity == draft.identity
+    assert retried.population_upload.path.read_bytes() == expected
+    assert not tuple(tmp_path.glob("pending-*"))
