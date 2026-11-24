@@ -353,6 +353,7 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
         from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
         from corpus_structure.orchestrate.native_demand_io import NativeDemandClaims
         from corpus_structure.semantic import arrow_transfer
+        from semantic.test_current_claim_owner_native import LostCommitResponses
 
         native_copy = arrow_transfer.copy_arrow_stream
         native_retain = NativeDemandClaims.retain
@@ -381,7 +382,14 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
                 # A known rollback retries the exact callback and its already sealed draft.
                 (draft,) = population_drafts
                 original = draft.population_upload.path.read_bytes()
-                result = native_retain(owner, claim, callback)
+                engine = owner.owner.engine
+                lost_reply = LostCommitResponses(engine, 1)
+                owner.owner.engine = lost_reply
+                try:
+                    result = native_retain(owner, claim, callback)
+                finally:
+                    owner.owner.engine = engine
+                assert lost_reply.remaining == 0
                 assert draft.population_upload.path.read_bytes() == original
                 return result
 
@@ -405,7 +413,8 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
         )
         assert len(population_drafts) == 1
         assert interrupted_uploads == [True]
-        assert uploaded_rows and uploaded_rows[-1]
+        assert len(uploaded_rows) == 3 and uploaded_rows[0]
+        assert uploaded_rows[0] == uploaded_rows[1] == uploaded_rows[2]
         assert population_drafts[0].operation == "segment.sentences/source-native"
         (annotation,) = selected_for_source(
             kernel, products, namespace + "DdoSourceAnnotations", original

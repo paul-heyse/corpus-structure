@@ -228,7 +228,10 @@ class CompletionDraftStore:
         """Recover abandoned local staging while holding the draft owner lock."""
         changed = False
         for path in self.root.glob("pending-*"):
-            descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            try:
+                descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            except FileNotFoundError:
+                continue
             try:
                 try:
                     fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -237,7 +240,7 @@ class CompletionDraftStore:
                 info = os.fstat(descriptor)
                 if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
                     raise ValueError("completion staging has foreign file custody")
-                path.unlink()
+                path.unlink(missing_ok=True)
                 changed = True
             finally:
                 os.close(descriptor)
@@ -359,9 +362,11 @@ class CompletionDraftStore:
                     raise
 
         finally:
-            temporary.unlink(missing_ok=True)
-            if staging_owner is not None:
-                os.close(staging_owner)
+            try:
+                temporary.unlink(missing_ok=True)
+            finally:
+                if staging_owner is not None:
+                    os.close(staging_owner)
 
     def _open(self, identity: str, *, check_active=lambda: None) -> CompletionDraft:
         identity = _identity(identity)
