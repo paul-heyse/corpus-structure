@@ -298,7 +298,10 @@ def selected_fixture(monkeypatch, acquired):
                 "ops.data_derivation_output",
                 dict(derivation_id="episode:prediction", product_id="product:prediction"),
             ),
-            ("ops.demand_use", dict(derivation_id="episode:prediction", fate="fulfilled")),
+            (
+                "ops.demand_use",
+                dict(id="use:prediction", derivation_id="episode:prediction", fate="fulfilled"),
+            ),
         ]
     ):
         prediction_index.append(json_bytes(dict(key=str(ordinal), relation=relation, record=row)))
@@ -353,16 +356,35 @@ def selected_fixture(monkeypatch, acquired):
 def test_current_reference_grade_keeps_source_prediction_releases_and_zero_output_denominator(
     monkeypatch, acquired
 ):
+    from corpus_structure.evaluate import selected_references
+
     request, reference_index, prediction_index, source_index = selected_fixture(
         monkeypatch, acquired
     )
+    in_transaction = False
+    score = selected_references._score_comparison
+
+    @contextmanager
+    def reader():
+        nonlocal in_transaction
+        in_transaction = True
+        try:
+            yield None
+        finally:
+            in_transaction = False
+
+    def score_after_commit(*args):
+        assert not in_transaction
+        return score(*args)
+
+    monkeypatch.setattr(selected_references, "_score_comparison", score_after_commit)
     try:
-        result = evaluate_selected_references(None, request)
+        result = evaluate_selected_references(reader, request)
         assert result["cases"][0]["outcome"] == "match"
         assert result["reference"]["source_release_id"] == "release:original-source"
         assert result["prediction"]["cut"]["release_id"] == "release:prediction"
         assert result["opportunity_denominator"] == 1
-        empty = evaluate_selected_references(None, request.model_copy(update={"assignments": {}}))
+        empty = evaluate_selected_references(reader, request.model_copy(update={"assignments": {}}))
         assert (
             empty["cases"][0]["outcome"] == "unavailable" and empty["opportunity_denominator"] == 1
         )
@@ -374,7 +396,7 @@ def test_current_reference_grade_keeps_source_prediction_releases_and_zero_outpu
             }
         )
         with pytest.raises(ValueError, match="applicability"):
-            evaluate_selected_references(None, wrong)
+            evaluate_selected_references(reader, wrong)
     finally:
         reference_index.close()
         prediction_index.close()

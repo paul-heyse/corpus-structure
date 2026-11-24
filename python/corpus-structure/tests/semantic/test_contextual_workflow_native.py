@@ -643,12 +643,12 @@ def test_published_dossier_retains_selected_applicability(current_workflow_case,
             and row["record"]["derivation_id"] == dossier.row["derivation_id"]
             and row["record"]["role"] == "definitions"
         ]
-        page = inspect_selected_dossier(connection, read_request)
-        archive = export_selected_structural_review(
-            connection,
-            SelectedStructuralReviewRequest(selection=read_request),
-            destination=tmp_path / "applicability-dossier",
-        )
+    page = inspect_selected_dossier(case.kernel.purpose("read").begin, read_request)
+    archive = export_selected_structural_review(
+        case.kernel.purpose("read").begin,
+        SelectedStructuralReviewRequest(selection=read_request),
+        destination=tmp_path / "applicability-dossier",
+    )
     assert link["product_id"] == definition.row["product_id"] and link["multiplicity"] == 1
     assert page["availability"] == "observed"
     archive_path, manifest_digest = archive["path"], archive["manifest_digest"]

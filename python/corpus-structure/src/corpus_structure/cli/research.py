@@ -58,13 +58,12 @@ def compare_exclusions(
             if store is not None
             else nullcontext(None) as operation
         ):
-            with (
-                open_runtime_engine(
-                    state(ctx).settings(), "ci-identity-exclusion-comparison", purpose="read"
-                ) as engine,
-                selected_read_snapshot(engine) as connection,
-            ):
-                report = compare_selected_exclusions(connection, selected)
+            with open_runtime_engine(
+                state(ctx).settings(), "ci-identity-exclusion-comparison", purpose="read"
+            ) as engine:
+                report = compare_selected_exclusions(
+                    lambda: selected_read_snapshot(engine), selected
+                )
             if operation is not None:
                 # Settle only after the native acquisition transaction succeeded.
                 content = json_bytes(report)

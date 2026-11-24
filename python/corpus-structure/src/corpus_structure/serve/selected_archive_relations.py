@@ -91,6 +91,7 @@ class ArchivedSelectedRelations(SelectedRelationLookup):
         self.max_bytes = max_bytes
         self.max_records = max_records
         self._support_validated = False
+        self._closed = False
         self._relations = {}
         self._frontier = None
         for relation, (path, count, schema, encodings) in fragments.items():
@@ -112,12 +113,22 @@ class ArchivedSelectedRelations(SelectedRelationLookup):
         ):
             raise ValueError("detached structural closure exceeds its examined bound")
 
+    def _require_open(self):
+        if self._closed:
+            raise ValueError("selected archive relations are closed")
+
+    def close(self):
+        self._closed = True
+        self._relations.clear()
+        self._frontier = None
+
     def attach_frontier(self, path, cut):
         self.cut = cut
         self.has_frontier = True
         self._frontier = ds.dataset(path, format="parquet")
 
     def _scan(self, relation, *, fields=None, validate=False):
+        self._require_open()
         if relation not in self._relations:
             return
         dataset, encodings = self._relations[relation]
@@ -139,6 +150,7 @@ class ArchivedSelectedRelations(SelectedRelationLookup):
             use_threads=False,
         ).to_batches():
             for row in batch.to_pylist():
+                self._require_open()
                 key = row.pop(ARCHIVE_KEY)
                 for name, encoding in encodings.items():
                     value = row[name]
@@ -155,6 +167,7 @@ class ArchivedSelectedRelations(SelectedRelationLookup):
                 yield self.reader.record(packet, validate=validate)
 
     def validate_support(self):
+        self._require_open()
         if self._support_validated:
             return
         for relation in sorted(self._relations):
@@ -174,10 +187,12 @@ class ArchivedSelectedRelations(SelectedRelationLookup):
             yield packet["record"]
 
     def records(self):
+        self._require_open()
         for relation in sorted(self._relations):
             yield from self._scan(relation)
 
     def _frontier_scan(self, kind, identity=None):
+        self._require_open()
         if self._frontier is None:
             return
         predicate = ds.field("kind") == kind
@@ -192,6 +207,7 @@ class ArchivedSelectedRelations(SelectedRelationLookup):
             use_threads=False,
         ).to_batches():
             for payload in batch.column(0).to_pylist():
+                self._require_open()
                 yield self.reader.frontier(kind, native_json_loads(payload))
 
     def frontier_rows(self, kind):

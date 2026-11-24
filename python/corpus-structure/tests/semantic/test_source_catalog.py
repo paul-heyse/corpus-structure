@@ -117,6 +117,10 @@ def test_catalog_requires_exact_selected_native_publication_header(
     after = ["obligation:one", "use:two", "result", 0, "product:two", ""]
     observations = []
 
+    def acquire(connection, demand, **request):
+        assert demand == "demand:one" and request["read_id"] == "read:one"
+        return CutSelection.from_native(cut)
+
     def answer(connection, program, demand, **request):
         assert program == "read_selected_outputs" and demand == "demand:one"
         assert request["read_id"] == "read:one"
@@ -133,6 +137,7 @@ def test_catalog_requires_exact_selected_native_publication_header(
             ]
         return dict(cut=cut, rows=rows, answer_after=after if rows else None)
 
+    monkeypatch.setattr(source_catalog, "acquire_selected_cut", acquire)
     monkeypatch.setattr(source_catalog, "read_selected_answer", answer)
     monkeypatch.setattr(
         source_catalog,
@@ -251,6 +256,10 @@ def test_view_catalog_preserves_member_identity_exact_scope_and_unknown_standing
 
     calls = []
 
+    def acquire(connection, demand, **request):
+        assert demand == "demand:population" and request["read_id"] is None
+        return CutSelection.from_native(page["cut"])
+
     def answer(connection, program, demand, **request):
         calls.append(request)
         assert program == "read_selected_outputs" and demand == "demand:population"
@@ -274,6 +283,7 @@ def test_view_catalog_preserves_member_identity_exact_scope_and_unknown_standing
         assert request["continuation"]["obligation_ids"] == ["obligation:population"]
         return SimpleNamespace(cut=CutSelection.from_native(page["cut"]), record=page)
 
+    monkeypatch.setattr(source_catalog, "acquire_selected_cut", acquire)
     monkeypatch.setattr(source_catalog, "read_selected_answer", answer)
     monkeypatch.setattr(source_catalog, "read_demand_result", frontier)
     monkeypatch.setattr(
@@ -297,4 +307,4 @@ def test_view_catalog_preserves_member_identity_exact_scope_and_unknown_standing
     assert response.populations == [{"complete": False}] and response.obligations == [
         {"fate": "unknown"}
     ]
-    assert len(calls) == 2
+    assert len(calls) == 1

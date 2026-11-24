@@ -136,16 +136,16 @@ def evaluate(ctx: typer.Context, request: Annotated[Path, typer.Option()], json:
         request_path = invocation.directory / "request.json"
         request_path.write_bytes(json_bytes(parsed.model_dump(mode="python")))
         invocation.publish("request", request_path)
-        with (
-            open_runtime_engine(
-                state(ctx).settings(), "ci-selected-reference-compare", purpose="evaluate"
-            ) as engine,
-            engine.begin() as connection,
-        ):
-            invocation.record_target(
-                acquired_target(connection, purpose="evaluate"), None, None, None
-            )
-            report = evaluate_selected_references(connection, parsed)
+        with open_runtime_engine(
+            state(ctx).settings(), "ci-selected-reference-compare", purpose="evaluate"
+        ) as engine:
+
+            def record_target(connection):
+                invocation.record_target(
+                    acquired_target(connection, purpose="evaluate"), None, None, None
+                )
+
+            report = evaluate_selected_references(engine.begin, parsed, on_acquire=record_target)
         path = invocation.directory / "comparison.json"
         path.write_bytes(json_bytes(report))
         invocation.publish("comparison", path)

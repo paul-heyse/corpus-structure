@@ -103,8 +103,7 @@ def build_evaluator_server(
     def compare(request):
         if request.project_id != project:
             raise ValueError("reference comparison belongs to another evaluator project")
-        with evaluator() as connection:
-            report = evaluate_selected_references(connection, request)
+        report = evaluate_selected_references(evaluator, request)
         replay = request.model_copy(
             update=dict(
                 reference_cut=report["reference"]["cut"],

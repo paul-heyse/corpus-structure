@@ -1,5 +1,6 @@
 """Bounded selected structural reports and native authority; private proposals stay private."""
 
+from contextlib import nullcontext
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -9,7 +10,7 @@ from corpus_structure.semantic.refusal_types import SemanticRefusal
 from corpus_structure.semantic.selected_pages import byte_bounded_page
 from corpus_structure.semantic.selected_structural_projection import (
     STRUCTURAL_QUERY_ROOTS,
-    dossier_rows,
+    dossier_row_inputs,
     producer,
     selected_root,
     structural_report,
@@ -132,7 +133,7 @@ class SelectedDossierRequest(StructuralReadRequest):
     cursor: str | None = Field(default=None, max_length=32768)
 
 
-def inspect_selected_dossier(conn, request: SelectedDossierRequest):
+def inspect_selected_dossier(reader, request: SelectedDossierRequest):
 
     from corpus_structure.semantic.serving_identity import installed_read_implementation
 
@@ -144,10 +145,11 @@ def inspect_selected_dossier(conn, request: SelectedDossierRequest):
     ) as implementation:
         if request.implementation is not None and request.implementation != implementation:
             raise ValueError("dossier resource differs from its installed implementation")
-        return _inspect_selected_dossier(conn, request, implementation)
+        return _inspect_selected_dossier(reader, request, implementation)
 
 
-def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementation):
+def _inspect_selected_dossier(reader, request: SelectedDossierRequest, implementation):
+    from corpus_structure.semantic import dossier_row_projection
     from corpus_structure.semantic.continuation_codec import (
         bind_cursor_request,
         decode_pinned_cursor,
@@ -155,12 +157,15 @@ def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementat
         require_cursor_cut,
         selection_digest,
     )
+    from corpus_structure.semantic.refusal_types import InvalidContinuation
     from corpus_structure.semantic.selected_query_cache import (
+        ENTRY_ROWS,
         SELECTED_QUERY_CACHE,
         bounded_rows,
         served_key,
         uncached_rows_from,
     )
+    from corpus_structure.semantic.serving_identity import installed_read_implementation
 
     from .selected_structural import StructuralScope
 
@@ -177,109 +182,147 @@ def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementat
             request.cursor, version=version, selection=selection, extra_fields=("binding",)
         )
         request = bind_cursor_request(request, cursor)
-
-    detached = isinstance(conn, StructuralScope)
-    with structural_scope(conn, request, roots=(request.root,)) as scope:
-        current_cut = scope.cut
-        if cursor is not None:
-            require_cursor_cut(cursor, current_cut)
-        selected = selected_root(scope, request.root)
-        if selected is None:
-            return bounded_result(
-                request,
-                dict(
-                    format="selected-dossier-page-v2",
-                    availability="outside_selection",
-                    cut_id=current_cut.identity,
-                    cut=current_cut.record,
-                    implementation=implementation,
-                ),
-            )
-        # Resolve and authorize the actual producing references on every read, including hits.
-        report = structural_report(scope, selected)
-        if report.dossier is None:
-            raise ValueError("selected output is not a dossier")
-        provenance = producer(selected)
-        release = current_cut.record.get("release_id")
-        numeric_policy = scope.decimal_fixed_point_digits
-
-    representation = report.dossier.representation
-    basis = (
-        request.root.product_id,
-        request.root.member_id,
-        report.product_id,
-        representation.membership_digest,
-        representation.facet_digest,
-        representation.policy,
-        release,
-        selected.release_id,
-        numeric_policy,
-        provenance,
-    )
-    key = served_key(
-        None if detached else conn,
-        "dossier",
-        implementation=implementation,
-        basis=basis,
-        selection=(request.project_id, request.population),
-    )
-    with SELECTED_QUERY_CACHE.loading(key) as entry:
-        remaining = None
-        metadata = None
-        if entry is None:
-            items, metadata = dossier_rows(
-                report, population=request.population, provenance=provenance
-            )
-            entry, remaining = bounded_rows(items, metadata)
-            if entry is not None and not detached:
-                SELECTED_QUERY_CACHE.put(key, entry)
-    metadata = entry.record() if entry is not None else metadata
-    assert metadata is not None
-    binding = {
-        name: metadata[name]
-        for name in ("product_id", "membership_digest", "facet_digest", "policy")
-    }
-    if cursor is not None and cursor["binding"] != binding:
-        raise ValueError("dossier continuation differs from exact membership/facets/policy")
     offset = 0 if cursor is None else cursor["position"]
-    rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
 
-    presentation = PageEnvelope(
-        reuse_refusal=capture_page_refusal(),
-        header=dict(
-            format="selected-dossier-page-v2",
-            availability="observed",
-            cut_id=current_cut.identity,
-            cut=current_cut.record,
-            implementation=implementation,
-            population=request.population,
-            standing="private_proposal",
-            public_admission="not-established",
-            **metadata,
-        ),
-        cursor_basis=pinned_cursor_basis(
-            version, selection, current_cut, implementation, binding=binding
-        ),
-        cursor_field="next_cursor",
-        position_field="position",
-        arrays=(
-            ("members", "members", None, None),
-            ("citations", "citations", None, None),
-            ("supported_facets", "supported_facets", "value", "ordinal"),
-        ),
-    )
+    detached = isinstance(reader, StructuralScope)
+    with installed_read_implementation(
+        type(request),
+        entry=dossier_row_projection.__name__,
+        profile="selected-dossier-rows-v1",
+        callables=(dossier_row_projection.__name__ + ".dossier_rows",),
+    ) as row_implementation:
+        with nullcontext(reader) if detached else reader() as conn:
+            with structural_scope(conn, request, roots=(request.root,)) as scope:
+                current_cut = scope.cut
+                if cursor is not None:
+                    require_cursor_cut(cursor, current_cut)
+                selected = selected_root(scope, request.root)
+                if selected is None:
+                    return bounded_result(
+                        request,
+                        dict(
+                            format="selected-dossier-page-v2",
+                            availability="outside_selection",
+                            cut_id=current_cut.identity,
+                            cut=current_cut.record,
+                            implementation=implementation,
+                        ),
+                    )
+                # Resolve and authorize the actual producing references on every read, including hits.
+                report = structural_report(scope, selected)
+                if report.dossier is None:
+                    raise ValueError("selected output is not a dossier")
+                provenance = producer(selected)
+                release = current_cut.record.get("release_id")
+                numeric_policy = scope.decimal_fixed_point_digits
+                member_count = len(
+                    report.dossier.members
+                    if request.population == "membership"
+                    else report.dossier.representation.selected
+                )
+                if offset > member_count:
+                    raise InvalidContinuation(
+                        "cursor is outside its immutable derived row population",
+                        reason="invalid_continuation",
+                    )
 
-    try:
-        return byte_bounded_page(
-            rows,
-            offset=offset,
-            limit=request.limit,
-            max_bytes=request.max_bytes,
-            presentation=presentation,
+            # The selected whole product address commits its body, nominal contract and
+            # context. Both releases and the installed report interpreter bind how that
+            # body becomes normalized rows. The independent row proof governs reuse.
+            key = (
+                served_key(
+                    conn,
+                    "dossier",
+                    implementation=row_implementation,
+                    basis=(
+                        request.root.product_id,
+                        release,
+                        selected.release_id,
+                        numeric_policy,
+                        provenance,
+                        str(implementation),
+                    ),
+                    selection=(request.project_id, request.population),
+                )
+                if not detached
+                and member_count <= ENTRY_ROWS
+                and row_implementation.reuse_identity is not None
+                else None
+            )
+        del scope, selected
+        reuse_refusal = capture_page_refusal()
+        with SELECTED_QUERY_CACHE.loading(key) if key is not None else nullcontext() as entry:
+            remaining = None
+            metadata = None
+            if entry is None:
+                # Detached or large populations prepare just the requested page plus
+                # a lookahead. They never encode a prefix merely to warm the cache.
+                inputs, metadata, _ = dossier_row_inputs(
+                    report,
+                    population=request.population,
+                    offset=offset if key is None else 0,
+                    limit=request.limit + 1 if key is None else None,
+                )
+                metadata["producer"] = provenance
+                items = dossier_row_projection.dossier_rows(*inputs)
+                if key is None:
+                    remaining = items
+                else:
+                    entry, remaining = bounded_rows(items, metadata)
+                    if entry is not None:
+                        SELECTED_QUERY_CACHE.put(key, entry)
+        del report
+        metadata = entry.record() if entry is not None else metadata
+        assert metadata is not None
+        binding = {
+            name: metadata[name]
+            for name in ("product_id", "membership_digest", "facet_digest", "policy")
+        }
+        if cursor is not None and cursor["binding"] != binding:
+            raise ValueError("dossier continuation differs from exact membership/facets/policy")
+        if entry is not None:
+            rows = entry.rows(offset)
+        elif key is None:
+            rows = remaining
+        else:
+            rows = uncached_rows_from(remaining, offset)
+
+        presentation = PageEnvelope(
+            reuse_refusal=reuse_refusal,
+            header=dict(
+                format="selected-dossier-page-v2",
+                availability="observed",
+                cut_id=current_cut.identity,
+                cut=current_cut.record,
+                implementation=implementation,
+                population=request.population,
+                standing="private_proposal",
+                public_admission="not-established",
+                **metadata,
+            ),
+            cursor_basis=pinned_cursor_basis(
+                version, selection, current_cut, implementation, binding=binding
+            ),
+            cursor_field="next_cursor",
+            position_field="position",
+            arrays=(
+                ("members", "members", None, None),
+                ("citations", "citations", None, None),
+                ("supported_facets", "supported_facets", "value", "ordinal"),
+            ),
         )
-    finally:
-        if remaining is not None:
-            remaining.close()
+
+        try:
+            return byte_bounded_page(
+                rows,
+                offset=offset,
+                limit=request.limit,
+                max_bytes=request.max_bytes,
+                presentation=presentation,
+            )
+        finally:
+            if remaining is not None:
+                remaining.close()
 
 
 class DossierContinuation(BaseModel):

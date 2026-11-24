@@ -96,12 +96,12 @@ def _replay(root, selection, native_digest):
 
 
 def export_selected_structural_review(
-    connection, selection: SelectedStructuralReviewRequest, *, destination: Path
+    reader, selection: SelectedStructuralReviewRequest, *, destination: Path
 ):
     """Export selected custody and a bounded page, then verify and replay that page.
 
-    The caller retains one native snapshot for acquisition. The detached reader uses
-    captured schemas and original bytes, and makes no claim about current trust.
+    The reader factory owns acquisition and settlement. Replay begins after commit
+    and reads the captured schemas and bytes from the private staging directory.
     """
     if destination.exists() or destination.is_symlink():
         raise FileExistsError(destination)
@@ -114,16 +114,17 @@ def export_selected_structural_review(
     with TemporaryDirectory(prefix=".structural-review-", dir=destination.parent) as temporary:
         root = Path(temporary) / "review"
         root.mkdir()
-        native = export_demand_result(
-            connection,
-            request.demand_id,
-            project_id=request.project_id,
-            destination=root / "native",
-            scope=scope,
-            read_id=request.read_id,
-            expected_cut=request.expected_cut,
-            page_bytes=request.max_graph_bytes,
-        )
+        with reader() as connection:
+            native = export_demand_result(
+                connection,
+                request.demand_id,
+                project_id=request.project_id,
+                destination=root / "native",
+                scope=scope,
+                read_id=request.read_id,
+                expected_cut=request.expected_cut,
+                page_bytes=request.max_graph_bytes,
+            )
         pinned = request.model_copy(
             update=dict(
                 read_id=native.manifest.cut["read_id"],

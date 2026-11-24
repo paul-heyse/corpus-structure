@@ -105,7 +105,7 @@ def _selected_snapshot(connection, pin, request, stack):
     return header, snapshot
 
 
-def compare_selected_exclusions(connection, request: ExclusionComparisonRequest):
+def compare_selected_exclusions(reader, request: ExclusionComparisonRequest):
     from corpus_structure._query_custody import SourceCustodyError
 
     try:
@@ -123,12 +123,12 @@ def compare_selected_exclusions(connection, request: ExclusionComparisonRequest)
                 "corpus_structure.semantic.continuation_codec.decode_selection_cursor",
             ),
         ) as implementation:
-            return _compare(connection, request, implementation)
+            return _compare(reader, request, implementation)
     except SourceCustodyError as error:
         raise RichQueryRefused(str(error)) from error
 
 
-def _compare(connection, request, implementation):
+def _compare(reader, request, implementation):
     if request.implementation is not None and request.implementation != implementation:
         raise InvalidContinuation(
             "constraint comparison resource differs from actual installed meaning",
@@ -147,7 +147,7 @@ def _compare(connection, request, implementation):
     from corpus_structure.semantic.selected_query_cache import uncached_rows_from
 
     # Read the exact dependency and proof populations for both roots on every request.
-    with ExitStack() as stack:
+    with reader() as connection, ExitStack() as stack:
         before, left = _selected_snapshot(connection, request.before, request, stack)
         after, right = _selected_snapshot(connection, request.after, request, stack)
     offset = 0 if cursor is None else cursor["position"]

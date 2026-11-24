@@ -104,6 +104,21 @@ def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
     with pytest.raises(ValueError, match="pinned manifest"):
         verify_demand_export(destination, manifest_digest=expected)
     closure_path.write_bytes(original)
+    with verified_demand_export(destination, manifest_digest=expected) as (_, _, _, replay):
+        active = replay.rows(relation)
+        first = next(active)
+        replacement = tmp_path / "replacement.parquet"
+        replacement.write_bytes(b"replacement")
+        replacement.replace(closure_path)
+        assert source_episode in {row["id"] for row in (first, *active)}
+        assert next(replay.rows_for(relation, id=source_episode))["id"] == source_episode
+        escaped = replay.rows(relation)
+        next(escaped)
+    with pytest.raises(ValueError, match="archive relations are closed"):
+        next(escaped)
+    with pytest.raises(ValueError, match="pinned manifest"):
+        verify_demand_export(destination, manifest_digest=expected)
+    closure_path.write_bytes(original)
     original_rows = pq.read_table(closure_path)
     retained = original_rows.filter(
         pc.call_function("not_equal", [original_rows["id"], pa.scalar(source_episode)])

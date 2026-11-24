@@ -11,9 +11,8 @@ from corpus_structure.semantic._data_operation_wire import (
 )
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.demand_results import (
-    CutSelection,
+    acquire_selected_cut,
     acquired_selected_relations,
-    read_selected_answer,
 )
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.selected_contribution_input import (
@@ -73,17 +72,14 @@ def selected_contribution_scope(connection, request, *, product_ids=None, requir
                 decimal_fixed_point_digits=decimal_digit_limit(),
             )
         return
-    first = read_selected_answer(
+    cut = acquire_selected_cut(
         connection,
-        "read_selected_outputs",
         request.demand_id,
         project_id=request.project_id,
         scope=scope,
         read_id=request.read_id,
-        limit=1,
         max_bytes=request.max_graph_bytes,
     )
-    cut = CutSelection.from_native(first["cut"])
     if request.expected_cut is not None and request.expected_cut != cut.identity:
         raise ValueError("selected contribution differs from its expected cut")
     prepared = open_release(connection, cut.record["release_id"])

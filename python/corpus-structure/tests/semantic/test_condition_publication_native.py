@@ -168,12 +168,11 @@ def test_condition_admits_only_the_exact_supported_roles(
                 update=dict(read_id=page["cut"]["read_id"], expected_cut=page["cut_id"])
             )
             destination = tmp_path / "textbook-review"
-            with kernel.purpose("read").begin() as connection:
-                exported = export_selected_structural_review(
-                    connection,
-                    SelectedStructuralReviewRequest(selection=pinned),
-                    destination=destination,
-                )
+            exported = export_selected_structural_review(
+                kernel.purpose("read").begin,
+                SelectedStructuralReviewRequest(selection=pinned),
+                destination=destination,
+            )
             digest = exported["manifest_digest"]
             assert isinstance(digest, str)
             verified = verify_selected_structural_review(destination, manifest_digest=digest)

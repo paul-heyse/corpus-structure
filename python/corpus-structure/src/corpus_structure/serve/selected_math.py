@@ -104,6 +104,7 @@ def selected_formula_interpretations(connection, source, pointer, *, read_budget
         max_bytes=read_budget.max_bytes,
         max_total_bytes=read_budget.max_bytes,
         max_total_records=read_budget.max_rows,
+        retain_population_items=False,
     ) as (_, index):
         products = index.mapping("kb.data_product", ("id",))
         members = index.mapping("kb.data_product_member", ("product_id", "member_id"))

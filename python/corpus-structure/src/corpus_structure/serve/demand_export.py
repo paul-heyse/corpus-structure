@@ -554,7 +554,10 @@ def _verify_acquired_export(root, manifest, *, max_graph_bytes, max_graph_record
         seal_frontier(frontier, ordered_frontier, charge=index.charge)
         index.population_archive = populations
         index.attach_frontier(ordered_frontier, manifest.cut_selection)
-        yield manifest, prepared, models, index
+        try:
+            yield manifest, prepared, models, index
+        finally:
+            index.close()
 
 
 def _validate_page_position(record, previous, *, terminal):

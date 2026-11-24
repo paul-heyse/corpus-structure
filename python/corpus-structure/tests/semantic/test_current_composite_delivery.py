@@ -285,7 +285,7 @@ def test_current_comparison_uses_exact_two_root_use_and_cut_pins(monkeypatch, ri
         selected = comparison.ExclusionComparisonRequest(
             before=pin(before, "before"), after=pin(after, "after")
         )
-        report = comparison.compare_selected_exclusions(None, selected)
+        report = comparison.compare_selected_exclusions(nullcontext, selected)
         assert (
             report["before"]["pin"]["use_id"] == "use:before"
             and report["after"]["pin"]["derivation_id"] == "episode:after"
@@ -298,7 +298,10 @@ def test_current_comparison_uses_exact_two_root_use_and_cut_pins(monkeypatch, ri
         replay = comparison.ExclusionComparisonRequest.model_validate(
             decode_rich_cursor(report["resource_handle"])
         )
-        assert comparison.compare_selected_exclusions(None, replay)["changes"] == report["changes"]
+        assert (
+            comparison.compare_selected_exclusions(nullcontext, replay)["changes"]
+            == report["changes"]
+        )
         bad = selected.model_copy(
             update={"before": selected.before.model_copy(update={"use_id": "other-use"})}
         )
@@ -311,11 +314,16 @@ def test_current_comparison_uses_exact_two_root_use_and_cut_pins(monkeypatch, ri
             )
         )
         resumed = selected.model_copy(update={"cursor": cursor})
-        assert comparison.compare_selected_exclusions(None, resumed)["changes"] == report["changes"]
+        assert (
+            comparison.compare_selected_exclusions(nullcontext, resumed)["changes"]
+            == report["changes"]
+        )
         with pytest.raises(InvalidContinuation):
-            comparison.compare_selected_exclusions(None, bad.model_copy(update={"cursor": cursor}))
+            comparison.compare_selected_exclusions(
+                nullcontext, bad.model_copy(update={"cursor": cursor})
+            )
         with pytest.raises(ValueError, match="exactly one actual selected whole"):
-            comparison.compare_selected_exclusions(None, bad)
+            comparison.compare_selected_exclusions(nullcontext, bad)
     finally:
         assert isinstance(before.index, LiveSelectedRelations)
         assert isinstance(after.index, LiveSelectedRelations)
@@ -353,8 +361,9 @@ def test_comparison_keeps_two_cuts_and_projects_mcp_numbers_at_delivery(monkeypa
     seen = []
     committed = []
 
-    def read(connection, request):
-        seen.append(request)
+    def read(reader, request):
+        with reader():
+            seen.append(request)
         return dict(
             before={"pin": request.before.model_dump(mode="python")},
             after={"pin": request.after.model_dump(mode="python")},
@@ -454,10 +463,15 @@ def test_comparison_transaction_failure_retains_original_error_and_never_publish
         raise bug
 
     store = ResultStore(tmp_path / "results")
+
+    def read(reader, request):
+        with reader():
+            return {"actual_read_completed": True}
+
     monkeypatch.setattr(
         comparison,
         "compare_selected_exclusions",
-        lambda connection, request: {"actual_read_completed": True},
+        read,
     )
     monkeypatch.setattr(
         "corpus_structure.semantic.runtime.open_runtime_engine", lambda *a, **k: nullcontext(None)

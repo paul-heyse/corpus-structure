@@ -205,60 +205,63 @@ def test_native_whole_block_questions_keep_exact_custody_and_missing_populations
         with kernel.purpose("evaluate").begin() as connection:
             snapshot = read_demand_result(connection, authored["demand_id"], project_id=PROJECT)
             (protected,) = snapshot.members()
-            comparison = SelectedReferenceEvaluationRequest(
-                project_id=PROJECT,
-                reference_demand_id=authored["demand_id"],
-                reference_product_id=protected["product_id"],
-                prediction_demand_id=retained["demand_id"],
-                prediction_product_id=annotations.row["product_id"],
-                prediction_cut=cast(WireCutSelection, selected.cut.record),
-                assignments={name: partition_key for name in questions},
-                applicability=ReferenceApplicability(
-                    reference_source_release_id=kernel.prepared.release_id,
-                    reference_source_cut_id=selected.cut.identity,
-                    prediction_release_id=kernel.prepared.release_id,
-                    original_source=source.document_key,
-                    projection=scope["projection"],
-                    selectors=tuple(original.body["selectors"]),
-                    basis="the exact same independently selected original block",
+        comparison = SelectedReferenceEvaluationRequest(
+            project_id=PROJECT,
+            reference_demand_id=authored["demand_id"],
+            reference_product_id=protected["product_id"],
+            prediction_demand_id=retained["demand_id"],
+            prediction_product_id=annotations.row["product_id"],
+            prediction_cut=cast(WireCutSelection, selected.cut.record),
+            assignments={name: partition_key for name in questions},
+            applicability=ReferenceApplicability(
+                reference_source_release_id=kernel.prepared.release_id,
+                reference_source_cut_id=selected.cut.identity,
+                prediction_release_id=kernel.prepared.release_id,
+                original_source=source.document_key,
+                projection=scope["projection"],
+                selectors=tuple(original.body["selectors"]),
+                basis="the exact same independently selected original block",
+            ),
+        )
+        from corpus_structure.semantic import sentence_products
+
+        restored = []
+        restore = sentence_products._restore_selected_annotation_rows
+
+        def count_restoration(source, header, rows):
+            restored.extend((row["block_start"], row["block_end"]) for row in rows)
+            return restore(source, header, rows)
+
+        monkeypatch.setattr(
+            sentence_products, "_restore_selected_annotation_rows", count_restoration
+        )
+        report = cast(
+            dict[str, Any],
+            evaluate_selected_references(kernel.purpose("evaluate").begin, comparison),
+        )
+        assert restored == [(scope["start"], scope["end"])]
+
+        cases = {case["case_id"]: case["native"] for case in report["cases"]}
+        assert cases["tokens"]["scores"]["token_f"] == 1.0
+        assert cases["tokens"]["coverage"]["reference"]["eligible"] == 3
+        assert cases["tokens"]["prediction_reference"] == dict(
+            variant="partition",
+            product_id=annotations.row["product_id"],
+            collection="rows",
+            partition_key=partition_key,
+        )
+        assert cases["uninspected"]["status"] == "uninspected"
+        assert cases["uninspected"]["scores"] == {}
+        assert cases["categories"]["status"] == "unavailable"
+        assert cases["categories"]["scores"] == {}
+        assert report["opportunity_denominator"] == 1
+        # Output-first binding refuses a substitute partition before reading a body.
+        with pytest.raises(ValueError, match="frozen prediction population"):
+            evaluate_selected_references(
+                kernel.purpose("evaluate").begin,
+                comparison.model_copy(
+                    update={
+                        "assignments": {name: "another-partition" for name in questions},
+                    }
                 ),
             )
-            from corpus_structure.semantic import sentence_products
-
-            restored = []
-            restore = sentence_products._restore_selected_annotation_rows
-
-            def count_restoration(source, header, rows):
-                restored.extend((row["block_start"], row["block_end"]) for row in rows)
-                return restore(source, header, rows)
-
-            monkeypatch.setattr(
-                sentence_products, "_restore_selected_annotation_rows", count_restoration
-            )
-            report = cast(dict[str, Any], evaluate_selected_references(connection, comparison))
-            assert restored == [(scope["start"], scope["end"])]
-
-            cases = {case["case_id"]: case["native"] for case in report["cases"]}
-            assert cases["tokens"]["scores"]["token_f"] == 1.0
-            assert cases["tokens"]["coverage"]["reference"]["eligible"] == 3
-            assert cases["tokens"]["prediction_reference"] == dict(
-                variant="partition",
-                product_id=annotations.row["product_id"],
-                collection="rows",
-                partition_key=partition_key,
-            )
-            assert cases["uninspected"]["status"] == "uninspected"
-            assert cases["uninspected"]["scores"] == {}
-            assert cases["categories"]["status"] == "unavailable"
-            assert cases["categories"]["scores"] == {}
-            assert report["opportunity_denominator"] == 1
-            # Output-first binding refuses a substitute partition before reading a body.
-            with pytest.raises(ValueError, match="frozen prediction population"):
-                evaluate_selected_references(
-                    connection,
-                    comparison.model_copy(
-                        update={
-                            "assignments": {name: "another-partition" for name in questions},
-                        }
-                    ),
-                )

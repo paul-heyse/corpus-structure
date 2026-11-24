@@ -349,6 +349,7 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
     structural_native_journey, monkeypatch
 ):
     from corpus_structure.semantic.data_operation_service import DemandOperationSelection
+    from corpus_structure.semantic.selected_query_cache import SELECTED_QUERY_CACHE
     from corpus_structure.serve.selected_structural_review import (
         SelectedStructuralReviewRequest,
         export_selected_structural_review,
@@ -497,11 +498,11 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
             ),
         )
         assert wrong_binding["reports"][0]["availability"] == "outside_selection"
-        support_archive = export_selected_structural_review(
-            connection,
-            SelectedStructuralReviewRequest(selection=support_request),
-            destination=case["tmp_path"] / "ordinary-report-support-review",
-        )
+    support_archive = export_selected_structural_review(
+        kernel.purpose("read").begin,
+        SelectedStructuralReviewRequest(selection=support_request),
+        destination=case["tmp_path"] / "ordinary-report-support-review",
+    )
     support_archive_path, support_archive_digest = (
         support_archive["path"],
         support_archive["manifest_digest"],
@@ -630,20 +631,26 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
     )
     with kernel.purpose("read").begin() as connection:
         page = inspect_selected_gap(connection, gap)
-        membership = inspect_selected_dossier(
-            connection,
-            SelectedDossierRequest(
-                demand_id=complete["demand_id"],
-                project_id=PROJECT,
-                root=dossier.root,
-                population="membership",
-            ),
-        )
-        archive = export_selected_structural_review(
-            connection,
-            SelectedStructuralReviewRequest(selection=gap),
-            destination=case["tmp_path"] / "ordinary-structural-review",
-        )
+    # The ordinary demand selects only the earlier issuer. The combined
+    # demand also enrolls the later issuer, which is revoked separately below.
+    dossier_request = SelectedDossierRequest(
+        demand_id=ordinary["demand_id"],
+        project_id=PROJECT,
+        root=ordinary_dossier.root,
+        population="membership",
+    )
+    reader = kernel.purpose("read").begin
+    membership = inspect_selected_dossier(reader, dossier_request)
+    cached_before = SELECTED_QUERY_CACHE.snapshot().hits
+    assert cached_before is not None
+    fresh_membership = inspect_selected_dossier(reader, dossier_request)
+    assert fresh_membership["members"] == membership["members"]
+    assert SELECTED_QUERY_CACHE.snapshot().hits == cached_before + 1
+    archive = export_selected_structural_review(
+        kernel.purpose("read").begin,
+        SelectedStructuralReviewRequest(selection=gap),
+        destination=case["tmp_path"] / "ordinary-structural-review",
+    )
     assert page["availability"] == "observed"
     (row,) = page["rows"]
     assert row["reason"] == "no_qualifying_root_binding" and set(row["evidence"]["sides"]) == {
@@ -857,6 +864,99 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
             reason="controlled actual structural C revocation",
         ),
     )
+    from corpus_structure.core.evidence import document_key
+    from corpus_structure.semantic.data_operation_demands import DemandPlanner, freeze_demand
+    from corpus_structure.semantic.identifiers import ProjectId, ReleaseId
+    from corpus_structure.semantic.original_documents import (
+        acquire_original_document_selection,
+        register_original_document,
+    )
+
+    # Conservative validity is project-scoped. Withdraw an actual admission
+    # from a different project so the completed dossier's trust stays current.
+    other_project = PROJECT + "-independent"
+    other = case["source"]
+    path = case["tmp_path"] / "independent-revocation.pdf"
+    path.write_bytes(other.original)
+    unrelated_source = document_key(other_project, path.name, sha256(other.original).hexdigest())
+    with kernel.purpose("write").begin() as connection:
+        storage = DataOperationStorage(connection)
+        storage.initialize_source_project(
+            {
+                "project_id": ProjectId(other_project),
+                "release_id": ReleaseId(kernel.prepared.release_id),
+            }
+        )
+        register_original_document(
+            connection,
+            prepared=kernel.prepared,
+            project_id=other_project,
+            source_uri=path.name,
+            original_path=str(path),
+            original=other.original,
+            mime="application/pdf",
+        )
+        selected_original = acquire_original_document_selection(
+            connection, project_id=other_project, document_key=unrelated_source
+        )
+        planner = DemandPlanner(kernel.model, storage)
+        planner.register(
+            freeze_demand(
+                kernel.model,
+                roots=(selected_original.root,),
+                targets=("source.pdf/capture",),
+                original_sources=(selected_original.selection(),),
+                inference="independent-dossier-cache-withdrawal",
+                execution_profile=kernel.recipe.execution_profile,
+            ),
+            project=other_project,
+            release=kernel.prepared.release_id,
+            runtime=kernel.runtime,
+        )
+    with kernel.engine.begin() as connection:
+        admissions = table("ops.original_source_admission")
+        unrelated_id = connection.scalar(
+            select(admissions.c.id).where(
+                admissions.c.project_id == other_project,
+                admissions.c.original_source == unrelated_source,
+            )
+        )
+        assert unrelated_id is not None
+        DataOperationStorage(connection).revoke_data_support(
+            cast(
+                WireRevokeDataSupportRequest,
+                {
+                    **withdrawal,
+                    "project_id": other_project,
+                    "original_source": unrelated_source,
+                    "selector": unrelated_id,
+                    "reason": "independent original withdrawn",
+                },
+            )
+        )
+    cached_before = SELECTED_QUERY_CACHE.snapshot().hits
+    assert cached_before is not None
+    unrelated_withdrawal = inspect_selected_dossier(reader, dossier_request)
+    assert unrelated_withdrawal["availability"] == "observed"
+    assert unrelated_withdrawal["members"] == membership["members"]
+    assert unrelated_withdrawal["cut_id"] != membership["cut_id"]
+    assert SELECTED_QUERY_CACHE.snapshot().hits == cached_before + 1
+
+    with kernel.purpose("evaluate").begin() as connection:
+        DataOperationStorage(connection).revoke_data_support(
+            cast(
+                WireRevokeDataSupportRequest,
+                {
+                    **withdrawal,
+                    "selector": earlier_c["admission_id"],
+                    "reason": "controlled exact earlier structural C dossier support revocation",
+                },
+            )
+        )
+    cached_before = SELECTED_QUERY_CACHE.snapshot().hits
+    assert inspect_selected_dossier(reader, dossier_request)["availability"] == "outside_selection"
+    assert SELECTED_QUERY_CACHE.snapshot().hits == cached_before
+
     # The original C is protected evaluator data. Ordinary write capability
     # authorizes ordinary withdrawals, without granting this protected effect.
     with (
@@ -874,17 +974,6 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
                 {"episode": actual_admission.row["derivation_id"]},
             )
             is False
-        )
-    with kernel.purpose("evaluate").begin() as connection:
-        DataOperationStorage(connection).revoke_data_support(
-            cast(
-                WireRevokeDataSupportRequest,
-                {
-                    **withdrawal,
-                    "selector": earlier_c["admission_id"],
-                    "reason": "controlled exact earlier structural C dossier support revocation",
-                },
-            )
         )
     with kernel.engine.begin() as connection:
         assert (

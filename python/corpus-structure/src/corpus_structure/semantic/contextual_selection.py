@@ -408,6 +408,7 @@ def acquire_contextual_witness_selection(connection, selection, *, project_id, q
         expected_cut=cut.identity,
         capture_frontier=True,
         max_total_bytes=64 * 1024 * 1024,
+        retain_population_items=False,
     ) as (_, index):
         products = index.mapping("kb.data_product", ("id",))
         members = index.mapping("kb.data_product_member", ("product_id", "member_id"))

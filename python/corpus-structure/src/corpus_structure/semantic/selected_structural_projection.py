@@ -1,6 +1,5 @@
 """Deterministic structural reports and dossier pages over acquired typed support."""
 
-from collections import defaultdict
 from typing import cast
 
 from .data_operation_json import json_bytes, json_loads
@@ -11,7 +10,6 @@ STRUCTURAL_QUERY_ROOTS = (
     "corpus_structure.semantic.selected_structural_projection.selected_root",
     "corpus_structure.semantic.selected_structural_projection.structural_report",
     "corpus_structure.semantic.selected_structural_projection.selected_contextual",
-    "corpus_structure.semantic.selected_structural_projection.dossier_rows",
     "corpus_structure.semantic.selected_structural_projection.producer",
     "corpus_structure.semantic.selected_pages.byte_bounded_page",
     "corpus_structure.semantic.continuation_codec.encode_cursor",
@@ -345,60 +343,55 @@ def producer(selected):
     )
 
 
-def dossier_member_page(report, *, population, offset, limit):
-    """The display policy chooses from immutable membership; reading changes neither."""
+def dossier_row_inputs(report, *, population, offset=0, limit=None):
+    """Cross the acquired report boundary with the exact values a page uses."""
     if report.dossier is None:
         raise ValueError("selected output is not a dossier")
     dossier = report.dossier
     representation = dossier.representation
     members = {member.member_id: member for member in dossier.members}
-    keys = (
-        tuple(member.member_id for member in dossier.members)
-        if population == "membership"
-        else representation.selected
-    )
+    keys = tuple(members) if population == "membership" else representation.selected
     if offset < 0 or offset > len(keys):
         raise ValueError("dossier continuation is outside its immutable population")
-    chosen = keys[offset : offset + limit]
+    chosen = keys[offset:] if limit is None else keys[offset : offset + limit]
     selected = set(chosen)
-    passages = {passage.passage_id: passage for passage in report.inputs.passages}
+    passages = {passage.passage_id: passage.source_ref for passage in report.inputs.passages}
     sources = {source.identity: source for source in report.inputs.sources}
-    citations = []
+    member_inputs = []
+    used_passages = {}
+    used_sources = {}
     for key in chosen:
         member = members[key]
-        if member.contribution_citations:
-            cited = tuple(citation.span for citation in member.contribution_citations)
-        else:
-            cited = (member.citation,)
-        for span in cited:
-            source = sources[passages[span.passage_id].source_ref]
-            citations.append(
-                dict(
-                    member_id=key,
-                    source=source.model_dump(mode="python"),
-                    citation=span.model_dump(mode="python"),
+        spans = (
+            tuple(citation.span for citation in member.contribution_citations)
+            if member.contribution_citations
+            else (member.citation,)
+        )
+        for span in spans:
+            source_ref = passages[span.passage_id]
+            used_passages[span.passage_id] = source_ref
+            if source_ref not in used_sources:
+                used_sources[source_ref] = sources[source_ref].model_dump(mode="python")
+        comparison = member.comparison_binding
+        member_inputs.append(
+            (
+                member.model_dump(mode="python", exclude_none=True),
+                tuple(span.model_dump(mode="python") for span in spans),
+                (
+                    comparison.opposite_source.model_dump(mode="python"),
+                    comparison.opposite_citation.model_dump(mode="python"),
                 )
+                if comparison is not None
+                else None,
             )
-        if member.comparison_binding is not None:
-            binding = member.comparison_binding
-            citations.append(
-                dict(
-                    member_id=key,
-                    context="opposite_comparison_side",
-                    source=binding.opposite_source.model_dump(mode="python"),
-                    citation=binding.opposite_citation.model_dump(mode="python"),
-                )
-            )
+        )
+    facets = tuple(
+        facet.model_dump(mode="python")
+        for facet in dossier.supported_facets
+        if facet.member_id in selected
+    )
     end = offset + len(chosen)
-    return dict(
-        members=[members[key].model_dump(mode="python", exclude_none=True) for key in chosen],
-        citations=citations,
-        supported_facets=[
-            facet.model_dump(mode="python")
-            for facet in dossier.supported_facets
-            if facet.member_id in selected
-        ],
-        next_offset=end if end < len(keys) else None,
+    metadata = dict(
         full_member_count=len(members),
         display_member_count=len(representation.selected),
         omitted_member_count=len(representation.omitted),
@@ -409,29 +402,29 @@ def dossier_member_page(report, *, population, offset, limit):
         policy=representation.policy,
         product_id=report.product_id,
     )
-
-
-def dossier_rows(report, *, population, provenance):
-    complete = dossier_member_page(
-        report, population=population, offset=0, limit=len(report.dossier.members)
+    return (
+        (member_inputs, used_passages, used_sources, facets),
+        metadata,
+        end if end < len(keys) else None,
     )
-    citations, facets = defaultdict(list), defaultdict(list)
-    for citation in complete["citations"]:
-        citations[citation["member_id"]].append(citation)
-    for ordinal, facet in enumerate(complete["supported_facets"]):
-        facets[facet["member_id"]].append(dict(ordinal=ordinal, value=facet))
-    items = [
-        dict(
-            members=[member],
-            citations=citations[member["member_id"]],
-            supported_facets=facets[member["member_id"]],
-        )
-        for member in complete["members"]
-    ]
-    metadata = {
-        name: value
-        for name, value in complete.items()
-        if name not in {"members", "citations", "supported_facets", "next_offset"}
-    }
-    metadata["producer"] = provenance
-    return items, metadata
+
+
+def dossier_member_page(report, *, population, offset, limit):
+    """The display policy chooses from immutable membership; reading changes neither."""
+    from .dossier_row_projection import dossier_rows
+
+    inputs, metadata, next_offset = dossier_row_inputs(
+        report, population=population, offset=offset, limit=limit
+    )
+    rows = list(dossier_rows(*inputs))
+    facets = sorted(
+        (facet for row in rows for facet in row["supported_facets"]),
+        key=lambda facet: facet["ordinal"],
+    )
+    return dict(
+        **metadata,
+        next_offset=next_offset,
+        members=[member for row in rows for member in row["members"]],
+        citations=[citation for row in rows for citation in row["citations"]],
+        supported_facets=[facet["value"] for facet in facets],
+    )

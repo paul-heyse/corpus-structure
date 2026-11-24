@@ -1,5 +1,6 @@
 """Selected detached transfer controls; native acquisition is controlled here."""
 
+from contextlib import contextmanager
 from hashlib import sha256
 from types import SimpleNamespace
 
@@ -52,8 +53,21 @@ def test_structural_review_preserves_exact_root_scope_and_refuses_substituted_re
     monkeypatch, tmp_path
 ):
     acquired = []
+    transaction_open = False
+
+    @contextmanager
+    def reader(fail_commit=False):
+        nonlocal transaction_open
+        transaction_open = True
+        try:
+            yield None
+            if fail_commit:
+                raise OSError("commit failed")
+        finally:
+            transaction_open = False
 
     def export(connection, demand, **kwargs):
+        assert transaction_open
         acquired.append((demand, kwargs))
         kwargs["destination"].mkdir()
         return SimpleNamespace(
@@ -69,7 +83,12 @@ def test_structural_review_preserves_exact_root_scope_and_refuses_substituted_re
         reports=[dict(availability="outside_selection")],
     )
     monkeypatch.setattr(review, "export_demand_result", export)
-    monkeypatch.setattr(review, "_replay", lambda *args: response)
+
+    def replay(*args):
+        assert not transaction_open
+        return response
+
+    monkeypatch.setattr(review, "_replay", replay)
     selection = review.SelectedStructuralReviewRequest(
         selection=dict(
             demand_id="demand:actual",
@@ -110,7 +129,12 @@ def test_structural_review_preserves_exact_root_scope_and_refuses_substituted_re
         }
     )
     destination = tmp_path / "selected"
-    receipt = review.export_selected_structural_review(None, selection, destination=destination)
+    with pytest.raises(OSError, match="commit failed"):
+        review.export_selected_structural_review(
+            lambda: reader(fail_commit=True), selection, destination=destination
+        )
+    assert not destination.exists()
+    receipt = review.export_selected_structural_review(reader, selection, destination=destination)
     digest = receipt["manifest_digest"]
     assert isinstance(digest, str)
     _, arguments = acquired[0]

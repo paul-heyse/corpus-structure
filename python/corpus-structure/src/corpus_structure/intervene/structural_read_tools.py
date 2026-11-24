@@ -28,8 +28,11 @@ def register_structural_read_tools(server, reader, *, project=None, demand=None)
             raise ValueError("structural read belongs to another server project")
         if demand is not None and request.demand_id != demand:
             raise ValueError("structural read belongs to another server demand")
-        with reader() as connection:
-            report = operation(connection, request)
+        if operation is inspect_selected_dossier:
+            report = operation(reader, request)
+        else:
+            with reader() as connection:
+                report = operation(connection, request)
         pinned = request.model_copy(
             update=dict(
                 read_id=report["cut"]["read_id"],

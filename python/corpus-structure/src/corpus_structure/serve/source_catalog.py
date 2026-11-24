@@ -17,6 +17,7 @@ from corpus_structure.semantic.continuation_codec import (
 from corpus_structure.semantic.data_operation_json import DdoJsonValue, json_bytes
 from corpus_structure.semantic.demand_results import (
     CutSelection,
+    acquire_selected_cut,
     read_demand_result,
     read_selected_answer,
 )
@@ -109,6 +110,7 @@ def read_source_catalog(connection, request: SourceCatalogRequest, *, cancellati
             "corpus_structure.serve.source_catalog.read_source_catalog",
             "corpus_structure.serve.source_catalog._catalog_frontier",
             "corpus_structure.serve.native_source.inspect_native_source_product_headers",
+            "corpus_structure.semantic.demand_results.acquire_selected_cut",
             "corpus_structure.semantic.demand_results.read_selected_answer",
             "corpus_structure.semantic.continuation_codec.decode_pinned_cursor",
         ),
@@ -119,16 +121,13 @@ def read_source_catalog(connection, request: SourceCatalogRequest, *, cancellati
                 request.cursor, version=_CURSOR_VERSION, selection=digest, keyset="native-output"
             )
             require_cursor_implementation(cursor, implementation)
-        first = read_selected_answer(
+        cut = acquire_selected_cut(
             connection,
-            "read_selected_outputs",
             request.demand_id,
             project_id=request.project_id,
             read_id=None if cursor is None else cursor["read_id"],
-            limit=1,
             max_bytes=request.max_bytes,
         )
-        cut = CutSelection.from_native(first["cut"])
         if cursor is not None:
             require_cursor_cut(cursor, cut)
         prepared = open_release(connection, cut.record["release_id"])

@@ -298,6 +298,7 @@ def operation_event_journey(framed_operation_event):
 
 def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private_basis(
     operation_event_journey,
+    monkeypatch,
 ):
     case = operation_event_journey
     kernel, fit = case["kernel"], case["fit"]
@@ -348,36 +349,41 @@ def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private
     from semantic.operation_event_feature_fixture import OPERATION
 
     score_operation = "urn:corpus:operation:score-operation-event"
-    source = case["originals"][0]
-    report = case["reports"][0]
-    component_id = report.body["members"][0]["body"]["component_id"]
-    pending = request(
-        kernel,
-        (OPERATION, score_operation),
-        project_context(kernel),
-        source_sets=(
-            FrozenSourceSet.from_selected("event-score-report", (report.entry(),)),
-            FrozenSourceSet.from_selected("event-score-source", (source.entry(),)),
-            FrozenSourceSet.from_selected("operation-event-parameters", (public.entry(),)),
-        ),
-        selections=(
-            DemandOperationSelection(
-                operation=OPERATION,
-                parameters=dict(component_id=component_id, event=parameters.event),
+
+    def score_request(number, inference):
+        source = case["originals"][number]
+        report = case["reports"][number]
+        component_id = report.body["members"][0]["body"]["component_id"]
+        return request(
+            kernel,
+            (OPERATION, score_operation),
+            project_context(kernel),
+            source_sets=(
+                FrozenSourceSet.from_selected("event-score-report", (report.entry(),)),
+                FrozenSourceSet.from_selected("event-score-source", (source.entry(),)),
+                FrozenSourceSet.from_selected("operation-event-parameters", (public.entry(),)),
             ),
-            DemandOperationSelection(
-                operation=score_operation,
-                parameters=dict(
-                    corpus_id=parameters.corpus_id,
-                    event=parameters.event,
-                    event_version=parameters.event_version,
-                    producer_version=parameters.producer_version,
+            selections=(
+                DemandOperationSelection(
+                    operation=OPERATION,
+                    parameters=dict(component_id=component_id, event=parameters.event),
+                ),
+                DemandOperationSelection(
+                    operation=score_operation,
+                    parameters=dict(
+                        corpus_id=parameters.corpus_id,
+                        event=parameters.event,
+                        event_version=parameters.event_version,
+                        producer_version=parameters.producer_version,
+                    ),
                 ),
             ),
-        ),
-        inference="actual-native-declared-event-score",
+            inference=inference,
+        )
+
+    scored, execution = execute(
+        kernel, score_request(0, "actual-native-declared-event-score"), purpose="write"
     )
-    scored, execution = execute(kernel, pending, purpose="write")
     assert execution.receipt_count == 2
     from corpus_structure.semantic.demand_results import read_demand_result, stream_selected_support
 
@@ -409,6 +415,47 @@ def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private
         assert b"controlled-output-first-C" not in public_bytes
         assert b"independent numerical-control author" not in public_bytes
         assert all(row["id"] != case["frame_product"].row["product_id"] for row in public_products)
+
+    from corpus_structure.orchestrate.data_operations import (
+        NativeDemandExecutionError,
+        NativeDemandExecutor,
+    )
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.identifiers import ProjectId
+
+    publish = NativeDemandExecutor._publish_fresh
+    revoked = []
+
+    def revoke_before_publication(executor, ready, claim, retained, owner, physical):
+        if ready.operation == score_operation and not revoked:
+            with kernel.engine.begin() as connection:
+                DataOperationStorage(connection).revoke_data_support(
+                    dict(
+                        project_id=ProjectId(PROJECT),
+                        original_source=public.row["original_source"],
+                        selector_kind="derivation",
+                        selector=public.row["derivation_id"],
+                        reason="fitter authority withdrawn after score computation",
+                    )
+                )
+            revoked.append(retained.intent_id)
+        return publish(executor, ready, claim, retained, owner, physical)
+
+    monkeypatch.setattr(NativeDemandExecutor, "_publish_fresh", revoke_before_publication)
+    with pytest.raises(NativeDemandExecutionError) as refused:
+        execute(kernel, score_request(1, "withdrawn-native-event-score"), purpose="write")
+    (intent_id,) = revoked
+    assert refused.value.result.receipt_count == 1
+    from sqlalchemy import text
+
+    with kernel.engine.connect() as connection:
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM ops.data_publication_receipt WHERE intent_id = :intent"),
+                {"intent": intent_id},
+            )
+            == 0
+        )
 
 
 def test_actual_restricted_event_frame_read_refuses_ordinary_purpose_and_substituted_use(

@@ -1,6 +1,6 @@
 """Independent selected-root, original-coordinate and immutable population controls."""
 
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from types import SimpleNamespace
 
 import pytest
@@ -10,6 +10,7 @@ from corpus_structure.semantic.selected_structural_projection import (
     dossier_member_page,
     selected_root,
 )
+from corpus_structure.semantic.serving_identity import _installed_read_basis
 from corpus_structure.serve import structural_products as reader
 from corpus_structure.serve.selected_structural import SelectedStructuralRoot
 from corpus_structure.serve.source_decision_journey import (
@@ -46,6 +47,31 @@ def test_structural_read_implementation_owns_actual_bootstrapped_helper_objects(
         callables=("corpus_structure.serve.selected_structural.structural_scope",),
     ) as implementation:
         assert len(implementation) == 64
+
+
+def test_dossier_row_identity_closes_independently_of_the_serving_identity(monkeypatch):
+    from corpus_structure.semantic import dossier_row_projection, serving_identity
+    from corpus_structure.semantic.serving_code import reusable_serving_code
+
+    monkeypatch.setattr(serving_identity, "_installed_read_basis", _installed_read_basis)
+    with serving_identity.installed_read_implementation(
+        reader.SelectedDossierRequest,
+        entry="corpus_structure.semantic.selected_structural_projection",
+        profile="selected-structural-read-v1",
+        callables=reader.STRUCTURAL_QUERY_ROOTS,
+    ) as serving:
+        assert serving.code.unknowns
+        assert serving.reuse_identity is None
+        with serving_identity.installed_read_implementation(
+            reader.SelectedDossierRequest,
+            entry=dossier_row_projection.__name__,
+            profile="selected-dossier-rows-v1",
+            callables=(dossier_row_projection.__name__ + ".dossier_rows",),
+        ) as rows:
+            assert rows != serving and rows.reuse_identity is not None
+            assert reusable_serving_code(rows.reuse_identity)
+            assert not reusable_serving_code(serving)
+        assert not reusable_serving_code()
 
 
 def test_root_selection_requires_actual_member_use_and_original_episode():
@@ -115,28 +141,28 @@ def test_selected_dossier_cursor_rejects_foreign_read_population_and_membership(
     request = reader.SelectedDossierRequest(
         demand_id="d", project_id="project", root=ROOT, population="membership", limit=1
     )
-    first = reader.inspect_selected_dossier(None, request)
+    first = reader.inspect_selected_dossier(nullcontext, request)
     assert first["next_cursor"] is not None
     second = reader.inspect_selected_dossier(
-        None, request.model_copy(update={"cursor": first["next_cursor"]})
+        nullcontext, request.model_copy(update={"cursor": first["next_cursor"]})
     )
     assert second["next_cursor"] is None
     assert first["members"][0]["member_id"] != second["members"][0]["member_id"]
     for update in ({"population": "display"}, {"read_id": "foreign", "expected_cut": "cut:other"}):
         with pytest.raises(ValueError, match="continuation differs"):
             reader.inspect_selected_dossier(
-                None, request.model_copy(update={"cursor": first["next_cursor"], **update})
+                nullcontext, request.model_copy(update={"cursor": first["next_cursor"], **update})
             )
     cursor = decode_rich_cursor(first["next_cursor"])
     cursor["binding"]["membership_digest"] = "f" * 64
     with pytest.raises(ValueError, match="membership/facets/policy"):
         reader.inspect_selected_dossier(
-            None, request.model_copy(update={"cursor": _cursor(cursor)})
+            nullcontext, request.model_copy(update={"cursor": _cursor(cursor)})
         )
 
 
 def test_dossier_reuses_rows_across_fresh_cuts_after_reauthorizing(monkeypatch, dossier):
-    from corpus_structure.semantic import demand_results
+    from corpus_structure.semantic import demand_results, selected_query_cache
     from corpus_structure.semantic.selected_query_cache import SELECTED_QUERY_CACHE
 
     SELECTED_QUERY_CACHE.clear()
@@ -163,11 +189,11 @@ def test_dossier_reuses_rows_across_fresh_cuts_after_reauthorizing(monkeypatch, 
             raise ValueError("selected dossier producer was revoked")
         return dossier
 
-    derive = reader.dossier_rows
+    prepare = reader.dossier_row_inputs
 
     def count(*args, **kwargs):
         calls.append(kwargs["population"])
-        return derive(*args, **kwargs)
+        return prepare(*args, **kwargs)
 
     def forbidden(*args, **kwargs):
         raise AssertionError("dossier cannot acquire a whole-frontier stamp before reuse")
@@ -175,25 +201,25 @@ def test_dossier_reuses_rows_across_fresh_cuts_after_reauthorizing(monkeypatch, 
     monkeypatch.setattr(reader, "structural_scope", acquire)
     monkeypatch.setattr(reader, "selected_root", lambda *args: selected)
     monkeypatch.setattr(reader, "structural_report", report)
-    monkeypatch.setattr(reader, "dossier_rows", count)
+    monkeypatch.setattr(reader, "dossier_row_inputs", count)
     monkeypatch.setattr(reader, "producer", lambda *args: {"use_id": "use:actual"})
     monkeypatch.setattr(demand_results, "read_selected_operation_frontier", forbidden)
     request = reader.SelectedDossierRequest(
         demand_id="d", project_id="project", root=ROOT, population="membership"
     )
     try:
-        first = reader.inspect_selected_dossier(None, request)
+        first = reader.inspect_selected_dossier(nullcontext, request)
         state["cut"] = "fresh"
-        repeated = reader.inspect_selected_dossier(None, request)
+        repeated = reader.inspect_selected_dossier(nullcontext, request)
         assert repeated["cut_id"] == "cut:fresh"
         assert first["members"] == repeated["members"]
         assert calls == ["membership"]
         state.update(cut="different-release", release="release:different")
-        reader.inspect_selected_dossier(None, request)
+        reader.inspect_selected_dossier(nullcontext, request)
         assert calls == ["membership", "membership"]
         state.update(cut="denied", permit=False)
         with pytest.raises(ValueError, match="revoked"):
-            reader.inspect_selected_dossier(None, request)
+            reader.inspect_selected_dossier(nullcontext, request)
         assert calls == ["membership", "membership"]
         assert (
             launches
@@ -205,6 +231,15 @@ def test_dossier_reuses_rows_across_fresh_cuts_after_reauthorizing(monkeypatch, 
                 "cut:denied",
             ]
         )
+        monkeypatch.setattr(selected_query_cache, "ENTRY_ROWS", 1)
+        monkeypatch.setattr(selected_query_cache, "bounded_rows", forbidden)
+        state.update(cut="oversize", permit=True)
+        oversize = reader.inspect_selected_dossier(
+            nullcontext, request.model_copy(update={"limit": 1})
+        )
+        assert oversize["members"] == first["members"][:1]
+        assert oversize["next_cursor"] is not None
+        assert calls == ["membership", "membership", "membership"]
     finally:
         SELECTED_QUERY_CACHE.clear()
 

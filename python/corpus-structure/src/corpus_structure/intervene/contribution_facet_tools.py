@@ -49,8 +49,7 @@ def register_contribution_facet_tools(server, reader, *, project=None, demand=No
     def comparison(request):
         allowed(request.before)
         allowed(request.after)
-        with reader() as connection:
-            report = compare_selected_exclusions(connection, request)
+        report = compare_selected_exclusions(reader, request)
         return SelectedCompositeRead(
             cut_ids=(report["before"]["pin"]["cut_id"], report["after"]["pin"]["cut_id"]),
             result=finite_result_record(report),

@@ -90,7 +90,10 @@ def open_population_fragments(root, manifest):
             relations[relation] = engine.from_parquet(str(path))
         archive = PopulationArchive(relations, manifest.relations[POPULATION_HEADERS].rows)
         archive.verify_relations()
-        yield archive
+        try:
+            yield archive
+        finally:
+            archive.close()
 
 
 def _where(relation, fields):
@@ -109,6 +112,15 @@ class PopulationArchive:
     def __init__(self, relations, header_count):
         self.relations = relations
         self.header_count = header_count
+        self._closed = False
+
+    def _require_open(self):
+        if self._closed:
+            raise ValueError("selected archive populations are closed")
+
+    def close(self):
+        self._closed = True
+        self.relations.clear()
 
     def verify_relations(self):
         from functools import reduce
@@ -159,12 +171,14 @@ class PopulationArchive:
     def rows(self, relation, **fields):
         from duckdb import ColumnExpression as col
 
+        self._require_open()
         query = _where(self.relations[relation], fields).sort(
             *(col(field) for field in (*KEY_FIELDS, "ordinal"))
         )
         with query.to_arrow_reader(batch_size=256) as reader:
             for batch in reader:
                 for row in batch.to_pylist():
+                    self._require_open()
                     if relation == POPULATION_HEADERS:
                         for name in ("group_digests", "placement"):
                             row[name] = native_json_loads(row[name])
@@ -173,6 +187,7 @@ class PopulationArchive:
     def item(self, product_id, collection, partition_key, item_key):
         from duckdb import ColumnExpression as col
 
+        self._require_open()
         matches = (
             _where(
                 self.relations[POPULATION_ITEMS],
@@ -200,19 +215,48 @@ class LivePopulationArchive:
     def __init__(self, connection, index, cut, max_bytes):
         self.connection, self.index, self.cut, self.max_bytes = connection, index, cut, max_bytes
         self.handle = None
+        self._last_header = None
 
     def rows(self, relation, **fields):
         if relation == POPULATION_HEADERS:
+            if set(fields) == set(KEY_FIELDS):
+                return self._exact_headers(fields)
             return self.index.rows_for(relation, **fields) if fields else self.index.rows(relation)
         if relation != POPULATION_ITEMS or set(fields) != set(KEY_FIELDS):
             raise ValueError("online population items require one exact partition address")
         return self._items(fields)
 
+    def _exact_headers(self, fields):
+        header = self._header(tuple(fields[name] for name in KEY_FIELDS))
+        if header is not None:
+            yield header
+
+    def _header(self, key):
+        from .demand_results import stream_selected_archive_population
+
+        if self._last_header is not None and self._last_header[0] == key:
+            return self._last_header[1]
+        header = self.index.mapping(POPULATION_HEADERS, KEY_FIELDS).get(key)
+        if header is None:
+            for batch in stream_selected_archive_population(
+                self.connection, self._handle(), items=False, partition=key
+            ):
+                for row in batch:
+                    if header is not None:
+                        raise ValueError("selected archive repeats an exact population header")
+                    header = {name: row[name] for name in HEADER_FIELDS}
+                    for name in ("group_digests", "placement"):
+                        header[name] = native_json_loads(header[name])
+        self._last_header = key, header
+        return header
+
     def _items(self, fields):
         from .demand_results import stream_selected_archive_population
 
         key = tuple(fields[field] for field in KEY_FIELDS)
-        parent = self.index.mapping(POPULATION_HEADERS, KEY_FIELDS)[key]
+        parent = self._header(key)
+        if parent is None:
+            raise KeyError(key)
         examined = 0
         count = 0
         for batch in stream_selected_archive_population(
@@ -245,9 +289,7 @@ class LivePopulationArchive:
         from sqlalchemy import bindparam, func, select
         from sqlalchemy.dialects.postgresql import JSONB
 
-        parent = self.index.mapping(POPULATION_HEADERS, KEY_FIELDS).get(
-            (product_id, collection, partition_key)
-        )
+        parent = self._header((product_id, collection, partition_key))
         if parent is None:
             raise KeyError(item_key)
         projection = func.ops.read_selected_archive_item(
@@ -273,6 +315,7 @@ class LivePopulationArchive:
         if self.handle is not None:
             _close_selected_archive(self.connection, self.handle)
             self.handle = None
+        self._last_header = None
 
 
 def verify_population_partition(header, items, declaration, item_meaning, item_body):

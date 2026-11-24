@@ -1,5 +1,7 @@
 """Structural public selection refuses retired run registration and ambiguous cursors."""
 
+from contextlib import nullcontext
+
 import pytest
 from pydantic import ValidationError
 
@@ -46,4 +48,4 @@ def test_structural_cursor_cannot_alias_a_different_position(monkeypatch, positi
                 cursor=position,
             )
         )
-        reader.inspect_selected_dossier(None, request)
+        reader.inspect_selected_dossier(nullcontext, request)

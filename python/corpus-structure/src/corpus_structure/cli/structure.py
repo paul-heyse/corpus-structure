@@ -10,20 +10,21 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 app = typer.Typer(help="Inspect selected structural reports, dossiers, gaps and source journeys.")
 
 
-def _read(ctx, path, contract, operation, json):
+def _read(ctx, path, contract, operation, json, *, owns_read=False):
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.semantic.demand_results import selected_read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     with failure_boundary(json, expected=(ValueError, KeyError)):
         request = read_request_model(path, contract)
-        with (
-            open_runtime_engine(
-                state(ctx).settings(), "ci-selected-structure", purpose="read"
-            ) as engine,
-            selected_read_snapshot(engine) as connection,
-        ):
-            result = operation(connection, request)
+        with open_runtime_engine(
+            state(ctx).settings(), "ci-selected-structure", purpose="read"
+        ) as engine:
+            if owns_read:
+                result = operation(lambda: selected_read_snapshot(engine), request)
+            else:
+                with selected_read_snapshot(engine) as connection:
+                    result = operation(connection, request)
         write_report_text(json_bytes(result).decode() + "\n")
 
 
@@ -46,7 +47,7 @@ def dossier_page(ctx: typer.Context, request: Path, json: JsonOpt = False):
         inspect_selected_dossier,
     )
 
-    _read(ctx, request, SelectedDossierRequest, inspect_selected_dossier, json)
+    _read(ctx, request, SelectedDossierRequest, inspect_selected_dossier, json, owns_read=True)
 
 
 @app.command("gap")
@@ -81,13 +82,12 @@ def export_review(ctx: typer.Context, request: Path, out: Path, json: JsonOpt = 
 
     with failure_boundary(json, expected=(ValueError, KeyError, OSError)):
         selection = read_request_model(request, SelectedStructuralReviewRequest)
-        with (
-            open_runtime_engine(
-                state(ctx).settings(), "ci-structural-review", purpose="read"
-            ) as engine,
-            selected_read_snapshot(engine) as connection,
-        ):
-            result = export_selected_structural_review(connection, selection, destination=out)
+        with open_runtime_engine(
+            state(ctx).settings(), "ci-structural-review", purpose="read"
+        ) as engine:
+            result = export_selected_structural_review(
+                lambda: selected_read_snapshot(engine), selection, destination=out
+            )
         write_report_text(json_bytes(result).decode() + "\n")
 
 
