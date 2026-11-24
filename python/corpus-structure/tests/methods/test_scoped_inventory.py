@@ -63,6 +63,15 @@ class ReferenceInventory(AbstractContextManager):
                 answers.append((mention, matches[0]))
         return answers
 
+    def artifact_matches(self, records):
+        return {
+            index: [ordinal for ordinal, record in enumerate(records)
+                if record.payload["pointer"] == piece.get("item_ref")
+                and piece["start"] <= record.span("subject")[0] < record.span("subject")[1] <= piece["end"]]
+            for index,piece in enumerate(self.pieces)
+            if piece.get("kind") == "native_text"
+        }
+
     def table_counterparts(self, tables, pairs):
         import re
         fields = ("start_row_offset_idx", "end_row_offset_idx", "start_col_offset_idx", "end_col_offset_idx")
