@@ -213,7 +213,7 @@ def finish_private_temporary(directory: Path, process: dict[str, Any]) -> dict[s
         outcome = _remove_owned_empty_tree(owner)
         if (
             outcome.get("reason") == "pg_virtualenv left owned temporary residue"
-            and process.get("returncode") == 0
+            and process.get("returncode") in {0, 1}
             and not process.get("interruption")
         ):
             try:

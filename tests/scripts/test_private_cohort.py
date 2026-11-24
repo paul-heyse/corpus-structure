@@ -506,22 +506,23 @@ def test_recovery_removes_selected_sqlite_scratch_after_drain(owned_private_resi
     assert all((receipt / name).read_bytes() == body for name, body in before.items())
 
 
+@pytest.mark.parametrize("returncode", (0, 1))
 @pytest.mark.parametrize("child_present", (False, True))
-def test_successful_private_finish_checks_drain_before_removing_scratch(
-    owned_private_residue, monkeypatch, child_present
+def test_completed_private_finish_checks_drain_before_removing_scratch(
+    owned_private_residue, monkeypatch, child_present, returncode
 ):
     receipt, temporary = owned_private_residue
     (temporary / ".ses").write_bytes(b"1772223334445\n01010101-0202-0303-0404-050505050505\n")
     old = _interrupted_private_receipts(receipt)
     process = {
         "finished": old["finished"],
-        "returncode": 0,
+        "returncode": returncode,
         "owned_group_cleanup": old["owned_group_cleanup"],
     }
     (receipt / "private-cohort.process.json").write_text(json.dumps(process))
     child_path = receipt / "pytest.process.json"
     child = json.loads(child_path.read_text())
-    child_path.write_text(json.dumps({**child, "returncode": 0}))
+    child_path.write_text(json.dumps({**child, "returncode": returncode}))
     groups = []
 
     def probe(group, sig):
