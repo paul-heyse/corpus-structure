@@ -1343,7 +1343,7 @@ class NativeDemandExecutor:
 
         def retain(calls):
             if draft is not None and draft.population_upload is not None:
-                self._upload_draft(calls, claim, draft)
+                self._upload_draft(calls, claim, draft, check_active=lambda: _check_claim_active(owner, claim))
             elif profile is not None:
                 calls.prepare_population_upload(
                     claim.fence,
@@ -1353,7 +1353,8 @@ class NativeDemandExecutor:
                 )
             return calls.retain_data_completion_intent(request)
 
-        return _RetainedAnswer(owner.retain(claim, retain)["intent_id"], draft)
+        options = {"cancel_on_stop": True} if profile is not None else {}
+        return _RetainedAnswer(owner.retain(claim, retain, **options)["intent_id"], draft)
 
     def _publish_fresh(self, ready, claim, retained, owner, physical):
         receipt = self._publish(claim, retained.intent_id, owner)
@@ -1425,7 +1426,7 @@ class NativeDemandExecutor:
 
                 def consume(calls, *, candidate=candidate, draft=draft, original=original):
                     if draft.population_upload is not None:
-                        self._upload_draft(calls, claim, draft)
+                        self._upload_draft(calls, claim, draft, check_active=lambda: _check_claim_active(owner, claim))
                     return calls.consume_data_completion_draft(
                         {
                             **claim.fence,
@@ -1436,7 +1437,8 @@ class NativeDemandExecutor:
                     )
 
                 try:
-                    return owner.retain(claim, consume)["intent_id"]
+                    options = {"cancel_on_stop": True} if draft.population_upload is not None else {}
+                    return owner.retain(claim, consume, **options)["intent_id"]
                 except DBAPIError as error:
                     if getattr(error.orig, "sqlstate", None) not in {"P0001", "P0002", "23514"}:
                         raise
@@ -1454,9 +1456,15 @@ class NativeDemandExecutor:
         return None
 
     @staticmethod
-    def _upload_draft(calls, claim, draft):
+    def _upload_draft(calls, claim, draft, *, check_active=lambda: None):
         profile = population_item_write_profile(release_id=draft.release_id)
-        with draft.population_upload.open_reader() as reader:
+        def active():
+            check_active()
+            cancellation = getattr(calls, "cancellation", None)
+            if cancellation is not None:
+                cancellation.check_active()
+
+        with draft.population_upload.open_reader(check_active=active) as reader:
             if not reader.schema.equals(profile.schema, check_metadata=True):
                 raise PortRefusal("durable draft population differs from its captured upload shape")
             calls.prepare_population_upload(
