@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+from decimal import Decimal
 from hashlib import sha256
 from itertools import repeat
 
@@ -11,11 +12,20 @@ import pyarrow as pa
 from .identity import canonical_bytes
 
 
+def _logical_value(value):
+    if isinstance(value, Decimal):
+        parts = value.as_tuple()
+        return ["decimal", parts.sign, list(parts.digits), parts.exponent]
+    if isinstance(value, float):
+        return ["float", value.hex()]
+    if isinstance(value, bytes):
+        return ["binary", base64.b64encode(value).decode("ascii")]
+    return value
+
+
 def _column_values(column: pa.Array):
     """Normalize one typed column without constructing an Arrow scalar per cell."""
     kind = column.type
-    if pa.types.is_dictionary(kind):
-        return _column_values(column.dictionary_decode())
     if (
         pa.types.is_timestamp(kind)
         or pa.types.is_date(kind)
@@ -25,15 +35,18 @@ def _column_values(column: pa.Array):
         integer = pa.int32() if kind.bit_width == 32 else pa.int64()
         return [None if value is None else [str(kind), value] for value in column.view(integer).to_pylist()]
     values = column.to_pylist()
-    if pa.types.is_decimal(kind):
-        return [
-            None if value is None else ["decimal", value.as_tuple().sign, list(value.as_tuple().digits), value.as_tuple().exponent]
-            for value in values
-        ]
-    if pa.types.is_floating(kind):
-        return [None if value is None else ["float", value.hex()] for value in values]
-    if pa.types.is_binary(kind) or pa.types.is_large_binary(kind) or pa.types.is_fixed_size_binary(kind):
-        return [None if value is None else ["binary", base64.b64encode(value).decode("ascii")] for value in values]
+    if (
+        pa.types.is_decimal(kind)
+        or pa.types.is_floating(kind)
+        or pa.types.is_binary(kind)
+        or pa.types.is_large_binary(kind)
+        or pa.types.is_fixed_size_binary(kind)
+        or pa.types.is_binary_view(kind)
+        or pa.types.is_dictionary(kind)
+        or pa.types.is_union(kind)
+        or isinstance(kind, pa.BaseExtensionType)
+    ):
+        return [_logical_value(value) for value in values]
     return values
 
 
