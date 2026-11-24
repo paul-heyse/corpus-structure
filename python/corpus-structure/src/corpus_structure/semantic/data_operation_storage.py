@@ -138,7 +138,9 @@ class DataOperationStorage(DataOperationCalls):
                 raise ValueError("native installed wire contract differs from the prepared client")
             return validate_native_wire(name, "output", value["payload"])
 
-    def prepare_population_upload(self, fence, profile, batches, *, release_id: str, cancellation=None) -> int:
+    def prepare_population_upload(
+        self, fence, profile, batches, *, release_id: str, cancellation=None
+    ) -> int:
         """Load the exact attempt's prepared scratch on the active claim transaction."""
         from .arrow_transfer import copy_arrow_stream
         from .population_transfer import POPULATION_UPLOAD_SCRATCH
@@ -156,8 +158,11 @@ class DataOperationStorage(DataOperationCalls):
             )
         )
         return copy_arrow_stream(
-            self.connection, profile, target=("pg_temp", POPULATION_UPLOAD_SCRATCH), batches=batches,
-            cancellation=self.cancellation if cancellation is None else cancellation
+            self.connection,
+            profile,
+            target=("pg_temp", POPULATION_UPLOAD_SCRATCH),
+            batches=batches,
+            cancellation=self.cancellation if cancellation is None else cancellation,
         )
 
 

@@ -245,11 +245,15 @@ class CompletionDraftStore:
             finally:
                 os.close(descriptor)
         for path in self.root.iterdir():
-            matched = re.fullmatch(r"(?:[0-9a-f]{64}\.)?([0-9a-f]{64})\.(body|arrow|candidate)", path.name)
+            matched = re.fullmatch(
+                r"(?:[0-9a-f]{64}\.)?([0-9a-f]{64})\.(body|arrow|candidate)", path.name
+            )
             if matched is None:
                 continue
             identity = matched[1]
-            if not any((self.root / (identity + suffix)).exists() for suffix in (".ack", ".retired")):
+            if not any(
+                (self.root / (identity + suffix)).exists() for suffix in (".ack", ".retired")
+            ):
                 path.unlink()
                 changed = True
         if changed:
@@ -316,7 +320,9 @@ class CompletionDraftStore:
                 if max_population_upload_bytes is not None:
                     maximum = min(maximum, max_population_upload_bytes)
                 with self._owner():
-                    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+                    descriptor = os.open(
+                        temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600
+                    )
                     fcntl.flock(descriptor, fcntl.LOCK_EX)
                     staging_owner = os.dup(descriptor)
                 with os.fdopen(descriptor, "wb") as stream:

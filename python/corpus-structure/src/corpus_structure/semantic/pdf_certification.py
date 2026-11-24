@@ -231,14 +231,22 @@ class PdfProducerPayloads(FrozenPayloadStore):
         for family in ("header", "native", "membership"):
             for batch in self.batches(family):
                 yield from native_record_identity_fields_batch(
-                    batch, kind="document" if family == "header" else family,
+                    batch,
+                    kind="document" if family == "header" else family,
                     scalar_descriptor=self._descriptor,
                 )
         inputs = {row["local_id"]: row["body"] for row in self.companions("input")}
         for batch in self.batches("companion"):
-            columns = tuple(batch.column(name).to_pylist() for name in ("family", "local_id", "ordinal", "body"))
+            columns = tuple(
+                batch.column(name).to_pylist() for name in ("family", "local_id", "ordinal", "body")
+            )
             for family, local_id, ordinal, body in zip(*columns, strict=True):
-                row = {"family": family, "local_id": local_id, "ordinal": ordinal, "body": json.loads(body)}
+                row = {
+                    "family": family,
+                    "local_id": local_id,
+                    "ordinal": ordinal,
+                    "body": json.loads(body),
+                }
                 yield from self._companion_frames(row, inputs, target_meanings)
         yield "publication", "root", (("kind", kind), ("recipe_digest", recipe_digest))
 

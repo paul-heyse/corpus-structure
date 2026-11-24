@@ -406,7 +406,9 @@ def discover_relations(
     native = frame.view.columns
     if formal_layers is not None:
         formal_layers = prepare_formal_layers(formal_layers)
-    with ScopedInventory(native["pieces"], frame.selected_ranges, piece_schema=piece_schema) as inventory:
+    with ScopedInventory(
+        native["pieces"], frame.selected_ranges, piece_schema=piece_schema
+    ) as inventory:
         return _discover_relations(
             frame,
             inventory=inventory,
@@ -666,7 +668,9 @@ def _discover_relations(
 
     table_targets = inventory.table_targets(geometry)
     geometry_basis = {
-        pointer: tuple(fact.reference.values() for fact in navigation.select("table_geometry", pointer))
+        pointer: tuple(
+            fact.reference.values() for fact in navigation.select("table_geometry", pointer)
+        )
         for pointer, value in geometry.items()
         if value is not items[pointer]
     }
@@ -707,9 +711,7 @@ def _discover_relations(
                 region=pointer,
                 extra={
                     **(
-                        {
-                            "table_geometry_basis": geometry_basis[pointer]
-                        }
+                        {"table_geometry_basis": geometry_basis[pointer]}
                         if geometry.get(pointer, node) is not node
                         else {}
                     ),
@@ -732,11 +734,13 @@ def _discover_relations(
                 record = all_artifacts[artifact_index]
                 span = record.span("subject")
                 found = dict(
-                    start=span[0] - piece["start"], end=span[1] - piece["start"],
+                    start=span[0] - piece["start"],
+                    end=span[1] - piece["start"],
                     artifact_kind=record.payload["artifact_kind"],
                     controlled_code=record.payload["designator"],
                     reference=record.payload["kind"] == "artifact_reference",
-                    primary_node=record.reference.values(), primary_record=record,
+                    primary_node=record.reference.values(),
+                    primary_record=record,
                 )
                 if source_work is None or piece.get("cell_index") is not None:
                     continue
@@ -948,7 +952,9 @@ def _discover_relations(
     from .structural_roles import captured_formula_symbols
 
     declarations_by_piece = {
-        index: tuple(symbol_declarations(navigation, piece["item_ref"], piece["start"], piece["end"]))
+        index: tuple(
+            symbol_declarations(navigation, piece["item_ref"], piece["start"], piece["end"])
+        )
         for index, (piece, _node, _text) in enumerate(text_rows)
     }
     formula_inputs = {}
@@ -957,19 +963,34 @@ def _discover_relations(
     for index, (_piece, node, text) in enumerate(text_rows):
         for match in declarations_by_piece[index]:
             candidates = []
-            if match.record.payload["introducer"] == "where" and not text[:match.start()].strip() and index:
+            if (
+                match.record.payload["introducer"] == "where"
+                and not text[: match.start()].strip()
+                and index
+            ):
                 candidates.append(index - 1)
-            if match.record.payload["introducer"] == "let" and node.get("label") != "formula" and index + 1 < len(text_rows):
+            if (
+                match.record.payload["introducer"] == "let"
+                and node.get("label") != "formula"
+                and index + 1 < len(text_rows)
+            ):
                 candidates.append(index + 1)
             for formula_index in candidates:
                 formula_piece, formula_node, formula_text = text_rows[formula_index]
-                if (formula_node.get("label") != "formula" or node.get("parent") is None
-                    or formula_node.get("parent") != node.get("parent") or len(formula_text) > max_formula_chars):
+                if (
+                    formula_node.get("label") != "formula"
+                    or node.get("parent") is None
+                    or formula_node.get("parent") != node.get("parent")
+                    or len(formula_text) > max_formula_chars
+                ):
                     continue
                 if formula_index not in formula_inputs:
                     formula_inputs[formula_index] = captured_formula_symbols(
-                        formula_text, seconds=formula_seconds, primary_layers=formal_layers,
-                        projection=frame.projection_digest, source_start=formula_piece["start"],
+                        formula_text,
+                        seconds=formula_seconds,
+                        primary_layers=formal_layers,
+                        projection=frame.projection_digest,
+                        source_start=formula_piece["start"],
                         native_pointer=formula_piece["item_ref"],
                     )
                 question_keys.append((index, match.start(1), formula_index))
@@ -1068,7 +1089,11 @@ def _discover_relations(
         # formula; no search over another example/section is performed.
         if node.get("label") != "formula" and text_index + 1 < len(text_rows):
             following, formula_node, formula_text = text_rows[text_index + 1]
-            declarations = tuple(match for match in declarations_by_piece[text_index] if match.record.payload["introducer"] == "let")
+            declarations = tuple(
+                match
+                for match in declarations_by_piece[text_index]
+                if match.record.payload["introducer"] == "let"
+            )
             if (
                 declarations
                 and formula_node.get("label") == "formula"
@@ -1096,7 +1121,9 @@ def _discover_relations(
                             region=pointer,
                             extra={"primary_node": declaration_match.primary_node},
                         )
-                        for occurrence in formula_answers.get((text_index, declaration_match.start(1), text_index + 1), ()):
+                        for occurrence in formula_answers.get(
+                            (text_index, declaration_match.start(1), text_index + 1), ()
+                        ):
                             used = participant(
                                 following["start"] + occurrence["start"],
                                 following["start"] + occurrence["end"],

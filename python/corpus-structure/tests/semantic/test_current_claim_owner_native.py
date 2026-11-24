@@ -240,7 +240,9 @@ def test_retained_upload_stop_interrupts_its_live_transaction_and_releases_borro
     with execution_stop_scope(stop):
         context = copy_context()
         with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(context.run, claims.retain, owned, blocked, cancel_on_stop=True)
+            future = executor.submit(
+                context.run, claims.retain, owned, blocked, cancel_on_stop=True
+            )
             assert entered.wait(10)
             stop.requested.set()
             with pytest.raises(DBAPIError) as stopped:

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-from struct import unpack_from
 from collections.abc import Collection, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from hashlib import sha256
+from struct import unpack_from
 from typing import Any
 
 import pyarrow as pa
@@ -27,7 +27,9 @@ class _Row:
         column = self.batch.column(name)
         validity, offsets, values = column.buffers()
         position = column.offset + self.index
-        if validity is not None and not (memoryview(validity)[position // 8] & (1 << (position % 8))):
+        if validity is not None and not (
+            memoryview(validity)[position // 8] & (1 << (position % 8))
+        ):
             raise ValueError("artifact part body is null")
         if pa.types.is_binary(column.type):
             start, end = unpack_from("<ii", offsets, position * 4)

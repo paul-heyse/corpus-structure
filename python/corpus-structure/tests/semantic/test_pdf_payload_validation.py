@@ -757,14 +757,29 @@ def test_frozen_part_verification_borrows_original_arrow_buffers_after_store_rel
     store = typed_store()
     raw = bytes(range(256)) * 512
     prefix = b"prefix outside selected batch"
-    schema = replay_schema(capture_pdf_lowering(trusted_pdf_context()).schema("stage:artifact_part"))
+    schema = replay_schema(
+        capture_pdf_lowering(trusted_pdf_context()).schema("stage:artifact_part")
+    )
     originals = []
     for ordinal in (0, 1):
-        chunk = raw[ordinal * BLOCK_BYTES:(ordinal + 1) * BLOCK_BYTES]
-        actual = dict(stream_id="borrowed", ordinal=ordinal, byte_offset=ordinal * BLOCK_BYTES,
-                      body=chunk, byte_length=len(chunk), sha256_digest=sha256(chunk).hexdigest())
-        rows = [dict(stream_id="prefix", ordinal=0, body=prefix), actual,
-                dict(stream_id="null", ordinal=0, body=None)] if sliced else [actual]
+        chunk = raw[ordinal * BLOCK_BYTES : (ordinal + 1) * BLOCK_BYTES]
+        actual = dict(
+            stream_id="borrowed",
+            ordinal=ordinal,
+            byte_offset=ordinal * BLOCK_BYTES,
+            body=chunk,
+            byte_length=len(chunk),
+            sha256_digest=sha256(chunk).hexdigest(),
+        )
+        rows = (
+            [
+                dict(stream_id="prefix", ordinal=0, body=prefix),
+                actual,
+                dict(stream_id="null", ordinal=0, body=None),
+            ]
+            if sliced
+            else [actual]
+        )
         batch = pa.RecordBatch.from_pylist(rows, schema=schema)
         originals.append(batch.column("body").buffers()[2].address + (len(prefix) if sliced else 0))
         store.add_batch("artifact_part", batch.slice(1, 1) if sliced else batch)

@@ -154,20 +154,26 @@ def _analytical_worker(mode: str, ready_path: str, proceed_path: str, *, check_a
             from decimal import Decimal
 
             ticks = 1680000000000000001
-            table = pa.table({
-                "instant": pa.array([ticks, None, ticks], type=pa.timestamp("ns", "UTC")),
-                "small": pa.array([Decimal("1.20"), None, Decimal("1.20")], type=pa.decimal128(7, 2)),
-                "large": pa.array(
-                    [Decimal("123456789012345678.900123"), Decimal("-0.000001"), None],
-                    type=pa.decimal128(30, 6),
-                ),
-            })
+            table = pa.table(
+                {
+                    "instant": pa.array([ticks, None, ticks], type=pa.timestamp("ns", "UTC")),
+                    "small": pa.array(
+                        [Decimal("1.20"), None, Decimal("1.20")], type=pa.decimal128(7, 2)
+                    ),
+                    "large": pa.array(
+                        [Decimal("123456789012345678.900123"), Decimal("-0.000001"), None],
+                        type=pa.decimal128(30, 6),
+                    ),
+                }
+            )
             with db.from_arrow(table).to_arrow_reader(batch_size=2) as result:
                 restored = result.read_all()
             assert restored.column("instant").cast(pa.int64()).to_pylist() == [ticks, None, ticks]
             assert restored.column("small").to_pylist() == [Decimal("1.20"), None, Decimal("1.20")]
             assert restored.column("large").to_pylist() == [
-                Decimal("123456789012345678.900123"), Decimal("-0.000001"), None
+                Decimal("123456789012345678.900123"),
+                Decimal("-0.000001"),
+                None,
             ]
     if reader is not None:
         try:
@@ -179,7 +185,9 @@ def _analytical_worker(mode: str, ready_path: str, proceed_path: str, *, check_a
     return json.dumps(actual)
 
 
-def test_two_admitted_analytical_workers_drain_readers_and_interrupted_engine(tmp_path, monkeypatch):
+def test_two_admitted_analytical_workers_drain_readers_and_interrupted_engine(
+    tmp_path, monkeypatch
+):
     import importlib
     import inspect
     import json

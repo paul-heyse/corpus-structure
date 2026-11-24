@@ -34,7 +34,9 @@ _CELL_SCHEMA = pa.schema(
 
 def source_piece_schema(prepared):
     """Project the admitted native-piece declaration; analytical ordinals stay local."""
-    fields = {prop.name: prop for prop in prepared.index.definitions["DdoNativeSourcePiece"].properties}
+    fields = {
+        prop.name: prop for prop in prepared.index.definitions["DdoNativeSourcePiece"].properties
+    }
     types = {"kind": pa.string(), "item_ref": pa.string(), "start": pa.int64(), "end": pa.int64()}
     result = []
     for name, physical in types.items():
@@ -58,16 +60,33 @@ class ScopedInventory(AbstractContextManager):
     def __enter__(self):
         self.engine = self._context.__enter__()
         try:
-            schema = self._piece_schema or pa.schema([
-                ("kind", pa.string()), ("item_ref", pa.string()), ("start", pa.int64()), ("end", pa.int64()),
-            ])
-            columns = {field.name: pa.array([piece.get(field.name) for piece in self._original_pieces], type=field.type)
-                for field in schema}
-            source = self.engine.from_arrow(pa.table({
-                "piece_ordinal": pa.array(range(len(self._original_pieces)), type=pa.int64()),
-                "pointer": columns["item_ref"], "start": columns["start"], "end": columns["end"],
-                "native_text": pc.equal(columns["kind"], "native_text"),
-            })).set_alias("piece")
+            schema = self._piece_schema or pa.schema(
+                [
+                    ("kind", pa.string()),
+                    ("item_ref", pa.string()),
+                    ("start", pa.int64()),
+                    ("end", pa.int64()),
+                ]
+            )
+            columns = {
+                field.name: pa.array(
+                    [piece.get(field.name) for piece in self._original_pieces], type=field.type
+                )
+                for field in schema
+            }
+            source = self.engine.from_arrow(
+                pa.table(
+                    {
+                        "piece_ordinal": pa.array(
+                            range(len(self._original_pieces)), type=pa.int64()
+                        ),
+                        "pointer": columns["item_ref"],
+                        "start": columns["start"],
+                        "end": columns["end"],
+                        "native_text": pc.equal(columns["kind"], "native_text"),
+                    }
+                )
+            ).set_alias("piece")
             ranges = self.engine.from_arrow(
                 pa.table(
                     {
@@ -274,34 +293,120 @@ class ScopedInventory(AbstractContextManager):
 
     def ordered_matches(self, questions, declarations, cues):
         """Range-join ordered witnesses after counting every earlier symbol cue."""
-        query_schema = pa.schema([("ordinal",pa.int64()),("parent",pa.string()),("position",pa.int64()),("symbol",pa.string()),("name",pa.string()),("start",pa.int64())])
-        declaration_schema = pa.schema([("ordinal",pa.int64()),("parent",pa.string()),("position",pa.int64()),("symbol",pa.string()),("name",pa.string()),("cue",pa.int64()),("end",pa.int64())])
-        query = self.engine.from_arrow(pa.Table.from_pylist(questions,schema=query_schema)).set_alias("query")
-        cue = self.engine.from_arrow(pa.table({"position":pa.array([position for position,_ in cues],type=pa.int64()),"symbol":pa.array([symbol for _,symbol in cues],type=pa.string())})).set_alias("cue")
-        unique = query.join(cue,(col("cue","symbol")==col("query","symbol")) & (col("cue","position") < col("query","start"))).select(
-            col("query","ordinal").alias("question"),col("cue","position").alias("cue"),
-        ).select(star(),count_all().over(partition_by=[col("question")]).alias("matches")).filter(col("matches")==1).set_alias("unique")
-        selected = query.join(unique,col("query","ordinal")==col("unique","question")).select(
-            col("query","ordinal"),col("query","parent"),col("query","position"),col("query","symbol"),col("query","name"),col("query","start"),col("unique","cue"),
-        ).set_alias("selected")
-        declaration = self.engine.from_arrow(pa.Table.from_pylist(declarations,schema=declaration_schema)).set_alias("declaration")
-        condition = (col("selected","parent")==col("declaration","parent")) & (col("selected","position") > col("declaration","position")) & (col("declaration","end") <= col("selected","start")) & (col("selected","symbol")==col("declaration","symbol")) & (col("selected","name")==col("declaration","name")) & (col("selected","cue")==col("declaration","cue"))
-        return selected.join(declaration,condition).select(col("selected","ordinal").alias("question"),col("declaration","ordinal").alias("declaration")).sort(col("question"),col("declaration")).fetchall()
+        query_schema = pa.schema(
+            [
+                ("ordinal", pa.int64()),
+                ("parent", pa.string()),
+                ("position", pa.int64()),
+                ("symbol", pa.string()),
+                ("name", pa.string()),
+                ("start", pa.int64()),
+            ]
+        )
+        declaration_schema = pa.schema(
+            [
+                ("ordinal", pa.int64()),
+                ("parent", pa.string()),
+                ("position", pa.int64()),
+                ("symbol", pa.string()),
+                ("name", pa.string()),
+                ("cue", pa.int64()),
+                ("end", pa.int64()),
+            ]
+        )
+        query = self.engine.from_arrow(
+            pa.Table.from_pylist(questions, schema=query_schema)
+        ).set_alias("query")
+        cue = self.engine.from_arrow(
+            pa.table(
+                {
+                    "position": pa.array([position for position, _ in cues], type=pa.int64()),
+                    "symbol": pa.array([symbol for _, symbol in cues], type=pa.string()),
+                }
+            )
+        ).set_alias("cue")
+        unique = (
+            query.join(
+                cue,
+                (col("cue", "symbol") == col("query", "symbol"))
+                & (col("cue", "position") < col("query", "start")),
+            )
+            .select(
+                col("query", "ordinal").alias("question"),
+                col("cue", "position").alias("cue"),
+            )
+            .select(star(), count_all().over(partition_by=[col("question")]).alias("matches"))
+            .filter(col("matches") == 1)
+            .set_alias("unique")
+        )
+        selected = (
+            query.join(unique, col("query", "ordinal") == col("unique", "question"))
+            .select(
+                col("query", "ordinal"),
+                col("query", "parent"),
+                col("query", "position"),
+                col("query", "symbol"),
+                col("query", "name"),
+                col("query", "start"),
+                col("unique", "cue"),
+            )
+            .set_alias("selected")
+        )
+        declaration = self.engine.from_arrow(
+            pa.Table.from_pylist(declarations, schema=declaration_schema)
+        ).set_alias("declaration")
+        condition = (
+            (col("selected", "parent") == col("declaration", "parent"))
+            & (col("selected", "position") > col("declaration", "position"))
+            & (col("declaration", "end") <= col("selected", "start"))
+            & (col("selected", "symbol") == col("declaration", "symbol"))
+            & (col("selected", "name") == col("declaration", "name"))
+            & (col("selected", "cue") == col("declaration", "cue"))
+        )
+        return (
+            selected.join(declaration, condition)
+            .select(
+                col("selected", "ordinal").alias("question"),
+                col("declaration", "ordinal").alias("declaration"),
+            )
+            .sort(col("question"), col("declaration"))
+            .fetchall()
+        )
 
     def artifact_matches(self, records):
         """Join retained artifact subjects to their own pointer and containing piece."""
-        schema = pa.schema([("ordinal", pa.int64()), ("pointer", pa.string()), ("start", pa.int64()), ("end", pa.int64())])
-        subjects = self.engine.from_arrow(pa.Table.from_pylist([
-            dict(ordinal=index, pointer=record.payload["pointer"], start=record.span("subject")[0], end=record.span("subject")[1])
-            for index, record in enumerate(records)
-        ], schema=schema)).set_alias("subject")
+        schema = pa.schema(
+            [
+                ("ordinal", pa.int64()),
+                ("pointer", pa.string()),
+                ("start", pa.int64()),
+                ("end", pa.int64()),
+            ]
+        )
+        subjects = self.engine.from_arrow(
+            pa.Table.from_pylist(
+                [
+                    dict(
+                        ordinal=index,
+                        pointer=record.payload["pointer"],
+                        start=record.span("subject")[0],
+                        end=record.span("subject")[1],
+                    )
+                    for index, record in enumerate(records)
+                ],
+                schema=schema,
+            )
+        ).set_alias("subject")
         piece = self._pieces.filter(col("native_text")).set_alias("piece")
-        matches = piece.join(subjects,
+        matches = piece.join(
+            subjects,
             (col("piece", "pointer") == col("subject", "pointer"))
             & (col("piece", "start") <= col("subject", "start"))
             & (col("subject", "start") < col("subject", "end"))
             & (col("subject", "end") <= col("piece", "end")),
-        ).select(col("piece", "piece_ordinal").alias("piece"), col("subject", "ordinal").alias("subject"))
+        ).select(
+            col("piece", "piece_ordinal").alias("piece"), col("subject", "ordinal").alias("subject")
+        )
         result = defaultdict(list)
         for piece, subject in matches.sort(col("piece"), col("subject")).fetchall():
             result[self._selected_ordinals[piece]].append(subject)
@@ -311,53 +416,117 @@ class ScopedInventory(AbstractContextManager):
         """Prepare each table once, then match all observed/schematic pairs by extent."""
         import re
 
-        coordinates = ("start_row_offset_idx", "end_row_offset_idx", "start_col_offset_idx", "end_col_offset_idx")
-        schema = pa.schema([("pointer", pa.string()), ("ordinal", pa.int64()), ("text", pa.string()), ("numeric", pa.bool_()), *((name, pa.int64()) for name in coordinates)])
+        coordinates = (
+            "start_row_offset_idx",
+            "end_row_offset_idx",
+            "start_col_offset_idx",
+            "end_col_offset_idx",
+        )
+        schema = pa.schema(
+            [
+                ("pointer", pa.string()),
+                ("ordinal", pa.int64()),
+                ("text", pa.string()),
+                ("numeric", pa.bool_()),
+                *((name, pa.int64()) for name in coordinates),
+            ]
+        )
         cells = []
         for pointer in dict.fromkeys(pointer for pair in pairs for pointer in pair):
             for index, cell in enumerate(tables[pointer]["data"]["table_cells"]):
                 if not all(type(cell.get(name)) is int for name in coordinates):
                     continue
                 text = cell.get("text", "").strip()
-                cells.append(dict(pointer=pointer, ordinal=index, text=text, numeric=re.fullmatch(r"\d+", text) is not None, **{name: cell[name] for name in coordinates}))
+                cells.append(
+                    dict(
+                        pointer=pointer,
+                        ordinal=index,
+                        text=text,
+                        numeric=re.fullmatch(r"\d+", text) is not None,
+                        **{name: cell[name] for name in coordinates},
+                    )
+                )
         relation = self.engine.from_arrow(pa.Table.from_pylist(cells, schema=schema))
         observed = relation.filter(col("numeric")).set_alias("observed")
-        schematic = relation.select(star(), fn("max", col("ordinal")).over(partition_by=[col("pointer"), *(col(name) for name in coordinates)]).alias("last"))
+        schematic = relation.select(
+            star(),
+            fn("max", col("ordinal"))
+            .over(partition_by=[col("pointer"), *(col(name) for name in coordinates)])
+            .alias("last"),
+        )
         schematic = schematic.filter(col("ordinal") == col("last")).set_alias("schematic")
-        pair_schema = pa.schema([("pair", pa.int64()), ("observed_pointer", pa.string()), ("schematic_pointer", pa.string())])
-        selected = self.engine.from_arrow(pa.Table.from_pylist([
-            dict(pair=index, observed_pointer=left, schematic_pointer=right) for index, (left, right) in enumerate(pairs)
-        ], schema=pair_schema)).set_alias("pair")
-        left = selected.join(observed, col("pair", "observed_pointer") == col("observed", "pointer")).select(
-            col("pair", "pair"), col("pair", "schematic_pointer"), col("observed", "ordinal"), *(col("observed", name) for name in coordinates),
-        ).set_alias("left")
+        pair_schema = pa.schema(
+            [
+                ("pair", pa.int64()),
+                ("observed_pointer", pa.string()),
+                ("schematic_pointer", pa.string()),
+            ]
+        )
+        selected = self.engine.from_arrow(
+            pa.Table.from_pylist(
+                [
+                    dict(pair=index, observed_pointer=left, schematic_pointer=right)
+                    for index, (left, right) in enumerate(pairs)
+                ],
+                schema=pair_schema,
+            )
+        ).set_alias("pair")
+        left = (
+            selected.join(observed, col("pair", "observed_pointer") == col("observed", "pointer"))
+            .select(
+                col("pair", "pair"),
+                col("pair", "schematic_pointer"),
+                col("observed", "ordinal"),
+                *(col("observed", name) for name in coordinates),
+            )
+            .set_alias("left")
+        )
         condition = col("left", "schematic_pointer") == col("schematic", "pointer")
         for name in coordinates:
             condition = condition & (col("left", name) == col("schematic", name))
         matches = left.join(schematic, condition).select(
-            col("left", "pair").alias("pair"), col("left", "ordinal").alias("observed"),
-            col("schematic", "ordinal").alias("schematic"), col("schematic", "text").alias("symbol"),
+            col("left", "pair").alias("pair"),
+            col("left", "ordinal").alias("observed"),
+            col("schematic", "ordinal").alias("schematic"),
+            col("schematic", "text").alias("symbol"),
         )
         result = {pair: [] for pair in pairs}
-        for pair, observed, schematic, symbol in matches.sort(col("pair"), col("observed")).fetchall():
+        for pair, observed, schematic, symbol in matches.sort(
+            col("pair"), col("observed")
+        ).fetchall():
             result[pairs[pair]].append((observed, schematic, symbol))
         return result
 
     def formula_matches(self, questions, symbols):
         """Join all declaration names to their exact adjacent formula occurrences."""
-        schema = pa.schema([("ordinal", pa.int64()), ("formula", pa.int64()), ("name", pa.string())])
-        query = self.engine.from_arrow(pa.Table.from_pylist(
-            [dict(ordinal=i, formula=formula, name=name) for i, (formula, name) in enumerate(questions)],
-            schema=schema,
-        )).set_alias("question")
-        candidates = self.engine.from_arrow(pa.Table.from_pylist(
-            [dict(ordinal=i, formula=formula, name=symbol["name"]) for i, (formula, symbol) in enumerate(symbols)],
-            schema=schema,
-        )).set_alias("symbol")
-        matches = query.join(candidates,
-            (col("question", "formula") == col("symbol", "formula")) &
-            (col("question", "name") == col("symbol", "name")),
-        ).select(col("question", "ordinal").alias("question"), col("symbol", "ordinal").alias("symbol"))
+        schema = pa.schema(
+            [("ordinal", pa.int64()), ("formula", pa.int64()), ("name", pa.string())]
+        )
+        query = self.engine.from_arrow(
+            pa.Table.from_pylist(
+                [
+                    dict(ordinal=i, formula=formula, name=name)
+                    for i, (formula, name) in enumerate(questions)
+                ],
+                schema=schema,
+            )
+        ).set_alias("question")
+        candidates = self.engine.from_arrow(
+            pa.Table.from_pylist(
+                [
+                    dict(ordinal=i, formula=formula, name=symbol["name"])
+                    for i, (formula, symbol) in enumerate(symbols)
+                ],
+                schema=schema,
+            )
+        ).set_alias("symbol")
+        matches = query.join(
+            candidates,
+            (col("question", "formula") == col("symbol", "formula"))
+            & (col("question", "name") == col("symbol", "name")),
+        ).select(
+            col("question", "ordinal").alias("question"), col("symbol", "ordinal").alias("symbol")
+        )
         result = defaultdict(list)
         for question, symbol in matches.sort(col("question"), col("symbol")).fetchall():
             result[question].append(symbol)

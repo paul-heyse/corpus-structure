@@ -454,7 +454,9 @@ def upload_arguments():
 
     def arguments():
         return dict(
-            population_upload_batches=population_upload_batches(profile, [("result", 0, partition)]),
+            population_upload_batches=population_upload_batches(
+                profile, [("result", 0, partition)]
+            ),
             population_upload_profile=profile,
         )
 
@@ -493,9 +495,7 @@ def test_seal_failure_preserves_only_acknowledged_population(
     assert not tuple(tmp_path.glob("pending-*"))
 
 
-def test_population_stop_after_installed_arrow_removes_unsealed_files(
-    tmp_path, upload_arguments
-):
+def test_population_stop_after_installed_arrow_removes_unsealed_files(tmp_path, upload_arguments):
     from corpus_structure.core.execution_control import ExecutionStopped
 
     store = CompletionDraftStore(tmp_path, max_bytes=65536)
@@ -527,9 +527,7 @@ def test_reopening_store_retires_abandoned_staging_and_keeps_live_writer(tmp_pat
     assert sorted(path.name for path in tmp_path.iterdir()) == ["OWNER"]
 
 
-def test_population_private_copy_observes_stop_and_preserves_original(
-    tmp_path, upload_arguments
-):
+def test_population_private_copy_observes_stop_and_preserves_original(tmp_path, upload_arguments):
     from corpus_structure.core.execution_control import ExecutionStopped
 
     store = CompletionDraftStore(tmp_path, max_bytes=65536)

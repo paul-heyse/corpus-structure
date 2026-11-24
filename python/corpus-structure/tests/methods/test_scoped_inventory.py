@@ -65,32 +65,50 @@ class ReferenceInventory(AbstractContextManager):
 
     def artifact_matches(self, records):
         return {
-            index: [ordinal for ordinal, record in enumerate(records)
+            index: [
+                ordinal
+                for ordinal, record in enumerate(records)
                 if record.payload["pointer"] == piece.get("item_ref")
-                and piece["start"] <= record.span("subject")[0] < record.span("subject")[1] <= piece["end"]]
-            for index,piece in enumerate(self.pieces)
+                and piece["start"]
+                <= record.span("subject")[0]
+                < record.span("subject")[1]
+                <= piece["end"]
+            ]
+            for index, piece in enumerate(self.pieces)
             if piece.get("kind") == "native_text"
         }
 
     def table_counterparts(self, tables, pairs):
         import re
-        fields = ("start_row_offset_idx", "end_row_offset_idx", "start_col_offset_idx", "end_col_offset_idx")
+
+        fields = (
+            "start_row_offset_idx",
+            "end_row_offset_idx",
+            "start_col_offset_idx",
+            "end_col_offset_idx",
+        )
         result = {}
         for pair in pairs:
             left, right = pair
-            by_extent = {tuple(cell.get(name) for name in fields): (index, cell["text"].strip())
+            by_extent = {
+                tuple(cell.get(name) for name in fields): (index, cell["text"].strip())
                 for index, cell in enumerate(tables[right]["data"]["table_cells"])
-                if all(type(cell.get(name)) is int for name in fields)}
+                if all(type(cell.get(name)) is int for name in fields)
+            }
             result[pair] = []
             for index, cell in enumerate(tables[left]["data"]["table_cells"]):
                 counterpart = by_extent.get(tuple(cell.get(name) for name in fields))
-                if counterpart is not None and re.fullmatch(r"\d+",cell.get("text", "").strip()):
+                if counterpart is not None and re.fullmatch(r"\d+", cell.get("text", "").strip()):
                     result[pair].append((index, *counterpart))
         return result
 
     def formula_matches(self, questions, symbols):
         return {
-            i: [j for j, (other, symbol) in enumerate(symbols) if formula == other and name == symbol["name"]]
+            i: [
+                j
+                for j, (other, symbol) in enumerate(symbols)
+                if formula == other and name == symbol["name"]
+            ]
             for i, (formula, name) in enumerate(questions)
         }
 
@@ -364,16 +382,26 @@ def test_recorded_book_sections_keep_complete_report_bytes(monkeypatch, request)
 def test_formula_join_keeps_repeated_symbols_and_product_occurrences():
     symbols = ((0, {"name": "x"}), (0, {"name": "x"}), (1, {"name": "x"}), (0, {"name": "y"}))
     with ScopedInventory((), ()) as inventory:
-        assert dict(inventory.formula_matches(((0, "x"), (1, "x"), (0, "z")), symbols)) == {0: [0, 1], 1: [2]}
+        assert dict(inventory.formula_matches(((0, "x"), (1, "x"), (0, "z")), symbols)) == {
+            0: [0, 1],
+            1: [2],
+        }
 
 
 def test_ordered_witness_join_counts_cues_before_matching_declarations():
     questions = [dict(ordinal=0, parent="section", position=3, symbol="x", name="count", start=20)]
-    declarations = [dict(ordinal=0, parent="section", position=0, symbol="x", name="count", cue=1, end=10)]
+    declarations = [
+        dict(ordinal=0, parent="section", position=0, symbol="x", name="count", cue=1, end=10)
+    ]
     with ScopedInventory((), ()) as inventory:
         assert inventory.ordered_matches(questions, declarations, [(1, "x")]) == [(0, 0)]
         assert inventory.ordered_matches(questions, declarations, [(1, "x"), (15, "x")]) == []
-        assert inventory.ordered_matches(questions, [dict(declarations[0], parent="other")], [(1, "x")]) == []
+        assert (
+            inventory.ordered_matches(
+                questions, [dict(declarations[0], parent="other")], [(1, "x")]
+            )
+            == []
+        )
 
 
 def test_schematic_join_uses_the_last_equal_extent_and_observed_encounter_order():
@@ -382,4 +410,6 @@ def test_schematic_join_uses_the_last_equal_extent_and_observed_encounter_order(
         "schematic": {"data": {"table_cells": [table_cell("old", 1, 1), table_cell("Sij", 1, 1)]}},
     }
     with ScopedInventory((), ()) as inventory:
-        assert inventory.table_counterparts(tables, (("observed", "schematic"),)) == {("observed", "schematic"): [(0, 1, "Sij")]}
+        assert inventory.table_counterparts(tables, (("observed", "schematic"),)) == {
+            ("observed", "schematic"): [(0, 1, "Sij")]
+        }

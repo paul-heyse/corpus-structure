@@ -968,8 +968,11 @@ def native_record_identity_fields(
         return None
     if row.kind == "native":
         return _native_identity_fields(
-            values["record_id"], values["native_type"], values["family"],
-            json.loads(values["scalars_json"]), json.loads(values["structure_json"]),
+            values["record_id"],
+            values["native_type"],
+            values["family"],
+            json.loads(values["scalars_json"]),
+            json.loads(values["structure_json"]),
             scalar_descriptor,
         )
     if row.kind == "membership":
@@ -1041,21 +1044,40 @@ def _native_identity_fields(record_id, native_type, family, scalars, structure, 
 
 def native_record_identity_fields_batch(batch, *, kind, scalar_descriptor):
     """Prepare captured typed columns once, retaining the canonical scalar seam."""
-    columns = {name: column.to_pylist() for name, column in zip(batch.schema.names, batch.columns, strict=True)}
+    columns = {
+        name: column.to_pylist()
+        for name, column in zip(batch.schema.names, batch.columns, strict=True)
+    }
     if kind == "document":
         for profile, version, schema, root in zip(
-            columns["mapping_profile"], columns["contract_version"],
-            columns["native_schema_digest"], columns["root_id"], strict=True,
+            columns["mapping_profile"],
+            columns["contract_version"],
+            columns["native_schema_digest"],
+            columns["root_id"],
+            strict=True,
         ):
-            yield "document", "root", (
-                ("mapping_profile", profile), ("contract_version", version),
-                ("native_schema_digest", schema), ("root_id", root),
+            yield (
+                "document",
+                "root",
+                (
+                    ("mapping_profile", profile),
+                    ("contract_version", version),
+                    ("native_schema_digest", schema),
+                    ("root_id", root),
+                ),
             )
         return
     if kind == "native":
         scalars = [json.loads(value) for value in columns["scalars_json"]]
         structures = [json.loads(value) for value in columns["structure_json"]]
-        for values in zip(columns["record_id"], columns["native_type"], columns["family"], scalars, structures, strict=True):
+        for values in zip(
+            columns["record_id"],
+            columns["native_type"],
+            columns["family"],
+            scalars,
+            structures,
+            strict=True,
+        ):
             yield _native_identity_fields(*values, scalar_descriptor)
         return
     if kind != "membership":
@@ -1066,9 +1088,16 @@ def native_record_identity_fields_batch(batch, *, kind, scalar_descriptor):
     member_keys = columns.get("member_key", absent)
     key_streams = columns.get("member_key_stream_id", absent)
     for parent, field, ordinal, key, key_stream, value_kind, record, scalar, stream in zip(
-        columns["parent_id"], columns["field_name"], columns["ordinal"], member_keys,
-        key_streams, columns["value_kind"], columns["record_id"],
-        columns["scalar_json"], columns["stream_id"], strict=True,
+        columns["parent_id"],
+        columns["field_name"],
+        columns["ordinal"],
+        member_keys,
+        key_streams,
+        columns["value_kind"],
+        columns["record_id"],
+        columns["scalar_json"],
+        columns["stream_id"],
+        strict=True,
     ):
         fields = [("parent_id", parent), ("field_name", field)]
         key_value = scalar_descriptor(key_stream) if key is None and key_stream is not None else key
@@ -1079,7 +1108,13 @@ def native_record_identity_fields_batch(batch, *, kind, scalar_descriptor):
         if value_kind == "record":
             fields.append(("target", record))
         else:
-            value = _parse_inline(json.loads(scalar)) if value_kind == "scalar" else scalar_descriptor(stream)
+            value = (
+                _parse_inline(json.loads(scalar))
+                if value_kind == "scalar"
+                else scalar_descriptor(stream)
+            )
             fields.append(("value", value))
-        identity = _json([parent, field, canonical_scalar(key_value).hex() if key_value is not None else ordinal])
+        identity = _json(
+            [parent, field, canonical_scalar(key_value).hex() if key_value is not None else ordinal]
+        )
         yield "membership", identity, tuple(fields)

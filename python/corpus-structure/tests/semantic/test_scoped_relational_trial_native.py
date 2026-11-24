@@ -92,45 +92,99 @@ def scoped_artifact_content(*, formulas=False):
     outcomes = []
     if formulas:
         from corpus_structure.ingest.pdf_health import FormulaOutcome
-        document.add_text(label=DocItemLabel.TEXT, text="Let x be count.", orig="Let x be count.", parent=group)
-        formula = document.add_text(label=DocItemLabel.FORMULA, text="x+x=2", orig="x+x=2", parent=group)
+
+        document.add_text(
+            label=DocItemLabel.TEXT, text="Let x be count.", orig="Let x be count.", parent=group
+        )
+        formula = document.add_text(
+            label=DocItemLabel.FORMULA, text="x+x=2", orig="x+x=2", parent=group
+        )
         outcomes.append(FormulaOutcome(formula.self_ref, "succeeded"))
     return ControlledPdfContent.from_document(document, formula_outcomes=tuple(outcomes))
 
 
 def scoped_math_artifact_recipe(directory):
     from dataclasses import replace
-    from semantic.current_artifact_support import ROOT
-    from semantic.data_operation_kernel_support import CapturedKernelInputs, split_captured_operations
+
     from corpus_structure.semantic.composed import data_operation_dependencies
     from corpus_structure.semantic.construction_products import load_construction_options
-    from corpus_structure.semantic.declared_math_analysis import math_analysis_declarations, math_analysis_operation_sources
-    from corpus_structure.semantic.declared_math_products import DeclaredMathOptions, math_operation_declarations, math_operation_sources
+    from corpus_structure.semantic.declared_math_analysis import (
+        math_analysis_declarations,
+        math_analysis_operation_sources,
+    )
+    from corpus_structure.semantic.declared_math_products import (
+        DeclaredMathOptions,
+        math_operation_declarations,
+        math_operation_sources,
+    )
     from corpus_structure.semantic.primary_operations import combine_primary_sources
+    from semantic.current_artifact_support import ROOT
+    from semantic.data_operation_kernel_support import (
+        CapturedKernelInputs,
+        split_captured_operations,
+    )
+
     base = artifact_recipe(directory)
     captured = base.captured_inputs
     dependencies, declarations, sources = split_captured_operations(captured)
-    options = DeclaredMathOptions(math_scope_binders=load_construction_options(ROOT / "domains/statistics").math_scope_binders)
-    sources = combine_primary_sources(sources, math_operation_sources(options), math_analysis_operation_sources(options))
-    dependencies = data_operation_dependencies(dependencies, (*declarations, math_operation_declarations(), math_analysis_declarations()), sources)
-    return replace(base, captured_inputs=CapturedKernelInputs(captured.bundle, dependencies, captured.profile))
+    options = DeclaredMathOptions(
+        math_scope_binders=load_construction_options(ROOT / "domains/statistics").math_scope_binders
+    )
+    sources = combine_primary_sources(
+        sources, math_operation_sources(options), math_analysis_operation_sources(options)
+    )
+    dependencies = data_operation_dependencies(
+        dependencies,
+        (*declarations, math_operation_declarations(), math_analysis_declarations()),
+        sources,
+    )
+    return replace(
+        base, captured_inputs=CapturedKernelInputs(captured.bundle, dependencies, captured.profile)
+    )
 
 
 def test_current_scoped_relations_publish_nomination_and_reopen_exact_artifact_consumer(
     scenario_seeds, tmp_path
 ):
     with _current_pdf_source(
-        scenario_seeds, tmp_path, content=scoped_artifact_content(formulas=True), sections=("#/groups/0",), math_context=True
+        scenario_seeds,
+        tmp_path,
+        content=scoped_artifact_content(formulas=True),
+        sections=("#/groups/0",),
+        math_context=True,
     ) as source:
         kernel = admit_current_target(
             source, scoped_math_artifact_recipe(tmp_path / "recipe"), tmp_path / "consumer"
         )
-        pending = current_consumer_request(source, kernel, (SCOPED, "analyze.math/lexical", "resolve.symbol_scope/declared"), discover=True)
+        pending = current_consumer_request(
+            source,
+            kernel,
+            (SCOPED, "analyze.math/lexical", "resolve.symbol_scope/declared"),
+            discover=True,
+        )
         from corpus_structure.orchestrate.source_operation import _default_profile_source_sets
-        graph = kernel.model.projection_graph("selected-dependencies", selected_dependencies=tuple((selection.operation, selection.selected_dependencies) for selection in pending.selections))
-        requested = set(pending.targets) | {operation for selection in pending.discovery for operation in (selection.producer, selection.target)}
+
+        graph = kernel.model.projection_graph(
+            "selected-dependencies",
+            selected_dependencies=tuple(
+                (selection.operation, selection.selected_dependencies)
+                for selection in pending.selections
+            ),
+        )
+        requested = set(pending.targets) | {
+            operation
+            for selection in pending.discovery
+            for operation in (selection.producer, selection.target)
+        }
         closure = requested.union(*(graph.closure((operation,)) for operation in requested))
-        pending = pending.model_copy(update={"source_sets": {**_default_profile_source_sets(kernel.model, closure), **pending.source_sets}})
+        pending = pending.model_copy(
+            update={
+                "source_sets": {
+                    **_default_profile_source_sets(kernel.model, closure),
+                    **pending.source_sets,
+                }
+            }
+        )
         selections = {value.operation: value for value in pending.selections}
         selections[SCOPED] = DemandOperationSelection(
             operation=SCOPED, parameters={"source_work": "controlled-book"}
@@ -142,8 +196,13 @@ def test_current_scoped_relations_publish_nomination_and_reopen_exact_artifact_c
         (original,) = selected(kernel, scoped_demand["demand_id"], kind=SOURCE_KIND)
         (construction,) = selected(kernel, scoped_demand["demand_id"], kind=CONSTRUCTION_KIND)
         contributions = candidate_member_values(scoped.body, candidate_type="contribution")
-        assert any(source_python(row.get("value", {})).get("role") == "formula_symbol" for row in contributions)
-        assert any(row.get("component", {}).get("attachment_kind") == "declares" for row in contributions)
+        assert any(
+            source_python(row.get("value", {})).get("role") == "formula_symbol"
+            for row in contributions
+        )
+        assert any(
+            row.get("component", {}).get("attachment_kind") == "declares" for row in contributions
+        )
         (nomination,) = [
             row
             for row in contributions
@@ -275,11 +334,16 @@ def test_genuine_selected_pdf_scoped_report_publishes_and_reopens(scenario_seeds
     from io import BytesIO
 
     import pypdfium2 as pdfium
+
     from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
-    from corpus_structure.semantic.demand_results import read_selected_answer
     from corpus_structure.semantic.data_operation_values import decode_semantic_value
+    from corpus_structure.semantic.demand_results import read_selected_answer
     from semantic.actual_pdf_resume_support import ORIGINAL, PAGE_RANGE, prepared_pdf_resume_assets
-    from semantic.current_pdf_source_support import CurrentPdfSource, _capture_source, current_pdf_recipe
+    from semantic.current_pdf_source_support import (
+        CurrentPdfSource,
+        _capture_source,
+        current_pdf_recipe,
+    )
     from semantic.data_operation_kernel_support import Kernel
 
     recipe, assets = prepared_pdf_resume_assets()
@@ -287,13 +351,23 @@ def test_genuine_selected_pdf_scoped_report_publishes_and_reopens(scenario_seeds
         panel.import_pages(retained, list(range(PAGE_RANGE[0] - 1, PAGE_RANGE[1])))
         output = BytesIO()
         panel.save(output)
-    capture_recipe = current_pdf_recipe(tmp_path, capture_profile=(recipe, assets, standard_pdf_contract()))
+    capture_recipe = current_pdf_recipe(
+        tmp_path, capture_profile=(recipe, assets, standard_pdf_contract())
+    )
     with scenario_seeds.build_for_consumer(capture_recipe, tmp_path) as clone:
         stage = clone.stage
         capture = Kernel(clone.admin, stage.preparation, stage.identities, capture_recipe, clone)
-        demand, document, original = _capture_source(capture, tmp_path, (), original=output.getvalue(), source_uri="retained-grinstead-snell-panel.pdf")
+        demand, document, original = _capture_source(
+            capture,
+            tmp_path,
+            (),
+            original=output.getvalue(),
+            source_uri="retained-grinstead-snell-panel.pdf",
+        )
         source = CurrentPdfSource(capture, demand, document, original, ())
-        kernel = admit_current_target(source, artifact_recipe(tmp_path / "recipe"), tmp_path / "consumer")
+        kernel = admit_current_target(
+            source, artifact_recipe(tmp_path / "recipe"), tmp_path / "consumer"
+        )
         pending = current_consumer_request(source, kernel, (SCOPED,), discover=True)
         scoped_demand, execution = execute(kernel, pending)
         assert execution.receipt_count > 0
@@ -301,10 +375,30 @@ def test_genuine_selected_pdf_scoped_report_publishes_and_reopens(scenario_seeds
         (selected_source,) = selected(kernel, scoped_demand["demand_id"], kind=SOURCE_KIND)
         assert report.body["source_pin"]["source_product"] == selected_source.row["product_id"]
         with kernel.purpose("read").begin() as connection:
-            answer = read_selected_answer(connection, "read_selected_outputs", scoped_demand["demand_id"], project_id=PROJECT,
-                scope={"operation_id":SCOPED}, use_id=report.row["use_id"], product_id=report.row["product_id"], body=True)
-            assert canonical_bytes(decode_semantic_value(answer["rows"][0]["meaning_body"])) == canonical_bytes(report.body)
-            exported = export_demand_result(connection, scoped_demand["demand_id"], project_id=PROJECT,
-                destination=tmp_path / "genuine-scoped-export", format="parquet", scope={"product_ids":[report.row["product_id"]]})
-        with verified_demand_export(tmp_path / "genuine-scoped-export", manifest_digest=exported.manifest_digest) as (_,_,_,index):
-            assert {report.row["product_id"],selected_source.row["product_id"]} <= set(index.mapping("kb.data_product",("id",)))
+            answer = read_selected_answer(
+                connection,
+                "read_selected_outputs",
+                scoped_demand["demand_id"],
+                project_id=PROJECT,
+                scope={"operation_id": SCOPED},
+                use_id=report.row["use_id"],
+                product_id=report.row["product_id"],
+                body=True,
+            )
+            assert canonical_bytes(
+                decode_semantic_value(answer["rows"][0]["meaning_body"])
+            ) == canonical_bytes(report.body)
+            exported = export_demand_result(
+                connection,
+                scoped_demand["demand_id"],
+                project_id=PROJECT,
+                destination=tmp_path / "genuine-scoped-export",
+                format="parquet",
+                scope={"product_ids": [report.row["product_id"]]},
+            )
+        with verified_demand_export(
+            tmp_path / "genuine-scoped-export", manifest_digest=exported.manifest_digest
+        ) as (_, _, _, index):
+            assert {report.row["product_id"], selected_source.row["product_id"]} <= set(
+                index.mapping("kb.data_product", ("id",))
+            )

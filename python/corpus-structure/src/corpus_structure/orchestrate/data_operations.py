@@ -1343,7 +1343,9 @@ class NativeDemandExecutor:
 
         def retain(calls):
             if draft is not None and draft.population_upload is not None:
-                self._upload_draft(calls, claim, draft, check_active=lambda: _check_claim_active(owner, claim))
+                self._upload_draft(
+                    calls, claim, draft, check_active=lambda: _check_claim_active(owner, claim)
+                )
             elif profile is not None:
                 calls.prepare_population_upload(
                     claim.fence,
@@ -1426,7 +1428,12 @@ class NativeDemandExecutor:
 
                 def consume(calls, *, candidate=candidate, draft=draft, original=original):
                     if draft.population_upload is not None:
-                        self._upload_draft(calls, claim, draft, check_active=lambda: _check_claim_active(owner, claim))
+                        self._upload_draft(
+                            calls,
+                            claim,
+                            draft,
+                            check_active=lambda: _check_claim_active(owner, claim),
+                        )
                     return calls.consume_data_completion_draft(
                         {
                             **claim.fence,
@@ -1437,7 +1444,9 @@ class NativeDemandExecutor:
                     )
 
                 try:
-                    options = {"cancel_on_stop": True} if draft.population_upload is not None else {}
+                    options = (
+                        {"cancel_on_stop": True} if draft.population_upload is not None else {}
+                    )
                     return owner.retain(claim, consume, **options)["intent_id"]
                 except DBAPIError as error:
                     if getattr(error.orig, "sqlstate", None) not in {"P0001", "P0002", "23514"}:
@@ -1458,6 +1467,7 @@ class NativeDemandExecutor:
     @staticmethod
     def _upload_draft(calls, claim, draft, *, check_active=lambda: None):
         profile = population_item_write_profile(release_id=draft.release_id)
+
         def active():
             check_active()
             cancellation = getattr(calls, "cancellation", None)

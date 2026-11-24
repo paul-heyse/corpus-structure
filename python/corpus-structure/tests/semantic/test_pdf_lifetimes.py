@@ -23,10 +23,16 @@ def test_db_free_validation_cancellation_reaps_its_actual_spawned_child(tmp_path
     context = multiprocessing.get_context("spawn")
     projection = tmp_path / "child-started"
     capture = tmp_path / "capture"
-    capture.write_text(json.dumps({
-        "profile": pdf_publication._ORACLE_CAPTURE_PROFILE,
-        "families": {family: {"byte_length": 0} for family in pdf_publication._ORACLE_SCHEMAS},
-    }))
+    capture.write_text(
+        json.dumps(
+            {
+                "profile": pdf_publication._ORACLE_CAPTURE_PROFILE,
+                "families": {
+                    family: {"byte_length": 0} for family in pdf_publication._ORACLE_SCHEMAS
+                },
+            }
+        )
+    )
     scratch = tmp_path / "scratch"
     pids = []
 
@@ -254,7 +260,9 @@ def test_program_child_acknowledges_only_after_owned_store_cleanup(
     from corpus_structure.settings import AnalyticsSettings
 
     pdf_publication._native_validation_child(
-        str(capture), str(projection), Result(),
+        str(capture),
+        str(projection),
+        Result(),
         allocation=AnalyticalAllocation(1, 64 * 1024**2, 64 * 1024**2, tmp_path),
         analytics_settings=AnalyticsSettings(scratch_path=tmp_path),
         manifest=capture.read_bytes(),

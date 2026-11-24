@@ -76,12 +76,16 @@ class NativeDemandClaims:
                     return
 
         context = copy_context()
-        watcher = Thread(target=context.run, args=(watch_stop,), name="native-retain-stop", daemon=True)
+        watcher = Thread(
+            target=context.run, args=(watch_stop,), name="native-retain-stop", daemon=True
+        )
         watcher.start()
         try:
             return self.owner.retain(
                 claim,
-                lambda connection: callback(DataOperationStorage(connection, cancellation=cancellation)),
+                lambda connection: callback(
+                    DataOperationStorage(connection, cancellation=cancellation)
+                ),
                 cancellation=cancellation,
             )
         except BaseException as error:
@@ -91,7 +95,6 @@ class NativeDemandClaims:
         finally:
             done.set()
             watcher.join()
-
 
     def retain_pdf_adoption(self, claim, callback, cancellation):
         """Serialize document adoption and lease maintenance on the same claim."""

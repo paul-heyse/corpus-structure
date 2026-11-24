@@ -472,7 +472,11 @@ def ordered_recapped_declarations(
         container = items.get(section, {})
         if container.get("label") == "section" and container.get("content_layer") == "body":
             siblings = tuple(container.get("children", ()))
-            sections[section] = (siblings, Counter(siblings), {pointer:index for index,pointer in enumerate(siblings)})
+            sections[section] = (
+                siblings,
+                Counter(siblings),
+                {pointer: index for index, pointer in enumerate(siblings)},
+            )
     declarations, declaration_values = [], []
     for section, (siblings, counts, positions) in sections.items():
         for paragraph in siblings:
@@ -480,67 +484,126 @@ def ordered_recapped_declarations(
                 continue
             owner = items.get(paragraph, {})
             groups = tuple(owner.get("children", ()))
-            if (owner.get("label") != "text" or owner.get("content_layer") != "body"
-                or owner.get("parent") != section or owner.get("text") != ""
-                or len(groups) != 1 or counts[paragraph] != 1):
+            if (
+                owner.get("label") != "text"
+                or owner.get("content_layer") != "body"
+                or owner.get("parent") != section
+                or owner.get("text") != ""
+                or len(groups) != 1
+                or counts[paragraph] != 1
+            ):
                 continue
             (inline,) = groups
             if not isinstance(inline, str):
                 continue
             group = items.get(inline, {})
             children = tuple(group.get("children", ()))
-            if (group.get("label") != "inline" or group.get("content_layer") != "body"
-                or group.get("parent") != paragraph or not 2 <= len(children) <= 32
+            if (
+                group.get("label") != "inline"
+                or group.get("content_layer") != "body"
+                or group.get("parent") != paragraph
+                or not 2 <= len(children) <= 32
                 or len(set(children)) != len(children)
-                or not all(isinstance(child,str) and child in physical and items[child].get("parent") == inline for child in children)):
+                or not all(
+                    isinstance(child, str)
+                    and child in physical
+                    and items[child].get("parent") == inline
+                    for child in children
+                )
+            ):
                 continue
             parts = tuple(physical[child] for child in children)
             start, end = parts[0][0], parts[-1][1]
-            if any(left[1] != right[0] for left,right in pairwise(parts)):
+            if any(left[1] != right[0] for left, right in pairwise(parts)):
                 continue
-            binding = _retained_match(index,"declaration_template",inline,start,end)
+            binding = _retained_match(index, "declaration_template", inline, start, end)
             if binding is None or start + binding.end("description") > parts[0][1]:
                 continue
-            site, description, name = ((start+left,start+right) for left,right in map(binding.span,("symbol","description","name")))
-            original = _retained_match(index,"symbol_declaration",children[0],start,parts[0][1])
-            if original is None or original.span(1) != (site[0]-start,site[1]-start) or original.span(2) != (description[0]-start,description[1]-start):
+            site, description, name = (
+                (start + left, start + right)
+                for left, right in map(binding.span, ("symbol", "description", "name"))
+            )
+            original = _retained_match(index, "symbol_declaration", children[0], start, parts[0][1])
+            if (
+                original is None
+                or original.span(1) != (site[0] - start, site[1] - start)
+                or original.span(2) != (description[0] - start, description[1] - start)
+            ):
                 continue
-            name_parts = tuple((pointer,max(left,name[0])-left,min(right,name[1])-left)
-                for pointer,(left,right) in zip(children,parts,strict=True) if left < name[1] and name[0] < right)
-            declarations.append(dict(ordinal=len(declarations),parent=section,position=positions[paragraph],symbol=binding["symbol"],name=binding["name"],cue=site[0],end=end))
-            declaration_values.append((children[0],binding,site,description,name,name_parts))
+            name_parts = tuple(
+                (pointer, max(left, name[0]) - left, min(right, name[1]) - left)
+                for pointer, (left, right) in zip(children, parts, strict=True)
+                if left < name[1] and name[0] < right
+            )
+            declarations.append(
+                dict(
+                    ordinal=len(declarations),
+                    parent=section,
+                    position=positions[paragraph],
+                    symbol=binding["symbol"],
+                    name=binding["name"],
+                    cue=site[0],
+                    end=end,
+                )
+            )
+            declaration_values.append((children[0], binding, site, description, name, name_parts))
     questions, question_values = [], []
-    for use_pointer,(a,b) in physical.items():
+    for use_pointer, (a, b) in physical.items():
         if not query.start <= a < b <= query.end:
             continue
         section = items[use_pointer].get("parent")
         if not isinstance(section, str) or section not in sections:
             continue
-        _siblings,counts,positions = sections[section]
+        _siblings, counts, positions = sections[section]
         if counts[use_pointer] != 1:
             continue
-        use = _retained_match(index,"recap",use_pointer,a,b)
+        use = _retained_match(index, "recap", use_pointer, a, b)
         if use is None:
             continue
-        questions.append(dict(ordinal=len(questions),parent=section,position=positions[use_pointer],symbol=use["symbol"],name=use["name"],start=a))
-        question_values.append((use_pointer,a,use))
-    cues = [(record.span("symbol")[0],record.text("symbol")) for record in index.select("declaration_cue")
-        if passage.start <= record.span("symbol")[0]]
+        questions.append(
+            dict(
+                ordinal=len(questions),
+                parent=section,
+                position=positions[use_pointer],
+                symbol=use["symbol"],
+                name=use["name"],
+                start=a,
+            )
+        )
+        question_values.append((use_pointer, a, use))
+    cues = [
+        (record.span("symbol")[0], record.text("symbol"))
+        for record in index.select("declaration_cue")
+        if passage.start <= record.span("symbol")[0]
+    ]
     from contextlib import nullcontext
+
     from corpus_structure.methods.scoped_inventory import ScopedInventory
 
-    with nullcontext(inventory) if inventory is not None else ScopedInventory((),()) as prepared:
-        matches = prepared.ordered_matches(questions,declarations,cues)
+    with nullcontext(inventory) if inventory is not None else ScopedInventory((), ()) as prepared:
+        matches = prepared.ordered_matches(questions, declarations, cues)
     results = []
     for question, declaration in matches:
-        use_pointer,a,use = question_values[question]
-        child,binding,site,description,name,name_parts = declaration_values[declaration]
-        results.append(OrderedRecappedDeclaration(
-            child,use_pointer,use["symbol"],name,description,
-            (a,a+use.end("symbol")),(a+use.start("equation"),a+use.end("equation")),
-            passage.scope,passage.passage_id,passage.effective_version,site,name_parts,
-            primary_node=use.primary_node,declaration_node=binding.primary_node,
-        ))
+        use_pointer, a, use = question_values[question]
+        child, binding, site, description, name, name_parts = declaration_values[declaration]
+        results.append(
+            OrderedRecappedDeclaration(
+                child,
+                use_pointer,
+                use["symbol"],
+                name,
+                description,
+                (a, a + use.end("symbol")),
+                (a + use.start("equation"), a + use.end("equation")),
+                passage.scope,
+                passage.passage_id,
+                passage.effective_version,
+                site,
+                name_parts,
+                primary_node=use.primary_node,
+                declaration_node=binding.primary_node,
+            )
+        )
     inspected = len(questions)
     return inspected, tuple(results)
 

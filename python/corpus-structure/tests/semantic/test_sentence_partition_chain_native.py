@@ -372,7 +372,11 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
                 uploaded_rows.append(rows)
 
             return native_copy(
-                connection, profile, batches=observed_batches(), cancellation=cancellation, **options
+                connection,
+                profile,
+                batches=observed_batches(),
+                cancellation=cancellation,
+                **options,
             )
 
         def retry_cancelled_upload(owner, claim, callback, **options):

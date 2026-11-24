@@ -40,19 +40,29 @@ def test_column_conversion_matches_independent_mixed_type_rows_and_key_boundarie
 
     from corpus_structure.semantic.identity import canonical_bytes
 
-    table = pa.table({
-        "id": ["a", "b"],
-        "binary": pa.array([b"\x00\xff", None]),
-        "float": pa.array([-0.0, 1e-20]),
-        "decimal": pa.array([Decimal("-1.2300"), None], type=pa.decimal256(40, 4)),
-        "timestamp": pa.array([1680000000000000001, None], type=pa.timestamp("ns", tz="UTC")),
-        "day": pa.array([1, None], type=pa.date32()),
-        "dictionary": pa.array(["é", "x"]).dictionary_encode(),
-    })
+    table = pa.table(
+        {
+            "id": ["a", "b"],
+            "binary": pa.array([b"\x00\xff", None]),
+            "float": pa.array([-0.0, 1e-20]),
+            "decimal": pa.array([Decimal("-1.2300"), None], type=pa.decimal256(40, 4)),
+            "timestamp": pa.array([1680000000000000001, None], type=pa.timestamp("ns", tz="UTC")),
+            "day": pa.array([1, None], type=pa.date32()),
+            "dictionary": pa.array(["é", "x"]).dictionary_encode(),
+        }
+    )
     header = ["canonical-rows-1", base64.b64encode(table.schema.serialize().to_pybytes()).decode()]
     expected = [
-        ["a", ["binary", "AP8="], ["float", "-0x0.0p+0"], ["decimal", 1, [1, 2, 3, 0, 0], -4], ["timestamp[ns, tz=UTC]", 1680000000000000001], ["date32[day]", 1], "é"],
-        ["b", None, ["float", float(1e-20).hex()], None, None, None, "x"],
+        [
+            "a",
+            ["binary", "AP8="],
+            ["float", "-0x0.0p+0"],
+            ["decimal", 1, [1, 2, 3, 0, 0], -4],
+            ["timestamp[ns, tz=UTC]", 1680000000000000001],
+            ["date32[day]", 1],
+            "é",
+        ],
+        ["b", None, ["float", 1e-20.hex()], None, None, None, "x"],
     ]
     digest = sha256()
     for row in [header, *expected]:
@@ -73,6 +83,7 @@ def test_column_preparation_bounds_wide_batches_and_keeps_oversized_rows(monkeyp
 
     sizes = []
     original = capture_storage._column_values
+
     def prepare(column):
         sizes.append(column.nbytes)
         return original(column)

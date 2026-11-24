@@ -306,7 +306,11 @@ def _native_validation_child(
 
 
 def _verify_native_capture(
-    capture: str, projection: str, result: Any, manifest_bytes: bytes, scratch_directory: Path | None
+    capture: str,
+    projection: str,
+    result: Any,
+    manifest_bytes: bytes,
+    scratch_directory: Path | None,
 ) -> None:
     store = None
     outcome: tuple[bool, str | None] = (True, None)
@@ -434,10 +438,14 @@ def _run_native_validation(
     with borrow_analytical_allocation() as inherited:
         selected_settings = configured() if inherited is not None or settings is None else settings
         selected_policy = policy or CharacterizationExecutionPolicy()
-        allocation = inherited or AnalyticalAllocation.for_policy(selected_policy, selected_settings)
+        allocation = inherited or AnalyticalAllocation.for_policy(
+            selected_policy, selected_settings
+        )
         buffer_bytes = allocation.workspace_bytes - mapped_bytes - allocation.batch_size_hint_bytes
         if buffer_bytes < allocation.batch_size_hint_bytes:
-            raise CapacityExceeded("PDF oracle capture and engine do not fit the analytical workspace")
+            raise CapacityExceeded(
+                "PDF oracle capture and engine do not fit the analytical workspace"
+            )
         if allocation.memory_limit_bytes is not None:
             buffer_bytes = min(buffer_bytes, allocation.memory_limit_bytes)
         reservation = None

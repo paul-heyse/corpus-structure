@@ -33,7 +33,10 @@ def _column_values(column: pa.Array):
         or pa.types.is_duration(kind)
     ):
         integer = pa.int32() if kind.bit_width == 32 else pa.int64()
-        return [None if value is None else [str(kind), value] for value in column.view(integer).to_pylist()]
+        return [
+            None if value is None else [str(kind), value]
+            for value in column.view(integer).to_pylist()
+        ]
     values = column.to_pylist()
     if (
         pa.types.is_decimal(kind)
