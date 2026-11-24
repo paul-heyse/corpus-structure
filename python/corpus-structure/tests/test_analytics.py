@@ -110,26 +110,31 @@ def test_fresh_standard_pdf_child_can_acquire_analytics_before_docling(tmp_path)
     assert not list(tmp_path.iterdir())
 
 
-def _analytical_worker(permit, allocation, ready, proceed, *, long_query):
-    from functools import partial
+def _analytical_worker(mode: str, ready_path: str, proceed_path: str, *, check_active) -> str:
+    import json
+    from pathlib import Path
     from time import sleep
 
     import numpy as np
+    import pyarrow as pa
+    from duckdb import col, fn
 
-    from corpus_structure.analytics import analytical_job
-    from corpus_structure.semantic.cpu_execution import _worker_active
+    from corpus_structure.analytics import connection, current_allocation
 
-    check_active = partial(_worker_active, *permit)
+    allocation = current_allocation()
+    assert allocation is not None
+    ready = Path(ready_path)
+    proceed = Path(proceed_path)
     reader = None
-    with analytical_job(allocation, check_active=check_active), connection() as db:
+    with connection() as db:
         actual = db.native.sql(
             "SELECT current_setting('threads'), current_setting('memory_limit'), "
             "current_setting('max_temp_directory_size'), current_setting('temp_directory')"
         ).fetchall()[0]
-        if long_query:
+        if mode == "interrupt":
             ready.touch()
             db.native.sql("SELECT sum(hash(i)) FROM range(100000000000) t(i)").fetchall()
-        else:
+        elif mode == "spill":
             relation = db.from_arrow(pa.table({"id": np.arange(1_000_000)})).sort(
                 fn("hash", col("id")).asc().nulls_last()
             )
@@ -138,29 +143,74 @@ def _analytical_worker(permit, allocation, ready, proceed, *, long_query):
             spill = sum(path.stat().st_size for path in Path(actual[3]).iterdir())
             assert 1024**2 <= spill <= allocation.spill_bytes
             ready.touch()
-            for _ in range(1000):
+            for _ in range(2000):
                 if proceed.exists():
                     break
                 check_active()
                 sleep(0.01)
             else:
                 raise TimeoutError("second analytical worker never settled")
+        else:
+            from decimal import Decimal
+
+            ticks = 1680000000000000001
+            table = pa.table({
+                "instant": pa.array([ticks, None, ticks], type=pa.timestamp("ns", "UTC")),
+                "small": pa.array([Decimal("1.20"), None, Decimal("1.20")], type=pa.decimal128(7, 2)),
+                "large": pa.array(
+                    [Decimal("123456789012345678.900123"), Decimal("-0.000001"), None],
+                    type=pa.decimal128(30, 6),
+                ),
+            })
+            with db.from_arrow(table).to_arrow_reader(batch_size=2) as result:
+                restored = result.read_all()
+            assert restored.column("instant").cast(pa.int64()).to_pylist() == [ticks, None, ticks]
+            assert restored.column("small").to_pylist() == [Decimal("1.20"), None, Decimal("1.20")]
+            assert restored.column("large").to_pylist() == [
+                Decimal("123456789012345678.900123"), Decimal("-0.000001"), None
+            ]
     if reader is not None:
-        with pytest.raises(pa.ArrowInvalid, match="already been closed"):
+        try:
             reader.read_next_batch()
-    return actual
+        except pa.ArrowInvalid as error:
+            assert "already been closed" in str(error)
+        else:
+            raise AssertionError("analytical job kept a reader open after retirement")
+    return json.dumps(actual)
 
 
-def test_two_admitted_analytical_workers_drain_readers_and_interrupted_engine(tmp_path):
+def test_two_admitted_analytical_workers_drain_readers_and_interrupted_engine(tmp_path, monkeypatch):
+    import importlib
+    import inspect
+    import json
     from dataclasses import replace
     from time import monotonic, sleep
     from types import SimpleNamespace
     from typing import cast
 
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.semantic import cpu_execution
     from corpus_structure.semantic.cpu_execution import CPUExecutionScope, CPURequestCancelled
+    from corpus_structure.semantic.data_operation_cpu import PythonCPUDescriptor
     from corpus_structure.semantic.types import PreparedRelease
 
+    name = "analytical_worker_fixture"
+    source = inspect.getsource(_analytical_worker).encode()
+    source_path = tmp_path / (name + ".py")
+    source_path.write_bytes(source)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    signature = inspect.signature(importlib.import_module(name)._analytical_worker)
+    cpu_path = Path(cpu_execution.__file__).resolve()
+    descriptor = PythonCPUDescriptor(
+        (
+            (name, str(source_path), source),
+            (cpu_execution.__name__, str(cpu_path), cpu_path.read_bytes()),
+        ),
+        name + "._analytical_worker",
+        (),
+        verification="prepared-kernel",
+        control_parameter="check_active",
+    )
     workspace = 32 * 1024**2
     settings = AnalyticsSettings(
         scratch_path=tmp_path / "spill",
@@ -170,9 +220,9 @@ def test_two_admitted_analytical_workers_drain_readers_and_interrupted_engine(tm
     )
     policy = replace(
         CharacterizationExecutionPolicy(),
-        max_packet_bytes=1024,
+        max_packet_bytes=2048,
         max_reply_bytes=1024,
-        max_owned_bytes=2 * (workspace + 1024),
+        max_owned_bytes=2 * (workspace + 3072),
     )
     scope = CPUExecutionScope(
         cast(PreparedRelease, SimpleNamespace(release_id="unused")),
@@ -180,49 +230,48 @@ def test_two_admitted_analytical_workers_drain_readers_and_interrupted_engine(tm
         retain_schema=False,
         analytics_settings=settings,
     )
-    first = second = None
     proceed = tmp_path / "proceed"
+
+    def submit(mode, ready):
+        packet = descriptor.packet(
+            {"mode": mode, "ready_path": str(ready), "proceed_path": str(proceed)}, signature
+        )
+        permit = scope.try_admit(packet_bytes=len(packet), analytical=True)
+        assert permit is not None
+        return scope.submit_closed_python(permit, packet)
+
     try:
-        first = scope.try_admit(packet_bytes=0, analytical=True)
-        second = scope.try_admit(packet_bytes=0, analytical=True)
-        assert first is not None and second is not None
-        assert scope.budget.used_bytes == policy.max_owned_bytes
-        assert scope.try_admit(packet_bytes=0, analytical=True) is None
-        workers = scope._executor()
         first_ready, second_ready = tmp_path / "reader-open", tmp_path / "engine-active"
-        held = workers.submit(
-            _analytical_worker,
-            (first.slot, first.generation),
-            first.allocation,
-            first_ready,
-            proceed,
-            long_query=False,
-        )
-        active = workers.submit(
-            _analytical_worker,
-            (second.slot, second.generation),
-            second.allocation,
-            second_ready,
-            proceed,
-            long_query=True,
-        )
-        deadline = monotonic() + 8
+        serial = submit("fidelity", first_ready)
+        serial.future.result(timeout=30)
+        serial.collect()
+        assert serial.retire() and scope.budget.used_bytes == 0
+
+        held = submit("spill", first_ready)
+        active = submit("interrupt", second_ready)
+        assert scope.budget.used_bytes > 2 * workspace
+        assert scope.try_admit(packet_bytes=0, analytical=True) is None
+
+        deadline = monotonic() + 20
         while not (first_ready.exists() and second_ready.exists()):
             assert monotonic() < deadline
+            for handle in (held, active):
+                if handle.future.done():
+                    handle.collect()
             sleep(0.01)
         assert len(list(settings.scratch_path.iterdir())) == 2
-        with scope._cancellation.get_lock():
-            scope._cancellation[second.slot * 2 + 1] = 1
+        active.cancel()
+        assert active.future.result(timeout=10).error_type == "CPURequestCancelled"
         with pytest.raises(CPURequestCancelled):
-            active.result(timeout=5)
-        scope.release_admission(second)
-        assert scope.budget.used_bytes == workspace + 1024
+            active.collect()
+        assert active.retire() and scope.budget.used_bytes > workspace
+        assert not held.future.done()
         proceed.touch()
-        threads, memory, spill, scratch = held.result(timeout=5)
+        held.future.result(timeout=10)
+        threads, memory, spill, scratch = json.loads(json.loads(held.collect().content))
         assert (threads, memory, spill) == (1, "24.0 MiB", "64.0 MiB")
         assert not Path(scratch).exists()
-        scope.release_admission(first)
-        assert scope.budget.used_bytes == 0
+        assert held.retire() and scope.budget.used_bytes == 0
         assert list(settings.scratch_path.iterdir()) == []
     finally:
         proceed.touch()

@@ -105,14 +105,17 @@ def verify(
         failure_boundary(json, expected=(ValueError, OSError), operation=invocation),
     ):
         invocation.stage("capture and verify selected PDF")
+        settings = state(ctx).settings()
         with open_runtime_engine(
-            state(ctx).settings(), application_name="ci-source-verify", purpose="read"
+            settings, application_name="ci-source-verify", purpose="read"
         ) as engine:
             verification = verify_selected_pdf_source(
                 engine,
                 selection,
                 directory=invocation.directory / "oracle",
                 cancellation=cancellation,
+                analytics_settings=settings.analytics,
+                execution_policy=settings.characterization_execution,
             )
         report = SourceVerificationReport(invocation_id=invocation.id, verification=verification)
         path = invocation.directory / "verification.json"

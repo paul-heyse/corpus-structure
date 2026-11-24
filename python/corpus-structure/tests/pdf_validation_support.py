@@ -5,7 +5,8 @@ from pathlib import Path
 from time import sleep
 
 
-def hold_validation(capture, projection, result):
+def hold_validation(capture, projection, result, *, allocation):
+    (allocation.scratch_root / "partial-verified-replay").write_bytes(b"partial")
     Path(projection).write_text("running")
     sleep(60)
     result.close()

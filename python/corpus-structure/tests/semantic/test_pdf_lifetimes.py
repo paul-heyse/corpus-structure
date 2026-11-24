@@ -16,8 +16,18 @@ from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
 
 
 def test_db_free_validation_cancellation_reaps_its_actual_spawned_child(tmp_path, monkeypatch):
+    import json
+
+    from corpus_structure.settings import AnalyticsSettings
+
     context = multiprocessing.get_context("spawn")
     projection = tmp_path / "child-started"
+    capture = tmp_path / "capture"
+    capture.write_text(json.dumps({
+        "profile": pdf_publication._ORACLE_CAPTURE_PROFILE,
+        "families": {family: {"byte_length": 0} for family in pdf_publication._ORACLE_SCHEMAS},
+    }))
+    scratch = tmp_path / "scratch"
     pids = []
 
     class Context:
@@ -25,12 +35,15 @@ def test_db_free_validation_cancellation_reaps_its_actual_spawned_child(tmp_path
 
         @staticmethod
         def Process(*, target, args, kwargs=None):
-            return context.Process(target=hold_validation, args=args)
+            return context.Process(
+                target=hold_validation, args=args, kwargs={"allocation": kwargs["allocation"]}
+            )
 
     monkeypatch.setattr(pdf_publication.multiprocessing, "get_context", lambda mode: Context())
 
     def check():
         if projection.exists():
+            assert tuple(scratch.glob("*/partial-verified-replay"))
             alive = [p for p in multiprocessing.active_children() if p.is_alive()]
             assert len(alive) == 1
             assert alive[0].pid is not None
@@ -38,11 +51,14 @@ def test_db_free_validation_cancellation_reaps_its_actual_spawned_child(tmp_path
             raise DatabaseOperationCancelled("operator cancelled native validation")
 
     with pytest.raises(DatabaseOperationCancelled, match="operator cancelled"):
-        pdf_publication._run_native_validation(tmp_path / "capture", projection, check)
+        pdf_publication._run_native_validation(
+            capture, projection, check, settings=AnalyticsSettings(scratch_path=scratch)
+        )
     assert len(pids) == 1
     with pytest.raises(ProcessLookupError):
         os.kill(pids[0], 0)
     assert all(p.pid != pids[0] for p in multiprocessing.active_children())
+    assert not tuple(scratch.iterdir())
 
 
 def test_borrowed_event_fragments_remain_owned_by_selected_source_caller():
@@ -100,7 +116,7 @@ def test_child_cleanup_keeps_primary_and_attempts_all_independent_handles(tmp_pa
         raise primary
 
     with pytest.raises(DatabaseOperationCancelled) as caught:
-        pdf_publication._run_native_validation(tmp_path / "capture", tmp_path / "out", check)
+        pdf_publication._settle_native_validation(tmp_path / "capture", tmp_path / "out", check)
     assert caught.value is primary
     assert closed == ["child", "parent", "process"]
     assert any("pipe close failed" in note for note in primary.__notes__)
@@ -145,7 +161,7 @@ def test_positive_validation_ack_requires_successful_terminal_exit(tmp_path, mon
     _select_validation_target(monkeypatch, acknowledge_then_exit_nonzero)
     projection = tmp_path / "child-pid"
     with pytest.raises(RuntimeError, match="exited with status 17"):
-        pdf_publication._run_native_validation(tmp_path / "capture", projection, lambda: None)
+        pdf_publication._settle_native_validation(tmp_path / "capture", projection, lambda: None)
     pid = int(projection.read_text())
     with pytest.raises(ProcessLookupError):
         os.kill(pid, 0)
@@ -166,7 +182,7 @@ def test_validation_settlement_after_ack_keeps_owner_cancellation_and_reaps(tmp_
                 raise primary
 
     with pytest.raises(DatabaseOperationCancelled) as caught:
-        pdf_publication._run_native_validation(tmp_path / "capture", projection, check)
+        pdf_publication._settle_native_validation(tmp_path / "capture", projection, check)
     assert caught.value is primary and checks_after_ack >= 2
     pid = int(projection.read_text())
     with pytest.raises(ProcessLookupError):
@@ -234,7 +250,15 @@ def test_program_child_acknowledges_only_after_owned_store_cleanup(
         "validate_native_callbacks",
         lambda native, *, contract: events.append("callbacks-validated"),
     )
-    pdf_publication._native_validation_child(str(capture), str(projection), Result())
+    from corpus_structure.analytics import AnalyticalAllocation
+    from corpus_structure.settings import AnalyticsSettings
+
+    pdf_publication._native_validation_child(
+        str(capture), str(projection), Result(),
+        allocation=AnalyticalAllocation(1, 64 * 1024**2, 64 * 1024**2, tmp_path),
+        analytics_settings=AnalyticsSettings(scratch_path=tmp_path),
+        manifest=capture.read_bytes(),
+    )
     assert events == [
         "store-open",
         "callbacks-validated",

@@ -52,6 +52,30 @@ def test_complete_docling_json_export_preserves_native_shape(published_pdf_sourc
         assert not partial.exists()
 
 
+def test_selected_pdf_oracle_reconstructs_in_owned_workspace(published_pdf_source, tmp_path):
+    from corpus_structure.core.db.lifetime import BorrowerCancellation
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.serve.source_verification import verify_selected_pdf_source
+    from corpus_structure.settings import AnalyticsSettings
+
+    engine = published_pdf_source.kernel.purpose("read")
+    with engine.begin() as connection:
+        pin, _ = published_pdf_source.publication(connection)
+    scratch = tmp_path / "scratch"
+    verified = verify_selected_pdf_source(
+        engine,
+        pin,
+        directory=tmp_path / "oracle",
+        cancellation=BorrowerCancellation(),
+        analytics_settings=AnalyticsSettings(scratch_path=scratch),
+        execution_policy=CharacterizationExecutionPolicy(),
+    )
+    assert verified.source == pin
+    assert verified.native_document_digest == verified.reconstructed_native_digest
+    assert len(verified.logical_digest) == 64
+    assert scratch.is_dir() and not tuple(scratch.iterdir())
+
+
 def test_published_capture_clones_share_one_conversion_and_refuse_new_work(
     scenario_seeds, monkeypatch, tmp_path
 ):

@@ -13,7 +13,7 @@ import tempfile
 from collections.abc import Callable, Generator, Iterable, Mapping
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import contextmanager
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, TypedDict
 
@@ -37,6 +37,7 @@ from .pdf_staging import PdfBuildRef
 
 if TYPE_CHECKING:
     from corpus_structure.analytics import AnalyticalAllocation
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
     from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
     from corpus_structure.settings import AnalyticsSettings
 
@@ -291,26 +292,22 @@ def _native_validation_child(
     projection: str,
     result: Any,
     *,
-    allocation: AnalyticalAllocation | None = None,
-    analytics_settings: AnalyticsSettings | None = None,
+    allocation: AnalyticalAllocation,
+    analytics_settings: AnalyticsSettings,
+    manifest: bytes,
 ) -> None:
     """One explicitly materialized native oracle, no database handles or credentials."""
-    from contextlib import ExitStack
+    from corpus_structure.analytics import analytical_job
 
-    with ExitStack() as stack:
-        if allocation is not None:
-            from corpus_structure.analytics import analytical_job, configure
-
-            if analytics_settings is None:
-                raise ValueError("allocated PDF child requires analytical settings")
-            configure(analytics_settings)
-            pa.set_cpu_count(allocation.threads)
-            pa.set_io_thread_count(allocation.threads)
-            stack.enter_context(analytical_job(allocation, check_active=lambda: None))
-        _verify_native_capture(capture, projection, result)
+    pa.set_cpu_count(allocation.threads)
+    pa.set_io_thread_count(allocation.threads)
+    with analytical_job(allocation, check_active=lambda: None, settings=analytics_settings):
+        _verify_native_capture(capture, projection, result, manifest, allocation.scratch_root)
 
 
-def _verify_native_capture(capture: str, projection: str, result: Any) -> None:
+def _verify_native_capture(
+    capture: str, projection: str, result: Any, manifest_bytes: bytes, scratch_directory: Path | None
+) -> None:
     store = None
     outcome: tuple[bool, str | None] = (True, None)
     try:
@@ -319,7 +316,7 @@ def _verify_native_capture(capture: str, projection: str, result: Any) -> None:
         from .pdf_payload_validation import FrozenPayloadStore
         from .pdf_records import reconstruct_native_document, validate_native_callbacks
 
-        manifest = json.loads(Path(capture).read_bytes())
+        manifest = json.loads(manifest_bytes)
         if manifest["profile"] != _ORACLE_CAPTURE_PROFILE:
             raise ValueError("unsupported typed PDF oracle capture")
         contract = manifest["contract"]
@@ -340,6 +337,7 @@ def _verify_native_capture(capture: str, projection: str, result: Any) -> None:
                 lowering.schema(_ORACLE_SCHEMAS[family]),
                 check_active=lambda: None,
                 map_verified=True,
+                scratch_directory=scratch_directory,
             ):
                 store.add_batch(family, batch)
 
@@ -402,17 +400,72 @@ def _verify_native_capture(capture: str, projection: str, result: Any) -> None:
 
 
 def _run_native_validation(
-    capture: Path, projection: Path, check_active: Callable[[], None]
+    capture: Path,
+    projection: Path,
+    check_active: Callable[[], None],
+    *,
+    settings: AnalyticsSettings | None = None,
+    policy: CharacterizationExecutionPolicy | None = None,
+    manifest: bytes | None = None,
 ) -> None:
-    """Settle this DB-free child before returning, including failed/cancelled validation."""
-    from corpus_structure.analytics import configured, current_allocation
-
-    allocation = current_allocation()
-    resources = (
-        {"allocation": allocation, "analytics_settings": configured()}
-        if allocation is not None
-        else {}
+    """Admit the exact mapped capture and lend workspace through child exit."""
+    from corpus_structure.analytics import (
+        AnalyticalAllocation,
+        borrow_analytical_allocation,
+        configured,
     )
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+
+    from .cpu_execution import CapacityExceeded, OwnedByteBudget
+
+    check_active()
+    if manifest is None:
+        manifest = capture.read_bytes()
+    definition = json.loads(manifest)
+    if definition["profile"] != _ORACLE_CAPTURE_PROFILE or set(definition["families"]) != set(
+        _ORACLE_SCHEMAS
+    ):
+        raise ValueError("PDF oracle capture has an inexact profile or family inventory")
+    sizes = [family["byte_length"] for family in definition["families"].values()]
+    if any(type(size) is not int or size < 0 for size in sizes):
+        raise ValueError("PDF oracle capture has an invalid family extent")
+    mapped_bytes = sum(sizes) + len(manifest)
+
+    with borrow_analytical_allocation() as inherited:
+        selected_settings = configured() if inherited is not None or settings is None else settings
+        selected_policy = policy or CharacterizationExecutionPolicy()
+        allocation = inherited or AnalyticalAllocation.for_policy(selected_policy, selected_settings)
+        buffer_bytes = allocation.workspace_bytes - mapped_bytes - allocation.batch_size_hint_bytes
+        if buffer_bytes < allocation.batch_size_hint_bytes:
+            raise CapacityExceeded("PDF oracle capture and engine do not fit the analytical workspace")
+        if allocation.memory_limit_bytes is not None:
+            buffer_bytes = min(buffer_bytes, allocation.memory_limit_bytes)
+        reservation = None
+        if inherited is None:
+            reservation = OwnedByteBudget(selected_policy.max_owned_bytes).admit(
+                allocation.workspace_bytes
+            )
+        try:
+            root = allocation.scratch_root or selected_settings.scratch_path.resolve()
+            root.mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryDirectory(prefix="pdf-oracle-", dir=root) as scratch:
+                _settle_native_validation(
+                    capture,
+                    projection,
+                    check_active,
+                    allocation=replace(
+                        allocation, scratch_root=Path(scratch), memory_limit_bytes=buffer_bytes
+                    ),
+                    analytics_settings=selected_settings,
+                    manifest=manifest,
+                )
+        finally:
+            if reservation is not None:
+                reservation.release()
+
+
+def _settle_native_validation(capture: Path, projection: Path, check_active, **resources) -> None:
+    """Settle this DB-free child before returning, including failed/cancelled validation."""
     context = multiprocessing.get_context("spawn")
     parent, child = context.Pipe(duplex=False)
     process = context.Process(
@@ -1004,9 +1057,14 @@ def verify_pdf_oracle_capture(
     logical_digest: str,
     native_document_digest: str,
     check_active: Callable[[], None],
+    settings: AnalyticsSettings | None = None,
+    policy: CharacterizationExecutionPolicy | None = None,
+    manifest: bytes | None = None,
 ) -> PdfRoundtripVerification:
     """Independent reconstruction with equality to the actual producer's native output."""
-    _run_native_validation(capture, projection, check_active)
+    _run_native_validation(
+        capture, projection, check_active, settings=settings, policy=policy, manifest=manifest
+    )
     reconstructed = projection.with_suffix(".native-sha256").read_text()
     if reconstructed != native_document_digest:
         raise ValueError(
@@ -1090,10 +1148,14 @@ def capture_published_pdf_oracle(
 
 
 def verify_published_pdf_oracle(
-    capture: PdfPublishedOracleCapture, *, check_active: Callable[[], None]
+    capture: PdfPublishedOracleCapture,
+    *,
+    check_active: Callable[[], None],
+    settings: AnalyticsSettings | None = None,
+    policy: CharacterizationExecutionPolicy | None = None,
 ) -> PdfRoundtripVerification:
     """Run the DB-free oracle after selected read transactions have settled."""
-    capture.replay.verify()
+    check_active()
     return verify_pdf_oracle_capture(
         capture.replay.path,
         capture.projection,
@@ -1103,6 +1165,9 @@ def verify_published_pdf_oracle(
         logical_digest=capture.logical_digest,
         native_document_digest=capture.native_document_digest,
         check_active=check_active,
+        settings=settings,
+        policy=policy,
+        manifest=capture.replay.read_bytes(),
     )
 
 

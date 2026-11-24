@@ -81,6 +81,21 @@ def current_allocation() -> AnalyticalAllocation | None:
 
 
 @contextmanager
+def borrow_analytical_allocation():
+    """Lend the active job's workspace exclusively through child settlement."""
+    job = _job.get()
+    if job is None:
+        yield None
+        return
+    if not job.connection_slot.acquire(blocking=False):
+        raise RuntimeError("analytical job already owns an open connection or child")
+    try:
+        yield job.allocation
+    finally:
+        job.connection_slot.release()
+
+
+@contextmanager
 def analytical_job(
     allocation: AnalyticalAllocation,
     *,

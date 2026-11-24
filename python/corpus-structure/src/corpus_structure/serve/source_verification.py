@@ -7,7 +7,9 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Engine
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
+from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
+from corpus_structure.settings import AnalyticsSettings
 
 
 class PdfSourceVerification(BaseModel):
@@ -30,6 +32,8 @@ def verify_selected_pdf_source(
     *,
     directory: Path,
     cancellation: BorrowerCancellation,
+    analytics_settings: AnalyticsSettings,
+    execution_policy: CharacterizationExecutionPolicy,
 ) -> PdfSourceVerification:
     """Capture under authority, compute without a checkout, then recheck authority."""
     from corpus_structure.semantic.demand_results import selected_read_snapshot
@@ -63,7 +67,12 @@ def verify_selected_pdf_source(
             check_active=cancellation.check_active,
         )
         cut_id = selected.cut.identity
-    verified = verify_published_pdf_oracle(capture, check_active=cancellation.check_active)
+    verified = verify_published_pdf_oracle(
+        capture,
+        check_active=cancellation.check_active,
+        settings=analytics_settings,
+        policy=execution_policy,
+    )
     cancellation.check_active()
     with selected_read_snapshot(engine, cancellation=cancellation) as connection:
         current = acquire_selected_pdf_source(connection, source_reference)
