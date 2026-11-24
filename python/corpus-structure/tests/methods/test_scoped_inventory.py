@@ -22,7 +22,7 @@ from methods.scoped_relations_support import discover_relations
 class ReferenceInventory(AbstractContextManager):
     """Small independent interpreter for the declared relational questions."""
 
-    def __init__(self, pieces, selected_ranges):
+    def __init__(self, pieces, selected_ranges, *, piece_schema=None):
         self.pieces = tuple(
             piece
             for piece in pieces
@@ -62,6 +62,28 @@ class ReferenceInventory(AbstractContextManager):
             if len(matches) == 1:
                 answers.append((mention, matches[0]))
         return answers
+
+    def table_counterparts(self, tables, pairs):
+        import re
+        fields = ("start_row_offset_idx", "end_row_offset_idx", "start_col_offset_idx", "end_col_offset_idx")
+        result = {}
+        for pair in pairs:
+            left, right = pair
+            by_extent = {tuple(cell.get(name) for name in fields): (index, cell["text"].strip())
+                for index, cell in enumerate(tables[right]["data"]["table_cells"])
+                if all(type(cell.get(name)) is int for name in fields)}
+            result[pair] = []
+            for index, cell in enumerate(tables[left]["data"]["table_cells"]):
+                counterpart = by_extent.get(tuple(cell.get(name) for name in fields))
+                if counterpart is not None and re.fullmatch(r"\d+",cell.get("text", "").strip()):
+                    result[pair].append((index, *counterpart))
+        return result
+
+    def formula_matches(self, questions, symbols):
+        return {
+            i: [j for j, (other, symbol) in enumerate(symbols) if formula == other and name == symbol["name"]]
+            for i, (formula, name) in enumerate(questions)
+        }
 
     def preceding_matches(self, questions, declarations):
         answers = {}
@@ -269,6 +291,16 @@ def test_complete_report_bytes_match_independent_question_answers(monkeypatch, s
     actual = discover_relations(
         frame, primary=primary, source_work="actual-parent", inline_equations_enabled=True
     )
+    # Frozen before the acquisition and kernel rewrite at 255badc1f. This checks
+    # shared preparation and emission as well as the independent relational answers.
+    from hashlib import sha256
+
+    incumbent = {
+        "table": "54053d881aa1c740f7ff005c772b6484a9fb3ad5ffede724b40460210b4ee1bd",
+        "formulas": "fe0a537d1a6518d09258a25f421ff68c128aacb2f094486d251da726df992994",
+        "unicode": "3040db1ad2e06da65da0fa699205070e31319fc87119f85ff7984b4448b1b4fc",
+    }
+    assert sha256(canonical_bytes(actual)).hexdigest() == incumbent[shape]
     monkeypatch.setattr(scoped_relations, "ScopedInventory", ReferenceInventory)
     expected = discover_relations(
         frame, primary=primary, source_work="actual-parent", inline_equations_enabled=True
@@ -318,3 +350,27 @@ def test_recorded_book_sections_keep_complete_report_bytes(monkeypatch, request)
     request.node.user_properties.append(
         ("scoped_real_book_parity", json.dumps(observations, sort_keys=True))
     )
+
+
+def test_formula_join_keeps_repeated_symbols_and_product_occurrences():
+    symbols = ((0, {"name": "x"}), (0, {"name": "x"}), (1, {"name": "x"}), (0, {"name": "y"}))
+    with ScopedInventory((), ()) as inventory:
+        assert dict(inventory.formula_matches(((0, "x"), (1, "x"), (0, "z")), symbols)) == {0: [0, 1], 1: [2]}
+
+
+def test_ordered_witness_join_counts_cues_before_matching_declarations():
+    questions = [dict(ordinal=0, parent="section", position=3, symbol="x", name="count", start=20)]
+    declarations = [dict(ordinal=0, parent="section", position=0, symbol="x", name="count", cue=1, end=10)]
+    with ScopedInventory((), ()) as inventory:
+        assert inventory.ordered_matches(questions, declarations, [(1, "x")]) == [(0, 0)]
+        assert inventory.ordered_matches(questions, declarations, [(1, "x"), (15, "x")]) == []
+        assert inventory.ordered_matches(questions, [dict(declarations[0], parent="other")], [(1, "x")]) == []
+
+
+def test_schematic_join_uses_the_last_equal_extent_and_observed_encounter_order():
+    tables = {
+        "observed": {"data": {"table_cells": [table_cell("2", 1, 1), table_cell("word", 2, 1)]}},
+        "schematic": {"data": {"table_cells": [table_cell("old", 1, 1), table_cell("Sij", 1, 1)]}},
+    }
+    with ScopedInventory((), ()) as inventory:
+        assert inventory.table_counterparts(tables, (("observed", "schematic"),)) == {("observed", "schematic"): [(0, 1, "Sij")]}

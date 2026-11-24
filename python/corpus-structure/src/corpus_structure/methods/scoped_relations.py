@@ -1,6 +1,5 @@
 """Bounded native structural joins. Retained proposals are not semantic admission."""
 
-import json
 import re
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
@@ -382,6 +381,7 @@ def discover_relations(
     frame,
     *,
     source_work=None,
+    piece_schema=None,
     annotation_errors=(),
     passages=None,
     formula_seconds=0.5,
@@ -403,10 +403,10 @@ def discover_relations(
         raise TypeError("scoped relations require the actual declared native source")
     from corpus_structure.semantic.declared_formal_readings import prepare_formal_layers
 
-    native = json.loads(frame.native_context)
+    native = frame.view.columns
     if formal_layers is not None:
         formal_layers = prepare_formal_layers(formal_layers)
-    with ScopedInventory(native["pieces"], frame.selected_ranges) as inventory:
+    with ScopedInventory(native["pieces"], frame.selected_ranges, piece_schema=piece_schema) as inventory:
         return _discover_relations(
             frame,
             inventory=inventory,
@@ -665,11 +665,26 @@ def _discover_relations(
         return row
 
     table_targets = inventory.table_targets(geometry)
+    geometry_basis = {
+        pointer: tuple(fact.reference.values() for fact in navigation.select("table_geometry", pointer))
+        for pointer, value in geometry.items()
+        if value is not items[pointer]
+    }
+    artifact_records = {}
+    for kind in ("artifact_mention", "artifact_reference"):
+        for record in navigation.select(kind):
+            if record.span("subject") is not None:
+                artifact_records.setdefault(record.payload["pointer"], []).append(record)
+    artifact_pieces = inventory.contained_pairs(
+        [(piece["start"], piece["end"]) for piece in source_pieces],
+        [record.span("subject") for records in artifact_records.values() for record in records],
+    )
+    all_artifacts = tuple(record for records in artifact_records.values() for record in records)
     cell_rows = {}
     text_rows = []
     artifact_captions = {}
     artifact_mentions = []
-    for piece in source_pieces:
+    for piece_index, piece in enumerate(source_pieces):
         if piece.get("kind") != "native_text" or piece["start"] == piece["end"]:
             continue
         pointer = piece["item_ref"]
@@ -696,10 +711,7 @@ def _discover_relations(
                 extra={
                     **(
                         {
-                            "table_geometry_basis": tuple(
-                                fact.reference.values()
-                                for fact in navigation.select("table_geometry", pointer)
-                            )
+                            "table_geometry_basis": geometry_basis[pointer]
                         }
                         if geometry.get(pointer, node) is not node
                         else {}
@@ -719,9 +731,18 @@ def _discover_relations(
         else:
             text = frame.text[piece["start"] : piece["end"]]
             text_rows.append((piece, node, text))
-            for found in artifact_spans(
-                text, navigation=navigation, pointer=pointer, start=piece["start"]
-            ):
+            for artifact_index in artifact_pieces.get(piece_index, ()):
+                record = all_artifacts[artifact_index]
+                if record.payload["pointer"] != pointer:
+                    continue
+                span = record.span("subject")
+                found = dict(
+                    start=span[0] - piece["start"], end=span[1] - piece["start"],
+                    artifact_kind=record.payload["artifact_kind"],
+                    controlled_code=record.payload["designator"],
+                    reference=record.payload["kind"] == "artifact_reference",
+                    primary_node=record.reference.values(), primary_record=record,
+                )
                 if source_work is None or piece.get("cell_index") is not None:
                     continue
                 start, end = piece["start"] + found["start"], piece["start"] + found["end"]
@@ -861,19 +882,20 @@ def _discover_relations(
     # In an unlabeled marginal row/column, layout alone leaves an ordinary-count
     # reading viable. An explicitly identified schematic supplies the competing
     # source-conditioned role and the exact declaration behind it.
-    coordinate_fields = (
-        "start_row_offset_idx",
-        "end_row_offset_idx",
-        "start_col_offset_idx",
-        "end_col_offset_idx",
+    schematics = {
+        pointer: _table_schematics(caption_tables, navigation=navigation, pointer=pointer)
+        for pointer in text_by_pointer
+    }
+    counterpart_pairs = inventory.table_counterparts(
+        items, tuple(dict.fromkeys(tuple(pair) for pair in schematics.values() if pair is not None))
     )
     for piece, _node, _source_text in text_rows:
-        tables = _table_schematics(caption_tables, navigation=navigation, pointer=piece["item_ref"])
+        tables = schematics[piece["item_ref"]]
         if tables is None:
             continue
         cues = [
             (record, record.payload["measure_role"])
-            for record in navigation.select("table_role", piece["item_ref"])
+            for record in table_roles[piece["item_ref"], None]
             if record.payload["measure_role"]
             in {"row_sum", "column_sum", "sample_count", "observed_count"}
         ]
@@ -902,19 +924,7 @@ def _discover_relations(
                 if binding["role"].startswith("symbol/")
             ):
                 literals[literal.casefold()] = role
-        cells = items[schematic]["data"]["table_cells"]
-        by_extent = {
-            tuple(cell.get(k) for k in coordinate_fields): (index, cell["text"].strip())
-            for index, cell in enumerate(cells)
-            if all(type(cell.get(k)) is int for k in coordinate_fields)
-        }
-        for index, cell in enumerate(items[observed]["data"]["table_cells"]):
-            if not re.fullmatch(r"\d+", cell.get("text", "").strip()):
-                continue
-            counterpart = by_extent.get(tuple(cell.get(k) for k in coordinate_fields))
-            if counterpart is None:
-                continue
-            other_index, symbol = counterpart
+        for index, other_index, symbol in counterpart_pairs[observed, schematic]:
             role = literals.get("sij" if re.fullmatch(r"s\d+", symbol) else symbol.casefold())
             subject, target = (
                 cell_rows.get((observed, index)),
@@ -939,11 +949,52 @@ def _discover_relations(
                     "native_geometry",
                 )
 
+    # Prepare formula input and symbol questions once before the ordered emission seam.
+    from .structural_roles import captured_formula_symbols
+
+    declarations_by_piece = {
+        index: tuple(symbol_declarations(navigation, piece["item_ref"], piece["start"], piece["end"]))
+        for index, (piece, _node, _text) in enumerate(text_rows)
+    }
+    formula_inputs = {}
+    formula_questions = []
+    question_keys = []
+    for index, (_piece, node, text) in enumerate(text_rows):
+        for match in declarations_by_piece[index]:
+            candidates = []
+            if match.record.payload["introducer"] == "where" and not text[:match.start()].strip() and index:
+                candidates.append(index - 1)
+            if match.record.payload["introducer"] == "let" and node.get("label") != "formula" and index + 1 < len(text_rows):
+                candidates.append(index + 1)
+            for formula_index in candidates:
+                formula_piece, formula_node, formula_text = text_rows[formula_index]
+                if (formula_node.get("label") != "formula" or node.get("parent") is None
+                    or formula_node.get("parent") != node.get("parent") or len(formula_text) > max_formula_chars):
+                    continue
+                if formula_index not in formula_inputs:
+                    formula_inputs[formula_index] = captured_formula_symbols(
+                        formula_text, seconds=formula_seconds, primary_layers=formal_layers,
+                        projection=frame.projection_digest, source_start=formula_piece["start"],
+                        native_pointer=formula_piece["item_ref"],
+                    )
+                question_keys.append((index, match.start(1), formula_index))
+                formula_questions.append((formula_index, match[1]))
+    formula_symbols = [
+        (formula_index, symbol)
+        for formula_index, (symbols, _status) in formula_inputs.items()
+        for symbol in symbols
+    ]
+    matched_symbols = inventory.formula_matches(formula_questions, formula_symbols)
+    formula_answers = {
+        key: tuple(formula_symbols[index][1] for index in matched_symbols.get(ordinal, ()))
+        for ordinal, key in enumerate(question_keys)
+    }
+
     # Symbol declaration is source local and explicitly cued. Each occurrence has
     # independent offsets, so repeated symbols never collapse into one identity.
     for text_index, (piece, node, text) in enumerate(text_rows):
         pointer = piece["item_ref"]
-        for match in symbol_declarations(navigation, pointer, piece["start"], piece["end"]):
+        for match in declarations_by_piece[text_index]:
             symbol = participant(
                 piece["start"] + match.start(1),
                 piece["start"] + match.end(1),
@@ -986,14 +1037,8 @@ def _discover_relations(
                             )
                         )
                         continue
-                    parsed, status = captured_formula_symbols(
-                        formula_text,
-                        seconds=formula_seconds,
-                        primary_layers=formal_layers,
-                        projection=frame.projection_digest,
-                        source_start=previous["start"],
-                        native_pointer=previous["item_ref"],
-                    )
+                    parsed = formula_answers.get((text_index, match.start(1), text_index - 1), ())
+                    status = formula_inputs[text_index - 1][1]
                     formula_diagnostics.append(
                         dict(
                             pointer=previous["item_ref"],
@@ -1003,8 +1048,6 @@ def _discover_relations(
                         )
                     )
                     for occurrence in parsed:
-                        if occurrence["name"] != match[1]:
-                            continue
                         used = participant(
                             previous["start"] + occurrence["start"],
                             previous["start"] + occurrence["end"],
@@ -1030,9 +1073,7 @@ def _discover_relations(
         # formula; no search over another example/section is performed.
         if node.get("label") != "formula" and text_index + 1 < len(text_rows):
             following, formula_node, formula_text = text_rows[text_index + 1]
-            declarations = symbol_declarations(
-                navigation, pointer, piece["start"], piece["end"], introducer="let"
-            )
+            declarations = tuple(match for match in declarations_by_piece[text_index] if match.record.payload["introducer"] == "let")
             if (
                 declarations
                 and formula_node.get("label") == "formula"
@@ -1042,14 +1083,7 @@ def _discover_relations(
                 from .structural_roles import captured_formula_symbols
 
                 if len(formula_text) <= max_formula_chars:
-                    parsed, status = captured_formula_symbols(
-                        formula_text,
-                        seconds=formula_seconds,
-                        primary_layers=formal_layers,
-                        projection=frame.projection_digest,
-                        source_start=following["start"],
-                        native_pointer=following["item_ref"],
-                    )
+                    status = formula_inputs[text_index + 1][1]
                     formula_diagnostics.append(
                         dict(
                             pointer=following["item_ref"],
@@ -1067,9 +1101,7 @@ def _discover_relations(
                             region=pointer,
                             extra={"primary_node": declaration_match.primary_node},
                         )
-                        for occurrence in parsed:
-                            if occurrence["name"] != declaration_match[1]:
-                                continue
+                        for occurrence in formula_answers.get((text_index, declaration_match.start(1), text_index + 1), ()):
                             used = participant(
                                 following["start"] + occurrence["start"],
                                 following["start"] + occurrence["end"],
@@ -1371,6 +1403,7 @@ def _discover_relations(
                 ordered_formula_witness,
                 query,
                 navigation=navigation,
+                inventory=inventory,
             )
             witness_version = ORDERED_VERSION
             witness_selection = ordered_witness_selection(query, ordered_formula_witness)

@@ -155,7 +155,6 @@ class DeclaredNativeFrameSource:
     pin_content: str
     version: int = 4
     _text: str = field(init=False, repr=False, compare=False)
-    _context: str = field(init=False, repr=False, compare=False)
     _coordinate: tuple[str, str, str] = field(init=False, repr=False, compare=False)
     _acquired_source: ClassVar[FrozenNativeSource]
     _columns: ClassVar[Any]
@@ -198,7 +197,6 @@ class DeclaredNativeFrameSource:
             }
         )
         object.__setattr__(self, "_columns", columns)
-        object.__setattr__(self, "_context", canonical_bytes(columns).decode())
 
     @property
     def record(self) -> dict[str, JsonValue]:
@@ -304,9 +302,9 @@ class DeclaredNativeFrameSource:
     def projection_digest(self):
         return self._coordinate[2]
 
-    @property
+    @cached_property
     def native_context(self):
-        return self._context
+        return canonical_bytes(self._columns).decode()
 
     @cached_property
     def view(self):

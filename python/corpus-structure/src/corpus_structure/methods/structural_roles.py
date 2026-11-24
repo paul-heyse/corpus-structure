@@ -212,10 +212,6 @@ def captured_formula_symbols(
         )
     # A successful symbolic syntax with unprojected native symbol metadata is
     # incomplete for this consumer, not proof that the formula has no symbols.
-    if not symbols and any(
-        a.get("formal", {}).get("input_id") == root["local_id"]
-        and "SYMBOL" in a.get("formal", {}).get("rule", "")
-        for a in nodes.values()
-    ):
+    if not symbols and (pin, root["local_id"]) in layers.unprojected_symbols:
         return (), "unsupported"
     return tuple(sorted(symbols, key=lambda row: (row["start"], row["end"], row["name"]))), "parsed"
