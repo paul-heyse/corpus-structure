@@ -1,6 +1,6 @@
 # The PDF path
 
-**Status:** Complete for development. Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
+**Status:** SBX-14–16 accepted for development. SBX-17 has open completion obligations. Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
 This companion owns the PDF path from an original to published records. It owns SBX-14 to SBX-17
@@ -523,7 +523,7 @@ unchanged on a mixed-type batch.
 **Implementation checkpoint · 2026-11-24.** Capture, transformed publication, spool
 recertification and the independent validation child consume keyed Arrow batches. The certifier
 uses DuckDB for compact coordinate checks and binary frame ordering. Ordered folds consume the
-existing canonical record frames and binary part buffers. The keyed store and per-family oracle
+existing canonical record frames and per-part bytes extracted from typed storage. The keyed store and per-family oracle
 capture replace the PDF SQLite and JSON row stores. The protected PostgreSQL pages and both
 companion export routes carry part bodies in a binary column on the
 [development successor](cutover-and-qualification.md#native-revisions). Formula outcome,
@@ -553,9 +553,37 @@ logical and stream commitments, sealed a different native build and reopened all
 The original provider attempt failed at the fixture's generic lowering basis. The retry changed
 that fixture, and the provider coverage view accounts for all three originally selected identities.
 
-**Development acceptance · Passed · 2026-11-24.** `uv run ci test --native-host private
+**Installed controls · Passed by selected identity · 2026-11-24.** `uv run ci test --native-host private
 --workers 1` on the final source passed forced validation with the captured schema and policy,
 genuine Standard and recognition reuse after policy remap, and historical authorization after
 generation advance and withdrawal (`8dd7a7bfd13241d9bba9a3fa92589a42`, selected PDF identities).
-Together with genuine recovered adoption and the installed binary export controls, this closes
-SBX-17 for development.
+
+<a id="sbx-17-o09"></a>
+**O09 · Open · Inspected · 2026-11-24.** Both companion export and detached logical readback
+call `LogicalRows.write`, which still converts individual Arrow scalars and resolves key columns
+inside the row loop. Prepare logical values and key columns once per typed batch and keep the
+existing ordered, length-framed canonical encoder. Establish independent mixed-type digest
+parity across export and detached readback, preserving key refusal and batch invariance.
+[Logical row encoder](../../../python/corpus-structure/src/corpus_structure/semantic/capture_storage.py#L56) ·
+[Export and readback](../../../python/corpus-structure/src/corpus_structure/serve/companion_export.py#L194)
+
+<a id="sbx-17-a1"></a>
+**SBX-17-A1 · Open · Inspected · 2026-11-24.** The keyed store still copies each Arrow binary
+scalar to Python `bytes` when certification and independent validation read it. Pass owned
+Arrow buffer views through per-part authentication and the ordered stream fold. Preserve exact
+part, stream and logical commitments, including streams spanning canonical block boundaries,
+and release the mapped buffers on completion and early stop. Verify shared and unreferenced
+streams on this certifier path. Genuine recovered adoption establishes parity on the existing
+typed path. The [selected oracle's allocation](kernel-trial.md#sbx-18-a1) is shared work owned
+by SBX-18.
+[Part lookup](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_payload_validation.py#L294) ·
+[Canonical byte fold](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_record_identity.py#L79)
+
+<a id="sbx-17-a2"></a>
+**SBX-17-A2 · Open · Inspected · 2026-11-24.** Certification reconstructs Python row values
+and encodes frames before DuckDB sorts them. Prepare values by column using the captured model
+where compatible with exact normalization. Keep the canonical frame encoder and ordered fold.
+Use independent expected bytes for absent and null fields, exponent-spelled floats and
+non-ASCII keys under the captured lowering.
+[Native identity inputs](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_certification.py#L228) ·
+[Frame preparation](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_certification.py#L308)

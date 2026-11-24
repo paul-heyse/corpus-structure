@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-24. Development acceptance through SBX-19 is complete on `semantic_sbx_pdf_binary_rows`. The scoped-relations trial adopted the typed DuckDB route._ [Plan disposition](docs/plans/set-based-execution_2026-11-21.md) · [Development revision](docs/plans/set-based-execution/cutover-and-qualification.md#native-revisions)
+_Updated 2026-11-24. Development runs `semantic_sbx_pdf_binary_rows`. The completion audit reopened SBX-17–19 for outstanding implementation and qualification. The typed DuckDB scoped-relations route is adopted._ [Completion audit](docs/plans/set-based-execution_2026-11-21.md#completion-audit) · [Development revision](docs/plans/set-based-execution/cutover-and-qualification.md#native-revisions)
 
 ## Current owners
 
@@ -24,5 +24,6 @@ _Updated 2026-11-24. Development acceptance through SBX-19 is complete on `seman
 
 ## Remaining scope
 
+- [SBX-17](docs/plans/set-based-execution/pdf-path.md#sbx-17-o09) retains the PDF live-buffer and column preparation work. [SBX-18](docs/plans/set-based-execution/kernel-trial.md#remaining-sbx-18-completion-obligations) retains analytical custody and native draft failure handling and qualification. [SBX-19](docs/plans/set-based-execution/kernel-trial.md#remaining-sbx-19-completion-obligations) retains single acquisition, the remaining relational batches and complete-route qualification.
 - Stage installation belongs to [SBX-20](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-20). The final retirement and whole-book campaign belongs to [SBX-21/22](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-21).
 - The full repository-wide `uv run ci test` campaign is `not_run` at this checkpoint. The [older interrupted campaign](docs/plans/set-based-execution/cutover-and-qualification.md#sbx-09-qualification-pause) retains its original results and staged fixture custody.

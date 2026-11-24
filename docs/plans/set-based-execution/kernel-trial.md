@@ -1,6 +1,6 @@
 # The kernel trial
 
-**Status:** Complete for development. Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
+**Status:** SBX-18 and SBX-19 have open completion obligations. The typed scoped-relations route is adopted. Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
 This companion owns one kernel family rebuilt as set operations over tables, as a trial that
@@ -399,9 +399,9 @@ enters the existing scope and decision route before execution.
 
 ## SBX-18 and SBX-19 implementation checkpoint
 
-**Implemented · 2026-11-24.** The request reservation includes analytical workspace. The
-allocation and captured settings follow computation through parent callbacks, relay steps and
-CPU dispatch. Worker resources bound DuckDB threads, buffer memory and private spill. The
+**Implemented · 2026-11-24.** The demand request reservation includes analytical workspace. The
+allocation and captured settings follow its parent callbacks, relay steps and CPU dispatch.
+Admitted worker resources bound DuckDB threads, buffer memory and private spill. The
 connection owns incremental readers and observes cancellation before releasing scratch.
 
 The selected physical cohort path shares projection, ordering and result setup across compatible
@@ -426,11 +426,11 @@ population draft and PostgreSQL COPY/readback. The same receipt
 Siegrist excerpts with authored HTML coordinates. The independent PDF identity in that receipt
 failed at its fixture's lowering contract and retains its own retry in SBX-17.
 
-The installed serial cohort `8dd7a7bfd13241d9bba9a3fa92589a42` passed the final two-job control.
-One worker held a partially consumed Arrow reader over actual DuckDB spill. Cancellation
-interrupted its sibling while the first reader remained open and then closed normally. Both
-workers retired their resources and returned their reservations. The same cohort passed the fresh Standard child
-check and the typed and bound-SQL window comparison.
+The installed serial cohort `8dd7a7bfd13241d9bba9a3fa92589a42` passed the two-subprocess
+control. One worker held a partially consumed Arrow reader over actual DuckDB spill. A
+cancellation flag interrupted its sibling while the first reader remained open and then closed
+normally. The test directly submits workers and returns their admissions. The same cohort
+passed the fresh Standard child check and the typed and bound-SQL window comparison.
 
 **SBX-19 trial · Tested · 2026-11-24.** The candidate uses one invocation-owned analytical
 inventory for range membership, table geometry, caption counts, prior declarations and witness
@@ -447,12 +447,87 @@ reached scoped publication and contribution selection. The fixture corrections s
 required artifact policy and bound the actual source member with its product. The final case
 checks both bindings against the published result.
 
-**Decision · Adopt · 2026-11-24.** Keep one typed DuckDB route for scoped relations. Preparing
-the admitted inventories once removes repeated source, table and formal lookups across the
-kernel. Range joins, grouped matches and explicit ordinal windows preserve the Python seam's
-identity, ordering and witness semantics through the published consumer. The independent book
-and installed comparisons support that choice. Keep PostgreSQL selection and transactional
+**Decision · Adopt · 2026-11-24.** Keep one typed DuckDB route for scoped relations. The
+implemented range joins, grouped matches and explicit ordinal windows batch the questions
+they serve. The fixture comparisons and installed artifact path support that choice. Keep
+Python's lexical and identity semantics, PostgreSQL selection and transactional
 publication and use whole-source premises for the trial. The current acquired transfer already
 supplies the required columns, so this path keeps its existing transfer and typed authoring.
 Predicate evidence is the next family to consider where a distinct trial of retained token
 partitions is scheduled through the existing decision route. SBX-20 retains stage installation.
+
+### Remaining SBX-18 completion obligations
+
+<a id="sbx-18-a1"></a>
+**SBX-18-A1 · Open implementation · Inspected · 2026-11-24.** Selected PDF source verification
+runs its oracle after closing the checkout with no analytical allocation. The child maps the
+captured IPC and uses the unallocated DuckDB connection, which lacks the job spill ceiling.
+Give this supported entry point an owned allocation for captured inputs, mapped buffers,
+engine workspace and spill through child exit. Its private mapped replay copy is created in
+child-owned temporary storage outside the job scratch. Keep that storage in parent-owned
+custody so forced child exit can release it. Verify release after success and cancellation.
+[Selected source verification](../../../python/corpus-structure/src/corpus_structure/serve/source_verification.py#L27) ·
+[Oracle spawn](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_publication.py#L404) ·
+[Private replay copy](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_replay_transport.py#L42) ·
+[Connection resource policy](../../../python/corpus-structure/src/corpus_structure/analytics.py#L274)
+
+<a id="sbx-18-a2"></a>
+**SBX-18-A2 · Open implementation and qualification · Inspected · 2026-11-24.** A stop or
+failure after the draft owner installs `.body`, `.arrow` and `.candidate` but before `.ack`
+can strand the files. The writer's cleanup removes the temporary path and candidate recovery
+requires an acknowledgment. Settle ownership and cleanup across the pre-ack seal, preserving
+the original bytes after a durable seal or uncertain native settlement. Carry borrower stop
+through the private upload copy and native COPY. These operations currently have no propagated
+active check. The native sentence case covers successful file-backed COPY and exact readback.
+Close I05 and I13 with the adopted
+carrier through the native consumer, including short or partially consumed readers, incomplete
+writes or seals, oversized refusal, cancellation and lost acknowledgment followed by recovery.
+Keep the existing independent byte and commitment checks.
+[Draft seal](../../../python/corpus-structure/src/corpus_structure/semantic/completion_drafts.py#L293) ·
+[Candidate lookup](../../../python/corpus-structure/src/corpus_structure/semantic/completion_drafts.py#L384) ·
+[Transactional COPY consumer](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py#L1457)
+
+**I14 · Open qualification · Inspected · 2026-11-24.** The two-worker control calls the pool
+directly, sets the cancellation flag and releases the admissions itself. Exercise serial and
+concurrent analytical jobs through normal dispatch, cancellation and handle retirement with
+actual spill or substantial sealed output and a partial reader. Verify that open readers,
+mapped inputs, scratch and reservations remain owned until physical release or handoff.
+[Two-worker control](../../../python/corpus-structure/tests/test_analytics.py#L154) ·
+[Production submission](../../../python/corpus-structure/src/corpus_structure/semantic/cpu_execution.py#L1104)
+
+<a id="sbx-18-o10"></a>
+**O10 · Open qualification · Inspected · 2026-11-24.** The selected cohorts cover typed
+ordering, wide integer and canonical partition parity. Separate Arrow capture and transfer
+controls cover nanoseconds and decimal values. Account for admitted mixed precision and scale,
+wider lexical decimals, UTC nanoseconds and null versus absence on the adopted worker and
+carrier boundaries, including exact refusal where values fall outside the declared shape.
+[Canonical parity control](../../../python/corpus-structure/tests/semantic/test_data_operation_population.py#L190) ·
+[Capture digest control](../../../python/corpus-structure/tests/semantic/test_capture_storage.py#L12)
+
+### Remaining SBX-19 completion obligations
+
+<a id="sbx-19-a1"></a>
+**SBX-19-A1 · Open implementation · Inspected · 2026-11-24.** The installed operation still
+acquires its source mapping twice. The source cache computes its canonical key before lookup,
+and the frame serializes and decodes owned native columns before rebuilding a separate
+inventory. Reuse one authenticated acquisition for the frame and model-derived inventory.
+Batch the remaining per-item containment, table geometry and schematic matching, and
+same-parent formal-symbol questions. The supported method-level ordered witness also
+re-scans sibling and cue inputs per use. Retain lexical judgments and canonical identity in
+the Python seam. State the final named steps and preserve occurrence, extent, null and ordering
+semantics.
+[Acquisition](../../../python/corpus-structure/src/corpus_structure/semantic/scoped_products.py#L126) ·
+[Frame projection](../../../python/corpus-structure/src/corpus_structure/semantic/declared_record_sources.py#L192) ·
+[Structural matches](../../../python/corpus-structure/src/corpus_structure/methods/scoped_relations.py#L672) ·
+[Ordered witness](../../../python/corpus-structure/src/corpus_structure/methods/witnessed_source_links.py#L466)
+
+**I06 · Open qualification · Inspected · 2026-11-24.** The four retained excerpts compare full
+report bytes with independent answers for the replaced question layer, using the same surrounding
+kernel. The installed fixture verifies the acquisition-to-artifact custody with controlled
+decoding and a table nomination. Complete the accepted acquired-route comparison on the final
+batched kernel. Include real-source inputs and the installed SBX-10 formula contexts with
+independent incumbent expectations for report bytes and exact reference provenance. Cover the
+remaining named steps and apply the production job lifetime and selected artifact controls to the
+completed route.
+[Reference comparison](../../../python/corpus-structure/tests/methods/test_scoped_inventory.py#L281) ·
+[Installed artifact control](../../../python/corpus-structure/tests/semantic/test_scoped_relational_trial_native.py#L93)
