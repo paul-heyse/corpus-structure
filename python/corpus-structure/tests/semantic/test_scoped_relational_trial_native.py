@@ -349,7 +349,7 @@ def test_genuine_selected_pdf_scoped_report_publishes_and_reopens(scenario_seeds
 
     recipe, assets = prepared_pdf_resume_assets()
     with pdfium.PdfDocument(ORIGINAL) as retained, pdfium.PdfDocument.new() as panel:
-        panel.import_pages(retained, [120])  # Physical page 121 preserves a nonempty math source.
+        panel.import_pages(retained, [118])  # Physical page 119 carries one short figure caption.
         output = BytesIO()
         panel.save(output)
     capture_recipe = current_pdf_recipe(
@@ -363,7 +363,7 @@ def test_genuine_selected_pdf_scoped_report_publishes_and_reopens(scenario_seeds
             tmp_path,
             (),
             original=output.getvalue(),
-            source_uri="retained-grinstead-snell-page-121.pdf",
+            source_uri="retained-grinstead-snell-page-119.pdf",
         )
         source = CurrentPdfSource(capture, demand, document, original, ())
         kernel = admit_current_target(
@@ -374,6 +374,7 @@ def test_genuine_selected_pdf_scoped_report_publishes_and_reopens(scenario_seeds
         assert execution.receipt_count > 0
         (report,) = selected(kernel, scoped_demand["demand_id"], kind=SCOPED_KIND)
         (selected_source,) = selected(kernel, scoped_demand["demand_id"], kind=SOURCE_KIND)
+        assert "triangle" in selected_source.body["text"].casefold()
         assert report.body["source_pin"]["source_product"] == selected_source.row["product_id"]
         with kernel.purpose("read").begin() as connection:
             answer = read_selected_answer(

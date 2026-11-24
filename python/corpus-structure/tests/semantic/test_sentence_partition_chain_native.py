@@ -359,6 +359,7 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
         native_retain = NativeDemandClaims.retain
         interrupted_uploads = []
         uploaded_rows = []
+        replaying_interrupted_upload = False
 
         def interrupt_first_copy(connection, profile, *, batches, cancellation=None, **options):
             def observed_batches():
@@ -375,12 +376,17 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
             return native_copy(
                 connection,
                 profile,
-                batches=observed_batches(),
+                batches=(
+                    observed_batches()
+                    if not interrupted_uploads or replaying_interrupted_upload
+                    else batches
+                ),
                 cancellation=cancellation,
                 **options,
             )
 
         def retry_cancelled_upload(owner, claim, callback, **options):
+            nonlocal replaying_interrupted_upload
             try:
                 return native_retain(owner, claim, callback, **options)
             except DatabaseOperationCancelled:
@@ -391,9 +397,11 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
                 engine = owner.owner.engine
                 lost_reply = LostCommitResponses(engine, 1)
                 owner.owner.engine = lost_reply
+                replaying_interrupted_upload = True
                 try:
                     result = native_retain(owner, claim, callback, **options)
                 finally:
+                    replaying_interrupted_upload = False
                     owner.owner.engine = engine
                 assert lost_reply.remaining == 0
                 assert draft.population_upload.path.read_bytes() == original
