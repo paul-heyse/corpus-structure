@@ -632,10 +632,88 @@ eight selected identities. Its retained-pin case carried the original pin across
 without producing a hidden substitute. The two-slot source case kept proof selection
 role-local while preserving the original reuse basis.
 
-Physical attribution under sparse header filters and broad descendant scans still requires a
-representative installed plan. Finite consumers that still depend on a live borrowed reader
-retain that snapshot. Combined native acceptance still needs the protected partition case and
-governed coverage across distinct original source roles.
+**Implemented · 2026-11-24.** The cut-only native entry point acquires the exact selection
+without assembling an output answer. Source catalog and selected contribution readers use
+it. Output paging charges visits to raw output prefixes and selects member addresses before
+hydrating bodies. A requested list of kinds merges bounded per-kind seeks into the existing
+member order. The proof reader supplies the declared input reads when interpreting an observed
+premise and still binds establishments to the exact eligible use.
+
+Structural archive export commits its native acquisition before detached verification and
+publication. A paused detached iterator remains bound to its authenticated files and expires
+when the reader closes. Selected-reference evaluation scores after its acquisition commits,
+using finite Arrow batches for assigned annotation blocks. An annotation witness discovered
+later opens a separate exact-item read on the already pinned prediction cut. The report
+comparison and dossier routes acquire authoritative inputs before deriving their pages.
+
+The dossier's process cache uses a separately authenticated, deterministic row projection.
+The selected whole-product address binds the admitted body and nominal contract. The cache
+also binds captured interpretation, exact producing provenance, principal, and population.
+Each live call authorizes the current native dependencies before lookup. Hits skip row
+normalization and assembly. Detached and oversized reads prepare their requested ordinal
+window and one lookahead without filling the cache.
+
+The first focused test receipt `a18da117e06c467cbffcdefe8c1370d8` retained source
+custody and transaction-fixture failures. Its stable follow-up `0324d5091d7f4a5695489f262325905e`
+passed 93 selected identities. Three malformed-PDF fixture failures are retained under
+[the PDF owner](pdf-path.md#sbx-through-16-checkpoint).
+
+**Tested by selected identity · 2026-11-24.** Private serial cohort
+`5bcb1a72804b4b289795d7ae519f8e19` passed protected partition readback, typed
+archive identity and interruption including pathname replacement during a scan, and
+refusal of event publication after the issuer support was withdrawn at effect time.
+`uv run ci results recover` recovered the settled cohort after the private host drained.
+The original failures retain the statement statistics transaction, pre-binding freshness
+expectation, and two visual fixture custody issues.
+
+**Measured on the selected characterization fixture · 2026-11-24.** The installed
+read-attribution case in private cohort `19860af5ab74476d9d44ee8255fb622d` measured one
+statement per committed shape. Database and end-to-end elapsed milliseconds were
+31 / 33 for cut-only acquisition, 148 / 234 for the first whole-body page, 44 / 46 for
+continuation, 132 / 176 for the same-budget repeat, 79 / 81 for the lower-budget
+refusal, and 33 / 35 for the exact member. The database-scoped counters were read
+after each commit. Elapsed time includes client handling and commit. The database totals
+combine nested body examination and JSON serialization. Investigate those branches when the
+retained route shows a material cost on a larger selected population. The cohort also passed
+distinct-original governed role binding and Pending-to-Fresh settlement across both enrolled
+sources while unrelated obligations stayed unfinished.
+
+**Tested by selected identity · 2026-11-24.** The recovered provider cohort
+`1d39812b1acb4c4aaf67dcea6908edd1` passed the genuine annotation and canonical chain
+with the observed premise and exact producing use. The candidate-conditioned D1 fixture
+passed live execution, selected export and exact detached replay. It spent 5.0 seconds in
+export and 38.0 seconds in detached verification and replay. Export used one native staging
+call taking 0.61 seconds and 28 fetches taking 0.44 seconds in total. Its native setup and
+provider execution took 279.9 and 254.5 seconds respectively.
+
+The same provider cohort exposed an exact-header acquisition gap before reference
+authorship. General archive records and typed population fragments have distinct routes.
+Authorship and late witnesses now acquire exact partition headers under their pinned native
+cut and use. Scoring reads the header and items from its authenticated typed population
+handle, supplying only the assigned Arrow batches to the detached computation.
+
+**Tested by selected identity · 2026-11-24.** Genuine whole-block scoring passed
+`b4266ce9474f45b9a1fd1fbf0bfc913a` through independent authorship, native snapshot
+publication, separate original/reference/prediction cuts, and evaluation over acquired
+annotation batches. It checked the exact token score, an uninspected question, unavailable
+categories, and refusal of a substitute partition. The first retry
+`3faacfd6a4a84e4ca52548d756a82858` reached the positive score and exposed cleanup after a
+failed acquisition. Failed acquisition now closes its native archive within the transaction.
+Successful acquisition transfers ownership of its Arrow facts to scoring.
+
+The private host now cleans recognized scratch after confirming the host and its children
+drained for either a passing or ordinarily failed pytest run. The original interrupted and
+failed receipts remain available. The process controls and the native run
+`eb886689fe7c4f2abe2f16f50f31526a` verified that an ordinary test failure reports its
+settled outcome directly.
+
+**Tested by selected identity · 2026-11-24.** Native dossier acceptance passed in
+`123fbecd16c1411fbf08737cc6969726`. A fresh cut and withdrawal in an independent project
+each served the same authorized cached rows. Withdrawal of the dossier's own issuer
+caused the live read to report unavailable, and the earlier detached reviews remained
+verifiable. The earlier same-project control `6d8f467315b04b86b4432914b1005367` reached
+the controlled inventory's conservative project validity rule and kept its refusal.
+That fixture's absent validity declaration makes every trust epoch in its project relevant.
 
 <a id="sbx-12"></a>
 ## SBX-12 — Replay, export, cursor and cache

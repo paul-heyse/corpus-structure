@@ -228,11 +228,12 @@ fixture is built with a policy that differs.
 <a id="sbx-15"></a>
 ## SBX-15 — Access columns derived at publication
 
-**Owns.** The derivation program, sparse read projections, the reduced checker, the region view,
-staging of the JSON copy alone, and the pure document-to-items function for validators.
+**Owns.** The derivation program, sparse read projections, the reduced checker, compact region
+addresses and their geometry view, staging of the JSON copy alone, and the pure
+document-to-items function for validators.
 
-**Removes.** Column staging and its row equality; the checker's column, ordinal, section and
-region sections; the stored region table.
+**Removes.** Column staging and its row equality, the checker's column, ordinal, section and
+region sections, and the separately stored region geometry.
 
 **Evidence.** For the fixtures, derived columns equal the columns published today, row for row.
 A staged JSON copy that disagrees with the rows is refused as now. Region reads by pointer and
@@ -440,12 +441,50 @@ organization and enrichment publication-seal checks and the four enrichment cont
 on the same worker. It also passed exact materialization bounds for a small source and
 refusal of an oversized selected source before reading body rows.
 
-The enrichment parent uses one independently validated source and the draft's validated
-output document for its coverage calculation. The installed parent control saw one
-successful output callback validation through lowering and certification. The worker's
-pinned tree finalization pass still normalizes geometry after enrichment. The complete
-worker and child validation counts and the representative combined visual evidence case
-retain separate acceptance.
+**Implemented · 2026-11-24.** The publication draft owns the sealed typed document through
+Organization, enrichment and lowering. The enrichment worker normalizes only new formula
+provenance after computing with the original crop and returns only the candidate page changes.
+The parent retains its original admission for unchanged candidate pages. Recovered or received
+candidate IPC bytes must establish complete page admission before projected kernel reads. Both
+projected and full readers verify the embedded physical page against the requested address.
+
+The installed compact region table binds item pointer, physical page and original provenance
+ordinal. Its view takes geometry from the admitted native record at that exact ordinal. Visual
+inspection uses the same page-addressed rows for its bounded incumbent summary and joins.
+The [registered successor](cutover-and-qualification.md#native-revisions) owns the physical
+schema. The first focused run `0324d5091d7f4a5695489f262325905e` retained three
+malformed-input fixture setup failures. The updated fixtures enter the finite reader before
+asserting refusal of a cycle, missing ordinal or incompatible membership inventory.
+
+**Tested by selected identity · 2026-11-24.** The recovered private serial cohort
+`5bcb1a72804b4b289795d7ae519f8e19` passed the three malformed-input controls, native
+Organization, enrichment and Integration, the captured-policy validation child, atomic
+different-build adoption and byte-retaining recertification, and the native PDF policy-only
+reuse and historical withdrawal controls. Two visual cases needed the controlled Standard
+input to stay within fixture custody through the new visual demand. The genuine visual
+canary uses retained incumbent page-151 records under that custody, the exact original PDF,
+a real render, pinned Chandra inference, native mapping, and a selected read.
+
+**Tested by selected identity · 2026-11-24.** Both genuine Docling recovery cases passed in
+`1d39812b1acb4c4aaf67dcea6908edd1`, including the selected-file producer contract.
+They restored page 121, computed pages 120 and 122, and reproduced the same spool records.
+Projected status and geometry agreed. The recovered candidate measured 27,488 bytes for the
+authenticated IPC stream and 33,522 bytes for the file layout. The first genuine Chandra run
+produced two located four-by-four tables on page 151. Its installed readback fixture used an
+operation-only cut and omitted selected visual evidence. The revised fixture selects the
+capture by kind within the original-source cut and retains both operations in that cut.
+
+**Tested by selected identity · 2026-11-24.** Provider retry
+`3faacfd6a4a84e4ca52548d756a82858` passed the Grinstead–Snell page 151 render,
+pinned Chandra inference, mapping, and exact installed readback. The controlled incumbent
+contributed one table, two captions and four formulas. The selected Chandra artifact
+contributed two located four-by-four tables with recognition-candidate standing and
+exact raw producer attribution.
+
+The ordinary native visual failure case passed in `eb886689fe7c4f2abe2f16f50f31526a`,
+including exact retained attempt attribution and CLI delivery. The combined formula
+and visual case passed in `6d8f467315b04b86b4432914b1005367`, through the same source
+cut, physical page, pointer, provenance ordinal, and canonical coordinate representation.
 
 <a id="sbx-17"></a>
 ## SBX-17 — Certification and validation without round trips

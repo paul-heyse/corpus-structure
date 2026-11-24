@@ -1250,6 +1250,18 @@ JSONB. Preview `fdbd28256ef74f25b1dfc4a2ebe9c7c6`, rollback-only candidate
 `48254c3778c44d9c83fb6609e07756f1`, registration `0e257063bbea45e5919f754f030ff7f0`
 and development deployment `5073f98968cc4a08806119b66b4f3b52` passed.
 
+**Installed · 2026-11-24.** Development runs `semantic_sbx_read_visual_bounds`. The
+successor adds the compact PDF region addresses, ordered member-kind index and cut-only
+read acquisition, and updates proof and selected-answer programs. The candidate contained
+19 native operations, three ordinary operations and one privilege operation. The database
+contained no PDF access rows at deployment, so the region address table starts empty.
+Preview `8f346f2182294469ab026c2506b4ec3f`, rollback-only candidate
+`cfbc6545a5dc40d882bce2f7f5e56a69`, registration `aa9e98ce3bef4996aca3bfe3a4bb2311`,
+and deployment `80af79f0728849dd89d68adb8b735406` passed. The first preview applied a
+generated typed-column fingerprint change (`9b7d67ef20854221bedeebc9b03bd53e`). The
+initial candidate `d8d7fe9315404a54a3299129a06c53da` refused after working-tree source
+changed during authoring. The passing candidate followed source stabilization.
+
 Start the attribution comparison early using the existing candidate inspection views. Compare
 a read implementation change, a wire-only change and a material producer lowering against their
 exact predecessors. Within PDF, distinguish transformed publication from a genuinely shared
