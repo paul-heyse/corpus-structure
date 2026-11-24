@@ -217,3 +217,37 @@ def test_current_uncertain_publication_keeps_exact_callback_and_recovers_native_
             )
             == 1
         )
+
+
+def test_retained_upload_stop_interrupts_its_live_transaction_and_releases_borrower(ddo_kernel):
+    from concurrent.futures import ThreadPoolExecutor
+    from contextvars import copy_context
+
+    from corpus_structure.core.execution_control import ExecutionStopRequest, execution_stop_scope
+    from corpus_structure.orchestrate.native_demand_io import NativeDemandClaims
+
+    owned, _, _ = acquired(ddo_kernel)
+    owner = ClaimOwner(ddo_kernel["engine"], (owned,), "owner", DatabaseSettings(), lambda: None)
+    claims = NativeDemandClaims(owner)
+    entered = Event()
+    stop = ExecutionStopRequest()
+
+    def blocked(calls):
+        entered.set()
+        calls.connection.execute(text("SELECT pg_sleep(30)"))
+        pytest.fail("managed cancellation must interrupt the live database borrower")
+
+    with execution_stop_scope(stop):
+        context = copy_context()
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(context.run, claims.retain, owned, blocked, cancel_on_stop=True)
+            assert entered.wait(10)
+            stop.requested.set()
+            with pytest.raises(DBAPIError) as stopped:
+                future.result(timeout=10)
+            assert getattr(stopped.value.orig, "sqlstate", None) == "57014"
+    assert stop.draining.is_set()
+    # This checkout succeeds after the cancelled borrower's registration has retired.
+    with ddo_kernel["engine"].begin() as connection:
+        assert connection.scalar(text("SELECT 1")) == 1
+    assert owner.active and not owner.uncertain
