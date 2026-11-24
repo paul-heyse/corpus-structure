@@ -53,7 +53,11 @@ class NativeDemandClaims:
             claim, lambda connection: callback(DataOperationStorage(connection))
         )
 
-    def retain(self, claim, callback):
+    def retain(self, claim, callback, *, cancel_on_stop=False):
+        if not cancel_on_stop:
+            return self.owner.retain(
+                claim, lambda connection: callback(DataOperationStorage(connection))
+            )
         from corpus_structure.core.db.lifetime import BorrowerCancellation
         from corpus_structure.core.execution_control import check_execution_active
 
@@ -80,9 +84,9 @@ class NativeDemandClaims:
                 lambda connection: callback(DataOperationStorage(connection, cancellation=cancellation)),
                 cancellation=cancellation,
             )
-        except BaseException:
-            if failures:
-                raise failures[0]
+        except BaseException as error:
+            for failure in failures:
+                error.add_note("retention stop requested: " + repr(failure))
             raise
         finally:
             done.set()

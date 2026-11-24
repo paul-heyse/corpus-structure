@@ -375,9 +375,9 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
                 connection, profile, batches=observed_batches(), cancellation=cancellation, **options
             )
 
-        def retry_cancelled_upload(owner, claim, callback):
+        def retry_cancelled_upload(owner, claim, callback, **options):
             try:
-                return native_retain(owner, claim, callback)
+                return native_retain(owner, claim, callback, **options)
             except DatabaseOperationCancelled:
                 # A known rollback retries the exact callback and its already sealed draft.
                 (draft,) = population_drafts
@@ -386,7 +386,7 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
                 lost_reply = LostCommitResponses(engine, 1)
                 owner.owner.engine = lost_reply
                 try:
-                    result = native_retain(owner, claim, callback)
+                    result = native_retain(owner, claim, callback, **options)
                 finally:
                     owner.owner.engine = engine
                 assert lost_reply.remaining == 0

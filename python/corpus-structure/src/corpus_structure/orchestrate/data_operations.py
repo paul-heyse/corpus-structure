@@ -1353,7 +1353,8 @@ class NativeDemandExecutor:
                 )
             return calls.retain_data_completion_intent(request)
 
-        return _RetainedAnswer(owner.retain(claim, retain)["intent_id"], draft)
+        options = {"cancel_on_stop": True} if profile is not None else {}
+        return _RetainedAnswer(owner.retain(claim, retain, **options)["intent_id"], draft)
 
     def _publish_fresh(self, ready, claim, retained, owner, physical):
         receipt = self._publish(claim, retained.intent_id, owner)
@@ -1436,7 +1437,8 @@ class NativeDemandExecutor:
                     )
 
                 try:
-                    return owner.retain(claim, consume)["intent_id"]
+                    options = {"cancel_on_stop": True} if draft.population_upload is not None else {}
+                    return owner.retain(claim, consume, **options)["intent_id"]
                 except DBAPIError as error:
                     if getattr(error.orig, "sqlstate", None) not in {"P0001", "P0002", "23514"}:
                         raise
