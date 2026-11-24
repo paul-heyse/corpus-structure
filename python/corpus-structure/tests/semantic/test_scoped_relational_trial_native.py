@@ -33,7 +33,7 @@ SOURCE_KIND = "https://corpus-structure.dev/semantic/data-operation-source/DdoSe
 CONSTRUCTION_KIND = "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct"
 
 
-def scoped_artifact_content():
+def scoped_artifact_content(*, formulas=False):
     from docling_core.types.doc import (
         BoundingBox,
         DocItemLabel,
@@ -87,19 +87,48 @@ def scoped_artifact_content():
         ),
     )
     table.captions.append(caption.get_ref())
-    return ControlledPdfContent.from_document(document)
+    outcomes = []
+    if formulas:
+        from corpus_structure.ingest.pdf_health import FormulaOutcome
+        document.add_text(label=DocItemLabel.TEXT, text="Let x be count.", orig="Let x be count.", parent=group)
+        formula = document.add_text(label=DocItemLabel.FORMULA, text="x+x=2", orig="x+x=2", parent=group)
+        outcomes.append(FormulaOutcome(formula.self_ref, "succeeded"))
+    return ControlledPdfContent.from_document(document, formula_outcomes=tuple(outcomes))
+
+
+def scoped_math_artifact_recipe(directory):
+    from dataclasses import replace
+    from semantic.current_artifact_support import ROOT
+    from semantic.data_operation_kernel_support import CapturedKernelInputs, split_captured_operations
+    from corpus_structure.semantic.composed import data_operation_dependencies
+    from corpus_structure.semantic.construction_products import load_construction_options
+    from corpus_structure.semantic.declared_math_analysis import math_analysis_declarations, math_analysis_operation_sources
+    from corpus_structure.semantic.declared_math_products import DeclaredMathOptions, math_operation_declarations, math_operation_sources
+    from corpus_structure.semantic.primary_operations import combine_primary_sources
+    base = artifact_recipe(directory)
+    captured = base.captured_inputs
+    dependencies, declarations, sources = split_captured_operations(captured)
+    options = DeclaredMathOptions(math_scope_binders=load_construction_options(ROOT / "domains/statistics").math_scope_binders)
+    sources = combine_primary_sources(sources, math_operation_sources(options), math_analysis_operation_sources(options))
+    dependencies = data_operation_dependencies(dependencies, (*declarations, math_operation_declarations(), math_analysis_declarations()), sources)
+    return replace(base, captured_inputs=CapturedKernelInputs(captured.bundle, dependencies, captured.profile))
 
 
 def test_current_scoped_relations_publish_nomination_and_reopen_exact_artifact_consumer(
     scenario_seeds, tmp_path
 ):
     with _current_pdf_source(
-        scenario_seeds, tmp_path, content=scoped_artifact_content(), sections=("#/groups/0",)
+        scenario_seeds, tmp_path, content=scoped_artifact_content(formulas=True), sections=("#/groups/0",), math_context=True
     ) as source:
         kernel = admit_current_target(
-            source, artifact_recipe(tmp_path / "recipe"), tmp_path / "consumer"
+            source, scoped_math_artifact_recipe(tmp_path / "recipe"), tmp_path / "consumer"
         )
-        pending = current_consumer_request(source, kernel, (SCOPED,), discover=True)
+        pending = current_consumer_request(source, kernel, (SCOPED, "analyze.math/lexical", "resolve.symbol_scope/declared"), discover=True)
+        from corpus_structure.orchestrate.source_operation import _default_profile_source_sets
+        graph = kernel.model.projection_graph("selected-dependencies", selected_dependencies=tuple((selection.operation, selection.selected_dependencies) for selection in pending.selections))
+        requested = set(pending.targets) | {operation for selection in pending.discovery for operation in (selection.producer, selection.target)}
+        closure = requested.union(*(graph.closure((operation,)) for operation in requested))
+        pending = pending.model_copy(update={"source_sets": {**_default_profile_source_sets(kernel.model, closure), **pending.source_sets}})
         selections = {value.operation: value for value in pending.selections}
         selections[SCOPED] = DemandOperationSelection(
             operation=SCOPED, parameters={"source_work": "controlled-book"}
@@ -111,6 +140,8 @@ def test_current_scoped_relations_publish_nomination_and_reopen_exact_artifact_c
         (original,) = selected(kernel, scoped_demand["demand_id"], kind=SOURCE_KIND)
         (construction,) = selected(kernel, scoped_demand["demand_id"], kind=CONSTRUCTION_KIND)
         contributions = candidate_member_values(scoped.body, candidate_type="contribution")
+        assert any(source_python(row.get("value", {})).get("role") == "formula_symbol" for row in contributions)
+        assert any(row.get("component", {}).get("attachment_kind") == "declares" for row in contributions)
         (nomination,) = [
             row
             for row in contributions

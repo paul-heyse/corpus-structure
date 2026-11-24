@@ -9,20 +9,12 @@ from collections import defaultdict
 from contextlib import AbstractContextManager
 
 import pyarrow as pa
+import pyarrow.compute as pc
 from duckdb import col, count_all, fn, lit, star
 
 from corpus_structure.analytics import connection
 from corpus_structure.methods.source_preparation import NativeTableTarget
 
-_PIECE_SCHEMA = pa.schema(
-    [
-        ("piece_ordinal", pa.int64()),
-        ("pointer", pa.string()),
-        ("start", pa.int64()),
-        ("end", pa.int64()),
-        ("native_text", pa.bool_()),
-    ]
-)
 _EXTENT_SCHEMA = pa.schema(
     [("extent_ordinal", pa.int64()), ("start", pa.int64()), ("end", pa.int64())]
 )
@@ -40,32 +32,42 @@ _CELL_SCHEMA = pa.schema(
 )
 
 
+def source_piece_schema(prepared):
+    """Project the admitted native-piece declaration; analytical ordinals stay local."""
+    fields = {prop.name: prop for prop in prepared.index.definitions["DdoNativeSourcePiece"].properties}
+    types = {"kind": pa.string(), "item_ref": pa.string(), "start": pa.int64(), "end": pa.int64()}
+    result = []
+    for name, physical in types.items():
+        prop = fields[name]
+        expected = "integer" if pa.types.is_integer(physical) else "string"
+        if prop.multivalued or prop.range != expected:
+            raise ValueError("native piece declaration differs from its analytical field " + name)
+        result.append(pa.field(name, physical, nullable=not prop.required))
+    return pa.schema(result)
+
+
 class ScopedInventory(AbstractContextManager):
     """One analytical connection and one acquired population per source invocation."""
 
-    def __init__(self, pieces, selected_ranges):
+    def __init__(self, pieces, selected_ranges, *, piece_schema=None):
         self._context = connection()
         self._original_pieces = tuple(pieces)
         self._selected_ranges = selected_ranges
+        self._piece_schema = piece_schema
 
     def __enter__(self):
         self.engine = self._context.__enter__()
         try:
-            source = self.engine.from_arrow(
-                pa.Table.from_pylist(
-                    [
-                        dict(
-                            piece_ordinal=index,
-                            pointer=piece.get("item_ref"),
-                            start=piece["start"],
-                            end=piece["end"],
-                            native_text=piece.get("kind") == "native_text",
-                        )
-                        for index, piece in enumerate(self._original_pieces)
-                    ],
-                    schema=_PIECE_SCHEMA,
-                )
-            ).set_alias("piece")
+            schema = self._piece_schema or pa.schema([
+                ("kind", pa.string()), ("item_ref", pa.string()), ("start", pa.int64()), ("end", pa.int64()),
+            ])
+            columns = {field.name: pa.array([piece.get(field.name) for piece in self._original_pieces], type=field.type)
+                for field in schema}
+            source = self.engine.from_arrow(pa.table({
+                "piece_ordinal": pa.array(range(len(self._original_pieces)), type=pa.int64()),
+                "pointer": columns["item_ref"], "start": columns["start"], "end": columns["end"],
+                "native_text": pc.equal(columns["kind"], "native_text"),
+            })).set_alias("piece")
             ranges = self.engine.from_arrow(
                 pa.table(
                     {
@@ -267,6 +269,74 @@ class ScopedInventory(AbstractContextManager):
         result = defaultdict(list)
         for container, member in pairs.sort(col("container"), col("member")).fetchall():
             result[container].append(member)
+        return result
+
+    def ordered_matches(self, questions, declarations, cues):
+        """Range-join ordered witnesses after counting every earlier symbol cue."""
+        query_schema = pa.schema([("ordinal",pa.int64()),("parent",pa.string()),("position",pa.int64()),("symbol",pa.string()),("name",pa.string()),("start",pa.int64())])
+        declaration_schema = pa.schema([("ordinal",pa.int64()),("parent",pa.string()),("position",pa.int64()),("symbol",pa.string()),("name",pa.string()),("cue",pa.int64()),("end",pa.int64())])
+        query = self.engine.from_arrow(pa.Table.from_pylist(questions,schema=query_schema)).set_alias("query")
+        cue = self.engine.from_arrow(pa.table({"position":pa.array([position for position,_ in cues],type=pa.int64()),"symbol":pa.array([symbol for _,symbol in cues],type=pa.string())})).set_alias("cue")
+        unique = query.join(cue,(col("cue","symbol")==col("query","symbol")) & (col("cue","position") < col("query","start"))).select(
+            col("query","ordinal").alias("question"),col("cue","position").alias("cue"),
+        ).select(star(),count_all().over(partition_by=[col("question")]).alias("matches")).filter(col("matches")==1).set_alias("unique")
+        selected = query.join(unique,col("query","ordinal")==col("unique","question")).select(
+            col("query","ordinal"),col("query","parent"),col("query","position"),col("query","symbol"),col("query","name"),col("query","start"),col("unique","cue"),
+        ).set_alias("selected")
+        declaration = self.engine.from_arrow(pa.Table.from_pylist(declarations,schema=declaration_schema)).set_alias("declaration")
+        condition = (col("selected","parent")==col("declaration","parent")) & (col("selected","position") > col("declaration","position")) & (col("declaration","end") <= col("selected","start")) & (col("selected","symbol")==col("declaration","symbol")) & (col("selected","name")==col("declaration","name")) & (col("selected","cue")==col("declaration","cue"))
+        return selected.join(declaration,condition).select(col("selected","ordinal").alias("question"),col("declaration","ordinal").alias("declaration")).sort(col("question"),col("declaration")).fetchall()
+
+    def table_counterparts(self, tables, pairs):
+        """Match observed numeric cells to the last schematic cell at each native extent."""
+        import re
+
+        coordinates = ("start_row_offset_idx", "end_row_offset_idx", "start_col_offset_idx", "end_col_offset_idx")
+        schema = pa.schema([("pair", pa.int64()), ("ordinal", pa.int64()), ("text", pa.string()), *((name, pa.int64()) for name in coordinates)])
+        observed, schematic = [], []
+        for pair_index, (left, right) in enumerate(pairs):
+            for pointer, target in ((left, observed), (right, schematic)):
+                for index, cell in enumerate(tables[pointer]["data"]["table_cells"]):
+                    if not all(type(cell.get(name)) is int for name in coordinates):
+                        continue
+                    text = cell.get("text", "").strip()
+                    if target is observed and not re.fullmatch(r"\d+", text):
+                        continue
+                    target.append(dict(pair=pair_index, ordinal=index, text=text, **{name:cell[name] for name in coordinates}))
+        left = self.engine.from_arrow(pa.Table.from_pylist(observed, schema=schema)).set_alias("observed")
+        right = self.engine.from_arrow(pa.Table.from_pylist(schematic, schema=schema))
+        right = right.select(star(), fn("max", col("ordinal")).over(partition_by=[col("pair"), *(col(name) for name in coordinates)]).alias("last"))
+        right = right.filter(col("ordinal") == col("last")).set_alias("schematic")
+        condition = col("observed", "pair") == col("schematic", "pair")
+        for name in coordinates:
+            condition = condition & (col("observed", name) == col("schematic", name))
+        matches = left.join(right, condition).select(
+            col("observed", "pair").alias("pair"), col("observed", "ordinal").alias("observed"),
+            col("schematic", "ordinal").alias("schematic"), col("schematic", "text").alias("symbol"),
+        )
+        result = {pair: [] for pair in pairs}
+        for pair, observed, schematic, symbol in matches.sort(col("pair"), col("observed")).fetchall():
+            result[pairs[pair]].append((observed, schematic, symbol))
+        return result
+
+    def formula_matches(self, questions, symbols):
+        """Join all declaration names to their exact adjacent formula occurrences."""
+        schema = pa.schema([("ordinal", pa.int64()), ("formula", pa.int64()), ("name", pa.string())])
+        query = self.engine.from_arrow(pa.Table.from_pylist(
+            [dict(ordinal=i, formula=formula, name=name) for i, (formula, name) in enumerate(questions)],
+            schema=schema,
+        )).set_alias("question")
+        candidates = self.engine.from_arrow(pa.Table.from_pylist(
+            [dict(ordinal=i, formula=formula, name=symbol["name"]) for i, (formula, symbol) in enumerate(symbols)],
+            schema=schema,
+        )).set_alias("symbol")
+        matches = query.join(candidates,
+            (col("question", "formula") == col("symbol", "formula")) &
+            (col("question", "name") == col("symbol", "name")),
+        ).select(col("question", "ordinal").alias("question"), col("symbol", "ordinal").alias("symbol"))
+        result = defaultdict(list)
+        for question, symbol in matches.sort(col("question"), col("symbol")).fetchall():
+            result[question].append(symbol)
         return result
 
     def preceding_matches(self, questions, declarations):

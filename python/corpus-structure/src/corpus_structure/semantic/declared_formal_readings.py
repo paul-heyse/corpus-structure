@@ -36,6 +36,7 @@ class PreparedFormalLayers(Mapping):
         self.nodes = {}
         self.symbols = {}
         self.inputs = []
+        self.unprojected_symbols = set()
         self._captured = {}
         self._inline = {}
         for pin, report in layers.items():
@@ -46,6 +47,8 @@ class PreparedFormalLayers(Mapping):
                 formal = annotation.get("formal")
                 if annotation["kind"] == "formal.symbol" and formal is not None:
                     self.symbols.setdefault((pin, formal["input_id"]), []).append(annotation)
+                if formal is not None and "SYMBOL" in formal.get("rule", ""):
+                    self.unprojected_symbols.add((pin, formal.get("input_id")))
                 value = annotation.get("formal_input")
                 if value is None:
                     continue

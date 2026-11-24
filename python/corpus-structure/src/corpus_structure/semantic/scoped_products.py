@@ -112,7 +112,7 @@ def execute_scoped_relations(
     from .data_operation_json import json_bytes
     from .declared_candidate_products import candidate_inspection_report
     from .declared_formal_readings import declared_formal_layers
-    from .declared_record_sources import DeclaredNativeFrameSource
+    from .declared_record_sources import DeclaredNativeFrameSource, DeclaredRecordSource
     from .declared_structural_references import DeclaredStructuralSource
     from .enriched_document_products import RetainedCharacterizationProduct
     from .formal_products import acquired_formal_product
@@ -124,9 +124,10 @@ def execute_scoped_relations(
     model = bound_data_operation_model(profile.prepared)
     (source_member,) = profile.members("source")
     selected = FrozenNativeSource.acquire(profile.prepared, source)
-    frame = DeclaredNativeFrameSource.acquire(
-        profile.prepared, source, source_member, project=profile.context.project_id
+    address = DeclaredRecordSource.from_bound(
+        selected, source_member, project=profile.context.project_id
     )
+    frame = DeclaredNativeFrameSource.from_source(selected, canonical_bytes(address.pin()).decode())
     if any(
         member.member is not None or member.multiplicity != 1
         for role in ("constructions", "formal", "predicates")
@@ -221,8 +222,11 @@ def execute_scoped_relations(
         if diagnostics.get("inspection_complete") is True
         else ("Retained predicate inspection has unavailable source coverage.",)
     )
+    from corpus_structure.methods.scoped_inventory import source_piece_schema
+
     result = discover_relations(
         frame,
+        piece_schema=source_piece_schema(profile.prepared),
         source_work=source_work or None,
         passages=chosen,
         navigation=navigation,
